@@ -1,0 +1,355 @@
+[
+  {
+    "id": "advice-concrete-drill",
+    "message": "Quelle perceuse me conseillez-vous pour percer du béton et de la brique ?",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": null,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "advice-wood-metal-drill",
+    "message": "Je cherche une perceuse pour travailler le bois et le métal.",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": null,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "advice-named-bosch",
+    "message": "La perceuse Bosch X100 conviendrait-elle pour mes travaux dans la brique ?",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": "Bosch X100",
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "advice-budget-drill",
+    "message": "Je voudrais une perceuse à percussion avec un budget de 150 euros.",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": null,
+      "category": "DRILL",
+      "budget": 150
+    }
+  },
+  {
+    "id": "advice-circular-saw",
+    "message": "Quelle scie circulaire choisir pour couper des panneaux en bois ?",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": null,
+      "category": "SAW"
+    }
+  },
+  {
+    "id": "advice-named-makita",
+    "message": "La perceuse Makita D200 est-elle adaptée au béton léger ?",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": "Makita D200",
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "advice-low-budget",
+    "message": "Je cherche une perceuse pour le bois, sans dépasser 130 euros.",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": null,
+      "category": "DRILL",
+      "budget": 130
+    }
+  },
+  {
+    "id": "advice-bosch-saw",
+    "message": "Est-ce que la scie Bosch S500 convient à la découpe de panneaux ?",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": "Bosch S500",
+      "category": "SAW"
+    }
+  },
+  {
+    "id": "advice-850w-drill",
+    "message": "Je veux une perceuse de 850 W pour mes petits travaux domestiques.",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": null,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "advice-saw-budget",
+    "message": "Je cherche une scie pour le bois et mon budget maximum est de 200 euros.",
+    "expected": {
+      "intent": "PRODUCT_ADVICE",
+      "product_name": null,
+      "category": "SAW",
+      "budget": 200
+    }
+  },
+  {
+    "id": "stock-bosch-x100",
+    "message": "La perceuse Bosch X100 est-elle encore disponible ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": "Bosch X100",
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "stock-makita-d200",
+    "message": "Avez-vous toujours la perceuse Makita D200 en stock ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": "Makita D200",
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "stock-bosch-s500",
+    "message": "Est-ce que la scie circulaire Bosch S500 est disponible ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": "Bosch S500",
+      "category": "SAW"
+    }
+  },
+  {
+    "id": "stock-generic-drill",
+    "message": "Avez-vous une perceuse en stock ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": null,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "stock-generic-saw",
+    "message": "Je voudrais savoir si vous avez une scie circulaire disponible.",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": null,
+      "category": "SAW"
+    }
+  },
+  {
+    "id": "stock-quantity-bosch",
+    "message": "Combien de perceuses Bosch X100 avez-vous en stock ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": "Bosch X100",
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "stock-availability-makita",
+    "message": "Pouvez-vous vérifier la disponibilité de la perceuse Makita D200 ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": "Makita D200",
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "stock-saw-quantity",
+    "message": "Vous reste-t-il des scies Bosch S500 ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": "Bosch S500",
+      "category": "SAW"
+    }
+  },
+  {
+    "id": "stock-generic-dril-quantity",
+    "message": "Combien de perceuses sont encore disponibles ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": null,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "stock-bosch-x100-quantity",
+    "message": "Combien de perceuses Bosch X100 reste-t-il ?",
+    "expected": {
+      "intent": "STOCK_CHECK",
+      "product_name": "Bosch X100",
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "order-bosch-default",
+    "message": "Je voudrais commander la perceuse Bosch X100.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch X100",
+      "quantity": 1,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "order-makita-two",
+    "message": "Je veux deux perceuses Makita D200.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Makita D200",
+      "quantity": 2,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "order-bosch-three",
+    "message": "Commandez-moi 3 perceuses Bosch X100.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch X100",
+      "quantity": 3,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "order-saw-one",
+    "message": "Je commande une scie Bosch S500.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch S500",
+      "quantity": 1,
+      "category": "SAW"
+    }
+  },
+  {
+    "id": "order-four-makita",
+    "message": "Je souhaite acheter quatre perceuses Makita D200.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Makita D200",
+      "quantity": 4,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "order-bosch-five",
+    "message": "Ajoutez 5 perceuses Bosch X100 à ma commande.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch X100",
+      "quantity": 5,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "order-ask-to-buy-saw",
+    "message": "Je souhaite acheter la scie circulaire Bosch S500.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch S500",
+      "quantity": 1,
+      "category": "SAW"
+    }
+  },
+  {
+    "id": "order-makita-six",
+    "message": "Merci de me commander 6 perceuses Makita D200.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Makita D200",
+      "quantity": 6,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "order-bosch-seven",
+    "message": "Je passe commande de 7 perceuses Bosch X100.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch X100",
+      "quantity": 7,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "order-generic-drill",
+    "message": "Je veux commander une perceuse.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": null,
+      "quantity": 1,
+      "category": "DRILL"
+    }
+  },
+  {
+    "id": "unknown-weather",
+    "message": "Quel temps fera-t-il demain à Lyon ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-greeting",
+    "message": "Bonjour, comment allez-vous ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-account",
+    "message": "Comment puis-je modifier l'adresse e-mail de mon compte ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-recipe",
+    "message": "Avez-vous une recette simple de soupe aux lentilles ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-transport",
+    "message": "Quel est l'horaire du prochain train pour Marseille ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-unrelated-price",
+    "message": "Combien coûte un billet de cinéma ce soir ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-language",
+    "message": "Peux-tu traduire cette phrase en anglais ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-music",
+    "message": "Recommande-moi un album de jazz pour le week-end.",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-parcel",
+    "message": "Comment suivre un colis envoyé hier ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  },
+  {
+    "id": "unknown-calendar",
+    "message": "Peux-tu m'aider à organiser mon calendrier de la semaine ?",
+    "expected": {
+      "intent": "UNKNOWN"
+    }
+  }
+]

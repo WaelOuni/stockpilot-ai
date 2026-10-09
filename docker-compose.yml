@@ -1,0 +1,117 @@
+services:
+  mongodb:
+    image: mongo:8
+    container_name: stockpilot-mongodb
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: stockpilot
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/init-replica-set.js:/opt/stockpilot/init-replica-set.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--file", "/opt/stockpilot/init-replica-set.js"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: stockpilot-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: stockpilot
+      POSTGRES_USER: stockpilot
+      POSTGRES_PASSWORD: stockpilot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "127.0.0.1:4318:4318"
+    volumes:
+      - ./docker/otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      tempo:
+        condition: service_started
+
+  tempo:
+    image: grafana/tempo:2.7.2
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./docker/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+
+  grafana:
+    image: grafana/grafana:11.6.0
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning/datasources/tempo.yaml:/etc/grafana/provisioning/datasources/tempo.yaml:ro
+      - ./docker/grafana/provisioning/datasources/loki.yaml:/etc/grafana/provisioning/datasources/loki.yaml:ro
+      - ./docker/grafana/provisioning/datasources/prometheus.yaml:/etc/grafana/provisioning/datasources/prometheus.yaml:ro
+      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      tempo:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  loki:
+    image: grafana/loki:3.4.2
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./docker/loki.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.8.3
+    command: ["run", "--storage.path=/var/lib/alloy", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./docker/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./logs:/var/log/stockpilot:ro
+      - alloy_data:/var/lib/alloy
+    depends_on:
+      loki:
+        condition: service_started
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.26.0
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./docker/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.path=/prometheus", "--storage.tsdb.retention.time=7d"]
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus-rules.yml:/etc/prometheus/prometheus-rules.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      otel-collector:
+        condition: service_started
+      blackbox-exporter:
+        condition: service_started
+
+volumes:
+  mongodb_data:
+  postgres_data:
+  tempo_data:
+  grafana_data:
+  loki_data:
+  alloy_data:
+  prometheus_data:

@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: StockPilot
+    folder: StockPilot
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

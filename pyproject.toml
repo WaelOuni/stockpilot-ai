@@ -1,0 +1,35 @@
+[project]
+name = "stockpilot-ai"
+version = "0.1.0"
+description = "AI-powered stock and product assistant"
+requires-python = ">=3.12"
+
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
+    "pydantic-settings",
+    "langgraph",
+    "langgraph-checkpoint-postgres==3.1.2",
+    "opentelemetry-api==1.45.1",
+    "opentelemetry-sdk==1.45.1",
+    "opentelemetry-exporter-otlp-proto-http==1.45.1",
+    "opentelemetry-instrumentation-fastapi==0.66b1",
+    "opentelemetry-instrumentation-httpx==0.66b1",
+    "pymongo",
+    "psycopg[binary]",
+    "pgvector"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "httpx",
+    "PyYAML"
+]
+
+[tool.pytest.ini_options]
+addopts = "-m 'not integration'"
+markers = [
+    "integration: opt-in tests requiring a real MongoDB replica set or PostgreSQL",
+]

@@ -1,0 +1,77 @@
+{
+  "uid": "stockpilot-slo",
+  "title": "StockPilot SLO",
+  "schemaVersion": 40,
+  "version": 2,
+  "refresh": "10s",
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {
+      "id": 1, "title": "Assistant Availability — target ≥99%",
+      "description": "Rolling 5m: non-5xx / all assistant requests. Green=OK; orange=breach.",
+      "type": "stat", "datasource": {"uid": "stockpilot-prometheus"},
+      "gridPos": {"x": 0, "y": 0, "w": 8, "h": 8},
+      "targets": [{"expr": "stockpilot:sli:assistant_availability:5m", "instant": true}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "noValue": "No traffic", "thresholds": {"mode": "absolute", "steps": [{"color": "orange", "value": null}, {"color": "green", "value": 0.99}]}}, "overrides": []}
+    },
+    {
+      "id": 2, "title": "Assistant p95 Latency — target <2s",
+      "type": "stat", "datasource": {"uid": "stockpilot-prometheus"},
+      "gridPos": {"x": 8, "y": 0, "w": 8, "h": 8},
+      "targets": [{"expr": "stockpilot:sli:assistant_p95_latency:5m", "instant": true}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 2, "noValue": "No traffic", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 2}]}}, "overrides": []}
+    },
+    {
+      "id": 3, "title": "ORDER Success Rate — target ≥95%",
+      "type": "stat", "datasource": {"uid": "stockpilot-prometheus"},
+      "gridPos": {"x": 16, "y": 0, "w": 8, "h": 8},
+      "targets": [{"expr": "stockpilot:sli:order_success_rate:5m", "instant": true}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "noValue": "No traffic", "thresholds": {"mode": "absolute", "steps": [{"color": "orange", "value": null}, {"color": "green", "value": 0.95}]}}, "overrides": []}
+    },
+    {
+      "id": 4, "title": "LLM Success Rate — target ≥95%",
+      "type": "stat", "datasource": {"uid": "stockpilot-prometheus"},
+      "gridPos": {"x": 0, "y": 8, "w": 8, "h": 8},
+      "targets": [{"expr": "stockpilot:sli:llm_success_rate:5m", "instant": true}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "noValue": "No traffic", "thresholds": {"mode": "absolute", "steps": [{"color": "orange", "value": null}, {"color": "green", "value": 0.95}]}}, "overrides": []}
+    },
+    {
+      "id": 5, "title": "Mongo Transaction Success Rate — target ≥99%",
+      "type": "stat", "datasource": {"uid": "stockpilot-prometheus"},
+      "gridPos": {"x": 8, "y": 8, "w": 8, "h": 8},
+      "targets": [{"expr": "stockpilot:sli:mongo_transaction_success_rate:5m", "instant": true}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "noValue": "No traffic", "thresholds": {"mode": "absolute", "steps": [{"color": "orange", "value": null}, {"color": "green", "value": 0.99}]}}, "overrides": []}
+    },
+    {
+      "id": 6, "title": "Availability error rate — allowance 1%",
+      "description": "Rolling 5m error rate, not remaining monthly error budget. No traffic is not success.",
+      "type": "stat", "datasource": {"uid": "stockpilot-prometheus"},
+      "gridPos": {"x": 16, "y": 8, "w": 8, "h": 8},
+      "targets": [{"expr": "1 - stockpilot:sli:assistant_availability:5m", "instant": true}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "decimals": 2, "noValue": "No traffic", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 0.01}]}}, "overrides": []}
+    },
+    {
+      "id": 7, "title": "StockPilot Reachability",
+      "description": "External GET /health every 10s. Missing probe is unknown, not UP.",
+      "type": "stat", "datasource": {"uid": "stockpilot-prometheus"},
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 6},
+      "targets": [{"expr": "probe_success{job=\"stockpilot-blackbox\"}", "instant": true}],
+      "options": {"colorMode": "background", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"min": 0, "max": 1, "noValue": "UNKNOWN", "mappings": [{"type": "value", "options": {"0": {"text": "DOWN", "color": "red"}, "1": {"text": "UP", "color": "green"}}}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []}
+    },
+    {
+      "id": 8, "title": "StockPilot Probe Duration",
+      "type": "stat", "datasource": {"uid": "stockpilot-prometheus"},
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 6},
+      "targets": [{"expr": "probe_duration_seconds{job=\"stockpilot-blackbox\"}", "instant": true}],
+      "options": {"colorMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "fieldConfig": {"defaults": {"unit": "s", "decimals": 3, "noValue": "UNKNOWN"}, "overrides": []}
+    }
+  ]
+}

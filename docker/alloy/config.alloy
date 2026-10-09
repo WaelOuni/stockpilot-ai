@@ -1,0 +1,39 @@
+local.file_match "stockpilot" {
+  path_targets = [{
+    "__path__" = "/var/log/stockpilot/*.jsonl",
+    "service" = "stockpilot-ai",
+    "environment" = "local",
+  }]
+  sync_period = "5s"
+}
+
+loki.source.file "stockpilot" {
+  targets    = local.file_match.stockpilot.targets
+  forward_to = [loki.process.stockpilot.receiver]
+}
+
+loki.process "stockpilot" {
+  stage.json {
+    expressions = {
+      level = "level",
+      timestamp = "timestamp",
+    }
+  }
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+  }
+  stage.labels {
+    values = { level = "" }
+  }
+  stage.label_drop {
+    values = ["filename"]
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

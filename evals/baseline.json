@@ -1,0 +1,52 @@
+{
+  "mode": "local",
+  "suite": "historical",
+  "timestamp": "2026-10-09T22:40:43.230440+00:00",
+  "metrics": {
+    "intent_accuracy": 1.0,
+    "product_name_accuracy": 1.0,
+    "category_accuracy": 1.0,
+    "budget_accuracy": 1.0,
+    "quantity_accuracy": 1.0,
+    "rag_recall_at_1": 0.875,
+    "rag_recall_at_3": 1.0,
+    "rag_mrr": 1.0,
+    "recommendation_product_accuracy": 1.0,
+    "grounded_recommendation_rate": 1.0,
+    "order_intent_accuracy": 1.0,
+    "order_product_name_accuracy": 1.0,
+    "order_quantity_accuracy": 1.0
+  },
+  "dataset_hashes": {
+    "intent": "7c18bafe6d3c6728ba67c5af691e98d45e394d81e3662123c73a4a6670280d3d",
+    "rag": "f5287b7c2d66d55bc8088b95b61ec8e35010e4bd7a15289abdd3fc630c0c31e6",
+    "recommendation": "e5e63f1be60e3789a24a759b4ab4223a27f719d347bc2989ca6bfe4cf34402eb",
+    "order": "5ba399eff37701ea5a5ff879dc908f1ab43c698e24b8ad92651c30a72ad3c9fd"
+  },
+  "configuration": {
+    "model": "qwen2.5:7b",
+    "embedding_model": "nomic-embed-text",
+    "classification_temperature": 0,
+    "recommendation_temperature": "production default"
+  },
+  "metric_case_counts": {
+    "intent_accuracy": 40,
+    "product_name_accuracy": 30,
+    "category_accuracy": 30,
+    "budget_accuracy": 3,
+    "quantity_accuracy": 10,
+    "rag_recall_at_1": 8,
+    "rag_recall_at_3": 8,
+    "rag_mrr": 8,
+    "recommendation_product_accuracy": 6,
+    "grounded_recommendation_rate": 5,
+    "order_intent_accuracy": 6,
+    "order_product_name_accuracy": 6,
+    "order_quantity_accuracy": 6
+  },
+  "tolerance": 0.03,
+  "total_cases": 60,
+  "failed_cases": 0,
+  "known_failed_case_ids": [],
+  "note": "Human-approved measured local reference for the 60 historical cases. The 78-case enriched suite remains complementary validation, not the official reference."
+}

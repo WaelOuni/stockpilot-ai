@@ -1,0 +1,56 @@
+[
+  {
+    "id": "order-extract-default-one",
+    "message": "Je commande la perceuse Bosch X100.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch X100",
+      "quantity": 1
+    }
+  },
+  {
+    "id": "order-extract-three",
+    "message": "Je veux acheter 3 perceuses Makita D200.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Makita D200",
+      "quantity": 3
+    }
+  },
+  {
+    "id": "order-extract-two-word",
+    "message": "Commandez-moi deux scies Bosch S500.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch S500",
+      "quantity": 2
+    }
+  },
+  {
+    "id": "order-extract-twenty",
+    "message": "Je souhaite commander 20 perceuses Bosch X100.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch X100",
+      "quantity": 20
+    }
+  },
+  {
+    "id": "order-extract-zero-unchanged",
+    "message": "Je commande 0 perceuse Makita D200.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Makita D200",
+      "quantity": 0
+    }
+  },
+  {
+    "id": "order-extract-negative-unchanged",
+    "message": "Je veux commander -1 perceuse Bosch X100.",
+    "expected": {
+      "intent": "ORDER",
+      "product_name": "Bosch X100",
+      "quantity": -1
+    }
+  }
+]

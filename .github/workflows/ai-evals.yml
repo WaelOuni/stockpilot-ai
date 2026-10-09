@@ -1,0 +1,52 @@
+name: StockPilot Real AI Evals
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stockpilot-real-evals
+  cancel-in-progress: false
+
+jobs:
+  real-evals:
+    name: Real AI Quality Gate
+    if: ${{ github.repository == 'WaelOuni/stockpilot-ai' && github.ref == 'refs/heads/dev' }}
+    runs-on: [self-hosted, linux, x64, stockpilot-evals]
+    timeout-minutes: 45
+    environment: stockpilot-evals
+    env:
+      OLLAMA_BASE_URL: ${{ vars.EVAL_OLLAMA_BASE_URL || 'http://localhost:11434' }}
+      OLLAMA_MODEL: qwen2.5:7b
+      OLLAMA_EMBEDDING_MODEL: nomic-embed-text
+      POSTGRES_URL: ${{ secrets.EVAL_POSTGRES_URL }}
+      OTEL_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          persist-credentials: false
+      - name: Prepare isolated Python environment
+        run: |
+          python3.12 -m venv "$RUNNER_TEMP/stockpilot-evals-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "$RUNNER_TEMP/stockpilot-evals-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT/bin" >> "$GITHUB_PATH"
+      - run: python -m pip install -e '.[dev]'
+      - name: Check local eval environment
+        run: python scripts/eval_ci.py preflight --output eval-results.json
+      - name: Evaluate historical suite against reviewed baseline
+        run: |
+          python scripts/run_evals.py --mode local --suite historical \
+            --compare-baseline --output eval-results.json
+      - name: Publish evaluation summary
+        if: ${{ always() }}
+        run: python scripts/eval_ci.py summary --report eval-results.json
+      - name: Upload evaluation report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: stockpilot-ai-eval-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: eval-results.json
+          if-no-files-found: warn
+          retention-days: 14

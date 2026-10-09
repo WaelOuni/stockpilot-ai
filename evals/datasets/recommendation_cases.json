@@ -1,0 +1,32 @@
+[
+  {
+    "id": "recommend-concrete-drilling",
+    "message": "Je cherche une perceuse pour du béton et de la brique à moins de 150 euros. Quel produit du catalogue est adapté ?",
+    "expected_product": "Bosch X100"
+  },
+  {
+    "id": "recommend-wood-panels",
+    "message": "Je veux une scie circulaire pour découper du bois et des panneaux. Quelle référence choisir ?",
+    "expected_product": "Bosch S500"
+  },
+  {
+    "id": "recommend-720w-light-concrete",
+    "message": "Quel produit du catalogue est une perceuse de 720 W adaptée au béton léger ?",
+    "expected_product": "Makita D200"
+  },
+  {
+    "id": "recommend-850w-chuck",
+    "message": "Je cherche le modèle avec percussion, 850 W et un mandrin de 13 mm.",
+    "expected_product": "Bosch X100"
+  },
+  {
+    "id": "recommend-saw-not-drill",
+    "message": "Quelle référence du catalogue est destinée à la découpe du bois et n'est pas adaptée au perçage ?",
+    "expected_product": "Bosch S500"
+  },
+  {
+    "id": "recommend-metal-cutting",
+    "message": "Je dois couper des plaques de métal. Quel produit du catalogue est conçu pour cette tâche ?",
+    "expected_product": null
+  }
+]

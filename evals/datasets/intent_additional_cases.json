@@ -1,0 +1,17 @@
+[
+  {"id": "domain-music", "message": "Recommande-moi un album de jazz", "expected": {"intent": "UNKNOWN"}},
+  {"id": "domain-clothing", "message": "Quel pantalon me conseilles-tu ?", "expected": {"intent": "UNKNOWN"}},
+  {"id": "domain-restaurant", "message": "Quel restaurant me conseilles-tu ?", "expected": {"intent": "UNKNOWN"}},
+  {"id": "domain-travel", "message": "Quelle destination me conseilles-tu pour mes vacances ?", "expected": {"intent": "UNKNOWN"}},
+  {"id": "domain-phone", "message": "Quel téléphone me recommandes-tu ?", "expected": {"intent": "UNKNOWN"}},
+  {"id": "domain-food", "message": "Que me conseilles-tu de manger pour le dîner ?", "expected": {"intent": "UNKNOWN"}},
+  {"id": "domain-implicit-sanding", "message": "Je cherche quelque chose pour poncer une porte", "expected": {"intent": "PRODUCT_ADVICE"}},
+  {"id": "domain-implicit-cutting", "message": "Quel outil pour couper des panneaux de bois ?", "expected": {"intent": "PRODUCT_ADVICE"}},
+  {"id": "unknown-order-reference", "message": "Commande-moi une perceuse Acme Z900", "expected": {"intent": "ORDER", "product_name": "Acme Z900", "quantity": 1}},
+  {"id": "unknown-stock-reference", "message": "La perceuse Acme Z900 est-elle en stock ?", "expected": {"intent": "STOCK_CHECK", "product_name": "Acme Z900"}},
+  {"id": "generic-drill-power", "message": "Je cherche une perceuse de 850 W pour du béton", "expected": {"intent": "PRODUCT_ADVICE", "product_name": null}},
+  {"id": "generic-drill-voltage", "message": "Quelle perceuse 18V me conseilles-tu ?", "expected": {"intent": "PRODUCT_ADVICE", "product_name": null}},
+  {"id": "generic-saw-power", "message": "Je cherche une scie 1200 W pour bois", "expected": {"intent": "PRODUCT_ADVICE", "product_name": null}},
+  {"id": "generic-sander-diameter", "message": "Quelle ponceuse 125 mm choisir ?", "expected": {"intent": "PRODUCT_ADVICE", "product_name": null}},
+  {"id": "generic-screwdriver-material", "message": "Je cherche une visseuse pour bois", "expected": {"intent": "PRODUCT_ADVICE", "product_name": null}}
+]

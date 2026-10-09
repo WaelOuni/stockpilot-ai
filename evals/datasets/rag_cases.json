@@ -1,0 +1,60 @@
+[
+  {
+    "id": "rag-x100-concrete-brick",
+    "query": "Quelle perceuse est conçue pour percer le béton et la brique avec percussion ?",
+    "expected_sources": [
+      "bosch-x100.txt"
+    ]
+  },
+  {
+    "id": "rag-makita-light-concrete",
+    "query": "Je cherche une perceuse de 720 W qui peut travailler dans du béton léger.",
+    "expected_sources": [
+      "makita-d200.txt"
+    ]
+  },
+  {
+    "id": "rag-drills-wood-metal",
+    "query": "Quelles perceuses conviennent au bois et au métal ?",
+    "expected_sources": [
+      "bosch-x100.txt",
+      "makita-d200.txt"
+    ]
+  },
+  {
+    "id": "rag-percussion-drills",
+    "query": "Comparez les perceuses à percussion adaptées au bois et au métal.",
+    "expected_sources": [
+      "bosch-x100.txt",
+      "makita-d200.txt"
+    ]
+  },
+  {
+    "id": "rag-circular-saw-panels",
+    "query": "Quelle scie circulaire de 1400 W sert à découper du bois et des panneaux ?",
+    "expected_sources": [
+      "bosch-s500.txt"
+    ]
+  },
+  {
+    "id": "rag-s500-not-drilling",
+    "query": "Quel modèle de scie n'est pas adapté au perçage ?",
+    "expected_sources": [
+      "bosch-s500.txt"
+    ]
+  },
+  {
+    "id": "rag-x100-price",
+    "query": "Quel outil coûte 129,99 euros et possède un mandrin de 13 mm ?",
+    "expected_sources": [
+      "bosch-x100.txt"
+    ]
+  },
+  {
+    "id": "rag-makita-price-power",
+    "query": "Quelle perceuse Makita fait 720 W et coûte 169,99 euros ?",
+    "expected_sources": [
+      "makita-d200.txt"
+    ]
+  }
+]

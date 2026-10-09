@@ -1,0 +1,10 @@
+[
+  {"id": "quantity-zero", "message": "Commande-moi 0 Bosch X100", "expected": {"intent": "ORDER", "product_name": "Bosch X100", "quantity": 0}},
+  {"id": "quantity-negative-one", "message": "Commande-moi -1 Bosch X100", "expected": {"intent": "ORDER", "product_name": "Bosch X100", "quantity": -1}},
+  {"id": "quantity-negative-three", "message": "Commande-moi -3 Bosch X100", "expected": {"intent": "ORDER", "product_name": "Bosch X100", "quantity": -3}},
+  {"id": "quantity-positive-two", "message": "Commande-moi 2 Bosch X100", "expected": {"intent": "ORDER", "product_name": "Bosch X100", "quantity": 2}},
+  {"id": "quantity-default", "message": "Commande-moi Bosch X100", "expected": {"intent": "ORDER", "product_name": "Bosch X100", "quantity": 1}},
+  {"id": "quantity-not-price", "message": "Commande-moi une Bosch X100 à 129 €", "expected": {"intent": "ORDER", "product_name": "Bosch X100", "quantity": 1}},
+  {"id": "quantity-not-voltage", "message": "Commande-moi une perceuse 18V Bosch X100", "expected": {"intent": "ORDER", "product_name": "Bosch X100", "quantity": 1}},
+  {"id": "quantity-not-dimension", "message": "Commande-moi une Bosch X100 avec mandrin de 13 mm", "expected": {"intent": "ORDER", "product_name": "Bosch X100", "quantity": 1}}
+]

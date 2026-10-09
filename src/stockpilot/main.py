@@ -1,0 +1,125 @@
+from contextlib import asynccontextmanager
+import logging
+
+from fastapi import FastAPI
+
+from stockpilot.application.use_cases.check_stock import CheckStockUseCase
+from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
+from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
+from stockpilot.application.use_cases.generate_response import GenerateResponseUseCase
+from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
+from stockpilot.application.workflows.stockpilot_workflow import build_graph
+
+from stockpilot.infrastructure.config.settings import Settings
+from stockpilot.infrastructure.llm.ollama_adapter import OllamaAdapter
+from stockpilot.infrastructure.persistence.mongodb.client import create_mongo_client
+from stockpilot.infrastructure.persistence.mongodb.product_repository import MongoProductRepository
+from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
+from stockpilot.infrastructure.persistence.mongodb.order_transaction import MongoOrderTransaction
+
+from stockpilot.presentation.api.routes.assistant import router as assistant_router
+from stockpilot.presentation.api.routes.chat import router as chat_router
+from stockpilot.presentation.api.routes.health import router as health_router
+
+from stockpilot.application.use_cases.recommend_product import RecommendProductUseCase
+
+from stockpilot.infrastructure.embeddings.ollama_embedding_adapter import (
+    OllamaEmbeddingAdapter,
+)
+from stockpilot.infrastructure.persistence.postgres.pgvector_knowledge_repository import (
+    PgVectorKnowledgeRepository,
+)
+from stockpilot.infrastructure.persistence.postgres.checkpointer import open_checkpointer
+from stockpilot.observability import configure_logging
+from stockpilot.presentation.api.observability import RequestLoggingMiddleware
+from stockpilot.telemetry import initialize_telemetry, instrument_app
+
+
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    configure_logging(settings.log_level, settings.log_file)
+    order_repository.initialize()
+    checkpoint_uri = (
+        settings.langgraph_checkpoint_db_uri
+        if settings.langgraph_checkpoint_db_uri is not None
+        else settings.postgres_url
+    )
+    async with open_checkpointer(checkpoint_uri) as checkpointer:
+        app.state.stockpilot_workflow = build_graph(
+            classify_intent_use_case,
+            check_stock_use_case,
+            recommend_product_use_case,
+            prepare_order_use_case,
+            finalize_order_use_case,
+            checkpointer=checkpointer,
+        )
+        try:
+            yield
+        finally:
+            app.state.stockpilot_workflow = None
+            if telemetry_provider is not None:
+                telemetry_provider.force_flush()
+                from stockpilot.telemetry import _meter_provider
+                if _meter_provider is not None:
+                    _meter_provider.force_flush()
+
+
+app = FastAPI(
+    title="StockPilot AI",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+app.add_middleware(RequestLoggingMiddleware)
+
+settings = Settings()
+telemetry_provider = initialize_telemetry(settings)
+instrument_app(app, telemetry_provider)
+
+# LLM
+ollama = OllamaAdapter(settings)
+
+# MongoDB
+mongo_client = create_mongo_client(settings.mongo_uri)
+mongo_database = mongo_client[settings.mongo_database]
+
+product_repository = MongoProductRepository(mongo_database)
+order_repository = MongoOrderRepository(mongo_database)
+
+# RAG
+embedding_adapter = OllamaEmbeddingAdapter(settings)
+
+knowledge_repository = PgVectorKnowledgeRepository(
+    settings.postgres_url
+)
+
+# Use cases
+generate_response_use_case = GenerateResponseUseCase(ollama)
+
+classify_intent_use_case = ClassifyIntentUseCase(ollama)
+
+check_stock_use_case = CheckStockUseCase(
+    product_repository
+)
+
+prepare_order_use_case = PrepareOrderUseCase(check_stock_use_case)
+finalize_order_use_case = FinalizeOrderUseCase(MongoOrderTransaction(mongo_database))
+
+recommend_product_use_case = RecommendProductUseCase(
+    embedding_adapter,
+    knowledge_repository,
+    ollama,
+)
+
+app.state.generate_response_use_case = generate_response_use_case
+app.state.classify_intent_use_case = classify_intent_use_case
+app.state.stockpilot_workflow = None
+app.state.check_stock_use_case = check_stock_use_case
+app.state.recommend_product_use_case = recommend_product_use_case
+app.state.prepare_order_use_case = prepare_order_use_case
+app.state.finalize_order_use_case = finalize_order_use_case
+
+app.include_router(health_router)
+app.include_router(chat_router)
+app.include_router(assistant_router)

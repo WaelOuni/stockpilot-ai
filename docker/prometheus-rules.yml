@@ -1,0 +1,84 @@
+groups:
+  - name: stockpilot-sli
+    rules:
+      - record: stockpilot:sli:assistant_availability:5m
+        expr: |
+          (1 - ((sum(rate(stockpilot_http_requests_total{exported_job="stockpilot-ai",http_route="/assistant",http_response_status_code=~"5.."}[5m])) or vector(0))
+          / sum(rate(stockpilot_http_requests_total{exported_job="stockpilot-ai",http_route="/assistant"}[5m]))))
+          and (sum(rate(stockpilot_http_requests_total{exported_job="stockpilot-ai",http_route="/assistant"}[5m])) > 0)
+      - record: stockpilot:sli:assistant_p95_latency:5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(stockpilot_http_request_duration_seconds_bucket{exported_job="stockpilot-ai",http_route="/assistant"}[5m])))
+          and on() (sum(rate(stockpilot_http_request_duration_seconds_count{exported_job="stockpilot-ai",http_route="/assistant"}[5m])) > 0)
+      - record: stockpilot:sli:order_success_rate:5m
+        expr: |
+          ((sum(rate(stockpilot_orders_finalized_total{exported_job="stockpilot-ai"}[5m])) or vector(0))
+          / ((sum(rate(stockpilot_orders_finalized_total{exported_job="stockpilot-ai"}[5m])) or vector(0))
+          + (sum(rate(stockpilot_orders_failed_total{exported_job="stockpilot-ai"}[5m])) or vector(0))))
+          and (((sum(rate(stockpilot_orders_finalized_total{exported_job="stockpilot-ai"}[5m])) or vector(0))
+          + (sum(rate(stockpilot_orders_failed_total{exported_job="stockpilot-ai"}[5m])) or vector(0))) > 0)
+      - record: stockpilot:sli:llm_success_rate:5m
+        expr: |
+          (1 - ((sum(rate(stockpilot_llm_errors_total{exported_job="stockpilot-ai"}[5m])) or vector(0))
+          / sum(rate(stockpilot_llm_calls_total{exported_job="stockpilot-ai"}[5m]))))
+          and (sum(rate(stockpilot_llm_calls_total{exported_job="stockpilot-ai"}[5m])) > 0)
+      - record: stockpilot:sli:mongo_transaction_success_rate:5m
+        expr: |
+          ((sum(rate(stockpilot_mongo_order_transactions_total{exported_job="stockpilot-ai",outcome="committed"}[5m])) or vector(0))
+          / sum(rate(stockpilot_mongo_order_transactions_total{exported_job="stockpilot-ai"}[5m])))
+          and (sum(rate(stockpilot_mongo_order_transactions_total{exported_job="stockpilot-ai"}[5m])) > 0)
+  - name: stockpilot-slo-alerts
+    rules:
+      - alert: AssistantHighErrorRate
+        expr: stockpilot:sli:assistant_availability:5m < 0.99
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Assistant availability below 99% over a rolling 5-minute window
+      - alert: AssistantHighLatency
+        expr: stockpilot:sli:assistant_p95_latency:5m >= 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Assistant p95 latency breaches the less-than-2-second target
+      - alert: OrderFailureRateHigh
+        expr: stockpilot:sli:order_success_rate:5m < 0.95
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: ORDER finalization success below 95%
+      - alert: LLMErrorRateHigh
+        expr: stockpilot:sli:llm_success_rate:5m < 0.95
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: LLM call success below 95%
+      - alert: MongoTransactionFailure
+        expr: stockpilot:sli:mongo_transaction_success_rate:5m < 0.99
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Mongo transaction committed ratio below 99%
+  - name: stockpilot-reachability-alerts
+    rules:
+      - alert: StockPilotUnavailable
+        expr: probe_success{job="stockpilot-blackbox"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: StockPilot health endpoint is unreachable or unhealthy
+          description: External GET /health has failed continuously for 1 minute (connection failure, timeout or non-2xx response).
+      - alert: BlackboxProbeMissing
+        expr: absent(probe_success{job="stockpilot-blackbox"})
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: StockPilot external availability monitoring is missing
+          description: No probe_success series has been available for 2 minutes. Check Blackbox Exporter and the Prometheus scrape job; this is not proof that the API is down.

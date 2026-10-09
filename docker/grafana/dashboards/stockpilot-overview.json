@@ -1,0 +1,19 @@
+{
+  "uid": "stockpilot-overview",
+  "title": "StockPilot Overview",
+  "schemaVersion": 40,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-30m", "to": "now"},
+  "panels": [
+    {"id": 1, "title": "HTTP request rate", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 0, "y": 0, "w": 8, "h": 8}, "targets": [{"expr": "sum(rate(stockpilot_http_requests_total[5m]))"}]},
+    {"id": 2, "title": "HTTP p95 latency (s)", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 8, "y": 0, "w": 8, "h": 8}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(stockpilot_http_request_duration_seconds_bucket[5m])))"}]},
+    {"id": 3, "title": "HTTP 5xx ratio", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 16, "y": 0, "w": 8, "h": 8}, "targets": [{"expr": "sum(rate(stockpilot_http_requests_total{http_response_status_code=~\"5..\"}[5m])) / sum(rate(stockpilot_http_requests_total[5m]))"}]},
+    {"id": 4, "title": "LLM calls / s", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 0, "y": 8, "w": 8, "h": 8}, "targets": [{"expr": "sum by (operation, outcome) (rate(stockpilot_llm_calls_total[5m]))"}]},
+    {"id": 5, "title": "LLM p95 latency (s)", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 8, "y": 8, "w": 8, "h": 8}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(stockpilot_llm_duration_seconds_bucket[5m])))"}]},
+    {"id": 6, "title": "ORDER confirmations / s", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 16, "y": 8, "w": 8, "h": 8}, "targets": [{"expr": "sum by (outcome) (rate(stockpilot_orders_finalized_total[5m]))"}]},
+    {"id": 7, "title": "ORDER failures / s", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 0, "y": 16, "w": 8, "h": 8}, "targets": [{"expr": "sum by (reason) (rate(stockpilot_orders_failed_total[5m]))"}]},
+    {"id": 8, "title": "Mongo transaction p95 latency (s)", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 8, "y": 16, "w": 8, "h": 8}, "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(stockpilot_mongo_order_transaction_duration_seconds_bucket[5m])))"}]},
+    {"id": 9, "title": "RAG empty-result ratio", "type": "timeseries", "datasource": {"uid": "stockpilot-prometheus"}, "gridPos": {"x": 16, "y": 16, "w": 8, "h": 8}, "targets": [{"expr": "sum(rate(stockpilot_rag_empty_results_total[5m])) / sum(rate(stockpilot_rag_searches_total[5m]))"}]}
+  ]
+}

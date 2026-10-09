@@ -1,0 +1,132 @@
+rule_files:
+  - prometheus-rules.yml
+evaluation_interval: 10s
+tests:
+  - name: no traffic does not report success or fire alerts
+    interval: 1m
+    input_series:
+      - series: stockpilot_http_requests_total{exported_job="stockpilot-ai",http_route="/assistant",http_response_status_code="200"}
+        values: 0+0x15
+      - series: stockpilot_llm_calls_total{exported_job="stockpilot-ai",outcome="success"}
+        values: 0+0x15
+    promql_expr_test:
+      - expr: stockpilot:sli:assistant_availability:5m
+        eval_time: 10m
+        exp_samples: []
+      - expr: stockpilot:sli:llm_success_rate:5m
+        eval_time: 10m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: AssistantHighErrorRate
+        exp_alerts: []
+  - name: healthy traffic with no error series is success
+    interval: 1m
+    input_series:
+      - series: stockpilot_http_requests_total{exported_job="stockpilot-ai",http_route="/assistant",http_response_status_code="200"}
+        values: 0+100x15
+      - series: stockpilot_orders_finalized_total{exported_job="stockpilot-ai",outcome="confirmed"}
+        values: 0+100x15
+      - series: stockpilot_llm_calls_total{exported_job="stockpilot-ai",outcome="success"}
+        values: 0+100x15
+      - series: stockpilot_mongo_order_transactions_total{exported_job="stockpilot-ai",outcome="committed"}
+        values: 0+100x15
+    promql_expr_test:
+      - expr: stockpilot:sli:assistant_availability:5m
+        eval_time: 10m
+        exp_samples:
+          - labels: '{__name__="stockpilot:sli:assistant_availability:5m"}'
+            value: 1
+      - expr: stockpilot:sli:order_success_rate:5m
+        eval_time: 10m
+        exp_samples:
+          - labels: '{__name__="stockpilot:sli:order_success_rate:5m"}'
+            value: 1
+      - expr: stockpilot:sli:llm_success_rate:5m
+        eval_time: 10m
+        exp_samples:
+          - labels: '{__name__="stockpilot:sli:llm_success_rate:5m"}'
+            value: 1
+      - expr: stockpilot:sli:mongo_transaction_success_rate:5m
+        eval_time: 10m
+        exp_samples:
+          - labels: '{__name__="stockpilot:sli:mongo_transaction_success_rate:5m"}'
+            value: 1
+  - name: all five breaches fire only after hold period
+    interval: 1m
+    input_series:
+      - series: probe_success{job="stockpilot-blackbox",instance="http://host.docker.internal:8000/health"}
+        values: 1+0x15
+      - series: stockpilot_http_requests_total{exported_job="stockpilot-ai",http_route="/assistant",http_response_status_code="500"}
+        values: 0+100x15
+      - series: stockpilot_http_request_duration_seconds_bucket{exported_job="stockpilot-ai",http_route="/assistant",le="2"}
+        values: 0+0x15
+      - series: stockpilot_http_request_duration_seconds_bucket{exported_job="stockpilot-ai",http_route="/assistant",le="5"}
+        values: 0+100x15
+      - series: stockpilot_http_request_duration_seconds_bucket{exported_job="stockpilot-ai",http_route="/assistant",le="+Inf"}
+        values: 0+100x15
+      - series: stockpilot_http_request_duration_seconds_count{exported_job="stockpilot-ai",http_route="/assistant"}
+        values: 0+100x15
+      - series: stockpilot_orders_failed_total{exported_job="stockpilot-ai",reason="creation_failed"}
+        values: 0+100x15
+      - series: stockpilot_llm_calls_total{exported_job="stockpilot-ai",outcome="error"}
+        values: 0+100x15
+      - series: stockpilot_llm_errors_total{exported_job="stockpilot-ai",outcome="error"}
+        values: 0+100x15
+      - series: stockpilot_mongo_order_transactions_total{exported_job="stockpilot-ai",outcome="error"}
+        values: 0+100x15
+    promql_expr_test:
+      - expr: count(ALERTS{alertstate="firing"})
+        eval_time: 4m
+        exp_samples: []
+      - expr: count(ALERTS{alertstate="firing"})
+        eval_time: 10m
+        exp_samples:
+          - labels: '{}'
+            value: 5
+  - name: external probe fails fires and recovers
+    interval: 10s
+    input_series:
+      - series: probe_success{job="stockpilot-blackbox",instance="http://host.docker.internal:8000/health"}
+        values: 1 1 0 0 0 0 0 0 0 0 1 1
+    alert_rule_test:
+      - eval_time: 10s
+        alertname: StockPilotUnavailable
+        exp_alerts: []
+      - eval_time: 70s
+        alertname: StockPilotUnavailable
+        exp_alerts: []
+      - eval_time: 80s
+        alertname: StockPilotUnavailable
+        exp_alerts:
+          - exp_labels:
+              job: stockpilot-blackbox
+              instance: http://host.docker.internal:8000/health
+              severity: critical
+            exp_annotations:
+              summary: StockPilot health endpoint is unreachable or unhealthy
+              description: External GET /health has failed continuously for 1 minute (connection failure, timeout or non-2xx response).
+      - eval_time: 100s
+        alertname: StockPilotUnavailable
+        exp_alerts: []
+      - eval_time: 100s
+        alertname: BlackboxProbeMissing
+        exp_alerts: []
+  - name: missing probe fires monitoring alert only after two minutes
+    interval: 10s
+    alert_rule_test:
+      - eval_time: 110s
+        alertname: BlackboxProbeMissing
+        exp_alerts: []
+      - eval_time: 120s
+        alertname: BlackboxProbeMissing
+        exp_alerts:
+          - exp_labels:
+              job: stockpilot-blackbox
+              severity: warning
+            exp_annotations:
+              summary: StockPilot external availability monitoring is missing
+              description: No probe_success series has been available for 2 minutes. Check Blackbox Exporter and the Prometheus scrape job; this is not proof that the API is down.
+      - eval_time: 120s
+        alertname: StockPilotUnavailable
+        exp_alerts: []
