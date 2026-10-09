@@ -55,15 +55,7 @@ do not silently mix embedding models or alter an existing populated table.
 
 ```sh
 docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
-  -U stockpilot -d stockpilot <<'SQL'
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE TABLE IF NOT EXISTS knowledge_chunks (
-    id BIGSERIAL PRIMARY KEY,
-    content TEXT NOT NULL,
-    source TEXT,
-    embedding vector(768) NOT NULL
-);
-SQL
+  -U stockpilot -d stockpilot < migrations/000_create_knowledge_chunks.sql
 
 # Apply once to a newly created table (not an already migrated database).
 docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
@@ -75,6 +67,68 @@ python scripts/ingest_products.py
 The uniqueness migration must not be reapplied blindly: inspect existing
 constraints and duplicates before migrating an existing database. Ingestion
 upserts the three public demo documents by source filename.
+
+### Dedicated AI eval database
+
+`stockpilot` is the application database (RAG and conversation checkpoints).
+`stockpilot_eval` is a separate product-document corpus for repeatable AI evals;
+it does not need application orders or checkpoints. Both use the existing
+Compose PostgreSQL 16/pgvector service.
+
+```sh
+docker compose up -d postgres
+python scripts/init_eval_db.py
+```
+
+The versioned initializer uses Compose `psql` as the local demo administrator.
+It creates `stockpilot_eval` only if absent, applies
+`migrations/000_create_knowledge_chunks.sql` (extension/table), then applies
+`001_knowledge_chunks_source_unique.sql` only if its named constraint is absent.
+It checks the final columns/dimension, primary key and existing source
+constraint; incompatible schemas cause an explicit failure, not destructive
+repair. 001 remains unchanged and is not independently repeatable. There is no
+general migration-history framework; run migrations sequentially, not concurrently.
+Neither database is dropped, and `stockpilot` is never modified by this script.
+
+For a virgin eval database, the SQL operations are:
+
+```sh
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U stockpilot -d postgres \
+  -c 'CREATE DATABASE stockpilot_eval OWNER stockpilot;'
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U stockpilot -d stockpilot_eval \
+  < migrations/000_create_knowledge_chunks.sql
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 -U stockpilot -d stockpilot_eval \
+  < migrations/001_knowledge_chunks_source_unique.sql
+```
+
+Prefer the initializer when the database may already exist. Populate it with
+the existing Ollama environment and temporary database override:
+
+```sh
+# WSL + Windows-host Ollama, if applicable:
+source scripts/dev-env.sh
+export POSTGRES_URL='postgresql://stockpilot:stockpilot@localhost:5432/stockpilot_eval'
+python scripts/ingest_products.py
+# Repeat: updates the same three source rows instead of inserting duplicates.
+python scripts/ingest_products.py
+docker compose exec -T postgres psql -U stockpilot -d stockpilot_eval \
+  -c 'SELECT id, source FROM knowledge_chunks ORDER BY id;'
+python scripts/run_evals.py --mode local --suite historical
+```
+
+Use a separate shell, or restore/unset `POSTGRES_URL` afterwards so the API
+continues to use `stockpilot`. Source upserts preserve existing row IDs but
+sequence values may advance even on conflict; contiguous IDs are not promised.
+The initializer does not remove stale corpus rows; the CI preflight checks exact
+corpus contents and rejects extras.
+
+GitHub environment secret **EVAL_POSTGRES_URL** can use the public local-demo
+URL `postgresql://stockpilot:stockpilot@localhost:5432/stockpilot_eval` **only if
+the self-hosted runner can reach this same PostgreSQL through localhost:5432**.
+For a different host/container/network, configure its reachable address and
+dedicated credentials instead. Ingestion/schema setup requires writes; the
+evaluation runner should use a separately provisioned read-only account where
+possible. Never use demo credentials in production.
 
 ### Seed Mongo and start the API
 
