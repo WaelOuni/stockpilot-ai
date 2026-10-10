@@ -1,5 +1,5 @@
 {
-  "measured_at": "2026-10-10T20:38:30.297346+00:00",
+  "measured_at": "2026-10-10T21:09:27.058550+00:00",
   "database": "stockpilot_demo",
   "dataset_id": "stockpilot-demo-v1-seed-20261010",
   "sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
@@ -14,20 +14,20 @@
       "manifests": 1
     },
     "test_fixtures": {
-      "runs": 4,
+      "runs": 6,
       "runs_by_status": {
-        "failed": 2,
-        "completed": 2
+        "failed": 3,
+        "completed": 3
       },
-      "products": 52,
-      "orders": 17,
-      "stock_movements": 35
+      "products": 54,
+      "orders": 18,
+      "stock_movements": 39
     },
     "total_documents": {
-      "products": 552,
-      "orders": 2017,
-      "stock_movements": 3035,
-      "demo_manifests": 5
+      "products": 554,
+      "orders": 2018,
+      "stock_movements": 3039,
+      "demo_manifests": 7
     }
   },
   "method": "In-process FastAPI TestClient; real routers/use cases/Mongo adapters; sequential reads.",
@@ -41,22 +41,29 @@
   ],
   "dashboard": {
     "order_stats": {
-      "total_orders": 2017,
+      "total_orders": 2018,
       "by_status": {
         "CREATED": 214,
         "PROCESSING": 200,
         "SHIPPED": 200,
         "DELIVERED": 1200,
-        "CANCELLED": 203
+        "CANCELLED": 204
       }
     },
     "product_stats": {
-      "total_products": 552,
-      "available_products": 544,
+      "total_products": 554,
+      "available_products": 546,
       "unavailable_products": 8,
-      "total_stock_units": 41874
+      "total_stock_units": 41882
     },
     "recent_orders": [
+      {
+        "order_id": "72a915b1-c5d6-4032-8ee5-56cd3361dba9",
+        "product_name": "Bosch DEMOe219fa96",
+        "quantity": 1,
+        "status": "CANCELLED",
+        "created_at": "2026-10-10T21:06:39.355764Z"
+      },
       {
         "order_id": "613b0c23-8d2f-47a7-889e-7f785b0aa43e",
         "product_name": "Demo isolated test 1f8253db order-committed-unknown",
@@ -84,13 +91,6 @@
         "quantity": 2,
         "status": "CREATED",
         "created_at": "2026-10-10T20:38:22.786602Z"
-      },
-      {
-        "order_id": "e0ac0736-2274-4fee-ab85-0b5daf38dfea",
-        "product_name": "Demo isolated test 1f8253db reserve-race",
-        "quantity": 1,
-        "status": "CREATED",
-        "created_at": "2026-10-10T20:38:22.770057Z"
       }
     ],
     "recent_stock_movements": [
@@ -127,8 +127,8 @@
     ]
   },
   "integrity_http": {
-    "catalogue_paginated": 552,
-    "admin_orders_paginated": 2017,
+    "catalogue_paginated": 554,
+    "admin_orders_paginated": 2018,
     "customer_orders_paginated": 20,
     "stock_history_paginated": 6,
     "missing_and_foreign_details": "404",
@@ -141,62 +141,62 @@
     "catalogue": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 1.861,
-      "p95_ms": 2.002
+      "p50_ms": 2.184,
+      "p95_ms": 2.423
     },
     "catalogue_filters": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 2.089,
-      "p95_ms": 2.469
+      "p50_ms": 2.475,
+      "p95_ms": 2.635
     },
     "catalogue_unavailable_filter": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 1.767,
-      "p95_ms": 2.363
+      "p50_ms": 1.884,
+      "p95_ms": 2.093
     },
     "product_detail": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 1.381,
-      "p95_ms": 1.558
+      "p50_ms": 1.556,
+      "p95_ms": 1.715
     },
     "dashboard": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 9.497,
-      "p95_ms": 10.339
+      "p50_ms": 10.867,
+      "p95_ms": 11.995
     },
     "customer_history": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 2.09,
-      "p95_ms": 2.388
+      "p50_ms": 2.511,
+      "p95_ms": 2.913
     },
     "customer_detail": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 1.675,
-      "p95_ms": 2.081
+      "p50_ms": 2.168,
+      "p95_ms": 4.932
     },
     "admin_orders": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 3.906,
-      "p95_ms": 4.411
+      "p50_ms": 6.348,
+      "p95_ms": 6.946
     },
     "admin_order_detail": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 1.551,
-      "p95_ms": 1.949
+      "p50_ms": 2.797,
+      "p95_ms": 3.296
     },
     "stock_history": {
       "requests": 10,
       "errors": 0,
-      "p50_ms": 2.194,
-      "p95_ms": 2.519
+      "p50_ms": 3.167,
+      "p95_ms": 3.867
     }
   },
   "session_resilience": {
@@ -215,7 +215,7 @@
       ],
       "indexes": [],
       "returned": 21,
-      "docs_examined": 552,
+      "docs_examined": 554,
       "keys_examined": 0,
       "server_execution_ms": 0
     },
@@ -226,7 +226,7 @@
       ],
       "indexes": [],
       "returned": 21,
-      "docs_examined": 552,
+      "docs_examined": 554,
       "keys_examined": 0,
       "server_execution_ms": 0
     },
@@ -263,7 +263,7 @@
       ],
       "indexes": [],
       "returned": 20,
-      "docs_examined": 2017,
+      "docs_examined": 2018,
       "keys_examined": 0,
       "server_execution_ms": 2
     },
@@ -288,7 +288,7 @@
       ],
       "indexes": [],
       "returned": 5,
-      "docs_examined": 3035,
+      "docs_examined": 3039,
       "keys_examined": 0,
       "server_execution_ms": 2
     }
@@ -303,20 +303,20 @@
       "manifests": 1
     },
     "test_fixtures": {
-      "runs": 4,
+      "runs": 6,
       "runs_by_status": {
-        "failed": 2,
-        "completed": 2
+        "failed": 3,
+        "completed": 3
       },
-      "products": 52,
-      "orders": 17,
-      "stock_movements": 35
+      "products": 54,
+      "orders": 18,
+      "stock_movements": 39
     },
     "total_documents": {
-      "products": 552,
-      "orders": 2017,
-      "stock_movements": 3035,
-      "demo_manifests": 5
+      "products": 554,
+      "orders": 2018,
+      "stock_movements": 3039,
+      "demo_manifests": 7
     }
   },
   "mongo_commands": {

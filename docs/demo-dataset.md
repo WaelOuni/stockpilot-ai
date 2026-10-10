@@ -146,16 +146,21 @@ out-of-range page was empty and the unavailable filter matched persisted stock.
 The immutable reference baseline remains 500 products, 2,000 orders
 (CREATED 200, PROCESSING 200, SHIPPED 200, DELIVERED 1,200, CANCELLED 200),
 3,000 stock movements and **41,419 stock units**. After isolated transaction
-checks, the HTTP dashboard correctly includes the retained test fixtures:
+checks, the earlier HTTP dashboard snapshot included the retained test fixtures:
 552 products (544 available, 8 unavailable, **41,874 stock units**) and 2,017
 orders (CREATED 214, PROCESSING 200, SHIPPED 200, DELIVERED 1,200,
 CANCELLED 203). The four manifested test runs contain 52 marked products, 17
 marked orders and 35 marked movements, with two failed harness attempts
-preserved separately. No normal `stockpilot` documents are included.
+preserved separately. No normal `stockpilot` documents are included. These are
+the pre-runtime figures; the refreshed `data/demo-read-report.json` records
+554 products, 2,018 orders, 3,039 movements and 41,882 stock units across six
+test runs after V7 runtime validation. See the runbook for the V7 results.
 
 ## Bounded read performance (not production capacity)
 
-Measured on 2026-10-10: 10 sequential timed requests per endpoint after one
+Historical pre-runtime measurement on 2026-10-10 (552 products / 2,017 orders):
+the table below predates the refreshed `data/demo-read-report.json`.
+10 sequential timed requests per endpoint after one
 warm-up, 100 timed requests total, **zero HTTP errors**. Percentiles use
 nearest-rank samples. Measurements include in-process TestClient dispatch,
 authentication, use cases, real local Mongo reads and serialization. They
@@ -285,15 +290,73 @@ Prior unchanged frontend validation passed **355 tests in 19 files**, plus
 typecheck/build and lint. No integration test, Playwright reset, PostgreSQL
 write, commit or push is part of this workflow.
 
-### Demo walkthrough without touching normal databases
+## Integrated local application (V7)
 
-Run the offline dry run, isolated transaction verifier and read verifier above.
+The guarded launcher serves the real FastAPI application and Vue UI over a
+same-origin development proxy; it does not generate or reinitialize the Mongo
+fixture. Run from WSL/Linux without sourcing the DEV environment or exporting
+database variables; the launcher selects the dedicated stores before preflight.
+See [demo-runbook.md](demo-runbook.md) for private overrides.
+
+```sh
+bash scripts/run-demo.sh
+```
+
+Do not put database credentials in shell history, this document, a Vite
+`VITE_*` variable, or a command argument. The launcher rejects Mongo URIs that
+name another database, any Mongo target other than `stockpilot_demo`, and
+PostgreSQL/checkpoint URIs that do not explicitly select `stockpilot_demo`.
+Before it starts either server, it verifies the existing Mongo replica-set
+primary, exact approved collections/indexes, immutable reference hash/content,
+and separately manifested test fixtures. It also connects to PostgreSQL in a
+read-only transaction and requires the existing, current checkpoint schema and
+RAG `knowledge_chunks` schema; it reports the existing RAG row count without
+reading corpus contents. Preflight never creates a database or runs migrations.
+After preflight, the existing application startup requests Mongo indexes and
+calls the official checkpointer `setup()` against the verified current schema;
+startup is not a strictly read-only operation. No RAG seed, E2E reset or
+fallback to `stockpilot` is part of the launcher.
+
+The FastAPI server binds only `127.0.0.1:8003`; Vite binds only
+`127.0.0.1:5175`, uses strict port selection, and proxies `/api` to that API.
+Vite receives only a small allowlist of environment values and uses an empty
+temporary env directory, so server credentials are not exposed to the browser.
+The administrator username is entered at the terminal and the password is
+prompted with hidden input; only a salted PBKDF2 verifier is passed to FastAPI.
+The development-only local HTTP session cookie is host-only and the trusted
+Origin is exactly `http://127.0.0.1:5175`. Ctrl+C stops only the two process
+groups launched by the script. Do not expose either loopback service to a
+network.
+
+The real application includes business mutation routes. Use them only against
+the isolated synthetic `stockpilot_demo` data. Do not run the normal seed,
+dataset initializer, E2E reset, index-preparation, migration, or ingestion
+scripts as part of this walkthrough. The existing Mongo startup index requests
+are accepted only after the launcher verifies the exact already-approved
+definitions. If any check fails, no application process starts.
+
+V7 subsequently received explicit authorization to create **only**
+PostgreSQL `stockpilot_demo` and its required existing schemas. The existing
+Docker PostgreSQL server was identified in read-only probes and its private
+credentials resolved without changing normal configuration. The dedicated
+database, vector/knowledge migrations and official LangGraph setup are now
+verified. `knowledge_chunks` remains empty: no RAG ingestion or reliable advice
+evaluation is claimed. The actual guarded FastAPI/Vue launcher and separate
+no-reset demo browser now run successfully; see [demo-runbook.md](demo-runbook.md)
+for actual launch, shutdown, validation commands and scope. The exclusions in
+earlier sections describe that earlier verifier phase, not this authorized V7
+runtime continuation.
+
+### Verifier walkthrough and side effects
+
+The offline dry run and read verifier do not mutate business data. The isolated
+transaction verifier with `--execute` writes retained test fixtures; it is not
+a read-only check and requires separate authorization.
 Read the separate baseline/test-fixture totals and dashboard numbers in their
 reports. The verifiers intentionally start no listening network server or
-browser UI. Do not launch normal `stockpilot.main` against this dataset and
-call it demo-safe: its checkpointer/startup and mutation paths are outside this
-authorization. A browser/assistant demonstration needs an explicitly isolated
-approved runtime and additional permissions.
+browser UI. For an integrated browser/assistant walkthrough, use only the
+guarded V7 launcher above; never launch `stockpilot.main` directly with normal
+database settings.
 
 Files for this workflow: `src/stockpilot/demo_dataset.py` (deterministic fixture),
 `src/stockpilot/demo_persistence.py` (connection/schema/content guards and writer),
