@@ -299,6 +299,7 @@ def test_openapi_separates_customer_technical_and_admin_session_security():
         ("post", "/backoffice/products/{sku}/stock-adjustments"),
         ("get", "/backoffice/products/{sku}/stock-movements"),
         ("get", "/backoffice/stock-adjustments/{operation_id}"),
+        ("get", "/backoffice/dashboard"),
     }
     actual = set()
     for path, operations in schema["paths"].items():

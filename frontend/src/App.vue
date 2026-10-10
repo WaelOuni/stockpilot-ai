@@ -40,6 +40,9 @@ const adminArea = computed(() => route.path.toLowerCase().startsWith('/admin/'))
         v-if="adminArea"
         aria-label="Navigation back-office"
       >
+        <RouterLink to="/admin/dashboard">
+          Tableau de bord
+        </RouterLink>
         <RouterLink to="/admin/orders">
           Commandes admin
         </RouterLink>

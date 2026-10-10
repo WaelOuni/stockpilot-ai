@@ -10,12 +10,14 @@ import AdminOrderDetailPage from '../pages/AdminOrderDetailPage.vue'
 import AdminProductsPage from '../pages/AdminProductsPage.vue'
 import AdminProductFormPage from '../pages/AdminProductFormPage.vue'
 import AdminProductStockPage from '../pages/AdminProductStockPage.vue'
+import AdminDashboardPage from '../pages/AdminDashboardPage.vue'
 import { protectAdminRoutes } from './adminGuard'
 
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/admin/login', component: AdminLoginPage },
+    { path: '/admin/dashboard', component: AdminDashboardPage, meta: { admin: true } },
     { path: '/admin/orders', component: AdminOrdersPage, meta: { admin: true } },
     { path: '/admin/orders/:orderId', component: AdminOrderDetailPage, meta: { admin: true } },
     { path: '/admin/products', component: AdminProductsPage, meta: { admin: true } },

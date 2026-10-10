@@ -6,6 +6,10 @@ from pymongo.read_concern import ReadConcern
 from pymongo.errors import DuplicateKeyError
 from pymongo.collation import Collation
 
+from stockpilot.application.dto.backoffice_dashboard import (
+    DashboardRecentStockMovement,
+    ProductDashboardStats,
+)
 from stockpilot.application.dto.product_page import ProductPage
 from stockpilot.application.dto.stock_movement_page import StockMovementPage
 from stockpilot.application.dto.stock_reservation_result import (
@@ -21,10 +25,69 @@ from stockpilot.application.use_cases.manage_products import (
 from stockpilot.infrastructure.persistence.mongodb.product_indexes import require_unique_sku_index
 
 
+def _dashboard_integer(value, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Stored dashboard field {field} must be an integer.")
+    return int(value)
+
+
 class MongoProductRepository(ProductRepositoryPort):
     def __init__(self, database):
         self.database = database
         self.collection = database["products"]
+
+    async def get_dashboard_product_stats(self) -> ProductDashboardStats:
+        pipeline = [{
+            "$group": {
+                "_id": None,
+                "total_products": {"$sum": 1},
+                "available_products": {
+                    "$sum": {"$cond": [{"$gt": ["$stock", 0]}, 1, 0]},
+                },
+                "unavailable_products": {
+                    "$sum": {"$cond": [{"$lte": ["$stock", 0]}, 1, 0]},
+                },
+                "total_stock_units": {"$sum": "$stock"},
+            },
+        }]
+        result = next(iter(self.collection.aggregate(pipeline)), {})
+        return ProductDashboardStats(
+            total_products=_dashboard_integer(result.get("total_products", 0), "product count"),
+            available_products=_dashboard_integer(result.get("available_products", 0), "available product count"),
+            unavailable_products=_dashboard_integer(
+                result.get("unavailable_products", 0), "unavailable product count",
+            ),
+            total_stock_units=_dashboard_integer(result.get("total_stock_units", 0), "stock units"),
+        )
+
+    async def list_recent_dashboard_stock_movements(
+        self,
+    ) -> list[DashboardRecentStockMovement]:
+        projection = {
+            "_id": 0,
+            "product_sku": 1,
+            "delta": 1,
+            "occurred_at": 1,
+            "reason": 1,
+        }
+        cursor = (
+            self.database["stock_movements"]
+            .find({}, projection)
+            .sort([("occurred_at", -1), ("movement_id", -1)])
+            .limit(5)
+        )
+        recent = []
+        for document in cursor:
+            occurred_at = document["occurred_at"]
+            if occurred_at.tzinfo is None:
+                occurred_at = occurred_at.replace(tzinfo=timezone.utc)
+            recent.append(DashboardRecentStockMovement(
+                product_sku=document["product_sku"],
+                delta=_dashboard_integer(document["delta"], "stock movement delta"),
+                occurred_at=occurred_at,
+                reason=document["reason"],
+            ))
+        return recent
 
     async def create_product(self, product: Product) -> Product:
         require_unique_sku_index(self.collection)

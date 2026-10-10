@@ -8,6 +8,10 @@ from pymongo import ReadPreference, ReturnDocument
 from pymongo.read_concern import ReadConcern
 from pymongo.write_concern import WriteConcern
 
+from stockpilot.application.dto.backoffice_dashboard import (
+    DashboardRecentOrder,
+    OrderDashboardStats,
+)
 from stockpilot.application.order_idempotency import validate_order_payload
 from stockpilot.application.ports.order_repository import OrderRepositoryPort
 from stockpilot.application.use_cases.update_order_status import OrderStatusConflictError
@@ -19,6 +23,12 @@ from stockpilot.infrastructure.persistence.mongodb.product_repository import Mon
 
 
 logger = logging.getLogger(__name__)
+
+
+def _dashboard_integer(value, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Stored dashboard field {field} must be an integer.")
+    return int(value)
 
 
 class MongoOrderRepository(OrderRepositoryPort):
@@ -58,6 +68,55 @@ class MongoOrderRepository(OrderRepositoryPort):
             .limit(limit)
         )
         return [self._to_order(document) for document in cursor]
+
+    async def get_dashboard_order_stats(self) -> OrderDashboardStats:
+        statuses = [status.value for status in OrderStatus]
+        pipeline = [{
+            "$facet": {
+                "total": [{"$count": "count"}],
+                "by_status": [
+                    {"$match": {"status": {"$in": statuses}}},
+                    {"$group": {"_id": "$status", "count": {"$sum": 1}}},
+                ],
+            },
+        }]
+        result = next(iter(self.collection.aggregate(pipeline)), {})
+        counts = {status: 0 for status in OrderStatus}
+        for row in result.get("by_status", []):
+            counts[OrderStatus(row["_id"])] = _dashboard_integer(row["count"], "order count")
+        total = result.get("total", [])
+        return OrderDashboardStats(
+            total_orders=_dashboard_integer(total[0]["count"], "total order count") if total else 0,
+            by_status=counts,
+        )
+
+    async def list_recent_dashboard_orders(self) -> list[DashboardRecentOrder]:
+        projection = {
+            "_id": 0,
+            "order_id": 1,
+            "product_name": 1,
+            "quantity": 1,
+            "status": 1,
+            "created_at": 1,
+        }
+        cursor = (
+            self.collection.find({}, projection)
+            .sort([("created_at", -1), ("order_id", -1)])
+            .limit(5)
+        )
+        recent = []
+        for document in cursor:
+            created_at = datetime.fromisoformat(document["created_at"])
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            recent.append(DashboardRecentOrder(
+                order_id=document["order_id"],
+                product_name=document["product_name"],
+                quantity=_dashboard_integer(document["quantity"], "order quantity"),
+                status=OrderStatus(document["status"]),
+                created_at=created_at,
+            ))
+        return recent
 
     async def find_by_customer_id(
         self, customer_id: str, limit: int, offset: int,

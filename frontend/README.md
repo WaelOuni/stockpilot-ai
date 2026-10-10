@@ -8,6 +8,8 @@ The catalogue additionally uses public read-only `GET /products` and
 The separate admin `/admin/login`, `/admin/orders`, `/admin/orders/:orderId` space
 uses V2 server-side demo admin sessions, global reads and dedicated operational
 order endpoints. The server's existing business rules remain authoritative.
+The protected `/admin/dashboard` presents read-only operational counts and
+bounded recent activity from `GET /backoffice/dashboard`.
 
 ## Operational administration
 
@@ -38,6 +40,23 @@ redirects to login, 404 clears data, 403 requires refresh. Route/logout/expiry
 discard stale responses and abort pending requests. No admin polling is added.
 The customer JWT panel is hidden in this separate space.
 
+### Read-only operational dashboard (V5)
+
+`/admin/dashboard` is protected by the existing backend-verified admin route
+guard and session cookie; the dashboard endpoint additionally rejects public,
+customer JWT and technical Bearer access. It uses the same fixed same-origin,
+`credentials: include`, `cache: no-store` transport. Expired sessions redirect
+to admin login. Refresh and navigation/unmount invalidate stale responses.
+
+Order totals include legacy orders without an owner and show counts for each
+stored lifecycle status. Product cards distinguish stock `> 0` from `<= 0` and
+sum stock units without combining prices, currencies or defining a low-stock
+threshold. The five recent orders link to admin detail; five recent stock
+adjustments link to the product's complete movement history. Empty recent lists,
+loading and sanitized retryable errors are explicit. Dashboard reads are
+independent, so concurrent writes may briefly make metrics reflect slightly
+different instants; the dashboard is not a transactional snapshot or full audit.
+
 ### Product metadata administration (V4.1)
 
 The same navigation/guard protects `/admin/products`, `/admin/products/new` and
@@ -59,10 +78,9 @@ Cookie CSRF transport remains distinct from customer JWT requests.
 
 Renaming preserves existing referenced orders' stock restitution by `_id`, but
 can invalidate pending confirmations prepared by old name; the form warns about
-this unchanged workflow behavior. Normal database activation is deliberately
-blocked until the exact unique SKU index is explicitly provisioned by an
-authorized operator; [preflight/provisioning](../docs/database.md#product-metadata-administration-and-sku-activation-v41).
-No development migration was executed.
+this unchanged workflow behavior. Normal product metadata writes remain blocked
+until the exact unique SKU index is explicitly provisioned by an authorized
+operator; [preflight/provisioning](../docs/database.md#product-metadata-administration-and-sku-activation-v41).
 
 ### Administrative stock adjustments (V4)
 
@@ -88,11 +106,12 @@ An abort does not compensate a server commit. The reason is operational data:
 avoid sensitive personal information in it, and resolve unknown operations
 before manually clearing tab storage.
 
-Normal stock adjustments fail closed until an authorized operator provisions the
-[unique operation index](../docs/database.md#administrative-stock-movements-v4).
-Nothing provisions it at normal startup. The guarded E2E initializer alone
-provisions it during tests. Metadata PATCH still cannot modify stock/SKU; new
-products still start at zero.
+Normal stock adjustments require the explicitly authorized
+[unique operation index](../docs/database.md#administrative-stock-movements-v4),
+which is now provisioned on `stockpilot`. No index is created at normal startup;
+the guarded E2E initializer separately provisions its isolated test indexes.
+Product metadata PATCH still cannot modify stock/SKU; new products still start
+at zero.
 
 The isolated admin browser scenario creates real orders via authenticated
 customer assistant preparation/confirmation, then operates on them through admin
@@ -103,8 +122,8 @@ UI and verifies actual Mongo events/stock with the existing read-only probe:
 source scripts/dev-env.sh >/dev/null
 cd frontend
 npm run test:e2e -- --project=chromium-admin --no-deps admin.spec.ts
-# All five scenarios: customer/catalogue first, then admin orders,
-# then chromium-products and finally chromium-stock.
+# All six scenarios: customer/catalogue first, then admin orders,
+# product metadata, stock and finally the dashboard.
 npm run test:e2e
 ```
 
@@ -128,7 +147,11 @@ stay unchanged. Its additional scenario previews/confirms positive/negative stoc
 insufficient stock in UI/server, replays an identical operation without another
 movement, and reserves/cancels a real assistant order against adjusted stock.
 Read-only Mongo probes assert movements, stock, order events and internal product
-identity. Only `stockpilot_e2e` gets SKU/stock-movement indexes from the guarded initializer.
+identity. `chromium-dashboard` depends on `chromium-stock`: it compares dashboard
+counts and recent results with independent read-only Mongo probes, creates and
+evolves a real order through the existing assistant/admin path, then records one
+V4 stock adjustment and verifies it after a dashboard refresh. Only `stockpilot_e2e`
+gets SKU/stock-movement indexes from the guarded initializer.
 
 ## Run locally
 
@@ -341,7 +364,7 @@ cursor pagination or production-grade administrative identity.
 
 Playwright preserves `e2e/order-flow.spec.ts`, `e2e/catalogue-navigation.spec.ts`,
 `e2e/admin.spec.ts` and `e2e/admin-products.spec.ts`, then runs the dedicated
-`e2e/admin-stock.spec.ts` scenario. It starts a
+`e2e/admin-stock.spec.ts` and `e2e/admin-dashboard.spec.ts` scenarios. It starts a
 dedicated FastAPI on port **8002** and Vite on **5174**, with no server reuse
 and no automatic retries. Only Mongo/Postgres/Ollama must already be running.
 The normal development FastAPI instance is neither used nor stopped.

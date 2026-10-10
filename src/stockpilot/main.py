@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from stockpilot.presentation.api.admin_auth import AdminSessions, router as admin_session_router
 from stockpilot.application.use_cases.backoffice_orders import GetBackofficeOrderUseCase, ListBackofficeOrdersUseCase
 from stockpilot.presentation.api.routes.backoffice_orders import router as backoffice_orders_router
+from stockpilot.application.use_cases.backoffice_dashboard import GetBackofficeDashboardUseCase
+from stockpilot.presentation.api.routes.backoffice_dashboard import router as backoffice_dashboard_router
 
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
@@ -163,6 +165,9 @@ app.state.get_stock_adjustment_use_case = GetStockAdjustmentUseCase(product_repo
 app.state.list_stock_movements_use_case = ListStockMovementsUseCase(product_repository)
 app.state.list_backoffice_orders_use_case = ListBackofficeOrdersUseCase(order_repository)
 app.state.get_backoffice_order_use_case = GetBackofficeOrderUseCase(order_repository)
+app.state.get_backoffice_dashboard_use_case = GetBackofficeDashboardUseCase(
+    order_repository, product_repository,
+)
 
 app.include_router(health_router)
 app.include_router(chat_router)
@@ -172,6 +177,7 @@ app.include_router(products_router)
 app.state.admin_sessions = AdminSessions()
 app.include_router(admin_session_router)
 app.include_router(backoffice_orders_router)
+app.include_router(backoffice_dashboard_router)
 app.include_router(backoffice_products_router)
 app.include_router(backoffice_stock_products_router)
 app.include_router(backoffice_stock_operations_router)

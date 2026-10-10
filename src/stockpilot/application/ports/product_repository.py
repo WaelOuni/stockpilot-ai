@@ -1,6 +1,10 @@
 from typing import Protocol
 from datetime import datetime
 
+from stockpilot.application.dto.backoffice_dashboard import (
+    DashboardRecentStockMovement,
+    ProductDashboardStats,
+)
 from stockpilot.application.dto.product_page import ProductPage
 from stockpilot.application.dto.stock_movement_page import StockMovementPage
 from stockpilot.application.dto.stock_reservation_result import (
@@ -12,6 +16,16 @@ from stockpilot.domain.enums.product_category import ProductCategory
 
 
 class ProductRepositoryPort(Protocol):
+    async def get_dashboard_product_stats(self) -> ProductDashboardStats:
+        """Aggregate product availability and stock-unit totals in Mongo."""
+        ...
+
+    async def list_recent_dashboard_stock_movements(
+        self,
+    ) -> list[DashboardRecentStockMovement]:
+        """Return the five latest stock adjustments using dashboard-only fields."""
+        ...
+
     async def create_product(self, product: Product) -> Product:
         ...
 

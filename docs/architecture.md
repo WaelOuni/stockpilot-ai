@@ -23,10 +23,16 @@ and edits only metadata using atomic `$set` while preserving BSON identity and
 concurrent stock. No product index is created at startup. An explicit guarded
 preflight/opt-in preparation command and authorized isolated E2E provisioning
 are described in [database activation](database.md#product-metadata-administration-and-sku-activation-v41).
-Normal database writes remain blocked until separately authorized provisioning.
+Normal product metadata writes remain blocked until its SKU index is provisioned.
 Customer/order workflows, RAG and transaction business rules are unchanged;
 renaming can invalidate a pending confirmation by old name, while referenced
 existing order cancellation remains `_id`-safe.
+
+The V5 `/admin/dashboard` is a session-cookie-only, read-only operational view.
+Its dedicated use case uses narrow Mongo aggregations for order statuses and
+product/stock totals, plus stable top-five projections for recent orders and
+stock adjustments. It adds no generic reporting layer or indexes; independent
+reads are not presented as one transactional snapshot.
 
 ## Request path and boundaries
 

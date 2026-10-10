@@ -101,3 +101,18 @@ export interface StockMovementsResponse {
   count: number
   has_more: boolean
 }
+
+export interface BackofficeDashboard {
+  order_stats: {
+    total_orders: number
+    by_status: Record<OrderStatus, number>
+  }
+  product_stats: {
+    total_products: number
+    available_products: number
+    unavailable_products: number
+    total_stock_units: number
+  }
+  recent_orders: Array<Pick<OrderResponse, 'order_id' | 'product_name' | 'quantity' | 'status' | 'created_at'>>
+  recent_stock_movements: Array<Pick<StockMovement, 'product_sku' | 'delta' | 'occurred_at' | 'reason'>>
+}

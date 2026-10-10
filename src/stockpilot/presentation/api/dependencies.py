@@ -12,6 +12,11 @@ from stockpilot.application.use_cases.manage_products import CreateProductUseCas
 from stockpilot.application.use_cases.adjust_product_stock import (
     AdjustProductStockUseCase, GetStockAdjustmentUseCase, ListStockMovementsUseCase,
 )
+from stockpilot.application.use_cases.backoffice_dashboard import GetBackofficeDashboardUseCase
+
+
+def get_backoffice_dashboard_use_case(request: Request) -> GetBackofficeDashboardUseCase:
+    return request.app.state.get_backoffice_dashboard_use_case
 
 
 def get_create_product_use_case(request: Request) -> CreateProductUseCase:

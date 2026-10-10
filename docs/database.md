@@ -443,15 +443,42 @@ indexes fail without merge, deletion, replacement or silent repair. A compatible
 operation index is reused. An index-build conflict may leave earlier successful
 indexes in place; Mongo arbitrates races after preflight.
 
-**Normal activation awaits authorization.** No normal database stock/document/
-index changes were executed. Read-only preflight on 10 October 2026 found
-`invalid=0, duplicates=0` and the required operation index absent.
-E2E provisioning is explicitly authorized only
+**Normal activation was explicitly authorized and verified on 10 October 2026.**
+The normal `stockpilot` database now has the full unique simple-collation
+`stock_movements_operation_id_unique` index and stable
+`stock_movements_product_history` index. The operation created the empty
+`stock_movements` collection; it contained zero movements at activation.
+The existing three products, nine orders, their full BSON hashes and all
+pre-existing indexes were verified unchanged. The application prerequisite
+guard passes. No further normal database writes or index changes are part of
+the V5 dashboard work. E2E provisioning remains separate and is authorized only
 after exact Mongo/PostgreSQL `stockpilot_e2e` checks and the advisory lock.
 Initializer cleanup adds only the named `stock_movements` collection to the
 existing named products/orders cleanup; no DROP or wildcard cleanup.
 Opt-in transaction tests use previously absent strict UUID databases and clean
 documents by `_id`, retaining empty collections/indexes.
+
+## Read-only administrative dashboard (V5)
+
+`GET /backoffice/dashboard` requires a valid HttpOnly admin session cookie only;
+public access, customer JWTs and technical Bearer credentials are rejected before
+the use case reads Mongo. The existing back-office response middleware sets
+`Cache-Control: no-store`. No mutation or startup index initialization occurs.
+
+The response combines independent, bounded reads rather than claiming a global
+snapshot: a Mongo `$facet` counts all orders and groups the five known lifecycle
+statuses (ownerless legacy orders are included), one `$group` calculates product
+availability and summed stock units, and two stable queries return at most five
+orders (`created_at DESC, order_id DESC`) and five adjustments
+(`occurred_at DESC, movement_id DESC`). Recent-order projections exclude owners,
+events and operation/internal IDs; movement projections expose only SKU, delta,
+date and reason. Recent adjustments are not a substitute for product history.
+
+Available products have stock `> 0`; unavailable products have stock `<= 0`.
+Stock units are a non-monetary sum across heterogeneous products; no low-stock
+threshold or currency conversion is inferred. Missing/non-numeric product stock
+does not satisfy either comparison and is ignored by Mongo's numeric sum.
+Concurrent writes can make the independent totals differ slightly in time.
 
 ## Persistent LangGraph conversations
 

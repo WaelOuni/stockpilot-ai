@@ -1,10 +1,22 @@
 from typing import Protocol
 
+from stockpilot.application.dto.backoffice_dashboard import (
+    DashboardRecentOrder,
+    OrderDashboardStats,
+)
 from stockpilot.domain.entities.order import Order
 from stockpilot.domain.enums.order_status import OrderStatus
 
 
 class OrderRepositoryPort(Protocol):
+    async def get_dashboard_order_stats(self) -> OrderDashboardStats:
+        """Count all stored orders by known status without loading the documents."""
+        ...
+
+    async def list_recent_dashboard_orders(self) -> list[DashboardRecentOrder]:
+        """Return the five most recent orders with dashboard-only fields."""
+        ...
+
     async def find_all(self, limit: int, offset: int) -> list[Order]:
         """Return all owners, sorted by created_at and order_id descending."""
         ...

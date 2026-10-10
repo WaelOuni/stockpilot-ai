@@ -1,13 +1,15 @@
 import { ApiError } from './http'
 import type { CustomerOrdersResponse, OrderResponse, OrderStatus } from '../types/api'
 import type {
-  ProductResponse as Product, ProductCategory, ProductsResponse, StockMovement, StockMovementsResponse,
+  BackofficeDashboard, ProductResponse as Product, ProductCategory, ProductsResponse, StockMovement,
+  StockMovementsResponse,
 } from '../types/api'
 import { productCategoryLabels } from '../utils/products'
 
 export interface AdminSession { username: string; csrf_token: string }
 export interface AdminOrder extends OrderResponse { customer_id: string | null; events: NonNullable<OrderResponse['events']> }
 export interface AdminOrders extends Omit<CustomerOrdersResponse, 'items'> { items: AdminOrder[] }
+const orderStatuses: OrderStatus[] = ['CREATED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
 let csrfToken = ''
 let sessionGeneration = 0
 
@@ -93,17 +95,68 @@ export async function adminLogout(): Promise<void> {
 export function listAdminOrders(offset: number, signal?: AbortSignal): Promise<AdminOrders> {
   return adminRequest(`/orders?limit=20&offset=${offset}`, { signal })
 }
+
+function exactKeys(value: object, expected: string[]): boolean {
+  const keys = Object.keys(value).sort()
+  return keys.length === expected.length && keys.every((key, index) => key === [...expected].sort()[index])
+}
+
+function nonnegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && Number(value) >= 0
+}
+
+function validDate(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value))
+}
+
+export async function getAdminDashboard(signal?: AbortSignal): Promise<BackofficeDashboard> {
+  const value = await adminRequest<BackofficeDashboard>('/dashboard', { signal })
+  const validOrderStats = value && exactKeys(value, [
+    'order_stats', 'product_stats', 'recent_orders', 'recent_stock_movements',
+  ]) && exactKeys(value.order_stats, ['total_orders', 'by_status'])
+    && nonnegativeInteger(value.order_stats.total_orders)
+    && exactKeys(value.order_stats.by_status, orderStatuses)
+    && orderStatuses.every(status => nonnegativeInteger(value.order_stats.by_status[status]))
+    && Object.values(value.order_stats.by_status).reduce((sum, count) => sum + count, 0)
+      <= value.order_stats.total_orders
+  const validProductStats = value && exactKeys(value.product_stats, [
+    'total_products', 'available_products', 'unavailable_products', 'total_stock_units',
+  ]) && nonnegativeInteger(value.product_stats.total_products)
+    && nonnegativeInteger(value.product_stats.available_products)
+    && nonnegativeInteger(value.product_stats.unavailable_products)
+    && Number.isSafeInteger(value.product_stats.total_stock_units)
+    && value.product_stats.available_products + value.product_stats.unavailable_products
+      <= value.product_stats.total_products
+  const validRecentOrders = value && Array.isArray(value.recent_orders)
+    && value.recent_orders.length <= 5
+    && value.recent_orders.every(order => order && exactKeys(order, [
+      'order_id', 'product_name', 'quantity', 'status', 'created_at',
+    ]) && typeof order.order_id === 'string' && Boolean(order.order_id)
+      && typeof order.product_name === 'string' && Number.isSafeInteger(order.quantity)
+      && order.quantity > 0 && orderStatuses.includes(order.status) && validDate(order.created_at))
+  const validRecentMovements = value && Array.isArray(value.recent_stock_movements)
+    && value.recent_stock_movements.length <= 5
+    && value.recent_stock_movements.every(movement => movement && exactKeys(movement, [
+      'product_sku', 'delta', 'occurred_at', 'reason',
+    ]) && typeof movement.product_sku === 'string' && Boolean(movement.product_sku)
+      && Number.isSafeInteger(movement.delta) && movement.delta !== 0
+      && validDate(movement.occurred_at) && typeof movement.reason === 'string')
+  if (!validOrderStats || !validProductStats || !validRecentOrders || !validRecentMovements) {
+    throw new ApiError('Réponse du tableau de bord invalide.', 0)
+  }
+  return value
+}
+
 export function getAdminOrder(orderId: string, signal?: AbortSignal): Promise<AdminOrder> {
   return adminRequest<AdminOrder>(`/orders/${encodeURIComponent(orderId)}`, { signal }).then(validateOrder)
 }
 
 function validateOrder(order: AdminOrder): AdminOrder {
-  const statuses = ['CREATED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
-  if (!order || typeof order.order_id !== 'string' || !statuses.includes(order.status)
+  if (!order || typeof order.order_id !== 'string' || !orderStatuses.includes(order.status)
     || !(order.customer_id === null || typeof order.customer_id === 'string')
     || typeof order.product_name !== 'string' || !Number.isInteger(order.quantity)
     || !Number.isFinite(Date.parse(order.created_at)) || !Array.isArray(order.events)
-    || order.events.some(event => !event || !statuses.includes(event.status)
+    || order.events.some(event => !event || !orderStatuses.includes(event.status)
       || !Number.isFinite(Date.parse(event.occurred_at))
       || !['SYSTEM', 'BACKOFFICE', 'CUSTOMER'].includes(event.source))) {
     throw new ApiError('Réponse de commande invalide. Actualisez avant toute opération.', 0)

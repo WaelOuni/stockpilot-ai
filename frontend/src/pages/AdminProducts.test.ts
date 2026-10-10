@@ -32,6 +32,7 @@ async function open(path: string, app = false) {
     history: createMemoryHistory(),
     routes: [
       { path: '/admin/login', component: AdminLoginPage },
+      { path: '/admin/dashboard', component: { template: '<p>Admin dashboard</p>' }, meta: { admin: true } },
       { path: '/admin/orders', component: { template: '<p>Admin orders</p>' }, meta: { admin: true } },
       { path: '/admin/products', component: AdminProductsPage, meta: { admin: true } },
       { path: '/admin/products/new', component: AdminProductFormPage, meta: { admin: true } },
@@ -263,6 +264,7 @@ it('missing edit remains blocked and can be refreshed', async () => {
 it('admin navigation coherently exposes products and orders without customer token panel', async () => {
   await open('/admin/products', true)
   const navigation = wrapper!.get('nav[aria-label="Navigation back-office"]')
+  expect(navigation.find('a[href="/admin/dashboard"]').exists()).toBe(true)
   expect(navigation.find('a[href="/admin/products"]').exists()).toBe(true)
   expect(navigation.find('a[href="/admin/orders"]').exists()).toBe(true)
   expect(wrapper!.text()).not.toContain('JWT client')
