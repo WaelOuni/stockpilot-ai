@@ -1,20 +1,36 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from stockpilot.application.use_cases.update_order_status import (
     OrderStatusConflictError,
     UpdateOrderStatusUseCase,
 )
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
+from stockpilot.application.use_cases.list_customer_orders import ListCustomerOrdersUseCase
 from stockpilot.domain.services.order_lifecycle import InvalidOrderStatusTransitionError
-from stockpilot.presentation.api.auth import require_backoffice_token
+from stockpilot.presentation.api.auth import require_backoffice_token, require_customer_identity
 from stockpilot.presentation.api.dependencies import (
     get_cancel_order_use_case,
     get_update_order_status_use_case,
+    get_list_customer_orders_use_case,
 )
-from stockpilot.presentation.api.schemas.order import OrderResponse, UpdateOrderStatusRequest
+from stockpilot.presentation.api.schemas.order import (
+    CustomerOrdersResponse, OrderResponse, UpdateOrderStatusRequest,
+)
 
 
 router = APIRouter()
+
+
+@router.get("/orders", response_model=CustomerOrdersResponse)
+async def list_customer_orders(
+    customer_id: str = Depends(require_customer_identity),
+    use_case: ListCustomerOrdersUseCase = Depends(get_list_customer_orders_use_case),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> CustomerOrdersResponse:
+    orders = await use_case.execute(customer_id, limit=limit, offset=offset)
+    items = [OrderResponse.model_validate(order) for order in orders]
+    return CustomerOrdersResponse(items=items, limit=limit, offset=offset, count=len(items))
 
 
 @router.patch(

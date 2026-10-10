@@ -118,6 +118,7 @@ def document(order):
         "order_id": order.order_id, "operation_id": order.operation_id,
         "product_name": order.product_name, "quantity": order.quantity,
         "status": order.status.value, "created_at": order.created_at.isoformat(),
+        **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
     }
 
 
@@ -152,7 +153,7 @@ def test_mongo_no_match_is_none_and_write_errors_propagate():
 
 def test_full_lifecycle_mongo_truth_status_lookup_and_replay():
     repo, collection = make_repository()
-    original = make_order()
+    original = replace(make_order(), customer_id="customer-a")
     stored = document(original)
     del stored["operation_id"]  # Older CREATED documents remain readable.
 
@@ -176,7 +177,7 @@ def test_full_lifecycle_mongo_truth_status_lookup_and_replay():
         order = asyncio.run(updater.execute(original.order_id, status))
         assert order.status is status
         assert order.operation_id == ""
-        result = asyncio.run(reader.execute(original.order_id))
+        result = asyncio.run(reader.execute(original.order_id, customer_id="customer-a"))
         assert result.status is status
         assert result.response == f"Commande order-1 : statut {status.value}."
         assert result.result == "FOUND"

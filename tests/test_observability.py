@@ -14,6 +14,12 @@ import pytest
 from stockpilot.application.workflows.nodes import create_order_confirmation_node
 from stockpilot.domain.entities.order import Order
 from stockpilot.domain.enums.order_status import OrderStatus
+from customer_auth import configure_customer_auth, customer_headers
+
+
+@pytest.fixture(autouse=True)
+def customer_auth(monkeypatch):
+    configure_customer_auth(monkeypatch, app)
 
 
 def records(caplog, name):
@@ -30,7 +36,8 @@ def test_assistant_logs_correlation_without_user_content(monkeypatch, caplog):
                         SimpleNamespace(ainvoke=AsyncMock(return_value=result)))
     with caplog.at_level(logging.INFO):
         response = TestClient(app).post(
-            "/assistant", json={"message": secret, "thread_id": "thread-1"}
+            "/assistant", headers=customer_headers("private-customer-a"),
+            json={"message": secret, "thread_id": "thread-1"}
         )
     request_id = response.headers["X-Request-ID"]
     UUID(request_id)
@@ -43,6 +50,7 @@ def test_assistant_logs_correlation_without_user_content(monkeypatch, caplog):
     rendered = "\n".join(JsonFormatter().format(record) for record in caplog.records)
     assert secret not in rendered
     assert "private-response" not in rendered
+    assert "private-customer-a" not in rendered
 
 
 def test_failed_assistant_returns_generic_error_with_request_id(monkeypatch, caplog):
@@ -51,7 +59,8 @@ def test_failed_assistant_returns_generic_error_with_request_id(monkeypatch, cap
                         SimpleNamespace(ainvoke=AsyncMock(side_effect=RuntimeError(secret))))
     with caplog.at_level(logging.INFO):
         response = TestClient(app).post(
-            "/assistant", json={"message": "private-message", "thread_id": "failure-thread"}
+            "/assistant", headers=customer_headers("customer-a"),
+            json={"message": "private-message", "thread_id": "failure-thread"}
         )
     assert response.status_code == 500
     assert response.json() == {"detail": "Internal server error"}
@@ -69,7 +78,8 @@ def test_request_ids_differ_and_context_does_not_leak(monkeypatch, caplog):
                         SimpleNamespace(ainvoke=AsyncMock(return_value={})))
     with caplog.at_level(logging.INFO):
         client = TestClient(app)
-        first = client.post("/assistant", json={"message": "x", "thread_id": "thread-a"})
+        first = client.post("/assistant", headers=customer_headers("customer-a"),
+                            json={"message": "x", "thread_id": "thread-a"})
         second = client.get("/health")
     assert first.headers["X-Request-ID"] != second.headers["X-Request-ID"]
     last = records(caplog, "http_request_completed")[-1]

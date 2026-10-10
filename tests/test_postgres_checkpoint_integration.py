@@ -64,7 +64,7 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
         recommendation = SimpleNamespace(execute=AsyncMock())
 
         orders = {}
-        async def finalize(product_name, quantity, operation_id):
+        async def finalize(product_name, quantity, operation_id, customer_id=None):
             order = Order(
                 order_id="created-order",
                 operation_id=operation_id,
@@ -72,6 +72,7 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
                 quantity=quantity,
                 status=OrderStatus.CREATED,
                 created_at=datetime.now(timezone.utc),
+                customer_id=customer_id,
             )
             orders[order.order_id] = order
             return order
@@ -90,7 +91,7 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
         async with open_checkpointer(checkpoint_uri) as first:
             graph_a = graph(first)
             prepared = await graph_a.ainvoke(
-                {"message": "Commande-moi 2 Bosch X100"}, config=config
+                {"message": "Commande-moi 2 Bosch X100", "customer_id": "customer-a"}, config=config
             )
             UUID(prepared["pending_order"]["operation_id"])
             assert prepared["order_status"] == "PENDING_CONFIRMATION"
@@ -120,6 +121,7 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
             finalizer.execute.assert_awaited_once_with(
                 "Bosch X100", 2,
                 operation_id=prepared["pending_order"]["operation_id"],
+                customer_id="customer-a",
             )
             assert confirmed["order_status"] == "CONFIRMED"
             assert confirmed["created_order_id"] == "created-order"

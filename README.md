@@ -132,39 +132,54 @@ For an existing standalone Mongo, read the
 | `GET /health` | Process liveness, not dependency readiness |
 | `POST /chat` | `{"message":"..."}`; direct LLM generation |
 | `POST /classify` | `{"message":"..."}`; structured intent/extraction |
-| `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER/ORDER_STATUS |
+| `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp` claims; advice/stock/ORDER/ORDER_STATUS |
 | `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; Bearer-protected demo back-office lifecycle update |
+| `GET /orders` | Customer JWT required; own orders only, newest first; `limit=20` (max 100), `offset=0` |
 | `POST /orders/{order_id}/cancel` | No body; atomic cancellation/stock restoration, requires back-office Bearer token |
+
+Configure `CUSTOMER_JWT_SECRET` in the API environment and in a trusted token
+issuer. Generate a one-hour local/demo token with:
+
+```sh
+export CUSTOMER_TOKEN="$(python scripts/create_customer_token.py demo-customer)"
+```
+
+The issuer and API must use the same private signing secret. Do not commit or
+log the secret or token.
 
 ```sh
 curl http://localhost:8000/health
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Quel outil pour couper des panneaux de bois ?","thread_id":"demo-advice"}'
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Est-ce que Bosch X100 est disponible ?","thread_id":"demo-stock"}'
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Commande-moi 2 Bosch X100","thread_id":"demo-order"}'
 # Same thread: explicit confirmation modifies demo stock and creates an order:
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Oui, je confirme","thread_id":"demo-order"}'
 ```
 
-Keep `thread_id` across turns/restarts; use fresh IDs for separate experiments.
+Keep the same verified customer identity and `thread_id` across turns/restarts;
+checkpoints are isolated by their pair. `X-Customer-Id` is ignored; only the
+signed JWT claim establishes identity.
+Use fresh thread IDs for separate experiments.
 After confirmation, ask for status in the same thread:
 
 ```sh
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Quel est le statut de ma dernière commande ?","thread_id":"demo-order"}'
 ```
 
-An explicit order ID takes priority. Only Mongo's stored status is returned;
-this demo has no authentication or ownership checks. See
-[ORDER_STATUS](docs/order-flow.md#order_status-read-only-lookup) for lookup results.
+An explicit order ID takes priority. Only the matching customer's stored status
+is returned; wrong-owner, absent and legacy unowned orders all return NOT_FOUND.
+Old unnamespaced conversations are not resumed; no ownership backfill is performed.
+See [ORDER_STATUS](docs/order-flow.md#order_status-read-only-lookup) for lookup results.
 
 Matching operation replays return the original order without decrementing stock
 again. Unknown commit outcomes require reconciliation, not blind compensation.
@@ -249,10 +264,14 @@ must be verified, not assumed configured. See
 
 ## Current limitations
 
-No user authentication, payment or frontend. Technical order routes use a shared
-`BACKOFFICE_API_TOKEN`; unset configuration disables those routes (503).
+No user directory/token-issuance service, payment or frontend. `/assistant`
+validates signed customer JWTs; a trusted issuer must mint them. Technical order
+routes use a separate shared `BACKOFFICE_API_TOKEN`; unset configuration
+disables those routes (503).
 See [back-office authentication](docs/order-flow.md#back-office-authentication).
-Public assistant endpoints remain unauthenticated. Model extraction is probabilistic;
+`/health`, `/chat` and `/classify` remain public; `/assistant` requires a valid
+customer JWT for both identity and ownership isolation.
+Model extraction is probabilistic;
 the advice-domain guard is lexical, not semantic. Small datasets and a
 three-document corpus limit quality conclusions. Product lookup assumes
 unambiguous canonical names. PyMongo is synchronous in an async flow.

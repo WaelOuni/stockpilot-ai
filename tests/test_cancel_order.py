@@ -40,6 +40,7 @@ def document(order):
         "order_id": order.order_id, "operation_id": order.operation_id,
         "product_name": order.product_name, "quantity": order.quantity,
         "status": order.status.value, "created_at": order.created_at.isoformat(),
+        **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
     }
 
 
@@ -241,10 +242,12 @@ def cancel(database, expected_status=OrderStatus.CREATED):
 
 @pytest.mark.parametrize("status", [OrderStatus.CREATED, OrderStatus.PROCESSING])
 def test_transaction_restores_stock_and_serializes_cancelled_once(status):
-    order = make_order(status)
+    order = make_order(status, customer_id="customer-a")
     database = FakeDatabase(order)
     assert cancel(database, status) == replace(order, status=OrderStatus.CANCELLED)
-    assert database.state == {"stock": 10, "order": document(make_order(OrderStatus.CANCELLED))}
+    assert database.state == {
+        "stock": 10, "order": document(make_order(OrderStatus.CANCELLED, customer_id="customer-a")),
+    }
     session = database.sessions[0]
     assert session.options == {
         "read_concern": ReadConcern("snapshot"),
@@ -266,7 +269,7 @@ def test_transaction_restores_stock_and_serializes_cancelled_once(status):
     assert database.state["stock"] == 10
     assert len(database.writes) == 2
     reader = GetOrderStatusUseCase(MongoOrderRepository(database))
-    result = asyncio.run(reader.execute(order.order_id))
+    result = asyncio.run(reader.execute(order.order_id, customer_id="customer-a"))
     assert result.status is OrderStatus.CANCELLED
     assert result.result == "FOUND"
     assert result.response == "Commande order-cancel : statut CANCELLED."

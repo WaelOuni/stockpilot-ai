@@ -163,6 +163,7 @@ overrides exporter selection; exporter/endpoint changes require API restart.
 
 ```sh
 curl -X POST http://localhost:8000/assistant \
+  -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Est-ce que Bosch X100 est disponible ?","thread_id":"tracing-demo-1"}'
 .venv/bin/python scripts/check_otlp.py
@@ -372,6 +373,7 @@ handles liveness and missing-probe alerts. No Alertmanager/notifications exist.
 docker compose up -d --force-recreate prometheus grafana
 for i in {1..10}; do
   curl -s -X POST http://localhost:8000/assistant \
+    -H "Authorization: Bearer $CUSTOMER_TOKEN" \
     -H 'Content-Type: application/json' \
     -d '{"message":"Est-ce que Bosch X100 est disponible ?","thread_id":"slo-demo"}'
 done

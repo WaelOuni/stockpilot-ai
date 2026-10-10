@@ -6,6 +6,7 @@ from stockpilot.domain.enums.product_category import ProductCategory
 
 class StockPilotState(TypedDict, total=False):
     message: str
+    customer_id: str | None
     intent: Intent
     raw_product: str | None
     product_name: str | None
@@ -13,7 +14,7 @@ class StockPilotState(TypedDict, total=False):
     budget: float | None
     usage: str | None
     quantity: int | None
-    pending_order: dict[str, str | int] | None
+    pending_order: dict[str, str | int | None] | None
     order_status: str
     confirmation_handled: bool
     created_order_id: str | None

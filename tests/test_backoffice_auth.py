@@ -15,7 +15,9 @@ from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.infrastructure.config.settings import Settings
 import stockpilot.main as main
 from stockpilot.main import app
+from stockpilot.presentation.api.routes.assistant import customer_thread_key
 from stockpilot.observability import JsonFormatter
+from customer_auth import CUSTOMER_JWT_SECRET, customer_headers
 
 
 TOKEN = "test-only-token"
@@ -40,7 +42,11 @@ def mutation_use_cases(monkeypatch):
 
 def configure_token(monkeypatch, token):
     monkeypatch.setattr(
-        app.state, "settings", Settings(backoffice_api_token=token, _env_file=None),
+        app.state, "settings", Settings(
+            backoffice_api_token=token,
+            customer_jwt_secret=CUSTOMER_JWT_SECRET,
+            _env_file=None,
+        ),
     )
 
 
@@ -196,13 +202,15 @@ def test_public_routes_remain_accessible_without_backoffice_auth(
     response = client.post("/classify", json={"message": "classify"})
     assert response.status_code == 200
     assert response.json()["intent"] == "PRODUCT_ADVICE"
-    response = client.post("/assistant", json={"message": "hello", "thread_id": "auth-test"})
+    response = client.post("/assistant", headers=customer_headers("customer-a"),
+                           json={"message": "hello", "thread_id": "auth-test"})
     assert response.status_code == 200
     assert response.json() == {"response": "mock workflow"}
     generate.execute.assert_awaited_once_with("advice")
     classify.execute.assert_awaited_once_with("classify")
     workflow.ainvoke.assert_awaited_once_with(
-        {"message": "hello"}, config={"configurable": {"thread_id": "auth-test"}},
+        {"message": "hello", "customer_id": "customer-a"},
+        config={"configurable": {"thread_id": customer_thread_key("customer-a", "auth-test")}},
     )
     assert_no_mutation(mutation_use_cases)
 
@@ -272,8 +280,10 @@ def test_openapi_bearer_security_is_only_on_mutation_endpoints():
     }
     assert bearer_names
     protected = {
+        ("get", "/orders"),
         ("patch", "/orders/{order_id}/status"),
         ("post", "/orders/{order_id}/cancel"),
+        ("post", "/assistant"),
     }
     actual = set()
     for path, operations in schema["paths"].items():
@@ -286,3 +296,9 @@ def test_openapi_bearer_security_is_only_on_mutation_endpoints():
                 assert any(set(requirement) & bearer_names for requirement in security)
                 assert {} not in security
     assert actual == protected
+    assert schema["paths"]["/assistant"]["post"]["security"] == [
+        {"CustomerBearer": []},
+    ]
+    assert schema["paths"]["/orders/{order_id}/cancel"]["post"]["security"] == [
+        {"BackofficeBearer": []},
+    ]

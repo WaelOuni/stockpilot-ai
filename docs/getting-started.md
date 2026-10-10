@@ -63,6 +63,7 @@ variables; it does **not** automatically load `../.env.local`. Export values exp
 | `MONGO_URI` | `mongodb://localhost:27017/?replicaSet=rs0&directConnection=true` |
 | `MONGO_DATABASE` | `stockpilot` |
 | `BACKOFFICE_API_TOKEN` | Unset: technical order routes return 503; configure a private shared Bearer secret |
+| `CUSTOMER_JWT_SECRET` | Unset: `/assistant` and `GET /orders` return 503; private HS256 signing secret |
 | `POSTGRES_URL` | Compose local demo `stockpilot` PostgreSQL database |
 | `LANGGRAPH_CHECKPOINT_DB_URI` | Unset: checkpoint storage uses `POSTGRES_URL` |
 | `LOG_LEVEL` / `LOG_FILE` | `INFO` / `logs/stockpilot.jsonl`; empty file path disables file logs |
@@ -71,6 +72,19 @@ variables; it does **not** automatically load `../.env.local`. Export values exp
 | `OTEL_EXPORTER` | Settings default `console`; `.env.example` selects `otlp` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Base URL `http://localhost:4318` |
 | `OTEL_METRIC_EXPORT_INTERVAL_MS` | `10000`, positive integer |
+
+Set a strong random `CUSTOMER_JWT_SECRET` in the API environment. A trusted
+issuer using the same secret can create a one-hour local/demo token:
+
+```sh
+export CUSTOMER_JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+export CUSTOMER_TOKEN="$(python scripts/create_customer_token.py demo-customer)"
+```
+
+Use at least 32 random bytes. Export the same secret securely in the API process
+environment; do not commit it or place it in captured logs. `/assistant` verifies
+the token's signature, expiration and `customer_id` claim. The other public
+endpoints do not require it.
 
 Compose has public **demo-only** PostgreSQL credentials. Mongo/PostgreSQL ports
 are published beyond loopback: use a trusted machine/firewall, never expose this
@@ -120,27 +134,34 @@ failure is explicit; there is no in-memory checkpoint fallback.
 | `GET /health` | `{"status":"UP"}` process liveness, not dependency readiness |
 | `POST /chat` | `{"message":"..."}`; direct LLM generation |
 | `POST /classify` | `{"message":"..."}`; structured intent/extraction |
-| `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER/ORDER_STATUS |
+| `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp`; advice/stock/ORDER/ORDER_STATUS |
 | `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; technical/demo lifecycle update, back-office Bearer token required |
+| `GET /orders` | Customer JWT required; own order history, bounded limit/offset pagination |
 | `POST /orders/{order_id}/cancel` | No body; transactional cancellation, back-office Bearer token required |
 
 ```sh
 curl http://localhost:8000/health
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Quel outil pour couper des panneaux de bois ?","thread_id":"demo-advice"}'
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Est-ce que Bosch X100 est disponible ?","thread_id":"demo-stock"}'
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Commande-moi 2 Bosch X100","thread_id":"demo-order"}'
 # Same thread; confirmation modifies demo stock and creates a Mongo order:
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Oui, je confirme","thread_id":"demo-order"}'
 ```
 
+Keep the same verified customer identity and thread ID for all turns. Obtain a
+new token from the trusted issuer when the one-hour token expires.
+Checkpoints are isolated by `(customer_id, thread_id)`, not the raw thread alone.
+Identity comes only from signed JWT claims; caller-supplied headers are ignored.
+The back-office credential is separate. Legacy unowned orders remain
+inaccessible, and old unnamespaced conversations are not resumed.
 Use fresh thread IDs for independent experiments. Repeating a matching
 operation ID is idempotent; starting another order is a new business operation.
 [Order flow](order-flow.md) explains refusal, replay and unknown outcomes.

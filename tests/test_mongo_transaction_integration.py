@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 from pymongo import MongoClient
-from pymongo.errors import OperationFailure
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from stockpilot.application.order_transaction_errors import OrderTransactionFailedError
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
@@ -50,6 +50,113 @@ def make_order(operation_id=None):
         status=OrderStatus.CREATED,
         created_at=datetime.now(timezone.utc),
     )
+
+
+def test_real_order_indexes_are_stable_and_preserve_legacy_documents(database):
+    orders = database.orders
+    orders.insert_many([
+        {"order_id": "legacy-1"},
+        {"order_id": "legacy-2", "operation_id": None},
+        {"order_id": "legacy-3"},
+    ])
+    before = list(orders.find({}))
+    orders.create_index("product_name", name="existing_external_index")
+
+    MongoOrderRepository(database).initialize()
+    MongoOrderRepository(database).initialize()
+
+    assert list(orders.find({})) == before
+    indexes = orders.index_information()
+    assert indexes["orders_order_id_unique"]["key"] == [("order_id", 1)]
+    assert indexes["orders_order_id_unique"]["unique"] is True
+    assert indexes["orders_operation_id_unique"]["partialFilterExpression"] == {
+        "operation_id": {"$type": "string"},
+    }
+    assert indexes["orders_operation_id_unique"]["unique"] is True
+    assert indexes["orders_customer_created_order_desc"]["key"] == [
+        ("customer_id", 1), ("created_at", -1), ("order_id", -1),
+    ]
+    assert not indexes["orders_customer_created_order_desc"].get("unique", False)
+    assert "existing_external_index" in indexes
+
+    orders.insert_one({"order_id": "new-1", "operation_id": "operation-1"})
+    with pytest.raises(DuplicateKeyError):
+        orders.insert_one({"order_id": "new-1", "operation_id": "operation-2"})
+    with pytest.raises(DuplicateKeyError):
+        orders.insert_one({"order_id": "new-2", "operation_id": "operation-1"})
+
+
+def test_real_duplicate_order_ids_fail_initialization_without_data_changes(database):
+    database.orders.drop_index("orders_order_id_unique")
+    database.orders.insert_many([
+        {"order_id": "duplicate"},
+        {"order_id": "duplicate"},
+    ])
+    before = list(database.orders.find({}))
+
+    with pytest.raises(DuplicateKeyError):
+        MongoOrderRepository(database).initialize()
+
+    assert list(database.orders.find({})) == before
+    assert "orders_operation_id_unique" in database.orders.index_information()
+
+
+def test_real_order_query_plans_use_indexes_without_blocking_sort(database):
+    repository = MongoOrderRepository(database)
+    for number in range(100):
+        order = make_order()
+        repository.insert(Order(
+            order_id=f"indexed-{number:03d}",
+            operation_id=order.operation_id,
+            product_name=order.product_name,
+            quantity=order.quantity,
+            status=order.status,
+            created_at=datetime(2026, 10, 9, tzinfo=timezone.utc),
+            customer_id="customer-a" if number < 50 else "customer-b",
+        ))
+    sample = database.orders.find_one({"order_id": "indexed-025"})
+    before = list(database.orders.find({}))
+
+    def plan_nodes(node):
+        if isinstance(node, dict):
+            yield node
+            for value in node.values():
+                yield from plan_nodes(value)
+        elif isinstance(node, list):
+            for value in node:
+                yield from plan_nodes(value)
+
+    queries = [
+        (
+            {"find": "orders", "filter": {"order_id": sample["order_id"]}, "limit": 1},
+            "orders_order_id_unique",
+        ),
+        (
+            {"find": "orders",
+             "filter": {"operation_id": {"$eq": sample["operation_id"], "$type": "string"}},
+             "limit": 1},
+            "orders_operation_id_unique",
+        ),
+        (
+            {"find": "orders", "filter": {"customer_id": "customer-a"},
+             "sort": {"created_at": -1, "order_id": -1}, "skip": 5, "limit": 20},
+            "orders_customer_created_order_desc",
+        ),
+    ]
+    for status in ("PROCESSING", "CANCELLED"):
+        queries.append((
+            {"findAndModify": "orders",
+             "query": {"order_id": sample["order_id"], "status": "CREATED"},
+             "update": {"$set": {"status": status}}, "new": True},
+            "orders_order_id_unique",
+        ))
+    for query, expected_index in queries:
+        result = database.command("explain", query, verbosity="executionStats")
+        nodes = list(plan_nodes(result["queryPlanner"]["winningPlan"]))
+        assert expected_index in {node.get("indexName") for node in nodes}
+        assert not {"SORT", "COLLSCAN"} & {node.get("stage") for node in nodes}
+        assert result["executionStats"]["totalDocsExamined"] <= 20
+    assert list(database.orders.find({})) == before
 
 
 def test_real_transaction_commits_stock_and_order(database):

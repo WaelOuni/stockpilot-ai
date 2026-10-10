@@ -159,7 +159,7 @@ def make_workflow(
         async def execute(self, order: Order) -> Order | None:
             existing = await order_repository.find_by_operation_id(order.operation_id)
             if existing is not None:
-                validate_order_payload(existing, order.product_name, order.quantity)
+                validate_order_payload(existing, order.product_name, order.quantity, order.customer_id)
                 return existing
             if unknown_outcome:
                 raise OrderOutcomeUnknownError("simulated commit outcome unknown")
@@ -212,7 +212,7 @@ def make_workflow(
 def invoke(workflow, message: str, thread_id: str) -> dict:
     return asyncio.run(
         workflow.ainvoke(
-            {"message": message},
+            {"message": message, "customer_id": "customer-a"},
             config={"configurable": {"thread_id": thread_id}},
         )
     )
@@ -380,6 +380,7 @@ def test_order_confirmation_uses_pending_order_from_same_thread() -> None:
         "product_name": "Bosch X100",
         "quantity": 1,
         "status": "CONFIRMED",
+        "customer_id": "customer-a",
     }
     UUID(prepared["pending_order"]["operation_id"])
     assert order_repository.orders[0].operation_id == prepared["pending_order"]["operation_id"]
@@ -407,6 +408,7 @@ def test_explicit_quantity_is_preserved_from_request_through_confirmation() -> N
         "product_name": "Bosch X100",
         "quantity": 3,
         "status": "PENDING_CONFIRMATION",
+        "customer_id": "customer-a",
     }
     assert prepared["response"] == (
         "La Bosch X100 est disponible avec 11 unités en stock. "
@@ -518,6 +520,7 @@ def test_replay_before_reservation_returns_existing_order() -> None:
         quantity=3,
         status=OrderStatus.CREATED,
         created_at=datetime.now(timezone.utc),
+        customer_id="customer-a",
     )
     repository.orders.append(existing)
 
@@ -639,7 +642,7 @@ def test_confirmation_passes_exact_operation_to_transactional_use_case() -> None
         },
     }))
     finalize.execute.assert_awaited_once_with(
-        "Bosch X100", 3, operation_id="saved-operation"
+        "Bosch X100", 3, operation_id="saved-operation", customer_id=None
     )
     assert result["created_order_id"] == order.order_id
 

@@ -12,15 +12,15 @@ ORDER message -> PrepareOrderUseCase -> PENDING_CONFIRMATION
 
 ORDER classification extracts product/quantity. A valid preparation creates a
 pending order with an `operation_id` UUID and asks for explicit confirmation.
-Keep the same `thread_id` for preparation and confirmation; PostgreSQL restores
+Keep the same verified customer identity and `thread_id` for preparation and confirmation; PostgreSQL restores
 pending state across restarts. The confirmation resolver runs before ordinary
 intent routing. Preparation does not itself finalize stock/order writes.
 
 ```sh
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Commande-moi 2 Bosch X100","thread_id":"demo-order"}'
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Oui, je confirme","thread_id":"demo-order"}'
 ```
@@ -30,6 +30,41 @@ is a new operation; idempotency does not equate every order from one thread.
 `operation_id` identifies the business operation, while `order_id` identifies
 the persisted order.
 
+## Customer ownership boundary
+
+Every `/assistant` and `GET /orders` call requires an `Authorization: Bearer`
+JWT, including advice and stock requests. The API verifies an HS256 signature and a required
+numeric expiration before accepting the nonblank string `customer_id` claim.
+Surrounding whitespace is stripped; the remaining opaque identifier is
+case-sensitive. The token generator defaults to a one-hour lifetime.
+
+The JWT is signed using `CUSTOMER_JWT_SECRET`, which must remain private and
+match the trusted token issuer. The API rejects missing, malformed, expired or
+invalidly signed tokens. `X-Customer-Id` and body fields are ignored and cannot
+override the signed identity.
+The back-office Bearer token remains independent and protects only the two
+global technical mutation routes.
+
+HTTP injects the customer into workflow state; message/classifier/body fields
+cannot override it. Preparation remembers the owner in `pending_order`;
+confirmation propagates it to `FinalizeOrderUseCase` and Mongo `Order.customer_id`.
+The confirmation resolver rejects a changed pending owner even for direct
+graph calls. Customer IDs are not added to logs, span attributes or metrics.
+
+The checkpoint key is `customer-thread-v1:` plus SHA-256 of an unambiguous JSON
+pair `[customer_id, thread_id]`. Customers can reuse a raw thread ID without
+sharing pending confirmations, created IDs or lookup results. Keep both values
+stable across restarts. Existing raw-thread checkpoints are deliberately
+inaccessible from HTTP; there is no checkpoint migration or ownership backfill.
+
+`Order.customer_id` defaults to `None` so older documents/fixtures deserialize.
+Technical Python `CreateOrderUseCase`/`FinalizeOrderUseCase` calls may omit it to
+create explicitly unowned legacy orders; provided blank IDs are rejected.
+These technical calls are not customer-facing HTTP endpoints. HTTP creation
+always supplies a nonempty customer. Orders with missing, null or blank owners
+cannot be consulted by any customer. Privileged back-office mutations remain
+global and their existing `OrderResponse` does not expose the owner.
+
 ## ORDER_STATUS read-only lookup
 
 Ask "Où en est ma commande ?" or "Quel est le statut de ma dernière commande ?"
@@ -37,7 +72,7 @@ in the same `thread_id`, or supply an explicit order identifier:
 
 ```sh
 # Replace this illustrative UUID with a real stored order_id:
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Quel est le statut de la commande 47d8fbf9-1234-4567-89ab-123456789abc ?","thread_id":"demo-order"}'
 ```
@@ -62,8 +97,8 @@ order creation or changes to a pending confirmation:
 
 | `order_status_result` | Meaning |
 |---|---|
-| `FOUND` | `queried_order_id` and `queried_order_status` come from the stored order |
-| `NOT_FOUND` | No document for the selected ID; response explicitly includes NOT_FOUND |
+| `FOUND` | Nonblank request customer exactly matches the stored nonblank owner; ID/status come from that order |
+| `NOT_FOUND` | Absent, wrong-owner or legacy unowned order; identical result/response shape with null status |
 | `NO_ORDER_ASSOCIATED` | No explicit ID or known created order in this conversation |
 
 `queried_order_status` is null for absent orders. The existing conversation
@@ -73,10 +108,69 @@ Statuses change only through the technical lifecycle use case below, never
 through LLM inference. Mongo errors propagate through
 the existing API error handling rather than masquerading as NOT_FOUND.
 
-There is no global/latest-order search, customer identity or authentication.
-An explicit ID can be queried without an ownership check: this remains a local
-demo, not a secure customer-facing tracking endpoint. Pre-feature checkpoints
-cannot recover a created ID that was already cleared before this feature.
+There is no global order search. Explicit IDs
+and cached last-created IDs undergo the same ownership check. NOT_FOUND may
+echo the requested ID but never reveals whether a foreign order exists or its
+status. No known ID still yields NO_ORDER_ASSOCIATED. Pre-feature checkpoints
+are not resumed through the new HTTP namespace.
+
+## Authenticated customer order history
+
+`GET /orders?limit=20&offset=0` uses the same customer JWT dependency as
+`/assistant`. Only the verified `customer_id` claim determines the owner;
+query parameters and `X-Customer-Id` cannot select another customer.
+Legacy orders with missing/null owners are excluded. There is no global listing
+or back-office token alternative for this client endpoint.
+
+`ListCustomerOrdersUseCase` calls `OrderRepositoryPort.find_by_customer_id`.
+Mongo filters by the exact owner before sorting, skipping and limiting;
+the application never loads all customers' orders to filter them.
+Sorting is `created_at` descending, then `order_id` descending for equal dates.
+Existing timestamps are stored as ISO 8601 strings; ordering uses their stored
+representation (normal application creation uses UTC timestamps).
+
+Pagination: limit defaults to 20, minimum 1, maximum 100; offset defaults to 0
+and must be nonnegative. Invalid values return 422. Missing/invalid JWT returns
+401; missing/invalid signing-secret configuration returns 503.
+Unexpected database errors use the existing logged/sanitized 500 handling.
+An empty page is a 200 response, not 404.
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "order_id": "example-order-id",
+      "product_name": "Bosch X100",
+      "quantity": 2,
+      "status": "PROCESSING",
+      "created_at": "2026-10-10T00:00:00Z"
+    }
+  ],
+  "limit": 20,
+  "offset": 0,
+  "count": 1
+}
+```
+
+`count` is the number of items in this page, not a total count. Response items
+omit `customer_id` and `operation_id`.
+
+```sh
+# CUSTOMER_JWT_SECRET must match the private secret used by the running API.
+TOKEN=$(python scripts/create_customer_token.py local-client-a)
+curl --fail-with-body 'http://localhost:8000/orders' \
+  -H "Authorization: Bearer $TOKEN"
+curl --fail-with-body 'http://localhost:8000/orders?limit=20&offset=20' \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Offset pagination is not a snapshot: concurrent inserts can shift page boundaries.
+The [compound Mongo index](database.md#order-indexes) supports owner filtering and
+sorting, but large offsets still require scanning skipped index entries.
+There is no cursor pagination or total-count query. The local JWT security
+limitations above still apply; never disclose signing secrets or bearer tokens.
 
 ## Technical order lifecycle
 
@@ -142,7 +236,8 @@ sanitize `authorization`. Keep env files private and outside Git.
 Missing/blank configuration disables only back-office routes with 503
 (`Back-office authentication is not configured.`); there is no open fallback.
 Missing, malformed or wrong credentials return 401 with `WWW-Authenticate: Bearer`
-and generic detail. `/assistant`, `/health`, `/chat` and `/classify` remain public.
+and generic detail. `/health`, `/chat` and `/classify` remain public;
+`/assistant` uses separate customer JWT authentication.
 This is a shared local/demo API key, not user authentication: no identity,
 ownership, roles, expiration or automated rotation. Use TLS on any non-loopback
 connection to avoid exposing the credential in transit.
@@ -182,7 +277,7 @@ curl --fail-with-body -X PATCH "http://localhost:8000/orders/$ORDER_ID/status" \
   -H "Authorization: Bearer $BACKOFFICE_API_TOKEN" \
   -H 'Content-Type: application/json' -d '{"status":"DELIVERED"}'
 # ORDER_STATUS remains POST /assistant, not GET:
-curl --fail-with-body -X POST http://localhost:8000/assistant \
+curl --fail-with-body -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d "{\"message\":\"Quel est le statut de la commande $ORDER_ID ?\",\"thread_id\":\"demo-order\"}"
 ```
@@ -235,7 +330,7 @@ curl --fail-with-body -X POST "http://localhost:8000/orders/$ORDER_ID/cancel" \
 # Replay: same response, no second stock restitution.
 curl --fail-with-body -X POST "http://localhost:8000/orders/$ORDER_ID/cancel" \
   -H "Authorization: Bearer $BACKOFFICE_API_TOKEN"
-curl --fail-with-body -X POST http://localhost:8000/assistant \
+curl --fail-with-body -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d "{\"message\":\"Quel est le statut de la commande $ORDER_ID ?\",\"thread_id\":\"demo-order\"}"
 ```
@@ -261,7 +356,11 @@ For a new operation, `ClientSession.with_transaction()`:
 Insufficient stock aborts without an order. Insertion failure rolls back the
 decrement. A unique-key loser aborts before retrieving the winning order.
 A matching replay returns the original order without another stock decrement;
-different product/quantity raises `IdempotencyConflictError`.
+different product/quantity/customer (including `None` versus a nonempty owner)
+raises `IdempotencyConflictError` before returning the existing order. This
+invariant applies to creation lookup, duplicate insertion, transaction retry and
+commit reconciliation; a cross-owner replay never returns a foreign order or
+commits an additional stock decrement.
 
 **Atomicity** prevents partial stock/order writes; **idempotency** prevents
 replaying a business operation as another order. Concurrent same-operation
@@ -291,6 +390,12 @@ compatibility but is no longer emitted by this flow.
 ## Tests
 
 Standard fakes/mocks do not contact Mongo:
+
+`test_customer_ownership.py` covers header validation and trusted propagation,
+same-thread/different-customer checkpoint isolation, old checkpoint exclusion,
+explicit/implicit status denial with indistinguishable NOT_FOUND results,
+legacy deserialization, and owner-aware duplicate/retry/reconciliation checks.
+Lifecycle and cancellation tests also verify owner-preserving status updates.
 
 ```sh
 .venv/bin/python -m pytest -q

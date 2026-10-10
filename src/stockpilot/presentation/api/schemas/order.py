@@ -17,3 +17,10 @@ class OrderResponse(BaseModel):
     quantity: int
     status: OrderStatus
     created_at: datetime
+
+
+class CustomerOrdersResponse(BaseModel):
+    items: list[OrderResponse]
+    limit: int
+    offset: int
+    count: int

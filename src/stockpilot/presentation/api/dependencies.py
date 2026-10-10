@@ -4,6 +4,7 @@ from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCa
 from stockpilot.application.use_cases.generate_response import GenerateResponseUseCase
 from stockpilot.application.use_cases.update_order_status import UpdateOrderStatusUseCase
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
+from stockpilot.application.use_cases.list_customer_orders import ListCustomerOrdersUseCase
 
 
 def get_generate_response_use_case(request: Request) -> GenerateResponseUseCase:
@@ -24,3 +25,7 @@ def get_update_order_status_use_case(request: Request) -> UpdateOrderStatusUseCa
 
 def get_cancel_order_use_case(request: Request) -> CancelOrderUseCase:
     return request.app.state.cancel_order_use_case
+
+
+def get_list_customer_orders_use_case(request: Request) -> ListCustomerOrdersUseCase:
+    return request.app.state.list_customer_orders_use_case

@@ -11,6 +11,7 @@ from stockpilot.application.use_cases.generate_response import GenerateResponseU
 from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
 from stockpilot.application.use_cases.update_order_status import UpdateOrderStatusUseCase
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
+from stockpilot.application.use_cases.list_customer_orders import ListCustomerOrdersUseCase
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -114,6 +115,7 @@ finalize_order_use_case = FinalizeOrderUseCase(MongoOrderTransaction(mongo_datab
 get_order_status_use_case = GetOrderStatusUseCase(order_repository)
 update_order_status_use_case = UpdateOrderStatusUseCase(order_repository)
 cancel_order_use_case = CancelOrderUseCase(order_repository)
+list_customer_orders_use_case = ListCustomerOrdersUseCase(order_repository)
 
 recommend_product_use_case = RecommendProductUseCase(
     embedding_adapter,
@@ -131,6 +133,7 @@ app.state.finalize_order_use_case = finalize_order_use_case
 app.state.get_order_status_use_case = get_order_status_use_case
 app.state.update_order_status_use_case = update_order_status_use_case
 app.state.cancel_order_use_case = cancel_order_use_case
+app.state.list_customer_orders_use_case = list_customer_orders_use_case
 
 app.include_router(health_router)
 app.include_router(chat_router)

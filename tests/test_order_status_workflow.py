@@ -62,7 +62,7 @@ def test_status_node_identifier_precedence_and_no_state_mutation(identifiers, ex
     }
     original = deepcopy(state)
     update = asyncio.run(create_order_status_node(use_case)(state))
-    use_case.execute.assert_awaited_once_with(expected)
+    use_case.execute.assert_awaited_once_with(expected, customer_id=None)
     assert update == {
         "queried_order_id": expected, "queried_order_status": "CREATED" if expected else None,
         "order_status_result": result.result, "response": "stored status",
@@ -82,7 +82,7 @@ def test_missing_explicit_identifier_does_not_fall_back_to_last_order():
     assert update["queried_order_id"] == "missing"
     assert update["queried_order_status"] is None
     assert update["order_status_result"] == "NOT_FOUND"
-    use_case.execute.assert_awaited_once_with("missing")
+    use_case.execute.assert_awaited_once_with("missing", customer_id=None)
 
 
 @pytest.mark.parametrize("intent", list(Intent))
@@ -115,7 +115,7 @@ def test_status_graph_never_calls_generation_stock_or_write_use_cases():
     assert result["order_status_result"] == "FOUND"
     for dependency in dependencies:
         dependency.execute.assert_not_awaited()
-    status.execute.assert_awaited_once_with("order-123")
+    status.execute.assert_awaited_once_with("order-123", customer_id=None)
 
 
 @pytest.mark.parametrize(("outcome", "expected_status"), [

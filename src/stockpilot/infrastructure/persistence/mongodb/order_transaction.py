@@ -42,7 +42,7 @@ class MongoOrderTransaction(OrderTransactionPort):
         )
         if existing is not None:
             order_replay.set(True)
-            validate_order_payload(existing, order.product_name, order.quantity)
+            validate_order_payload(existing, order.product_name, order.quantity, order.customer_id)
             event(logger, "order_replay_detected", operation_id=order.operation_id,
                   order_id=existing.order_id, message="Order replay recovered")
         return existing

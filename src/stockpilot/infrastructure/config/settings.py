@@ -5,6 +5,7 @@ from pydantic import Field, SecretStr
 
 class Settings(BaseSettings):
     backoffice_api_token: SecretStr | None = Field(default=None, repr=False)
+    customer_jwt_secret: SecretStr | None = Field(default=None, repr=False)
     otel_enabled: bool = False
     otel_service_name: str = "stockpilot-ai"
     otel_exporter: Literal["console", "otlp"] = "console"

@@ -39,6 +39,7 @@ def document(order):
         "quantity": order.quantity,
         "status": order.status.value,
         "created_at": order.created_at.isoformat(),
+        **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
     }
 
 
@@ -57,7 +58,7 @@ class FakeCollection:
         if session is None and self.database.lookup_error is not None:
             raise self.database.lookup_error
         documents = session.documents if session else self.database.documents
-        return documents.get(query["operation_id"])
+        return documents.get(query["operation_id"]["$eq"])
 
     def find_one_and_update(self, query, update, **options):
         assert self.name == "products"
@@ -173,8 +174,9 @@ def test_commits_quantity_three_and_order_with_the_same_session():
     assert database.writes[0][2]["stock"] == {"$gte": 3}
     assert database.writes[0][3] == {"$inc": {"stock": -3}}
     assert database.lookups == [
-        ({"operation_id": order.operation_id}, {}),
-        ({"operation_id": order.operation_id}, {"session": database.session}),
+        ({"operation_id": {"$eq": order.operation_id, "$type": "string"}}, {}),
+        ({"operation_id": {"$eq": order.operation_id, "$type": "string"}},
+         {"session": database.session}),
     ]
     assert database.session.options == {
         "read_concern": ReadConcern("snapshot"),
@@ -196,7 +198,7 @@ def test_existing_order_returns_original_without_starting_a_session(caplog):
 
 
 @pytest.mark.parametrize("inside", [False, True])
-@pytest.mark.parametrize("changes", [{"quantity": 4}, {"product_name": "Makita"}])
+@pytest.mark.parametrize("changes", [{"quantity": 4}, {"product_name": "Makita"}, {"customer_id": "customer-a"}])
 def test_conflict_never_changes_stock_or_inserts(inside, changes, caplog):
     database = FakeDatabase()
     original = make_order()

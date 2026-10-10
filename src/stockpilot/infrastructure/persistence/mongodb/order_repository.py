@@ -26,10 +26,19 @@ class MongoOrderRepository(OrderRepositoryPort):
 
     def initialize(self) -> None:
         self.collection.create_index(
+            [("order_id", 1)],
+            name="orders_order_id_unique",
+            unique=True,
+        )
+        self.collection.create_index(
             [("operation_id", 1)],
             name="orders_operation_id_unique",
             unique=True,
             partialFilterExpression={"operation_id": {"$type": "string"}},
+        )
+        self.collection.create_index(
+            [("customer_id", 1), ("created_at", -1), ("order_id", -1)],
+            name="orders_customer_created_order_desc",
         )
 
     async def find_by_operation_id(self, operation_id: str) -> Order | None:
@@ -38,6 +47,17 @@ class MongoOrderRepository(OrderRepositoryPort):
     async def find_by_order_id(self, order_id: str) -> Order | None:
         document = self.collection.find_one({"order_id": order_id})
         return self._to_order(document) if document is not None else None
+
+    async def find_by_customer_id(
+        self, customer_id: str, limit: int, offset: int,
+    ) -> list[Order]:
+        cursor = (
+            self.collection.find({"customer_id": customer_id})
+            .sort([("created_at", -1), ("order_id", -1)])
+            .skip(offset)
+            .limit(limit)
+        )
+        return [self._to_order(document) for document in cursor]
 
     async def update_status(
         self, order_id: str, *, expected_status: OrderStatus, status: OrderStatus,
@@ -93,8 +113,9 @@ class MongoOrderRepository(OrderRepositoryPort):
 
     def find_by_operation_id_sync(self, operation_id: str, session=None) -> Order | None:
         session_options = {"session": session} if session is not None else {}
+        # Explicitly imply the partial index predicate for Mongo's query planner.
         document = self.collection.find_one(
-            {"operation_id": operation_id}, **session_options
+            {"operation_id": {"$eq": operation_id, "$type": "string"}}, **session_options
         )
         if document is None:
             return None
@@ -109,6 +130,7 @@ class MongoOrderRepository(OrderRepositoryPort):
             quantity=document["quantity"],
             status=OrderStatus(document["status"]),
             created_at=datetime.fromisoformat(document["created_at"]),
+            customer_id=document.get("customer_id"),
         )
 
     def insert(self, order: Order, session=None) -> Order:
@@ -121,6 +143,7 @@ class MongoOrderRepository(OrderRepositoryPort):
                 "quantity": order.quantity,
                 "status": order.status.value,
                 "created_at": order.created_at.isoformat(),
+                **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
             },
             **session_options,
         )
@@ -134,7 +157,7 @@ class MongoOrderRepository(OrderRepositoryPort):
             existing = await self.find_by_operation_id(order.operation_id)
             if existing is None:
                 raise
-            validate_order_payload(existing, order.product_name, order.quantity)
+            validate_order_payload(existing, order.product_name, order.quantity, order.customer_id)
             event(logger, "order_replay_detected", operation_id=order.operation_id,
                   order_id=existing.order_id)
             return existing

@@ -18,6 +18,7 @@ def make_order():
         order_id="order-123", operation_id="op-123", product_name="Bosch X100",
         quantity=2, status=OrderStatus.CREATED,
         created_at=datetime(2026, 10, 9, tzinfo=timezone.utc),
+        customer_id="customer-a",
     )
 
 
@@ -36,7 +37,7 @@ def assert_read_only(repo):
 def test_found_status_comes_from_persisted_order_and_is_immutable():
     order = make_order()
     repo = repository(order)
-    result = asyncio.run(GetOrderStatusUseCase(repo).execute(order.order_id))
+    result = asyncio.run(GetOrderStatusUseCase(repo).execute(order.order_id, customer_id="customer-a"))
     assert result == OrderStatusResult(
         order_id=order.order_id, status=OrderStatus.CREATED, result="FOUND",
         response="Commande order-123 : statut CREATED.",

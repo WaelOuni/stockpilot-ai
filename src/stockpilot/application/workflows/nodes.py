@@ -66,6 +66,9 @@ def create_order_confirmation_node(
         if decision is None:
             return {"confirmation_handled": False}
 
+        if pending_order.get("customer_id") != state.get("customer_id"):
+            raise ValueError("La commande en attente appartient à un autre client.")
+
         updated_order = dict(pending_order)
         if decision == "confirmed":
             product_name = str(updated_order["product_name"])
@@ -77,7 +80,8 @@ def create_order_confirmation_node(
             timer = Timer()
             try:
                 created_order = await finalize_order.execute(
-                    product_name, quantity, operation_id=operation_id
+                    product_name, quantity, operation_id=operation_id,
+                    customer_id=state.get("customer_id"),
                 )
             except OrderOutcomeUnknownError:
                 event(logger, "order_outcome_unknown", level=logging.CRITICAL,
@@ -243,6 +247,7 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
                 "product_name": product_name or "",
                 "quantity": result.quantity,
                 "status": status.value,
+                **({"customer_id": state["customer_id"]} if state.get("customer_id") is not None else {}),
             }
             if result.quantity == 1:
                 response = (
@@ -286,7 +291,7 @@ def create_order_status_node(get_order_status: GetOrderStatusUseCase):
             or state.get("last_created_order_id")
             or state.get("created_order_id")
         )
-        result = await get_order_status.execute(order_id)
+        result = await get_order_status.execute(order_id, customer_id=state.get("customer_id"))
         return {
             "queried_order_id": result.order_id,
             "queried_order_status": result.status.value if result.status else None,
