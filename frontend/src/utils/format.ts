@@ -11,6 +11,10 @@ export function orderStatusLabel(status: OrderStatus): string {
   return labels[status] || status
 }
 
+export function isOrderStatus(value: unknown): value is OrderStatus {
+  return typeof value === 'string' && Object.hasOwn(labels, value)
+}
+
 export function formatDate(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value

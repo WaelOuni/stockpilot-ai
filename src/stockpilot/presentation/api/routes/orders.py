@@ -6,12 +6,14 @@ from stockpilot.application.use_cases.update_order_status import (
 )
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.application.use_cases.list_customer_orders import ListCustomerOrdersUseCase
+from stockpilot.application.use_cases.get_customer_order import GetCustomerOrderUseCase
 from stockpilot.domain.services.order_lifecycle import InvalidOrderStatusTransitionError
 from stockpilot.presentation.api.auth import require_backoffice_token, require_customer_identity
 from stockpilot.presentation.api.dependencies import (
     get_cancel_order_use_case,
     get_update_order_status_use_case,
     get_list_customer_orders_use_case,
+    get_customer_order_use_case,
 )
 from stockpilot.presentation.api.schemas.order import (
     CustomerOrdersResponse, OrderResponse, UpdateOrderStatusRequest,
@@ -19,6 +21,18 @@ from stockpilot.presentation.api.schemas.order import (
 
 
 router = APIRouter()
+
+
+@router.get("/orders/{order_id}", response_model=OrderResponse)
+async def get_customer_order(
+    order_id: str,
+    customer_id: str = Depends(require_customer_identity),
+    use_case: GetCustomerOrderUseCase = Depends(get_customer_order_use_case),
+) -> OrderResponse:
+    order = await use_case.execute(order_id, customer_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Commande introuvable (NOT_FOUND).")
+    return OrderResponse.model_validate(order)
 
 
 @router.get("/orders", response_model=CustomerOrdersResponse)

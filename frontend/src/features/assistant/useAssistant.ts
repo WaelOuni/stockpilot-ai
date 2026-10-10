@@ -7,6 +7,7 @@ export interface ConversationMessage {
   id: string
   role: 'customer' | 'assistant'
   text: string
+  result?: AssistantResponse
 }
 
 const state = reactive({
@@ -15,6 +16,7 @@ const state = reactive({
   result: null as AssistantResponse | null,
   loading: false,
   error: null as Error | null,
+  decisionAttempted: false,
 })
 let controller: AbortController | null = null
 
@@ -26,6 +28,7 @@ function reset() {
   state.result = null
   state.loading = false
   state.error = null
+  state.decisionAttempted = false
 }
 
 watch(customerToken, reset, { flush: 'sync' })
@@ -43,7 +46,8 @@ async function send(message: string): Promise<void> {
     )
     if (request.signal.aborted) return
     state.result = result
-    state.messages.push({ id: crypto.randomUUID(), role: 'assistant', text: result.response })
+    state.decisionAttempted = false
+    state.messages.push({ id: crypto.randomUUID(), role: 'assistant', text: result.response, result })
   } catch (error) {
     if (!request.signal.aborted) state.error = error instanceof Error ? error : new Error('Erreur inattendue.')
   } finally {
@@ -54,6 +58,13 @@ async function send(message: string): Promise<void> {
   }
 }
 
+async function decide(decision: 'confirm' | 'cancel') {
+  if (state.loading || state.error || state.decisionAttempted ||
+      state.result?.intent !== 'ORDER' || state.result.order_status !== 'PENDING_CONFIRMATION') return
+  state.decisionAttempted = true
+  await send(decision === 'confirm' ? 'Oui je confirme' : 'Non annule')
+}
+
 export function useAssistant() {
-  return { state: readonly(state), send, reset }
+  return { state: readonly(state), send, reset, decide }
 }

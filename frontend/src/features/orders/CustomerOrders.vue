@@ -4,7 +4,9 @@ import { listCustomerOrders } from '../../api/client'
 import ApiErrorNotice from '../../components/ApiErrorNotice.vue'
 import type { CustomerOrdersResponse } from '../../types/api'
 import { customerToken } from '../../utils/customerSession'
-import { formatDate, orderStatusLabel } from '../../utils/format'
+import { formatDate } from '../../utils/format'
+import OrderStatusBadge from '../../components/OrderStatusBadge.vue'
+import { RouterLink } from 'vue-router'
 
 const limit = 20
 const page = ref<CustomerOrdersResponse | null>(null)
@@ -91,10 +93,7 @@ onBeforeUnmount(() => { controller?.abort() })
         >
           <div class="order-heading">
             <h2>{{ order.product_name }}</h2>
-            <span
-              class="status-badge"
-              :class="order.status.toLowerCase()"
-            >{{ orderStatusLabel(order.status) }}</span>
+            <OrderStatusBadge :status="order.status" />
           </div>
           <dl>
             <div><dt>Quantite</dt><dd>{{ order.quantity }}</dd></div>
@@ -105,6 +104,12 @@ onBeforeUnmount(() => { controller?.abort() })
               </dd>
             </div>
           </dl>
+          <RouterLink
+            class="context-link"
+            :to="`/orders/${encodeURIComponent(order.order_id)}`"
+          >
+            Voir la commande
+          </RouterLink>
         </article>
       </div>
     </template>

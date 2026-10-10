@@ -281,6 +281,7 @@ def test_openapi_bearer_security_is_only_on_mutation_endpoints():
     assert bearer_names
     protected = {
         ("get", "/orders"),
+        ("get", "/orders/{order_id}"),
         ("patch", "/orders/{order_id}/status"),
         ("post", "/orders/{order_id}/cancel"),
         ("post", "/assistant"),

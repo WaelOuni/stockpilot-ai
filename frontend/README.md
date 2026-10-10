@@ -1,7 +1,8 @@
 # StockPilot frontend MVP
 
 Vue 3 + TypeScript + Vite, Composition API, vue-router and native fetch.
-Only the customer endpoints `POST /assistant` and `GET /orders` are used.
+Only the customer endpoints `POST /assistant`, `GET /orders` and
+`GET /orders/{order_id}` are used.
 There is no back-office UI, login service or client-side business transition logic.
 
 ## Run locally
@@ -50,7 +51,7 @@ src/
   features/assistant/  Session-local transcript, thread and conversation UI
   features/orders/     Customer history and offset pagination
   pages/               Assistant and My Orders page shells
-  router/              /assistant and /orders
+  router/              /assistant, /orders and /orders/:orderId
   types/               Backend request/response and enum contracts
   utils/               In-memory token and display formatters
   App.vue              Navigation and shared layout
@@ -64,11 +65,40 @@ including CANCELLED, are shown. Pagination uses limit 20 and offset increments o
 20; `count` is the page size, not a total. A full last page can lead to an empty
 next page because the API has no `has_more` field.
 
+Each history card and identified assistant summary links to its detail page.
+The page loads the current owned order directly through the customer API, not
+through the LLM. It renders product, quantity, identifier, creation date and
+status, plus a CREATED / PROCESSING / SHIPPED / DELIVERED timeline. CANCELLED
+shows cancellation without suggesting subsequent stages were reached.
+There are no stage timestamps in the contract, so none are invented.
+
+The detail page polls 15 seconds **after each completed successful request**,
+only while mounted and non-terminal, without overlapping requests. DELIVERED,
+CANCELLED and errors stop polling; manual refresh remains available. Changing
+the route/JWT aborts stale requests and clears the old detail. 404 does not
+distinguish foreign, legacy and nonexistent orders. A request already processed
+by the server is not rolled back by browser cancellation.
+
 `/assistant` returns the existing partial LangGraph state, not a dedicated
 Pydantic response DTO. Types are based on `schemas/chat.py`, `schemas/order.py`,
 `workflows/state.py` and domain enums. The client checks JSON and the fields
 needed to start rendering, not a complete generated runtime schema.
 Assistant text is rendered as escaped plain text, not HTML or Markdown.
+Structured response cards supplement that text: pending orders offer Confirm
+and Cancel buttons, confirmed orders show their identifier and a My Orders link,
+insufficient stock shows the requested quantity, and FOUND status lookups show a
+badge for the exact supported status. My Orders uses the same status badge.
+Cards remain in the local transcript; only the latest eligible preparation can
+be acted on. Buttons send `Oui je confirme` or `Non annule` through `/assistant`
+in the current thread, never a back-office request. Old cards, in-flight requests
+and failed decision attempts cannot trigger another click-based confirmation.
+
+The API does not provide structured available stock or product/quantity in
+ORDER_STATUS; those values are not guessed from prose or stale workflow fields.
+The insufficient-stock card points to the response text for availability.
+The status card shows only the queried ID/status. A creation summary uses its
+confirmed pending-order payload and ID, and links to My Orders for current status
+instead of inventing a lifecycle field absent from that response.
 ORDER remains conversational: enter the requested product/quantity, then follow
 the backend's explicit confirmation prompt in the same thread.
 No request is retried automatically, especially after ambiguous order failures.
@@ -172,8 +202,10 @@ Avoid enabling Playwright debug/API logging, which can record token input.
 Screenshots, traces and videos are deliberately disabled.
 
 The scenario connects through the UI, sends `Commande-moi une Bosch X100`,
-checks preparation and explicit confirmation, sends `Oui je confirme`, checks
-the created order directly in Mongo, opens My Orders, then returns to Assistant
+checks preparation and explicit confirmation, clicks **Confirmer** (sending
+`Oui je confirme`), checks
+the created order directly in Mongo, opens My Orders and the CREATED detail page,
+checks its timeline and manual refresh, then returns to Assistant
 and asks `Quel est le statut de ma dernière commande ?`. It checks that all
 assistant requests share the same generated thread, that the listing displays
 the created order, and that ORDER_STATUS matches the stored Mongo status.

@@ -167,6 +167,34 @@ product, confirmation, ORDER_STATUS, and thread/customer isolation.
 
 ## Authenticated customer order history
 
+### Customer order detail
+
+`GET /orders/{order_id}` uses the customer JWT dependency and
+`GetCustomerOrderUseCase`. The repository queries
+`{"order_id": order_id, "customer_id": validated_customer_id}` directly in Mongo.
+The existing unique `order_id` index already selects at most one order; no new
+index is needed. There is no global lookup followed by an application ownership
+check, and no LLM invocation. ORDER_STATUS remains unchanged.
+
+200 returns the existing `OrderResponse`: `order_id`, `product_name`, `quantity`,
+`status`, `created_at`. Missing, foreign and unowned legacy orders all return the
+same 404 `Commande introuvable (NOT_FOUND).` No owner or operation ID is exposed.
+Missing/invalid JWT returns 401, missing auth configuration 503, and unexpected
+technical errors use the existing logged/sanitized 500 middleware.
+
+```sh
+TOKEN=$(python scripts/create_customer_token.py local-client-a)
+ORDER_ID='replace-with-owned-order-id'
+curl --fail-with-body "http://localhost:8000/orders/$ORDER_ID" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+The Vue route `/orders/:orderId` renders the current detail and status timeline,
+with manual refresh and 15-second polling while non-terminal. CANCELLED has a
+separate cancellation view rather than implying later lifecycle stages occurred.
+No stage timestamps are stored/exposed, so the timeline shows only progress,
+not invented event dates. Only back-office routes can change lifecycle status.
+
 `GET /orders?limit=20&offset=0` uses the same customer JWT dependency as
 `/assistant`. Only the verified `customer_id` claim determines the owner;
 query parameters and `X-Customer-Id` cannot select another customer.

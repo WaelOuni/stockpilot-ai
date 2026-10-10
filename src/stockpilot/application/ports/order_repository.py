@@ -15,10 +15,16 @@ class OrderRepositoryPort(Protocol):
     async def find_by_order_id(self, order_id: str) -> Order | None:
         ...
 
+    async def find_by_order_id_and_customer_id(
+        self, order_id: str, customer_id: str,
+    ) -> Order | None:
+        """Return only an order owned by the exact nonblank customer."""
+        ...
+
     async def find_by_customer_id(
         self, customer_id: str, limit: int, offset: int,
     ) -> list[Order]:
-        """Global technical lookup; customer-facing callers must verify ownership."""
+        """Filter by the exact customer before pagination."""
         ...
 
     async def update_status(

@@ -59,6 +59,12 @@ class MongoOrderRepository(OrderRepositoryPort):
         )
         return [self._to_order(document) for document in cursor]
 
+    async def find_by_order_id_and_customer_id(
+        self, order_id: str, customer_id: str,
+    ) -> Order | None:
+        document = self.collection.find_one({"order_id": order_id, "customer_id": customer_id})
+        return self._to_order(document) if document is not None else None
+
     async def update_status(
         self, order_id: str, *, expected_status: OrderStatus, status: OrderStatus,
     ) -> Order | None:

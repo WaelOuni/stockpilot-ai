@@ -31,3 +31,9 @@ function isOrder(value: unknown): value is OrderResponse {
     'status' in value && typeof value.status === 'string' &&
     ['CREATED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].includes(value.status)
 }
+
+export async function getCustomerOrder(orderId: string, signal?: AbortSignal): Promise<OrderResponse> {
+  const result = await requestJson<unknown>(`/orders/${encodeURIComponent(orderId)}`, { signal })
+  if (!isOrder(result)) throw new ApiError('Le detail de commande est incomplet.', 200)
+  return result
+}

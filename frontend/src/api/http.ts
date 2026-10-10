@@ -41,6 +41,7 @@ export async function requestJson<T>(
     const messages: Record<number, string> = {
       401: 'JWT absent, invalide ou expire. Remplacez le token client.',
       403: 'Acces refuse.',
+      404: 'Commande introuvable.',
       422: 'La requete est invalide.',
       503: 'Service indisponible. Verifiez la configuration du backend.',
     }

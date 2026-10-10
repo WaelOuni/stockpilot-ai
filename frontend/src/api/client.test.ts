@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { listCustomerOrders, sendAssistantMessage } from './client'
+import { getCustomerOrder, listCustomerOrders, sendAssistantMessage } from './client'
 import { ApiError, requestJson } from './http'
 import { setCustomerToken } from '../utils/customerSession'
 
@@ -21,6 +21,13 @@ afterEach(() => {
 })
 
 describe('HTTP client', () => {
+  it('encodes an order identifier and validates detail response', async () => {
+    fetchMock.mockResolvedValueOnce(json({ order_id: 'a/b', product_name: 'Bosch X100', quantity: 1, status: 'CREATED', created_at: '2026-10-10' }))
+    expect((await getCustomerOrder('a/b')).order_id).toBe('a/b')
+    expect(fetchMock.mock.calls[0]![0]).toBe('/api/orders/a%2Fb')
+    fetchMock.mockResolvedValueOnce(json({ status: 'PAID' }))
+    await expect(getCustomerOrder('id')).rejects.toThrow('incomplet')
+  })
   it('sends the real assistant contract and centralized Bearer header', async () => {
     fetchMock.mockResolvedValue(json({ response: 'Bonjour', intent: 'UNKNOWN' }))
     const body = { message: 'Bonjour', thread_id: 'thread-1' }

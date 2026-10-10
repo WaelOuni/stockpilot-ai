@@ -43,12 +43,16 @@ function probe<T>(action: 'stock' | 'order', customerId: string, orderId?: strin
   return JSON.parse(output) as T
 }
 
-async function send(page: Page, message: string, expectedThread?: string) {
+async function send(page: Page, message: string, expectedThread?: string, confirmButton = false) {
   const received = page.waitForResponse((response) =>
     response.url().endsWith('/api/assistant') && response.request().method() === 'POST',
   { timeout: 120_000 })
-  await page.getByLabel('Votre message', { exact: true }).fill(message)
-  await page.getByRole('button', { name: 'Envoyer', exact: true }).click()
+  if (confirmButton) {
+    await page.getByRole('button', { name: 'Confirmer', exact: true }).click()
+  } else {
+    await page.getByLabel('Votre message', { exact: true }).fill(message)
+    await page.getByRole('button', { name: 'Envoyer', exact: true }).click()
+  }
   const response = await received
   expect(response.status(), 'Assistant must respond successfully; verify JWT and backend services.').toBe(200)
   const payload = response.request().postDataJSON() as { message: string; thread_id: string }
@@ -88,13 +92,15 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
   await expect(page.getByText('Une commande attend votre decision.', { exact: false })).toBeVisible()
   expect(preparation.result.response).toMatch(/Confirmez-vous/)
 
-  const confirmation = await send(page, 'Oui je confirme', preparation.threadId)
+  await expect(page.getByRole('region', { name: 'Commande à confirmer' })).toBeVisible()
+  const confirmation = await send(page, 'Oui je confirme', preparation.threadId, true)
   expect(confirmation.result.order_status).toBe('CONFIRMED')
   expect(confirmation.result.confirmation_handled).toBe(true)
   expect(confirmation.result.created_order_id).toMatch(/^[0-9a-f-]{36}$/)
   const orderId = confirmation.result.created_order_id!
   expect(confirmation.result.response).toContain(orderId)
   expect(confirmation.result.response).toContain('Bosch X100')
+  await expect(page.getByRole('region', { name: 'Commande créée' })).toBeVisible()
   const stored = probe<MongoOrder>('order', customerId, orderId)
   expect(stored).toMatchObject({
     order_id: orderId, customer_id: customerId, product_name: 'Bosch X100',
@@ -105,7 +111,7 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
 
   const listing = page.waitForResponse((response) =>
     new URL(response.url()).pathname === '/api/orders' && response.request().method() === 'GET')
-  await page.getByRole('navigation').getByRole('link', { name: 'My Orders', exact: true }).click()
+  await page.getByRole('region', { name: 'Commande créée' }).getByRole('link', { name: 'Voir mes commandes' }).click()
   const listingResponse = await listing
   expect(listingResponse.status()).toBe(200)
   const history = await listingResponse.json() as CustomerOrdersResponse
@@ -116,7 +122,20 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
   await expect(page.getByRole('heading', { name: 'My Orders', exact: true })).toBeVisible()
   const card = page.getByRole('article').filter({ has: page.getByText(orderId, { exact: true }) })
   await expect(card.getByRole('heading', { name: 'Bosch X100', exact: true })).toBeVisible()
-  await expect(card.getByText('Creee', { exact: true })).toBeVisible()
+  await expect(card.getByText('Creee', { exact: false })).toBeVisible()
+
+  const detailRequest = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === `/api/orders/${orderId}` && response.request().method() === 'GET')
+  await card.getByRole('link', { name: 'Voir la commande', exact: true }).click()
+  const detailResponse = await detailRequest
+  expect(detailResponse.status()).toBe(200)
+  await expect(page.getByRole('heading', { name: 'Détail de commande' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Détail de la commande' }).getByText('(CREATED)', { exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Progression de la commande' }).locator('[aria-current="step"]')).toContainText('CREATED')
+  const refreshRequest = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === `/api/orders/${orderId}` && response.request().method() === 'GET')
+  await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
+  expect((await refreshRequest).status()).toBe(200)
 
   await page.getByRole('navigation').getByRole('link', { name: 'Assistant', exact: true }).click()
   await expect(page.getByRole('log').getByText('Oui je confirme', { exact: true })).toBeVisible()
@@ -127,5 +146,6 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
   expect(status.result.queried_order_id).toBe(latest.order_id)
   expect(status.result.queried_order_status).toBe(latest.status)
   expect(status.result.response).toContain(latest.status)
+  await expect(page.getByRole('region', { name: 'Statut de la commande' }).getByText('(CREATED)', { exact: true })).toBeVisible()
   expect(browserErrors, 'No console errors or uncaught browser exceptions expected.').toEqual([])
 })

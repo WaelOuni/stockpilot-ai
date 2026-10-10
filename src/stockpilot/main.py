@@ -13,6 +13,7 @@ from stockpilot.application.use_cases.update_order_status import UpdateOrderStat
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.application.use_cases.list_customer_orders import ListCustomerOrdersUseCase
 from stockpilot.application.use_cases.resolve_context import ContextResolutionUseCase
+from stockpilot.application.use_cases.get_customer_order import GetCustomerOrderUseCase
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -119,6 +120,7 @@ update_order_status_use_case = UpdateOrderStatusUseCase(order_repository)
 cancel_order_use_case = CancelOrderUseCase(order_repository)
 list_customer_orders_use_case = ListCustomerOrdersUseCase(order_repository)
 context_resolution_use_case = ContextResolutionUseCase()
+get_customer_order_use_case = GetCustomerOrderUseCase(order_repository)
 
 recommend_product_use_case = RecommendProductUseCase(
     embedding_adapter,
@@ -137,6 +139,7 @@ app.state.get_order_status_use_case = get_order_status_use_case
 app.state.update_order_status_use_case = update_order_status_use_case
 app.state.cancel_order_use_case = cancel_order_use_case
 app.state.list_customer_orders_use_case = list_customer_orders_use_case
+app.state.get_customer_order_use_case = get_customer_order_use_case
 
 app.include_router(health_router)
 app.include_router(chat_router)

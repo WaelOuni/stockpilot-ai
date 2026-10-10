@@ -3,8 +3,9 @@ import { nextTick, ref, watch } from 'vue'
 import ApiErrorNotice from '../../components/ApiErrorNotice.vue'
 import { customerToken } from '../../utils/customerSession'
 import { useAssistant } from './useAssistant'
+import AssistantResponseCard from './AssistantResponseCard.vue'
 
-const { state, send, reset } = useAssistant()
+const { state, send, reset, decide } = useAssistant()
 const draft = ref('')
 const transcript = ref<HTMLElement | null>(null)
 watch(customerToken, () => { draft.value = '' })
@@ -65,6 +66,13 @@ function newConversation() {
       >
         <span class="message-author">{{ message.role === 'customer' ? 'Vous' : 'StockPilot' }}</span>
         <p>{{ message.text }}</p>
+        <AssistantResponseCard
+          v-if="message.result"
+          :result="message.result"
+          :actionable="message.id === state.messages.at(-1)?.id && !state.loading && !state.error && !state.decisionAttempted && !!customerToken"
+          @confirm="decide('confirm')"
+          @cancel="decide('cancel')"
+        />
       </article>
       <p
         v-if="state.loading"
