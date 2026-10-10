@@ -1,6 +1,7 @@
 import logging
 from stockpilot.observability import Timer, bind_context, event, timed_event
 
+from stockpilot.application.use_cases.catalogue_advice import extract_criteria, ClarificationRequired
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
 from stockpilot.application.dto.intent_result import IntentResult
 from stockpilot.application.use_cases.resolve_context import (
@@ -35,6 +36,8 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase):
         event(logger, "intent_detected", intent=result.intent.value)
 
         return {
+            "recommendations": [],
+            "advice_status": None,
             "intent": result.intent,
             "raw_product": result.raw_product,
             "product_name": result.product_name,
@@ -223,10 +226,33 @@ def route_after_confirmation(state: StockPilotState) -> str:
 def create_advice_node(
     recommend_product: RecommendProductUseCase,
     check_stock: CheckStockUseCase,
+    catalogue_advice=None,
 ):
     async def advice_node(
         state: StockPilotState,
     ) -> StockPilotState:
+        if catalogue_advice is not None:
+            question = state["message"]
+            # Reuse only user-authored evidence from a resolved same-owner follow-up,
+            # never classifier-supplied budgets/categories in the generated summary.
+            if state.get("advice_query") and state.get("last_advice_query"):
+                question = state["last_advice_query"] + "\n" + question
+            advice = await catalogue_advice.execute(question)
+            try:
+                criteria = extract_criteria(question)
+            except ClarificationRequired:
+                criteria = None
+            # Do not expose model-invented single-product/constraint metadata beside
+            # verified multi-product cards; subsequent context is grounded too.
+            return {
+                **advice, "product_name": None, "raw_product": None,
+                "quantity": None, "usage": None, "last_product_name": None,
+                "last_quantity": None, "last_usage": None,
+                "category": criteria.category if criteria else None,
+                "budget": criteria.maximum if criteria else None,
+                "last_category": criteria.category if criteria else None,
+                "last_budget": criteria.maximum if criteria else None,
+            }
         recommendation = await recommend_product.execute(
             state.get("advice_query") or state["message"]
         )

@@ -56,4 +56,7 @@ async def assistant(
         event(logger, "assistant_request_completed", duration_ms=timer.duration_ms,
               order_status=result.get("order_status"),
               created_order_id=result.get("created_order_id"))
+    if result.get("intent") != "PRODUCT_ADVICE" or result.get("confirmation_handled"):
+        result.pop("recommendations", None)
+        result.pop("advice_status", None)
     return result

@@ -6,6 +6,18 @@ export async function sendAssistantMessage(body: AssistantRequest, signal?: Abor
   if (typeof result?.response !== 'string') {
     throw new ApiError('La reponse assistant est incomplete.', 200)
   }
+  if (result.intent === 'PRODUCT_ADVICE' && result.advice_status != null) {
+    const status = result.advice_status
+    if (!['RESULTS', 'NO_RESULTS', 'CLARIFICATION_REQUIRED', 'CATALOGUE_UNAVAILABLE'].includes(status) ||
+        !Array.isArray(result.recommendations) || result.recommendations.length > 5 ||
+        !result.recommendations.every(product => isProduct(product) &&
+          product.sku.trim() && product.product_name.trim() && product.price >= 0 && product.stock >= 0 &&
+          'explanation' in product && typeof product.explanation === 'string' && product.explanation.trim()) ||
+        new Set(result.recommendations.map(product => product.sku)).size !== result.recommendations.length ||
+        (status === 'RESULTS' ? !result.recommendations.length : !!result.recommendations.length)) {
+      throw new ApiError('Les recommandations sont incompletes.', 200)
+    }
+  }
   return { ...result, response: result.response }
 }
 

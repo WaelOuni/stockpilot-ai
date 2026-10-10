@@ -1,3 +1,4 @@
+from stockpilot.application.dto.advice_criteria import AdviceCriteria
 from typing import Protocol
 from datetime import datetime
 
@@ -36,6 +37,10 @@ class ProductRepositoryPort(Protocol):
         self, limit: int, offset: int, *, q: str | None = None,
         category: ProductCategory | None = None, available: bool | None = None,
     ) -> ProductPage:
+        ...
+
+    async def find_advice_candidates(self, criteria: AdviceCriteria) -> list[Product]:
+        """Read bounded candidates filtered and ordered by price/SKU in the store."""
         ...
 
     async def find_by_sku(self, sku: str) -> Product | None:

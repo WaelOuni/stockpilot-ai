@@ -13,7 +13,13 @@ export interface AssistantRequest {
 }
 
 // /assistant returns a partial workflow state, not a dedicated response schema.
+export interface ProductRecommendation extends ProductResponse {
+  explanation: string
+}
+
 export interface AssistantResponse {
+  recommendations?: readonly ProductRecommendation[]
+  advice_status?: 'RESULTS' | 'NO_RESULTS' | 'CLARIFICATION_REQUIRED' | 'CATALOGUE_UNAVAILABLE' | null
   response?: string
   message?: string
   customer_id?: string | null

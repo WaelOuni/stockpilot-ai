@@ -33,6 +33,7 @@ def build_graph(
     *,
     get_order_status: GetOrderStatusUseCase,
     resolve_context: ContextResolutionUseCase | None = None,
+    catalogue_advice=None,
 ):
     graph = StateGraph(StockPilotState)
 
@@ -48,7 +49,7 @@ def build_graph(
     )
     graph.add_node(
         "advice",
-        create_advice_node(recommend_product, check_stock),
+        create_advice_node(recommend_product, check_stock, catalogue_advice),
     )
     graph.add_node("stock", create_stock_node(check_stock))
     graph.add_node("order", create_order_node(prepare_order))

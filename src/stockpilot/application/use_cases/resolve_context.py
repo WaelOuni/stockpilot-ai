@@ -54,6 +54,10 @@ _ADVICE_USAGE = re.compile(
     r"(beton|bois|metal|acier|brique|maconnerie|placo)"
 )
 _ADVICE_BUDGET = re.compile(r"(?:et )?(?:avec un budget de|pour|budget) (\d+) (?:euros?|eur)")
+_ADVICE_REPEAT = re.compile(
+    r"(?:propose[- ]moi|recommande[- ]moi) (?:un|deux|trois|quatre|cinq|[1-5]) "
+    r"produits? dans mon budget"
+)
 _RELEVANT = {Intent.ORDER, Intent.STOCK_CHECK, Intent.PRODUCT_ADVICE}
 
 
@@ -68,11 +72,12 @@ class ContextResolutionUseCase:
         stock = _STOCK.fullmatch(normalized)
         usage = _ADVICE_USAGE.fullmatch(normalized)
         budget = _ADVICE_BUDGET.fullmatch(normalized)
+        repeat_advice = _ADVICE_REPEAT.fullmatch(normalized)
 
         continuation = bool(
             (previous.intent == Intent.ORDER and (quantity or product))
             or (previous.intent == Intent.STOCK_CHECK and (stock or product))
-            or (previous.intent == Intent.PRODUCT_ADVICE and previous.advice_query and (usage or budget))
+            or (previous.intent == Intent.PRODUCT_ADVICE and previous.advice_query and (usage or budget or repeat_advice))
         )
         compatible = continuation and result.intent in (Intent.UNKNOWN, previous.intent)
         if compatible and previous.intent is not None:

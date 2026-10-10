@@ -1,3 +1,4 @@
+from stockpilot.application.dto.advice_criteria import AdviceCriteria
 import re
 from datetime import datetime, timezone
 
@@ -162,6 +163,32 @@ class MongoProductRepository(ProductRepositoryPort):
             items=[self._to_product(document) for document in documents[:limit]],
             has_more=len(documents) > limit,
         )
+
+    async def find_advice_candidates(self, criteria: AdviceCriteria) -> list[Product]:
+        query = {"price": {"$gte": 0}}
+        if criteria.maximum is not None:
+            query["price"]["$lt" if criteria.exclusive_maximum else "$lte"] = criteria.maximum
+        if criteria.minimum is not None:
+            query["price"]["$gte"] = criteria.minimum
+        if criteria.category is not None:
+            query["category"] = criteria.category.value
+        if criteria.available is not None:
+            query["stock"] = {"$gt" if criteria.available else "$lte": 0}
+        documents = self.collection.find(query).sort([
+            ("price", 1), ("sku", 1), ("_id", 1),
+        ]).limit(criteria.limit)
+        products = []
+        for document in documents:
+            if (isinstance(document["price"], bool)
+                    or not isinstance(document["price"], (int, float))
+                    or isinstance(document["stock"], bool)
+                    or not isinstance(document["stock"], int) or document["stock"] < 0):
+                raise ValueError("Malformed catalogue facts; advice refused.")
+            product = self._to_product(document)
+            if not product.sku.strip() or not product.name.strip() or not criteria.matches(product):
+                raise ValueError("Invalid catalogue candidate; advice refused.")
+            products.append(product)
+        return products
 
     async def find_by_sku(self, sku: str) -> Product | None:
         documents = list(self.collection.find({"sku": sku}).limit(2))

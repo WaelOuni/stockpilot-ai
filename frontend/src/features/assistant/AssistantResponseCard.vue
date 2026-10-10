@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { AssistantResponse } from '../../types/api'
+import ProductRecommendationCard from '../../components/ProductRecommendationCard.vue'
 import OrderConfirmationCard from '../../components/OrderConfirmationCard.vue'
 import OrderSummaryCard from '../../components/OrderSummaryCard.vue'
 import StockAvailabilityCard from '../../components/StockAvailabilityCard.vue'
@@ -23,6 +24,13 @@ const foundStatus = computed(() =>
 </script>
 
 <template>
+  <div v-if="result.intent === 'PRODUCT_ADVICE' && result.advice_status === 'RESULTS' && !result.confirmation_handled">
+    <ProductRecommendationCard
+      v-for="product in result.recommendations || []"
+      :key="product.sku"
+      :product="product"
+    />
+  </div>
   <OrderSummaryCard
     v-if="result.intent === 'ORDER_STATUS' && result.order_status_result === 'FOUND' && result.queried_order_id && foundStatus"
     title="Statut de la commande"
