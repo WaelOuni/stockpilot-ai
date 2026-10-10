@@ -15,6 +15,14 @@ to troubleshoot unknown data.
 | PostgreSQL `stockpilot` | Application RAG and default conversation checkpoints |
 | PostgreSQL `stockpilot_eval` | Dedicated, repeatable product-document eval corpus |
 
+Order documents include an embedded `events` array (`status`, UTC ISO 8601
+`occurred_at`, `source`). Creation inserts CREATED/SYSTEM once; status updates
+atomically append with the status change, and cancellation appends in the stock
+transaction. Events need no new index or collection. Legacy documents without the
+field remain readable as an empty history; no historical data is backfilled.
+See [embedded order events](order-flow.md#embedded-order-events) for write and
+replay guarantees.
+
 Compose uses PostgreSQL 16/pgvector and MongoDB 8. Mongo is a **single-node
 replica set `rs0`**, required for multi-document transactions, not high availability.
 PostgreSQL/RAG/Ollama are unaffected by the Mongo replica-set conversion.
@@ -272,6 +280,23 @@ and rejects a different owner on replay.
 Privileged lifecycle/cancellation updates preserve the stored owner.
 
 ## Public operational product catalogue
+
+Optional `q`, `category`, `available` filters are combined in Mongo before
+skip/limit; `count` remains page size. `q` is trimmed and limited to 100
+characters, searched literally (regex metacharacters escaped) in SKU or name
+using Mongo `$regex` with `i`. Blank text means no text filter. Category is exact
+ProductCategory equality; unknown categories/invalid booleans/oversized q return
+422. Availability maps to `{"stock": {"$gt": 0}}` or `{"stock": {"$lte": 0}}`.
+No scoring, accent folding, fuzzy matching, synonyms or RAG is involved.
+
+Read-only explain audit on the local three-product dataset found only `_id_` on
+products. Unfiltered, text, category, availability and combined queries all use
+COLLSCAN plus stable SKU/_id sort, examining 3 documents and 0 index keys.
+No index is added: this dataset gives no measured need, and unanchored
+case-insensitive substring queries are not served efficiently by ordinary
+B-tree indexes. Re-evaluate category/sort indexes and pagination at larger scale,
+using representative explain results rather than adding speculative indexes.
+The audit did not modify development products or indexes.
 
 `GET /products?limit=20&offset=0` reads Mongo products, sorted by SKU ascending
 with `_id` as an internal tie-breaker, before applying skip/limit. Limit is

@@ -26,7 +26,8 @@ def test_customer_detail_owned_missing_foreign_legacy_are_scoped(monkeypatch, st
     collection.find_one.assert_called_once_with({"order_id": order.order_id, "customer_id": "customer-a"})
     assert response.status_code == (200 if stored_customer == "customer-a" else 404)
     if response.status_code == 200:
-        assert set(response.json()) == {"order_id", "product_name", "quantity", "status", "created_at"}
+        assert set(response.json()) == {"order_id", "product_name", "quantity", "status", "created_at", "events"}
+        assert response.json()["events"] == []
         assert response.json()["status"] == "CREATED"
     else:
         assert response.json() == {"detail": "Commande introuvable (NOT_FOUND)."}

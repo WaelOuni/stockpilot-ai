@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test, expect, type Page } from '@playwright/test'
-import type { AssistantResponse, CustomerOrdersResponse } from '../src/types/api'
+import type { AssistantResponse, CustomerOrdersResponse, OrderResponse, OrderEvent } from '../src/types/api'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const python = process.env.E2E_PYTHON || resolve(root, '.venv/bin/python')
@@ -26,6 +26,7 @@ interface MongoOrder {
   status: string
   operation_id: string
   remaining_stock: number
+  events: OrderEvent[]
 }
 
 function probe<T>(action: 'stock' | 'order', customerId: string, orderId?: string): T {
@@ -67,7 +68,7 @@ async function send(page: Page, message: string, expectedThread?: string, confir
   return { result, threadId: payload.thread_id }
 }
 
-test('creates its own order, lists it and reads the Mongo status in the same thread', async ({ page }) => {
+test('creates, tracks polling updates and cancels its own order', async ({ page, request }) => {
   const customerId = `e2e-customer-${randomUUID()}`
   const token = generateToken(customerId)
   expect(probe<{ stock: number }>('stock', customerId).stock).toBe(10)
@@ -87,6 +88,34 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
 
   await page.getByRole('navigation').getByRole('link', { name: 'Catalogue', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Catalogue', exact: true })).toBeVisible()
+  await page.getByLabel('Catégorie', { exact: true }).selectOption('DRILL')
+  await page.getByLabel('Recherche', { exact: true }).fill('Bosch')
+  await page.getByRole('button', { name: 'Rechercher', exact: true }).click()
+  await expect(page).toHaveURL(/q=Bosch.*category=DRILL/)
+  await expect(page.getByRole('article')).toHaveCount(1)
+  await expect(page.getByRole('article').getByRole('heading')).toHaveText('Bosch X100')
+  await page.getByLabel('Disponibilité', { exact: true }).selectOption('true')
+  await page.getByRole('button', { name: 'Rechercher', exact: true }).click()
+  await expect(page).toHaveURL(/available=true/)
+  await expect(page.getByRole('article')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Réinitialiser les filtres', exact: true }).click()
+  await expect(page.getByRole('article')).toHaveCount(3)
+  await page.getByLabel('Recherche', { exact: true }).fill('Makita')
+  await page.getByRole('button', { name: 'Rechercher', exact: true }).click()
+  await expect(page.getByRole('article')).toHaveCount(1)
+  await expect(page.getByRole('article').getByRole('heading')).toHaveText('Makita D200')
+  await page.getByLabel('Disponibilité', { exact: true }).selectOption('true')
+  await page.getByRole('button', { name: 'Rechercher', exact: true }).click()
+  await expect(page).toHaveURL(/q=Makita.*available=true/)
+  await expect(page.getByText('Aucun produit ne correspond à vos critères.', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue('Makita')
+  await expect(page.getByLabel('Disponibilité', { exact: true })).toHaveValue('true')
+  await expect(page.getByText('Aucun produit ne correspond à vos critères.', { exact: true })).toBeVisible()
+  await page.getByLabel('JWT client', { exact: true }).fill(token)
+  await page.getByRole('button', { name: 'Connecter', exact: true }).click()
+  await page.getByRole('button', { name: 'Réinitialiser les filtres', exact: true }).click()
+  await expect(page.getByRole('article')).toHaveCount(3)
   const productCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Bosch X100', exact: true }) })
   await productCard.getByRole('link', { name: 'Voir le produit', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Fiche produit', exact: true })).toBeVisible()
@@ -115,6 +144,9 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
     operation_id: preparation.result.pending_order?.operation_id,
     remaining_stock: 9,
   })
+  expect(stored.events).toHaveLength(1)
+  expect(stored.events[0]).toMatchObject({ status: 'CREATED', source: 'SYSTEM' })
+  expect(Number.isFinite(Date.parse(stored.events[0]!.occurred_at))).toBe(true)
 
   const listing = page.waitForResponse((response) =>
     new URL(response.url()).pathname === '/api/orders' && response.request().method() === 'GET')
@@ -136,6 +168,9 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
   await card.getByRole('link', { name: 'Voir la commande', exact: true }).click()
   const detailResponse = await detailRequest
   expect(detailResponse.status()).toBe(200)
+  const detail = await detailResponse.json() as OrderResponse
+  expect(detail.events).toHaveLength(1)
+  expect(detail.events?.[0]).toMatchObject({ status: 'CREATED', source: 'SYSTEM' })
   await expect(page.getByRole('heading', { name: 'Détail de commande' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Détail de la commande' }).getByText('(CREATED)', { exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Progression de la commande' }).locator('[aria-current="step"]')).toContainText('CREATED')
@@ -143,6 +178,19 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
     new URL(response.url()).pathname === `/api/orders/${orderId}` && response.request().method() === 'GET')
   await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
   expect((await refreshRequest).status()).toBe(200)
+  await expect(page.getByRole('button', { name: 'Fermer la notification de statut' })).toHaveCount(0)
+  const polledUpdate = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === `/api/orders/${orderId}` && response.request().method() === 'GET',
+  { timeout: 25_000 })
+  const transition = await request.patch(`http://127.0.0.1:8002/orders/${orderId}/status`, {
+    headers: { Authorization: `Bearer ${process.env.E2E_BACKOFFICE_API_TOKEN}` },
+    data: { status: 'PROCESSING' },
+  })
+  expect(transition.status()).toBe(200)
+  expect((await polledUpdate).status()).toBe(200)
+  await expect(page.getByRole('region', { name: 'Détail de la commande' }).getByText('(PROCESSING)', { exact: true })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Votre commande est en préparation.' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Progression de la commande' }).locator('[aria-current="step"]')).toContainText('PROCESSING')
 
   await page.getByRole('navigation').getByRole('link', { name: 'Assistant', exact: true }).click()
   await expect(page.getByRole('log').getByText('Oui je confirme', { exact: true })).toBeVisible()
@@ -153,6 +201,47 @@ test('creates its own order, lists it and reads the Mongo status in the same thr
   expect(status.result.queried_order_id).toBe(latest.order_id)
   expect(status.result.queried_order_status).toBe(latest.status)
   expect(status.result.response).toContain(latest.status)
-  await expect(page.getByRole('region', { name: 'Statut de la commande' }).getByText('(CREATED)', { exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Statut de la commande' }).getByText('(PROCESSING)', { exact: true })).toBeVisible()
+
+  await page.getByRole('region', { name: 'Commande créée' }).getByRole('link', { name: 'Voir la commande', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Annuler la commande', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Annuler la commande', exact: true }).click()
+  const cancellationRequest = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === `/api/customer/orders/${orderId}/cancel` &&
+    response.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Confirmer l’annulation', exact: true }).click()
+  const cancellationResponse = await cancellationRequest
+  expect(cancellationResponse.status()).toBe(200)
+  const cancelled = await cancellationResponse.json() as OrderResponse
+  expect(cancelled.status).toBe('CANCELLED')
+  expect(cancelled.events?.map((event) => [event.status, event.source])).toEqual([
+    ['CREATED', 'SYSTEM'], ['PROCESSING', 'BACKOFFICE'], ['CANCELLED', 'CUSTOMER'],
+  ])
+  const timestamps = cancelled.events!.map((event) => Date.parse(event.occurred_at))
+  expect(timestamps.every(Number.isFinite)).toBe(true)
+  expect(timestamps[1]).toBeGreaterThanOrEqual(timestamps[0]!)
+  expect(timestamps[2]).toBeGreaterThanOrEqual(timestamps[1]!)
+  await expect(page.getByRole('region', { name: 'Détail de la commande' }).getByText('(CANCELLED)', { exact: true })).toBeVisible()
+  expect(probe<MongoOrder>('order', customerId, orderId)).toMatchObject({ status: 'CANCELLED', remaining_stock: 10 })
+  const timeline = page.getByRole('region', { name: 'Progression de la commande' })
+  await expect(timeline.locator('li')).toHaveCount(3)
+  expect(await timeline.locator('li small:first-of-type').allTextContents()).toEqual(['CREATED', 'PROCESSING', 'CANCELLED'])
+  await expect(timeline.locator('time')).toHaveCount(3)
+  for (const time of await timeline.locator('time').all()) {
+    expect(await time.textContent()).toBeTruthy()
+    expect(Number.isFinite(Date.parse((await time.getAttribute('datetime'))!))).toBe(true)
+  }
+  await page.reload()
+  await page.getByLabel('JWT client', { exact: true }).fill(token)
+  await page.getByRole('button', { name: 'Connecter', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Détail de la commande' }).getByText('(CANCELLED)', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Annuler la commande', exact: true })).toHaveCount(0)
+  expect(probe<MongoOrder>('order', customerId, orderId)).toMatchObject({ status: 'CANCELLED', remaining_stock: 10 })
+  const persistedEvents = probe<MongoOrder>('order', customerId, orderId).events
+  expect(persistedEvents.map((event) => [event.status, event.source])).toEqual([
+    ['CREATED', 'SYSTEM'], ['PROCESSING', 'BACKOFFICE'], ['CANCELLED', 'CUSTOMER'],
+  ])
+  expect(persistedEvents.map((event) => Date.parse(event.occurred_at))).toEqual(timestamps)
+  await expect(page.getByRole('region', { name: 'Progression de la commande' }).locator('li')).toHaveCount(3)
   expect(browserErrors, 'No console errors or uncaught browser exceptions expected.').toEqual([])
 })

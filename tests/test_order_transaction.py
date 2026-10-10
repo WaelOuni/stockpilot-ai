@@ -1,4 +1,5 @@
 import asyncio
+from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
 
@@ -14,6 +15,7 @@ from stockpilot.application.order_transaction_errors import (
     OrderTransactionFailedError,
 )
 from stockpilot.domain.entities.order import Order
+from stockpilot.domain.entities.order_event import OrderEvent, OrderEventSource
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.infrastructure.persistence.mongodb.order_transaction import (
     MongoOrderTransaction,
@@ -39,6 +41,11 @@ def document(order):
         "quantity": order.quantity,
         "status": order.status.value,
         "created_at": order.created_at.isoformat(),
+        "events": [
+            {"status": item.status.value, "occurred_at": item.occurred_at.isoformat(),
+             "source": item.source.value}
+            for item in order.events
+        ],
         **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
     }
 
@@ -75,9 +82,9 @@ class FakeCollection:
     def insert_one(self, order, **options):
         session = options["session"]
         self.database.writes.append(("insert", session))
+        session.documents[order["operation_id"]] = deepcopy(order)
         if self.database.insert_errors:
             raise self.database.insert_errors.pop(0)
-        session.documents[order["operation_id"]] = order
 
 
 class FakeSession:
@@ -98,7 +105,7 @@ class FakeSession:
         while True:
             self.attempts += 1
             self.stock = self.database.stock
-            self.documents = dict(self.database.documents)
+            self.documents = deepcopy(self.database.documents)
             if self.database.winner_on_attempt is not None:
                 winner = self.database.winner_on_attempt
                 self.documents[winner.operation_id] = document(winner)
@@ -159,13 +166,21 @@ def execute(database, order=None):
     return asyncio.run(MongoOrderTransaction(database).execute(order or make_order()))
 
 
+def created_order(order=None):
+    order = order or make_order()
+    return replace(order, events=(
+        OrderEvent(OrderStatus.CREATED, order.created_at, OrderEventSource.SYSTEM),
+    ))
+
+
 def test_commits_quantity_three_and_order_with_the_same_session():
     database = FakeDatabase()
     order = make_order()
 
-    assert execute(database, order) == order
+    expected = created_order(order)
+    assert execute(database, order) == expected
     assert database.stock == 7
-    assert database.documents == {order.operation_id: document(order)}
+    assert database.documents == {order.operation_id: document(expected)}
     assert database.session.commits == 1
     assert database.session.aborts == 0
     assert [write[:2] for write in database.writes] == [
@@ -289,12 +304,13 @@ def test_driver_callback_retry_rechecks_idempotency_and_reserves_only_once_effec
     database = FakeDatabase()
     database.insert_errors = [labeled_error("TransientTransactionError")]
     database.retry_transient = True
-    assert execute(database) == make_order()
+    assert execute(database) == created_order()
     assert database.session.attempts == 2
     assert database.session.aborts == 1
     assert database.session.commits == 1
     assert database.stock == 7
     assert len(database.documents) == 1
+    assert database.documents["operation-123"] == document(created_order())
     assert len([lookup for lookup in database.lookups if lookup[1]]) == 2
 
 
@@ -341,14 +357,15 @@ def test_ambiguous_commit_recovers_committed_order_and_logs_recovery(caplog):
     database.commit_error = labeled_error("UnknownTransactionCommitResult")
     database.persist_on_error = True
     with caplog.at_level("INFO"):
-        assert execute(database) == make_order()
+        assert execute(database) == created_order()
     assert database.stock == 7
     assert len(database.documents) == 1
     assert "Ambiguous order outcome recovered" in caplog.text
     # A caller retry after an ambiguous successful commit never decrements again.
-    assert execute(database) == make_order()
+    assert execute(database) == created_order()
     assert database.sessions_started == 1
     assert database.stock == 7
+    assert database.documents == {"operation-123": document(created_order())}
 
 
 @pytest.mark.parametrize("failure_kind", ["insert", "duplicate", "commit", "stock"])

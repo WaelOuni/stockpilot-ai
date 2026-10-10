@@ -137,6 +137,7 @@ failure is explicit; there is no in-memory checkpoint fallback.
 | `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp`; advice/stock/ORDER/ORDER_STATUS |
 | `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; technical/demo lifecycle update, back-office Bearer token required |
 | `GET /orders` | Customer JWT required; own order history, bounded limit/offset pagination |
+| `POST /customer/orders/{order_id}/cancel` | Customer JWT required; owned-order transactional cancellation |
 | `POST /orders/{order_id}/cancel` | No body; transactional cancellation, back-office Bearer token required |
 
 ```sh

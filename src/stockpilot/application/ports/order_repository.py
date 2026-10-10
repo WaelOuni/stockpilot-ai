@@ -33,6 +33,8 @@ class OrderRepositoryPort(Protocol):
         """Update only if the stored status matches; return None on mismatch/absence."""
         ...
 
-    async def cancel(self, order_id: str, *, expected_status: OrderStatus) -> Order | None:
-        """Atomically restore stock and cancel, or return an already cancelled order."""
+    async def cancel(
+        self, order_id: str, *, expected_status: OrderStatus, customer_id: str | None = None,
+    ) -> Order | None:
+        """Atomically cancel; when provided, enforce ownership throughout the transaction."""
         ...

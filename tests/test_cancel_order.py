@@ -16,6 +16,7 @@ from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.application.use_cases.get_order_status import GetOrderStatusUseCase
 from stockpilot.application.use_cases.update_order_status import OrderStatusConflictError
 from stockpilot.domain.entities.order import Order
+from stockpilot.domain.entities.order_event import OrderEvent, OrderEventSource
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.domain.services.order_lifecycle import (
     InvalidOrderStatusTransitionError,
@@ -40,6 +41,11 @@ def document(order):
         "order_id": order.order_id, "operation_id": order.operation_id,
         "product_name": order.product_name, "quantity": order.quantity,
         "status": order.status.value, "created_at": order.created_at.isoformat(),
+        "events": [
+            {"status": item.status.value, "occurred_at": item.occurred_at.isoformat(),
+             "source": item.source.value}
+            for item in order.events
+        ],
         **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
     }
 
@@ -140,6 +146,12 @@ class FakeCollection:
             return None
         return deepcopy(order)
 
+    def insert_one(self, order, **options):
+        assert self.name == "orders"
+        session = options.get("session")
+        state = session.state if session is not None else self.database.state
+        state["order"] = deepcopy(order)
+
     def update_one(self, query, update, **options):
         assert self.name == "products"
         session = options["session"]
@@ -153,15 +165,22 @@ class FakeCollection:
 
     def find_one_and_update(self, query, update, **options):
         assert self.name == "orders"
-        session = options["session"]
+        session = options.get("session")
         self.database.writes.append(("order", query, update, options))
-        order = session.state["order"]
-        if self.database.order_no_match or any(order.get(k) != v for k, v in query.items()):
+        state = session.state if session is not None else self.database.state
+        order = state["order"]
+        if order is None or self.database.order_no_match or any(order.get(k) != v for k, v in query.items()):
             return None
-        order.update(update["$set"])
+        updated = deepcopy(order)
+        updated.update(update["$set"])
+        for key, value in update.get("$push", {}).items():
+            updated.setdefault(key, []).append(deepcopy(value))
         if self.database.order_errors:
+            if session is not None:
+                state["order"] = updated
             raise self.database.order_errors.pop(0)
-        return deepcopy(order)
+        state["order"] = updated
+        return deepcopy(updated)
 
 
 class FakeSession:
@@ -244,9 +263,18 @@ def cancel(database, expected_status=OrderStatus.CREATED):
 def test_transaction_restores_stock_and_serializes_cancelled_once(status):
     order = make_order(status, customer_id="customer-a")
     database = FakeDatabase(order)
-    assert cancel(database, status) == replace(order, status=OrderStatus.CANCELLED)
+    before = datetime.now(timezone.utc)
+    result = cancel(database, status)
+    after = datetime.now(timezone.utc)
+    assert len(result.events) == 1
+    event = result.events[0]
+    assert before <= event.occurred_at <= after
+    assert event.occurred_at.tzinfo == timezone.utc
+    assert event.status is OrderStatus.CANCELLED
+    assert event.source is OrderEventSource.BACKOFFICE
+    assert result == replace(order, status=OrderStatus.CANCELLED, events=(event,))
     assert database.state == {
-        "stock": 10, "order": document(make_order(OrderStatus.CANCELLED, customer_id="customer-a")),
+        "stock": 10, "order": document(result),
     }
     session = database.sessions[0]
     assert session.options == {
@@ -259,13 +287,18 @@ def test_transaction_restores_stock_and_serializes_cancelled_once(status):
         ("stock", MongoProductRepository._name_filter(order.product_name),
          {"$inc": {"stock": 3}}, {"session": session}),
         ("order", {"order_id": order.order_id, "status": status.value},
-         {"$set": {"status": "CANCELLED"}},
+         {"$set": {"status": "CANCELLED"},
+          "$push": {"events": {
+              "status": "CANCELLED", "occurred_at": event.occurred_at.isoformat(),
+              "source": "BACKOFFICE",
+          }}},
          {"return_document": ReturnDocument.AFTER, "session": session}),
     ]
     assert session.commits == 1
     assert session.aborts == 0
     assert session.exited
-    assert cancel(database, status).status is OrderStatus.CANCELLED
+    assert cancel(database, status) == result
+    assert database.state["order"] == document(result)
     assert database.state["stock"] == 10
     assert len(database.writes) == 2
     reader = GetOrderStatusUseCase(MongoOrderRepository(database))
@@ -285,6 +318,8 @@ def test_use_case_and_repository_replay_does_not_start_second_transaction():
     assert database.state["stock"] == 10
     assert len(database.sessions) == 1
     assert len(database.writes) == 2
+    assert len(first.events) == 1
+    assert database.state["order"] == document(first)
 
 
 @pytest.mark.parametrize("expected_status", list(OrderStatus))
@@ -340,7 +375,9 @@ def test_invalid_persisted_quantity_never_restores_stock(quantity):
 
 @pytest.mark.parametrize("fault", ["missing-product", "stock-error", "order-error", "no-match"])
 def test_transaction_fault_rolls_back_both_writes(fault):
-    database = FakeDatabase()
+    order = make_order()
+    original_event = OrderEvent(OrderStatus.CREATED, order.created_at, OrderEventSource.SYSTEM)
+    database = FakeDatabase(replace(order, events=(original_event,)))
     before = deepcopy(database.state)
     failure = OperationFailure("forced database failure")
     expected_error = OperationFailure
@@ -359,6 +396,9 @@ def test_transaction_fault_rolls_back_both_writes(fault):
     if expected_error is OperationFailure:
         assert caught.value is failure
     assert database.state == before
+    assert database.state["order"]["events"] == [{
+        "status": "CREATED", "occurred_at": order.created_at.isoformat(), "source": "SYSTEM",
+    }]
     session = database.sessions[0]
     assert session.aborts == 1
     assert session.commits == 0
@@ -387,6 +427,10 @@ def test_concurrent_status_change_after_use_case_read_is_conflict(status):
 
 def concurrent_cancellation(database):
     database.state["order"]["status"] = "CANCELLED"
+    database.state["order"].setdefault("events", []).append({
+        "status": "CANCELLED", "occurred_at": datetime.now(timezone.utc).isoformat(),
+        "source": "BACKOFFICE",
+    })
     database.state["stock"] += 3
 
 
@@ -396,6 +440,8 @@ def test_concurrent_cancellation_after_precheck_is_success_without_second_restor
     result = asyncio.run(CancelOrderUseCase(MongoOrderRepository(database)).execute("order-cancel"))
     assert result.status is OrderStatus.CANCELLED
     assert database.state["stock"] == 10
+    assert len(database.state["order"]["events"]) == 1
+    assert database.state["order"]["events"][0]["source"] == "BACKOFFICE"
     assert database.writes == []
 
 
@@ -405,6 +451,8 @@ def test_transient_callback_retry_rereads_and_restores_stock_only_once_effective
     database.order_errors = [labeled_error("TransientTransactionError")]
     assert cancel(database).status is OrderStatus.CANCELLED
     assert database.state["stock"] == 10
+    assert len(database.state["order"]["events"]) == 1
+    assert database.state["order"]["events"][0]["source"] == "BACKOFFICE"
     session = database.sessions[0]
     assert (session.attempts, session.aborts, session.commits) == (2, 1, 1)
     assert database.reads == [({"order_id": "order-cancel"}, {"session": session})] * 2
@@ -447,11 +495,14 @@ def test_unresolved_unknown_commit_propagates_without_assuming_rollback(persiste
     assert database.sessions[0].aborts == 0
     assert database.state["stock"] == (10 if persisted else 7)
     assert database.state["order"]["status"] == ("CANCELLED" if persisted else "CREATED")
+    assert len(database.state["order"]["events"]) == (1 if persisted else 0)
     if persisted:
+        committed_events = deepcopy(database.state["order"]["events"])
         database.commit_error = None
         assert cancel(database).status is OrderStatus.CANCELLED
         assert database.state["stock"] == 10
         assert len(database.writes) == 2
+        assert database.state["order"]["events"] == committed_events
 
 
 def install_cancel_use_case(monkeypatch, use_case):
@@ -483,6 +534,7 @@ def test_cancel_endpoint_success_new_and_already_cancelled(monkeypatch, status):
     assert response.json() == {
         "order_id": "order-cancel", "product_name": "Bosch X100",
         "quantity": 3, "status": "CANCELLED", "created_at": "2026-10-10T00:00:00Z",
+        "events": [],
     }
     repo.find_by_order_id.assert_awaited_once_with("order-cancel")
     if status is OrderStatus.CANCELLED:

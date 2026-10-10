@@ -14,6 +14,7 @@ from stockpilot.application.use_cases.update_order_status import (
     UpdateOrderStatusUseCase,
 )
 from stockpilot.domain.entities.order import Order
+from stockpilot.domain.entities.order_event import OrderEvent, OrderEventSource
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.domain.services.order_lifecycle import (
     InvalidOrderStatusTransitionError,
@@ -118,21 +119,44 @@ def document(order):
         "order_id": order.order_id, "operation_id": order.operation_id,
         "product_name": order.product_name, "quantity": order.quantity,
         "status": order.status.value, "created_at": order.created_at.isoformat(),
+        "events": [
+            {"status": item.status.value, "occurred_at": item.occurred_at.isoformat(),
+             "source": item.source.value}
+            for item in order.events
+        ],
         **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
     }
 
 
 @pytest.mark.parametrize("current,target", list(ALLOWED))
-def test_mongo_atomic_update_serialization(current, target):
+def test_mongo_atomic_update_serialization(current, target, monkeypatch):
     repo, collection = make_repository()
-    expected = make_order(target)
+    occurred_at = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+
+    class Clock:
+        @staticmethod
+        def now(tz):
+            assert tz is timezone.utc
+            return occurred_at
+
+        fromisoformat = staticmethod(datetime.fromisoformat)
+
+    monkeypatch.setattr(
+        "stockpilot.infrastructure.persistence.mongodb.order_repository.datetime", Clock,
+    )
+    expected = replace(make_order(target), events=(
+        OrderEvent(target, occurred_at, OrderEventSource.BACKOFFICE),
+    ))
     collection.find_one_and_update.return_value = document(expected)
     assert asyncio.run(repo.update_status(
         expected.order_id, expected_status=current, status=target,
     )) == expected
     collection.find_one_and_update.assert_called_once_with(
         {"order_id": expected.order_id, "status": current.value},
-        {"$set": {"status": target.value}}, return_document=ReturnDocument.AFTER,
+        {"$set": {"status": target.value}, "$push": {"events": {
+            "status": target.value, "occurred_at": occurred_at.isoformat(),
+            "source": "BACKOFFICE",
+        }}}, return_document=ReturnDocument.AFTER,
     )
     collection.insert_one.assert_not_called()
     collection.delete_one.assert_not_called()
@@ -156,6 +180,7 @@ def test_full_lifecycle_mongo_truth_status_lookup_and_replay():
     original = replace(make_order(), customer_id="customer-a")
     stored = document(original)
     del stored["operation_id"]  # Older CREATED documents remain readable.
+    del stored["events"]
 
     def find(query):
         return dict(stored) if all(stored.get(k) == v for k, v in query.items()) else None
@@ -164,25 +189,30 @@ def test_full_lifecycle_mongo_truth_status_lookup_and_replay():
         if find(query) is None:
             return None
         stored.update(changes["$set"])
+        for key, value in changes.get("$push", {}).items():
+            stored.setdefault(key, []).append(value)
         return dict(stored)
 
     collection.find_one.side_effect = find
     collection.find_one_and_update.side_effect = update
     updater = UpdateOrderStatusUseCase(repo)
     reader = GetOrderStatusUseCase(repo)
-    for status in (
+    progression = (
         OrderStatus.CREATED, OrderStatus.PROCESSING,
         OrderStatus.SHIPPED, OrderStatus.DELIVERED,
-    ):
+    )
+    for index, status in enumerate(progression):
         order = asyncio.run(updater.execute(original.order_id, status))
         assert order.status is status
         assert order.operation_id == ""
+        assert [item.status for item in order.events] == list(progression[1:index + 1])
+        assert all(item.source is OrderEventSource.BACKOFFICE for item in order.events)
         result = asyncio.run(reader.execute(original.order_id, customer_id="customer-a"))
         assert result.status is status
         assert result.response == f"Commande order-1 : statut {status.value}."
         assert result.result == "FOUND"
     assert collection.find_one_and_update.call_count == 3
-    expected_document = document(replace(original, status=OrderStatus.DELIVERED))
+    expected_document = document(replace(original, status=OrderStatus.DELIVERED, events=order.events))
     del expected_document["operation_id"]
     assert stored == expected_document
     collection.insert_one.assert_not_called()

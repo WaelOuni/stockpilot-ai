@@ -1,6 +1,7 @@
 import logging
 from stockpilot.observability import event
-from datetime import datetime
+from datetime import datetime, timezone
+from dataclasses import replace
 
 from pymongo.errors import DuplicateKeyError
 from pymongo import ReadPreference, ReturnDocument
@@ -11,6 +12,7 @@ from stockpilot.application.order_idempotency import validate_order_payload
 from stockpilot.application.ports.order_repository import OrderRepositoryPort
 from stockpilot.application.use_cases.update_order_status import OrderStatusConflictError
 from stockpilot.domain.entities.order import Order
+from stockpilot.domain.entities.order_event import OrderEvent, OrderEventSource
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.domain.services.order_lifecycle import validate_order_cancellation
 from stockpilot.infrastructure.persistence.mongodb.product_repository import MongoProductRepository
@@ -68,16 +70,32 @@ class MongoOrderRepository(OrderRepositoryPort):
     async def update_status(
         self, order_id: str, *, expected_status: OrderStatus, status: OrderStatus,
     ) -> Order | None:
+        if expected_status == status:
+            document = self.collection.find_one({"order_id": order_id, "status": status.value})
+            return self._to_order(document) if document is not None else None
         document = self.collection.find_one_and_update(
             {"order_id": order_id, "status": expected_status.value},
-            {"$set": {"status": status.value}},
+            {
+                "$set": {"status": status.value},
+                "$push": {"events": self._event_document(OrderEvent(
+                    status, datetime.now(timezone.utc), OrderEventSource.BACKOFFICE,
+                ))},
+            },
             return_document=ReturnDocument.AFTER,
         )
         return self._to_order(document) if document is not None else None
 
-    async def cancel(self, order_id: str, *, expected_status: OrderStatus) -> Order | None:
+    async def cancel(
+        self, order_id: str, *, expected_status: OrderStatus, customer_id: str | None = None,
+    ) -> Order | None:
+        if customer_id is not None and not customer_id.strip():
+            raise ValueError("L'identifiant client est obligatoire.")
+        order_filter = {"order_id": order_id}
+        if customer_id is not None:
+            order_filter["customer_id"] = customer_id
+
         def transaction(session):
-            document = self.collection.find_one({"order_id": order_id}, session=session)
+            document = self.collection.find_one(order_filter, session=session)
             if document is None:
                 return None
             order = self._to_order(document)
@@ -98,8 +116,14 @@ class MongoOrderRepository(OrderRepositoryPort):
             if stock_result.matched_count != 1:
                 raise RuntimeError("Le produit de la commande est introuvable pour la restitution.")
             updated = self.collection.find_one_and_update(
-                {"order_id": order_id, "status": expected_status.value},
-                {"$set": {"status": OrderStatus.CANCELLED.value}},
+                {**order_filter, "status": expected_status.value},
+                {
+                    "$set": {"status": OrderStatus.CANCELLED.value},
+                    "$push": {"events": self._event_document(OrderEvent(
+                        OrderStatus.CANCELLED, datetime.now(timezone.utc),
+                        OrderEventSource.CUSTOMER if customer_id is not None else OrderEventSource.BACKOFFICE,
+                    ))},
+                },
                 return_document=ReturnDocument.AFTER,
                 session=session,
             )
@@ -137,10 +161,26 @@ class MongoOrderRepository(OrderRepositoryPort):
             status=OrderStatus(document["status"]),
             created_at=datetime.fromisoformat(document["created_at"]),
             customer_id=document.get("customer_id"),
+            events=tuple(OrderEvent(
+                status=OrderStatus(item["status"]),
+                occurred_at=datetime.fromisoformat(item["occurred_at"]),
+                source=OrderEventSource(item["source"]),
+            ) for item in document.get("events", [])),
         )
+
+    @staticmethod
+    def _event_document(item: OrderEvent) -> dict:
+        return {
+            "status": item.status.value,
+            "occurred_at": item.occurred_at.isoformat(),
+            "source": item.source.value,
+        }
 
     def insert(self, order: Order, session=None) -> Order:
         session_options = {"session": session} if session is not None else {}
+        order = replace(order, events=(OrderEvent(
+            OrderStatus.CREATED, order.created_at, OrderEventSource.SYSTEM,
+        ),))
         self.collection.insert_one(
             {
                 "order_id": order.order_id,
@@ -149,6 +189,7 @@ class MongoOrderRepository(OrderRepositoryPort):
                 "quantity": order.quantity,
                 "status": order.status.value,
                 "created_at": order.created_at.isoformat(),
+                "events": [self._event_document(item) for item in order.events],
                 **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
             },
             **session_options,
@@ -157,7 +198,7 @@ class MongoOrderRepository(OrderRepositoryPort):
 
     async def create(self, order: Order) -> Order:
         try:
-            self.insert(order)
+            return self.insert(order)
         except DuplicateKeyError:
             event(logger, "order_duplicate_detected", operation_id=order.operation_id)
             existing = await self.find_by_operation_id(order.operation_id)
@@ -167,4 +208,3 @@ class MongoOrderRepository(OrderRepositoryPort):
             event(logger, "order_replay_detected", operation_id=order.operation_id,
                   order_id=existing.order_id)
             return existing
-        return order

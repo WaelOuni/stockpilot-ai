@@ -44,12 +44,19 @@ export interface AssistantResponse {
   advice_query?: string | null
 }
 
+export interface OrderEvent {
+  status: OrderStatus
+  occurred_at: string
+  source: 'SYSTEM' | 'BACKOFFICE' | 'CUSTOMER'
+}
+
 export interface OrderResponse {
   order_id: string
   product_name: string
   quantity: number
   status: OrderStatus
   created_at: string
+  events?: OrderEvent[]
 }
 
 export interface CustomerOrdersResponse {

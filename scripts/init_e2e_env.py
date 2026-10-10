@@ -107,6 +107,10 @@ def reset_stores(settings: Settings, connection, mongo) -> None:
         "price": 99.0,
         "stock": INITIAL_STOCK,
     })
+    mongo.products.insert_many([
+        {"sku": "E2E-MAKITA-D200", "name": "Makita D200", "category": "DRILL", "price": 169.99, "stock": 0},
+        {"sku": "E2E-BOSCH-S500", "name": "Bosch S500", "category": "SAW", "price": 199.99, "stock": 5},
+    ])
     print("E2E reset: Mongo stockpilot_e2e, PostgreSQL stockpilot_e2e, Bosch X100 stock=10.", flush=True)
 
 

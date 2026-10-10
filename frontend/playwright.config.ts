@@ -7,6 +7,8 @@ const python = process.env.E2E_PYTHON || resolve('../.venv/bin/python')
 // Playwright also evaluates this config in workers; preserve the launcher's key.
 process.env.E2E_CUSTOMER_JWT_SECRET ||= randomBytes(48).toString('base64url')
 process.env.CUSTOMER_JWT_SECRET = process.env.E2E_CUSTOMER_JWT_SECRET
+process.env.E2E_BACKOFFICE_API_TOKEN ||= randomBytes(48).toString('base64url')
+process.env.BACKOFFICE_API_TOKEN = process.env.E2E_BACKOFFICE_API_TOKEN
 process.env.MONGO_DATABASE = 'stockpilot_e2e'
 process.env.MONGO_URI = process.env.E2E_MONGO_URI ||
   'mongodb://localhost:27017/?replicaSet=rs0&directConnection=true'

@@ -1,8 +1,8 @@
 # StockPilot frontend MVP
 
 Vue 3 + TypeScript + Vite, Composition API, vue-router and native fetch.
-Only the customer endpoints `POST /assistant`, `GET /orders` and
-`GET /orders/{order_id}` are used.
+The customer endpoints `POST /assistant`, `GET /orders`,
+`GET /orders/{order_id}` and `POST /customer/orders/{order_id}/cancel` are used.
 The catalogue additionally uses public read-only `GET /products` and
 `GET /products/{sku}`; no JWT is sent with these public requests.
 There is no back-office UI, login service or client-side business transition logic.
@@ -70,9 +70,11 @@ next page because the API has no `has_more` field.
 Each history card and identified assistant summary links to its detail page.
 The page loads the current owned order directly through the customer API, not
 through the LLM. It renders product, quantity, identifier, creation date and
-status, plus a CREATED / PROCESSING / SHIPPED / DELIVERED timeline. CANCELLED
+status, plus a timeline of recorded `events`, in their persisted order. Each event
+shows status, formatted timestamp and source SYSTEM/BACKOFFICE/CUSTOMER. CANCELLED
 shows cancellation without suggesting subsequent stages were reached.
-There are no stage timestamps in the contract, so none are invented.
+Legacy orders with absent/empty events show their current status and an
+unavailable-history notice; neither earlier steps nor timestamps are inferred.
 
 The detail page polls 15 seconds **after each completed successful request**,
 only while mounted and non-terminal, without overlapping requests. DELIVERED,
@@ -80,6 +82,27 @@ CANCELLED and errors stop polling; manual refresh remains available. Changing
 the route/JWT aborts stale requests and clears the old detail. 404 does not
 distinguish foreign, legacy and nonexistent orders. A request already processed
 by the server is not rolled back by browser cancellation.
+
+### Local status notifications
+
+Order Detail compares each successful GET status with the last successfully
+loaded status for the current order/session. Initial reads and unchanged statuses
+never notify. Later changed statuses (polling, manual refresh or reconciliation)
+show a page-local `OrderStatusNotification` with deterministic French messages.
+Events are replaced from the API response, never synthesized for notifications.
+
+The accessible `role="status"` message can be closed manually and expires after
+8 seconds. A newer change replaces the notification and restarts its lifetime;
+equal reads do not restart or recreate it. Changing JWT/order or leaving the page
+cleans the notification and timer. DELIVERED/CANCELLED still stop polling while
+allowing the final notification to finish. Successful direct cancellation keeps
+its existing action feedback rather than producing a duplicate notification.
+
+E2E uses an ephemeral back-office credential only in Playwright's Node process
+to PATCH the dedicated E2E backend to PROCESSING. No browser code receives that
+credential or gains a mutation action. The normal 15-second polling then updates
+the badge, recorded timeline and notification. The final history is exactly
+CREATED/SYSTEM, PROCESSING/BACKOFFICE, CANCELLED/CUSTOMER.
 
 `/assistant` returns the existing partial LangGraph state, not a dedicated
 Pydantic response DTO. Types are based on `schemas/chat.py`, `schemas/order.py`,
@@ -125,10 +148,27 @@ JWT is still required to send. Connecting a JWT preserves this catalogue draft;
 switching customers clears the session and composer as before.
 Query parameters contain only the product-based message, never credentials;
 the draft may appear in browser history and can be edited before sending.
-No cart, search, filters, payment, catalogue recommendations or new RAG ingestion
+No cart, payment, catalogue recommendations or new RAG ingestion
 is implemented. Unknown SKU returns 404; malformed catalog data fails explicitly.
 
-The isolated browser E2E starts at Catalogue, opens seeded Bosch X100, clicks
+The catalogue has explicit-submit filters: literal case-insensitive text in name
+or SKU (`q`, max 100 characters), exact domain category and availability
+(`true`: stock > 0; `false`: stock <= 0). Editing fields makes no request until
+Rechercher is clicked. All fields are applied together and reset offset to zero.
+The URL is the source of applied state (`q`, `category`, `available`, `offset`);
+refresh/back navigation restores it, and pagination preserves it. Reset clears
+both submitted filters and unsent drafts. Invalid URL criteria show an error,
+not silently broadened results. Filtered empty pages show a criteria-specific
+empty state.
+
+Categories reuse the existing typed category-label mapping for DRILL/SAW/SANDER/
+SCREWDRIVER/OTHER, which corresponds to the fixed backend enum, rather than
+deriving an incomplete list from a paginated response. No categories endpoint,
+search engine or debounce dependency is introduced.
+
+The isolated browser E2E first checks combined search/category/availability,
+reset and URL restoration with Bosch X100 (DRILL, stock 10), Makita D200
+(DRILL, stock 0) and Bosch S500 (SAW, stock 5). It then opens Bosch X100, clicks
 Commander, sends the prefilled draft and uses the existing confirmation UI before
 checking My Orders, order detail and ORDER_STATUS.
 
@@ -241,10 +281,29 @@ checks: exactly one matching Bosch X100 with **stock 10**, no previous orders fo
 verification of the owned order after creation/status lookup. It does not import
 `main.py`, create indexes, seed fixtures or mutate stock.
 
-Each success leaves exactly one E2E order, stock **9** and its checkpoint for
+Each success leaves exactly one CANCELLED E2E order, stock **10** and its checkpoint for
 inspection. The next `npm run test:e2e` resets these stores to stock 10 with no
-orders/checkpoint payloads. The test asserts both initial and remaining stock.
+orders/checkpoint payloads. The test asserts initial stock 10, reserved stock 9,
+then restored stock 10 after customer cancellation and again after reload.
+The test also verifies CREATED/SYSTEM, PROCESSING/BACKOFFICE then CANCELLED/CUSTOMER events,
+valid ordered timestamps, the rendered three-event timeline and unchanged persisted
+timestamps after reload.
 There is no broad database drop or back-office cancellation.
+
+### Customer cancellation UX
+
+Order Detail offers cancellation only for CREATED/PROCESSING, with an inline
+confirmation and no immediate mutation on the first click. Buttons are disabled
+during POST, duplicate clicks are guarded, and success updates the detail and
+timeline to CANCELLED and stops polling.
+
+A conflict or ambiguous technical failure never retries the POST automatically.
+The page performs a GET to reconcile the true status; another action is offered
+only after a successful read. Failed reconciliation requires manual Actualiser.
+Changing JWT, changing route or unmounting aborts outstanding requests and ignores
+their stale results, but cannot undo a server-side transaction already committed.
+My Orders reads CANCELLED naturally on its next load. No payment/refund logic,
+new library or back-office client capability is introduced.
 
 ### Reset safety
 

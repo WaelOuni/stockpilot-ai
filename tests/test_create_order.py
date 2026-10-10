@@ -10,6 +10,7 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from stockpilot.application.order_idempotency import IdempotencyConflictError
 from stockpilot.application.use_cases.create_order import CreateOrderUseCase
 from stockpilot.domain.entities.order import Order
+from stockpilot.domain.entities.order_event import OrderEvent, OrderEventSource
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.infrastructure.persistence.mongodb.order_repository import (
     MongoOrderRepository,
@@ -61,7 +62,10 @@ def test_mongo_order_repository_serializes_order_document() -> None:
 
     result = asyncio.run(repository.create(order))
 
-    assert result == order
+    expected = replace(order, events=(
+        OrderEvent(OrderStatus.CREATED, order.created_at, OrderEventSource.SYSTEM),
+    ))
+    assert result == expected
     collection.insert_one.assert_called_once_with(
         {
             "order_id": "order-123",
@@ -70,6 +74,10 @@ def test_mongo_order_repository_serializes_order_document() -> None:
             "quantity": 1,
             "status": "CREATED",
             "created_at": "2026-10-09T20:00:00+00:00",
+            "events": [{
+                "status": "CREATED", "occurred_at": "2026-10-09T20:00:00+00:00",
+                "source": "SYSTEM",
+            }],
         }
     )
 
@@ -100,6 +108,11 @@ def order_document(order: Order) -> dict:
         "quantity": order.quantity,
         "status": order.status.value,
         "created_at": order.created_at.isoformat(),
+        "events": [
+            {"status": item.status.value, "occurred_at": item.occurred_at.isoformat(),
+             "source": item.source.value}
+            for item in order.events
+        ],
     }
 
 
@@ -182,9 +195,13 @@ def test_replay_returns_exact_original_with_one_effective_insert() -> None:
     first = make_order()
     replay = replace(first, order_id="new-id", created_at=datetime.now(timezone.utc))
 
-    assert asyncio.run(repository.create(first)) == first
-    assert asyncio.run(repository.create(replay)) == first
+    expected = replace(first, events=(
+        OrderEvent(OrderStatus.CREATED, first.created_at, OrderEventSource.SYSTEM),
+    ))
+    assert asyncio.run(repository.create(first)) == expected
+    assert asyncio.run(repository.create(replay)) == expected
     assert len(documents) == 1
+    assert documents["op-123"] == order_document(expected)
 
 
 @pytest.mark.parametrize("changes", [{"quantity": 5}, {"product_name": "Makita D200"}])

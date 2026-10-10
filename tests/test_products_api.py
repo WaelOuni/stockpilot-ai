@@ -14,7 +14,7 @@ from test_order_conversation import make_product
 def catalogue(monkeypatch):
     products = [make_product("Bosch X100", stock=3), make_product("Makita D200", stock=0)]
     repository = SimpleNamespace(
-        list_products=AsyncMock(side_effect=lambda limit, offset: products[offset:offset+limit]),
+        list_products=AsyncMock(side_effect=lambda limit, offset, **filters: products[offset:offset+limit]),
         find_by_sku=AsyncMock(side_effect=lambda sku: next((p for p in products if p.sku == sku), None)),
     )
     monkeypatch.setattr(app.state, "list_products_use_case", ListProductsUseCase(repository))

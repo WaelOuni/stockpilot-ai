@@ -284,6 +284,7 @@ def test_openapi_bearer_security_is_only_on_mutation_endpoints():
         ("get", "/orders/{order_id}"),
         ("patch", "/orders/{order_id}/status"),
         ("post", "/orders/{order_id}/cancel"),
+        ("post", "/customer/orders/{order_id}/cancel"),
         ("post", "/assistant"),
     }
     actual = set()

@@ -1,3 +1,5 @@
+import re
+
 from pymongo import ReturnDocument
 
 from stockpilot.application.dto.stock_reservation_result import (
@@ -39,8 +41,19 @@ class MongoProductRepository(ProductRepositoryPort):
             stock=int(document["stock"]),
         )
 
-    async def list_products(self, limit: int, offset: int) -> list[Product]:
-        cursor = self.collection.find({}).sort([("sku", 1), ("_id", 1)]).skip(offset).limit(limit)
+    async def list_products(
+        self, limit: int, offset: int, *, q: str | None = None,
+        category: ProductCategory | None = None, available: bool | None = None,
+    ) -> list[Product]:
+        query = {}
+        if q is not None and q.strip():
+            literal = {"$regex": re.escape(q.strip()), "$options": "i"}
+            query["$or"] = [{"sku": literal}, {"name": literal}]
+        if category is not None:
+            query["category"] = category.value
+        if available is not None:
+            query["stock"] = {"$gt" if available else "$lte": 0}
+        cursor = self.collection.find(query).sort([("sku", 1), ("_id", 1)]).skip(offset).limit(limit)
         return [self._to_product(document) for document in cursor]
 
     async def find_by_sku(self, sku: str) -> Product | None:

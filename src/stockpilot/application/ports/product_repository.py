@@ -4,10 +4,14 @@ from stockpilot.application.dto.stock_reservation_result import (
     StockReservationResult,
 )
 from stockpilot.domain.entities.product import Product
+from stockpilot.domain.enums.product_category import ProductCategory
 
 
 class ProductRepositoryPort(Protocol):
-    async def list_products(self, limit: int, offset: int) -> list[Product]:
+    async def list_products(
+        self, limit: int, offset: int, *, q: str | None = None,
+        category: ProductCategory | None = None, available: bool | None = None,
+    ) -> list[Product]:
         ...
 
     async def find_by_sku(self, sku: str) -> Product | None:

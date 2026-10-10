@@ -177,7 +177,7 @@ index is needed. There is no global lookup followed by an application ownership
 check, and no LLM invocation. ORDER_STATUS remains unchanged.
 
 200 returns the existing `OrderResponse`: `order_id`, `product_name`, `quantity`,
-`status`, `created_at`. Missing, foreign and unowned legacy orders all return the
+`status`, `created_at`, `events`. Missing, foreign and unowned legacy orders all return the
 same 404 `Commande introuvable (NOT_FOUND).` No owner or operation ID is exposed.
 Missing/invalid JWT returns 401, missing auth configuration 503, and unexpected
 technical errors use the existing logged/sanitized 500 middleware.
@@ -189,11 +189,87 @@ curl --fail-with-body "http://localhost:8000/orders/$ORDER_ID" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-The Vue route `/orders/:orderId` renders the current detail and status timeline,
+The Vue route `/orders/:orderId` renders the current detail and recorded event timeline,
 with manual refresh and 15-second polling while non-terminal. CANCELLED has a
 separate cancellation view rather than implying later lifecycle stages occurred.
-No stage timestamps are stored/exposed, so the timeline shows only progress,
-not invented event dates. Only back-office routes can change lifecycle status.
+Event dates come only from the stored events; legacy orders show current status
+and an unavailable-history notice, with no inferred earlier steps.
+Forward lifecycle transitions remain back-office-only;
+customers can cancel their own eligible orders as described below.
+
+### Embedded order events
+
+The domain `Order` has an immutable `events` tuple of `OrderEvent(status,
+occurred_at, source)`. Mongo persists it as an ordered array inside the same
+order document. The API returns it as an `events` array in `OrderResponse`,
+including owned detail, list and mutation responses.
+
+Sources are SYSTEM for insertion, BACKOFFICE for lifecycle PATCH and back-office
+cancellation, CUSTOMER for JWT-scoped cancellation. Sources are selected by the
+server, never accepted from a request body. Timestamps are server-generated UTC
+ISO 8601 values; the creation event uses the actual `created_at`.
+
+All insertion paths share `MongoOrderRepository.insert`: exactly one
+CREATED/SYSTEM event is persisted with the new order. Replaying an operation
+returns the stored order rather than reinserting events. A status transition uses
+one conditional Mongo update with `$set` status and `$push` event, so they cannot
+be partially applied. Same-status use-case calls perform no mutation; a direct
+repository same-status call also performs no append.
+
+CANCELLED is appended within the existing stock-restoration transaction and its
+conditional order update. Rollback removes both status and event changes along
+with stock changes. Transaction retries can rerun the callback, but only a
+committed append survives; replay of a committed cancellation appends nothing.
+Chronology is the persisted append order, not reconstructed from lifecycle.
+
+Legacy documents without `events` read as `[]`; no migration/backfill is run.
+A subsequent real transition appends only its new event, not invented historical
+CREATED or intermediate events. Invalid recorded event fields fail explicitly
+through existing error handling instead of being silently discarded.
+
+Example detail fragment:
+
+```json
+{
+  "events": [
+    {"status": "CREATED", "occurred_at": "2026-10-10T10:02:00Z", "source": "SYSTEM"},
+    {"status": "CANCELLED", "occurred_at": "2026-10-10T10:08:00Z", "source": "CUSTOMER"}
+  ]
+}
+```
+
+This is a minimal status history, not event sourcing or a tamper-proof audit.
+It depends on synchronized application server clocks. No actor IDs, metadata,
+separate collection, notifications or new index are introduced.
+
+### Customer cancellation
+
+`POST /customer/orders/{order_id}/cancel` accepts no body and uses the existing
+customer JWT dependency. The separate `/orders/{order_id}/cancel` back-office
+route and its authentication are unchanged; the client never invokes it.
+
+Both routes share `CancelOrderUseCase` and the same Mongo cancellation transaction.
+The client passes the verified token's `customer_id` as an explicit scope. Initial
+lookup, transaction read and conditional order update all filter by
+`order_id` plus `customer_id`. Missing, foreign and ownerless legacy orders return
+the same 404; request bodies, query parameters and headers cannot override owner.
+The scope is rechecked inside the transaction before any stock restoration.
+
+200 returns the existing `OrderResponse`, with CANCELLED (also for an idempotent
+replay). CREATED and PROCESSING restore exactly the ordered quantity; SHIPPED,
+DELIVERED and concurrent status changes return 409. Stock restoration and status
+update remain atomic, with the same rollback and retry behavior. Missing/invalid
+JWT returns 401, unavailable JWT configuration 503, technical failures sanitized
+500 with the existing request ID and server logging.
+
+Order Detail offers an inline confirmation only for CREATED/PROCESSING. Opening
+the confirmation pauses polling; returning refreshes detail and resumes polling
+when applicable. Mutation and refresh cannot overlap. Success replaces the
+detail immediately with CANCELLED and stops polling. No mutation is automatically
+retried on error: a 409 or ambiguous technical response triggers a detail GET.
+Until that GET succeeds, cancellation stays unavailable. If reconciliation fails,
+the user must explicitly refresh. Aborting a browser request does not roll back
+an already committed server transaction; reopening detail reads the true state.
 
 `GET /orders?limit=20&offset=0` uses the same customer JWT dependency as
 `/assistant`. Only the verified `customer_id` claim determines the owner;

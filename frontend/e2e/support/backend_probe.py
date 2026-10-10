@@ -50,7 +50,7 @@ def main() -> int:
                 order = database.orders.find_one(
                     {"order_id": args.order_id, "customer_id": args.customer_id},
                     {"_id": 0, "order_id": 1, "product_name": 1, "quantity": 1,
-                     "status": 1, "customer_id": 1, "operation_id": 1},
+                     "status": 1, "customer_id": 1, "operation_id": 1, "events": 1},
                 )
                 if order is None:
                     raise ValueError("The created E2E order was not found in the configured Mongo database.")
