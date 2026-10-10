@@ -10,3 +10,6 @@ class OrderRepositoryPort(Protocol):
 
     async def find_by_operation_id(self, operation_id: str) -> Order | None:
         ...
+
+    async def find_by_order_id(self, order_id: str) -> Order | None:
+        ...

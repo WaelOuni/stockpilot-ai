@@ -49,6 +49,7 @@ def test_classify_uses_classify_use_case(monkeypatch) -> None:
         "budget": 125.0,
         "usage": "home renovation",
         "quantity": None,
+        "order_id": None,
     }
     llm.classify_intent.assert_awaited_once_with("I need a drill")
 
@@ -116,6 +117,7 @@ def test_assistant_looks_up_stock_by_canonical_product_name(monkeypatch) -> None
         recommend_product_use_case,
         SimpleNamespace(execute=AsyncMock()),
         SimpleNamespace(execute=AsyncMock()),
+        get_order_status=SimpleNamespace(execute=AsyncMock()),
     )
     monkeypatch.setattr(app.state, "stockpilot_workflow", workflow)
 

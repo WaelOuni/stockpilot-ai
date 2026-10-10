@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
 from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
+from stockpilot.application.use_cases.get_order_status import GetOrderStatusUseCase
 from stockpilot.application.use_cases.generate_response import GenerateResponseUseCase
 from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
@@ -54,6 +55,7 @@ async def lifespan(app: FastAPI):
             prepare_order_use_case,
             finalize_order_use_case,
             checkpointer=checkpointer,
+            get_order_status=get_order_status_use_case,
         )
         try:
             yield
@@ -105,6 +107,7 @@ check_stock_use_case = CheckStockUseCase(
 
 prepare_order_use_case = PrepareOrderUseCase(check_stock_use_case)
 finalize_order_use_case = FinalizeOrderUseCase(MongoOrderTransaction(mongo_database))
+get_order_status_use_case = GetOrderStatusUseCase(order_repository)
 
 recommend_product_use_case = RecommendProductUseCase(
     embedding_adapter,
@@ -119,6 +122,7 @@ app.state.check_stock_use_case = check_stock_use_case
 app.state.recommend_product_use_case = recommend_product_use_case
 app.state.prepare_order_use_case = prepare_order_use_case
 app.state.finalize_order_use_case = finalize_order_use_case
+app.state.get_order_status_use_case = get_order_status_use_case
 
 app.include_router(health_router)
 app.include_router(chat_router)

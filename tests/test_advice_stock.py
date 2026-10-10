@@ -45,6 +45,7 @@ def run_advice_flow(
         recommend_product,
         PrepareOrderUseCase(check_stock),
         SimpleNamespace(execute=AsyncMock()),
+        get_order_status=SimpleNamespace(execute=AsyncMock()),
     )
     result = asyncio.run(
         workflow.ainvoke({"message": "Conseilles-moi une perceuse"})
@@ -91,6 +92,7 @@ def test_advice_recommendation_includes_stock_quantity() -> None:
         recommend_product,
         PrepareOrderUseCase(CheckStockUseCase(product_repository)),
         SimpleNamespace(execute=AsyncMock()),
+        get_order_status=SimpleNamespace(execute=AsyncMock()),
     )
     result = asyncio.run(workflow.ainvoke({"message": message}))
 

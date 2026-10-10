@@ -119,7 +119,7 @@ failure is explicit; there is no in-memory checkpoint fallback.
 | `GET /health` | `{"status":"UP"}` process liveness, not dependency readiness |
 | `POST /chat` | `{"message":"..."}`; direct LLM generation |
 | `POST /classify` | `{"message":"..."}`; structured intent/extraction |
-| `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER |
+| `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER/ORDER_STATUS |
 
 ```sh
 curl http://localhost:8000/health

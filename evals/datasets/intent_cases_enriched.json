@@ -1,0 +1,7 @@
+[
+  {"id": "status-current-conversation", "message": "Où en est ma commande ?", "expected": {"intent": "ORDER_STATUS", "order_id": null}},
+  {"id": "status-last-order", "message": "Quel est le statut de ma dernière commande ?", "expected": {"intent": "ORDER_STATUS", "order_id": null}},
+  {"id": "status-explicit-uuid", "message": "Quel est le statut de la commande 550e8400-e29b-41d4-a716-446655440000 ?", "expected": {"intent": "ORDER_STATUS", "order_id": "550e8400-e29b-41d4-a716-446655440000"}, "comparison": {"order_id": "exact"}},
+  {"id": "status-product-not-id", "message": "Où en est ma commande de Bosch X100 ?", "expected": {"intent": "ORDER_STATUS", "order_id": null, "product_name": "Bosch X100"}},
+  {"id": "status-operation-not-order-id", "message": "Quel est le statut de ma commande ? Mon identifiant d'opération est 550e8400-e29b-41d4-a716-446655440001.", "expected": {"intent": "ORDER_STATUS", "order_id": null}}
+]

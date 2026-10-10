@@ -32,22 +32,23 @@ class CapturingKnowledgeRepository:
 
 
 async def evaluate(mode, selected, cases, classifier=None, embedding=None, repository=None, recommender=None):
+    from stockpilot.application.dto.intent_result import IntentResult
+    from stockpilot.domain.enums.intent import Intent
     from stockpilot.application.use_cases.recommend_product import MAX_COSINE_DISTANCE
     scores = defaultdict(list)
     results = []
-    confusion = {intent: {predicted: 0 for predicted in ("PRODUCT_ADVICE", "STOCK_CHECK", "ORDER", "UNKNOWN")}
-                 for intent in ("PRODUCT_ADVICE", "STOCK_CHECK", "ORDER", "UNKNOWN")}
+    confusion = {intent.value: {predicted.value: 0 for predicted in Intent} for intent in Intent}
     for kind in selected:
         for case in cases[kind]:
             failures = []
             if kind in ("intent", "order"):
                 actual = (
-                    dict(case["expected"]) if mode == "deterministic"
+                    IntentResult(**case["expected"]).model_dump(mode="json") if mode == "deterministic"
                     else (await classifier.execute(case["message"])).model_dump(mode="json")
                 )
                 for field, expected in case["expected"].items():
                     correct = matches(expected, actual.get(field), case.get("comparison", {}).get(field, "normalized"))
-                    if field in ("intent", "product_name", "quantity", "category", "budget"):
+                    if field in ("intent", "product_name", "quantity", "category", "budget", "order_id"):
                         scores[("order_" if kind == "order" else "") + field + "_accuracy"].append(correct)
                     if not correct:
                         failures.append(field)
@@ -150,12 +151,13 @@ def main(argv=None):
         cases = {kind: load_cases(ROOT / "evals" / "datasets" / f"{kind}_cases.json", kind) for kind in selected}
         if args.suite == "enriched":
             for kind in selected:
-                extra = ROOT / "evals" / "datasets" / f"{kind}_additional_cases.json"
-                if extra.exists():
-                    additions = load_cases(extra, kind)
-                    if {case["id"] for case in cases[kind]} & {case["id"] for case in additions}:
-                        raise ValueError(f"Duplicate case id across {kind} datasets")
-                    cases[kind] += additions
+                for filename in (f"{kind}_additional_cases.json", f"{kind}_cases_enriched.json"):
+                    extra = ROOT / "evals" / "datasets" / filename
+                    if extra.exists():
+                        additions = load_cases(extra, kind)
+                        if {case["id"] for case in cases[kind]} & {case["id"] for case in additions}:
+                            raise ValueError(f"Duplicate case id across {kind} datasets")
+                        cases[kind] += additions
         if baseline is not None and baseline.get("dataset_hashes") and baseline["dataset_hashes"] != dataset_hashes(cases):
             raise ValueError("Dataset selection/content differs from baseline; establish a new reference")
         report = asyncio.run(local_evaluate(selected, cases) if args.mode == "local"

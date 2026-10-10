@@ -17,4 +17,9 @@ class StockPilotState(TypedDict, total=False):
     order_status: str
     confirmation_handled: bool
     created_order_id: str | None
+    last_created_order_id: str
+    order_id: str | None
+    queried_order_id: str | None
+    queried_order_status: str | None
+    order_status_result: str
     response: str

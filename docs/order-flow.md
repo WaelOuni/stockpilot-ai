@@ -30,6 +30,53 @@ is a new operation; idempotency does not equate every order from one thread.
 `operation_id` identifies the business operation, while `order_id` identifies
 the persisted order.
 
+## ORDER_STATUS read-only lookup
+
+Ask "Où en est ma commande ?" or "Quel est le statut de ma dernière commande ?"
+in the same `thread_id`, or supply an explicit order identifier:
+
+```sh
+# Replace this illustrative UUID with a real stored order_id:
+curl -X POST http://localhost:8000/assistant \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Quel est le statut de la commande 47d8fbf9-1234-4567-89ab-123456789abc ?","thread_id":"demo-order"}'
+```
+
+The classifier returns ORDER_STATUS and optional `order_id`. The node selects
+that explicit ID first, otherwise `last_created_order_id` from a successful
+confirmation. Older checkpoints can fall back to `created_order_id`.
+Successful confirmations update the remembered ID; a later failed/cancelled
+preparation does not erase it. An explicit unknown ID never falls back to another
+order, and reading an explicit order does not replace the thread's last-created
+order. The explicit extraction is reset on each classified message.
+
+For ORDER_STATUS only, a targeted application guard clears an extracted
+`order_id` if that same identifier is explicitly labelled `operation_id`,
+`identifiant d'opération` or an unambiguous equivalent in the original message.
+It does not scan all UUIDs, change other extracted fields or reject a different
+ID explicitly referring to a command. Operation and order IDs are distinct.
+
+`GetOrderStatusUseCase` reads Mongo through `OrderRepositoryPort.find_by_order_id`.
+It returns a deterministic response without LLM generation, stock reservation,
+order creation or changes to a pending confirmation:
+
+| `order_status_result` | Meaning |
+|---|---|
+| `FOUND` | `queried_order_id` and `queried_order_status` come from the stored order |
+| `NOT_FOUND` | No document for the selected ID; response explicitly includes NOT_FOUND |
+| `NO_ORDER_ASSOCIATED` | No explicit ID or known created order in this conversation |
+
+`queried_order_status` is null for absent orders. The existing conversation
+`order_status` is not overwritten by lookup results. Mongo currently stores
+`OrderStatus.CREATED`; this is not the conversation's `CONFIRMED`, and no
+shipping/payment/fulfilment states are invented. Mongo errors propagate through
+the existing API error handling rather than masquerading as NOT_FOUND.
+
+There is no global/latest-order search, customer identity or authentication.
+An explicit ID can be queried without an ownership check: this remains a local
+demo, not a secure customer-facing tracking endpoint. Pre-feature checkpoints
+cannot recover a created ID that was already cleared before this feature.
+
 ## Atomic confirmation
 
 `FinalizeOrderUseCase` constructs an order and delegates to `OrderTransactionPort`.

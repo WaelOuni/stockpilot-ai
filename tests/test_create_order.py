@@ -5,7 +5,7 @@ from dataclasses import replace
 from uuid import UUID
 
 import pytest
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, PyMongoError
 
 from stockpilot.application.order_idempotency import IdempotencyConflictError
 from stockpilot.application.use_cases.create_order import CreateOrderUseCase
@@ -186,3 +186,49 @@ def test_create_rejects_empty_operation_id_without_inserting() -> None:
         asyncio.run(use_case.execute("Bosch X100", 3, operation_id=" "))
 
     repository.create.assert_not_awaited()
+
+
+@pytest.mark.parametrize("historical", [False, True])
+def test_order_id_lookup_uses_exact_query_and_shared_document_mapping(historical):
+    repository, collection = make_repository()
+    order = make_order()
+    document = order_document(order)
+    document["_id"] = "mongo-internal-id"
+    if historical:
+        del document["operation_id"]
+        order = replace(order, operation_id="")
+    collection.find_one.return_value = document
+
+    assert asyncio.run(repository.find_by_order_id("order-123")) == order
+    collection.find_one.assert_called_once_with({"order_id": "order-123"})
+    collection.insert_one.assert_not_called()
+    collection.update_one.assert_not_called()
+    collection.delete_one.assert_not_called()
+
+    assert asyncio.run(repository.find_by_operation_id("op-123")) == order
+    collection.find_one.assert_called_with({"operation_id": "op-123"})
+
+
+def test_order_id_lookup_absence_is_not_found_without_writes():
+    repository, collection = make_repository()
+    collection.find_one.return_value = None
+    assert asyncio.run(repository.find_by_order_id("missing")) is None
+    collection.find_one.assert_called_once_with({"order_id": "missing"})
+    collection.insert_one.assert_not_called()
+
+
+def test_order_id_lookup_mongo_failure_is_not_swallowed():
+    repository, collection = make_repository()
+    collection.find_one.side_effect = PyMongoError("database unavailable")
+    with pytest.raises(PyMongoError, match="database unavailable"):
+        asyncio.run(repository.find_by_order_id("order-123"))
+
+
+@pytest.mark.parametrize("changes", [
+    {"status": "INVALID_STATUS"}, {"created_at": "invalid-date"},
+])
+def test_order_id_lookup_corrupt_document_is_not_reported_as_missing(changes):
+    repository, collection = make_repository()
+    collection.find_one.return_value = {**order_document(make_order()), **changes}
+    with pytest.raises(ValueError):
+        asyncio.run(repository.find_by_order_id("order-123"))

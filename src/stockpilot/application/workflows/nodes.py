@@ -9,6 +9,7 @@ from stockpilot.application.order_transaction_errors import (
 from stockpilot.application.workflows.state import StockPilotState
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
+from stockpilot.application.use_cases.get_order_status import GetOrderStatusUseCase
 from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
 from stockpilot.application.use_cases.recommend_product import RecommendProductUseCase
 from stockpilot.application.workflows.order_confirmation import (
@@ -36,6 +37,7 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase):
             "budget": result.budget,
             "usage": result.usage,
             "quantity": result.quantity,
+            "order_id": result.order_id,
         }
 
     return classify_node
@@ -138,13 +140,16 @@ def create_order_confirmation_node(
             response = "Commande annulée."
             created_order_id = None
 
-        return {
+        result: StockPilotState = {
             "pending_order": updated_order,
             "order_status": order_status.value,
             "confirmation_handled": True,
             "created_order_id": created_order_id,
             "response": response,
         }
+        if created_order_id is not None:
+            result["last_created_order_id"] = created_order_id
+        return result
 
     return resolve_order_confirmation_node
 
@@ -272,6 +277,24 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
         }
 
     return order_node
+
+
+def create_order_status_node(get_order_status: GetOrderStatusUseCase):
+    async def order_status_node(state: StockPilotState) -> StockPilotState:
+        order_id = (
+            state.get("order_id")
+            or state.get("last_created_order_id")
+            or state.get("created_order_id")
+        )
+        result = await get_order_status.execute(order_id)
+        return {
+            "queried_order_id": result.order_id,
+            "queried_order_status": result.status.value if result.status else None,
+            "order_status_result": result.result,
+            "response": result.response,
+        }
+
+    return order_status_node
 
 
 async def unknown_node(state: StockPilotState) -> StockPilotState:

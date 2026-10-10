@@ -50,9 +50,12 @@ Override `POSTGRES_URL` to the dedicated eval DB and configure `OLLAMA_BASE_URL`
 database environment after eval work. Keep real credentials out of shell
 history/logs and reports outside Git.
 
-Historical is the default **60-case** suite/reference. Current enriched data adds
-23 intent/ORDER cases (83 total) and remains separate complementary validation;
-earlier measured enriched runs had 78 cases. Do not compare its different
+Historical is the default **60-case** suite/reference. The enriched suite now
+contains **88 cases**, including five ORDER_STATUS cases. Enriched data adds
+intent/ORDER extraction cases and ORDER_STATUS classification/explicit-ID
+regressions, remaining separate complementary validation. Earlier measured
+enriched runs had 78 or 83 cases, before ORDER_STATUS additions.
+Do not compare its different
 hashes/denominators to the historical baseline.
 
 ## Measured reference, not a guarantee

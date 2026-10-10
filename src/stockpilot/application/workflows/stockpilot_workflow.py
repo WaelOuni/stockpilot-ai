@@ -2,6 +2,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 
 from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
+from stockpilot.application.use_cases.get_order_status import GetOrderStatusUseCase
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
@@ -11,6 +12,7 @@ from stockpilot.application.workflows.nodes import (
     create_classify_node,
     create_order_confirmation_node,
     create_order_node,
+    create_order_status_node,
     create_stock_node,
     route_after_confirmation,
     unknown_node,
@@ -26,6 +28,8 @@ def build_graph(
     prepare_order: PrepareOrderUseCase,
     finalize_order: FinalizeOrderUseCase,
     checkpointer: BaseCheckpointSaver | None = None,
+    *,
+    get_order_status: GetOrderStatusUseCase,
 ):
     graph = StateGraph(StockPilotState)
 
@@ -42,6 +46,7 @@ def build_graph(
     )
     graph.add_node("stock", create_stock_node(check_stock))
     graph.add_node("order", create_order_node(prepare_order))
+    graph.add_node("order_status", create_order_status_node(get_order_status))
     graph.add_node("unknown", unknown_node)
 
     graph.add_edge(START, "resolve_order_confirmation")
@@ -61,6 +66,7 @@ def build_graph(
             "advice": "advice",
             "stock": "stock",
             "order": "order",
+            "order_status": "order_status",
             "unknown": "unknown",
         },
     )
@@ -68,6 +74,7 @@ def build_graph(
     graph.add_edge("advice", END)
     graph.add_edge("stock", END)
     graph.add_edge("order", END)
+    graph.add_edge("order_status", END)
     graph.add_edge("unknown", END)
 
     return graph.compile(checkpointer=checkpointer)

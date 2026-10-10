@@ -28,6 +28,10 @@ class MongoOrderRepository(OrderRepositoryPort):
     async def find_by_operation_id(self, operation_id: str) -> Order | None:
         return self.find_by_operation_id_sync(operation_id)
 
+    async def find_by_order_id(self, order_id: str) -> Order | None:
+        document = self.collection.find_one({"order_id": order_id})
+        return self._to_order(document) if document is not None else None
+
     def find_by_operation_id_sync(self, operation_id: str, session=None) -> Order | None:
         session_options = {"session": session} if session is not None else {}
         document = self.collection.find_one(
@@ -35,9 +39,13 @@ class MongoOrderRepository(OrderRepositoryPort):
         )
         if document is None:
             return None
+        return self._to_order(document)
+
+    @staticmethod
+    def _to_order(document) -> Order:
         return Order(
             order_id=document["order_id"],
-            operation_id=document["operation_id"],
+            operation_id=document.get("operation_id", ""),
             product_name=document["product_name"],
             quantity=document["quantity"],
             status=OrderStatus(document["status"]),

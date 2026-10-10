@@ -146,6 +146,7 @@ def test_order_workflow_returns_pending_confirmation_without_creating_order() ->
         recommend_product,
         prepare_order,
         SimpleNamespace(execute=AsyncMock()),
+        get_order_status=SimpleNamespace(execute=AsyncMock()),
     )
 
     result = asyncio.run(

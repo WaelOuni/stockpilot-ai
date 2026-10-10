@@ -13,6 +13,8 @@ not a production-ready commerce service.
 - Product advice grounded in local product documents through pgvector RAG.
 - Stock lookup against Mongo inventory, separate from document recommendations.
 - Multi-turn ORDER preparation followed by explicit confirmation.
+- ORDER_STATUS lookup by explicit order ID or the last created order in the
+  current thread, with a deterministic response read from Mongo.
 - Atomic stock reservation/order creation with Mongo replica-set transactions.
 - Idempotent confirmation using a stable business operation identifier.
 - Persistent LangGraph conversation checkpoints in PostgreSQL.
@@ -130,7 +132,7 @@ For an existing standalone Mongo, read the
 | `GET /health` | Process liveness, not dependency readiness |
 | `POST /chat` | `{"message":"..."}`; direct LLM generation |
 | `POST /classify` | `{"message":"..."}`; structured intent/extraction |
-| `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER |
+| `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER/ORDER_STATUS |
 
 ```sh
 curl http://localhost:8000/health
@@ -150,6 +152,18 @@ curl -X POST http://localhost:8000/assistant \
 ```
 
 Keep `thread_id` across turns/restarts; use fresh IDs for separate experiments.
+After confirmation, ask for status in the same thread:
+
+```sh
+curl -X POST http://localhost:8000/assistant \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Quel est le statut de ma dernière commande ?","thread_id":"demo-order"}'
+```
+
+An explicit order ID takes priority. Only Mongo's stored status is returned;
+this demo has no authentication or ownership checks. See
+[ORDER_STATUS](docs/order-flow.md#order_status-read-only-lookup) for lookup results.
+
 Matching operation replays return the original order without decrementing stock
 again. Unknown commit outcomes require reconciliation, not blind compensation.
 See [order flow](docs/order-flow.md).

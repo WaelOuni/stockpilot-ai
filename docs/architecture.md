@@ -56,9 +56,15 @@ not complete framework isolation of the application layer.
 
 Every `/assistant` request first resolves a pending order confirmation.
 If not completed there, classification routes to PRODUCT_ADVICE, STOCK_CHECK,
-ORDER or UNKNOWN. Advice retrieves product documents and separately checks
+ORDER, ORDER_STATUS or UNKNOWN. Advice retrieves product documents and separately checks
 inventory; ORDER prepares a pending operation and awaits explicit confirmation.
 Keep the same caller-supplied `thread_id` across turns and restarts.
+
+ORDER_STATUS uses a thin node, `GetOrderStatusUseCase`, `OrderRepositoryPort`
+and Mongo's exact `find_by_order_id` lookup. Classification extracts an optional
+explicit ID; otherwise the checkpoint supplies the last successfully created
+order ID. Mongo alone supplies the status; no response generation is invoked.
+Lookup outcomes are separate from business and pending-confirmation statuses.
 
 Classification uses structured extraction and application category normalization.
 A positive lexical tooling-domain guard applies only to PRODUCT_ADVICE;
