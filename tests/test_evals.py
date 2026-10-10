@@ -197,10 +197,76 @@ def test_enriched_suite_preserves_historical_cases(tmp_path):
     output = tmp_path / "enriched.json"
     assert run.main(["--suite", "enriched", "--output", str(output)]) == 0
     report = json.loads(output.read_text())
-    assert report["total_cases"] == 83
-    assert len({(case["dataset"], case["id"]) for case in report["cases"]}) == 83
+    assert report["total_cases"] == 88
+    assert len({(case["dataset"], case["id"]) for case in report["cases"]}) == 88
     for kind in ("intent", "order"):
         additions = load_cases(run.ROOT / "evals" / "datasets" / f"{kind}_additional_cases.json", kind)
         historical = load_cases(run.ROOT / "evals" / "datasets" / f"{kind}_cases.json", kind)
+        enriched_path = run.ROOT / "evals" / "datasets" / f"{kind}_cases_enriched.json"
+        if enriched_path.exists():
+            additions += load_cases(enriched_path, kind)
         assert len([case for case in report["cases"] if case["dataset"] == kind]) == len(additions) + len(historical)
     assert run.main(["--mode", "local", "--suite", "enriched", "--compare-baseline"]) == 2
+
+
+@pytest.mark.parametrize("order_id", [None, "order-123"])
+def test_status_fixture_loader_allows_optional_order_identifier(tmp_path, order_id):
+    file = tmp_path / "status.json"
+    cases = [{"id": "status", "message": "Où en est ma commande ?", "expected": {
+        "intent": "ORDER_STATUS", "order_id": order_id,
+    }}]
+    file.write_text(json.dumps(cases))
+    assert load_cases(file, "intent") == cases
+
+
+@pytest.mark.parametrize("order_id", [123, True, [], {}])
+def test_status_fixture_loader_rejects_non_string_identifier(tmp_path, order_id):
+    file = tmp_path / "status.json"
+    file.write_text(json.dumps([{
+        "id": "status", "message": "Statut ?", "expected": {
+            "intent": "ORDER_STATUS", "order_id": order_id,
+        },
+    }]))
+    with pytest.raises(ValueError, match="order_id"):
+        load_cases(file, "intent")
+
+
+def test_status_extraction_is_scored_and_reported_in_local_mode():
+    from stockpilot.application.dto.intent_result import IntentResult
+    from unittest.mock import AsyncMock
+    cases = {"intent": [
+        {"id": "explicit", "message": "Statut commande exact-ID ?", "expected": {
+            "intent": "ORDER_STATUS", "order_id": "exact-ID",
+        }, "comparison": {"order_id": "exact"}},
+        {"id": "implicit", "message": "Où en est ma commande ?", "expected": {
+            "intent": "ORDER_STATUS", "order_id": None,
+        }},
+    ]}
+    classifier = SimpleNamespace(execute=AsyncMock(side_effect=[
+        IntentResult(intent="ORDER_STATUS", order_id="EXACT-id"),
+        IntentResult(intent="ORDER_STATUS"),
+    ]))
+    report = asyncio.run(run.evaluate("local", ("intent",), cases, classifier=classifier))
+    assert report["metrics"]["intent_accuracy"] == 1
+    assert report["metrics"]["order_id_accuracy"] == 0.5
+    assert report["metric_case_counts"]["order_id_accuracy"] == 2
+    assert report["cases"][0]["actual"]["order_id"] == "EXACT-id"
+    assert report["cases"][0]["failed_checks"] == ["order_id"]
+    assert report["cases"][1]["actual"]["order_id"] is None
+    assert report["cases"][1]["failed_checks"] == []
+    assert report["confusion_matrix"]["ORDER_STATUS"]["ORDER_STATUS"] == 2
+
+
+def test_deterministic_status_cases_round_trip_through_intent_result():
+    cases = {"intent": load_cases(
+        run.ROOT / "evals" / "datasets" / "intent_cases_enriched.json", "intent",
+    )}
+    assert len(cases["intent"]) == 5
+    report = asyncio.run(run.evaluate("deterministic", ("intent",), cases))
+    assert report["quality_measurement"] is False
+    assert report["failed_cases"] == 0
+    assert report["metrics"]["order_id_accuracy"] == 1
+    assert report["metric_case_counts"]["order_id_accuracy"] == 5
+    for case in report["cases"]:
+        assert case["actual"]["order_id"] == case["expected"]["order_id"]
+    assert report["confusion_matrix"]["ORDER_STATUS"]["ORDER_STATUS"] == 5

@@ -12,8 +12,9 @@ class IntentResult(BaseModel):
     budget: float | None = None
     usage: str | None = None
     quantity: int | None = None
+    order_id: str | None = None
 
-    @field_validator("product_name", "raw_product", "usage", mode="before")
+    @field_validator("product_name", "raw_product", "usage", "order_id", mode="before")
     @classmethod
     def normalize_null_strings(cls, value):
         if isinstance(value, str) and value.strip().lower() in {"null", "none", ""}:

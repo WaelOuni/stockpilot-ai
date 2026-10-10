@@ -12,9 +12,13 @@ class IdempotencyConflictError(ValueError):
 
 
 def validate_order_payload(
-    order: Order, product_name: str, quantity: int
+    order: Order, product_name: str, quantity: int, customer_id: str | None = None
 ) -> None:
-    if order.product_name != product_name or order.quantity != quantity:
+    if (
+        order.product_name != product_name
+        or order.quantity != quantity
+        or order.customer_id != customer_id
+    ):
         event(logger, "idempotency_conflict", level=logging.ERROR,
               operation_id=order.operation_id, message="Idempotency conflict")
         raise IdempotencyConflictError(

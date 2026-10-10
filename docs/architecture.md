@@ -56,9 +56,27 @@ not complete framework isolation of the application layer.
 
 Every `/assistant` request first resolves a pending order confirmation.
 If not completed there, classification routes to PRODUCT_ADVICE, STOCK_CHECK,
-ORDER or UNKNOWN. Advice retrieves product documents and separately checks
+ORDER, ORDER_STATUS or UNKNOWN. Advice retrieves product documents and separately checks
 inventory; ORDER prepares a pending operation and awaits explicit confirmation.
-Keep the same caller-supplied `thread_id` across turns and restarts.
+Keep the same signed customer identity and caller-supplied `thread_id` across
+turns and restarts. `/assistant` verifies an HS256 token's signature,
+expiration and nonblank `customer_id` claim.
+HTTP derives an unambiguous SHA-256 checkpoint key from this pair, so the same
+raw thread ID under two customers never shares state. Old raw-thread checkpoints
+are not resumed. `X-Customer-Id` is ignored; identity comes only from the
+validated JWT claim. It is injected into state, remembered on pending orders
+and persisted on finalization.
+
+ORDER_STATUS uses a thin node, `GetOrderStatusUseCase`, `OrderRepositoryPort`
+and Mongo's exact `find_by_order_id` lookup. Classification extracts an optional
+explicit ID; otherwise the checkpoint supplies the last successfully created
+order ID. Mongo alone supplies the status; no response generation is invoked.
+Lookup outcomes are separate from business and pending-confirmation statuses.
+Only exact nonblank customer ownership permits lookup: absent, foreign and
+legacy unowned orders have the same NOT_FOUND shape. Owner defaults to `None`
+for legacy deserialization/technical Python creation, without migration/backfill.
+Idempotency checks include the owner in every replay/reconciliation path.
+The back-office mutation routes remain privileged and global.
 
 Classification uses structured extraction and application category normalization.
 A positive lexical tooling-domain guard applies only to PRODUCT_ADVICE;
@@ -100,7 +118,10 @@ python -m pytest -q
 
 ## Boundaries and limitations
 
-- No authentication, payment or frontend; not hardened for public access.
+- No user authentication, payment or frontend; a shared Bearer token protects
+  only technical order mutation routes. Not hardened for public access.
+- Customer ownership isolation uses the verified `customer_id` claim in a signed
+  expiring JWT; caller-supplied identity headers are ignored.
 - Model extraction is probabilistic and the advice guard is lexical.
 - Product lookup uses the existing regex strategy and assumes an unambiguous
   canonical product name.

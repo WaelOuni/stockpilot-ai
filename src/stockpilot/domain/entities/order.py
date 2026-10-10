@@ -12,3 +12,4 @@ class Order:
     quantity: int
     status: OrderStatus
     created_at: datetime
+    customer_id: str | None = None

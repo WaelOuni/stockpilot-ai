@@ -21,6 +21,7 @@ from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
 from stockpilot.application.use_cases.recommend_product import RecommendProductUseCase
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot import metrics
+from customer_auth import configure_customer_auth, customer_headers
 
 
 @pytest.fixture(autouse=True)
@@ -131,18 +132,20 @@ def test_metric_provider_endpoint_interval_and_singleton(monkeypatch):
     provider.shutdown()
 
 
-def test_server_span_correlates_ids_without_message(tracing):
+def test_server_span_correlates_ids_without_message(tracing, monkeypatch):
     provider, exporter = tracing
     app = FastAPI()
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(router)
+    configure_customer_auth(monkeypatch, app)
     app.state.stockpilot_workflow = SimpleNamespace(ainvoke=AsyncMock(return_value={
         "intent": "ORDER", "order_status": "CONFIRMED", "created_order_id": "order-a",
         "pending_order": {"operation_id": "op-a"},
     }))
     telemetry.instrument_app(app, provider)
     response = TestClient(app).post(
-        "/assistant", json={"message": "private-user-message", "thread_id": "thread-a"}
+        "/assistant", headers=customer_headers("private-customer-a"),
+        json={"message": "private-user-message", "thread_id": "thread-a"}
     )
     server = next(span for span in exporter.get_finished_spans() if span.kind == SpanKind.SERVER)
     assert server.name == "POST /assistant"
@@ -151,6 +154,7 @@ def test_server_span_correlates_ids_without_message(tracing):
     assert server.attributes["stockpilot.operation_id"] == "op-a"
     assert server.attributes["stockpilot.order_id"] == "order-a"
     assert "private-user-message" not in str(server.attributes)
+    assert "private-customer-a" not in str(server.attributes)
 
 
 def test_finalize_span_contains_operation_and_order(tracing):
@@ -237,17 +241,19 @@ def test_httpx_client_span_is_child_and_url_query_is_redacted(tracing):
     assert "private" not in str(client.attributes)
 
 
-def test_server_error_export_does_not_reveal_exception(tracing):
+def test_server_error_export_does_not_reveal_exception(tracing, monkeypatch):
     provider, exporter = tracing
     app = FastAPI()
     app.add_middleware(RequestLoggingMiddleware)
     app.include_router(router)
+    configure_customer_auth(monkeypatch, app)
     app.state.stockpilot_workflow = SimpleNamespace(
         ainvoke=AsyncMock(side_effect=RuntimeError("private-exception"))
     )
     telemetry.instrument_app(app, provider)
     response = TestClient(app).post(
-        "/assistant", json={"message": "private-input", "thread_id": "thread-error"}
+        "/assistant", headers=customer_headers("customer-a"),
+        json={"message": "private-input", "thread_id": "thread-error"}
     )
     assert response.status_code == 500
     server = next(span for span in exporter.get_finished_spans() if span.kind == SpanKind.SERVER)

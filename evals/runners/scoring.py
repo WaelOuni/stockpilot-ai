@@ -62,12 +62,12 @@ def load_cases(path, kind):
         if kind in ("intent", "order"):
             expected = case.get("expected")
             if not isinstance(expected, dict) or not isinstance(expected.get("intent"), str) or expected["intent"] not in {
-                "ORDER", "STOCK_CHECK", "PRODUCT_ADVICE", "UNKNOWN",
+                "ORDER", "ORDER_STATUS", "STOCK_CHECK", "PRODUCT_ADVICE", "UNKNOWN",
             }:
                 raise ValueError(f"{path}: invalid expected intent")
-            if set(expected) - {"intent", "product_name", "raw_product", "quantity", "category", "budget", "usage"}:
+            if set(expected) - {"intent", "product_name", "raw_product", "quantity", "category", "budget", "usage", "order_id"}:
                 raise ValueError(f"{path}: unknown expected field")
-            for field in ("product_name", "raw_product", "usage"):
+            for field in ("product_name", "raw_product", "usage", "order_id"):
                 if field in expected and expected[field] is not None and not isinstance(expected[field], str):
                     raise ValueError(f"{path}: invalid {field}")
             if expected.get("category") is not None and (

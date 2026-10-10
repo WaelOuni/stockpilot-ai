@@ -3,6 +3,7 @@ from uuid import uuid4
 from stockpilot.telemetry import traced, enrich_span
 from stockpilot.metrics import record, order_replay
 from stockpilot.application.order_idempotency import IdempotencyConflictError
+from stockpilot.application.customer_identity import validate_customer_id
 from stockpilot.application.order_transaction_errors import (
     OrderOutcomeUnknownError, OrderTransactionFailedError,
 )
@@ -18,8 +19,10 @@ class FinalizeOrderUseCase:
 
     @traced("stockpilot.order.finalize")
     async def execute(
-        self, product_name: str, quantity: int, operation_id: str
+        self, product_name: str, quantity: int, operation_id: str,
+        customer_id: str | None = None,
     ) -> Order | None:
+        validate_customer_id(customer_id)
         normalized_name = product_name.strip()
         enrich_span(**{
             "stockpilot.operation_id": operation_id,
@@ -39,6 +42,7 @@ class FinalizeOrderUseCase:
             quantity=quantity,
             status=OrderStatus.CREATED,
             created_at=datetime.now(timezone.utc),
+            customer_id=customer_id,
         )
         token = order_replay.set(False)
         try:

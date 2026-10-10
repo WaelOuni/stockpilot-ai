@@ -6,7 +6,7 @@ They are not an LLM-as-judge benchmark and use no cloud service.
 
 ## Layout and golden data
 
-`datasets/intent_cases.json`: 40 messages, ten per intent.
+`datasets/intent_cases.json`: 40 historical messages, ten per original intent.
 `datasets/rag_cases.json`: eight queries with relevant source filenames.
 `datasets/recommendation_cases.json`: six expected products, including an
 unsupported task expecting no recommendation.
@@ -54,12 +54,22 @@ the live catalogue differs from the three golden documents.
 Run a subset with `--dataset intent`, `rag`, `recommendation` or `order`.
 The default `--suite historical` preserves the original 60 cases and their
 baseline. `--suite enriched` appends fifteen intent and eight ORDER cases from
-`intent_additional_cases.json` and `order_additional_cases.json` (83 total).
+`intent_additional_cases.json` and `order_additional_cases.json`, plus five
+ORDER_STATUS cases from `intent_cases_enriched.json` (88 total).
 These cover varied out-of-domain advice, implicit tool needs, unknown
 references, signed/zero quantities, absent quantities and price/voltage/dimension
 traps, plus generic tools with power/voltage/diameter/material descriptions
 that must not become named product references. Existing expectations and the
 measured baseline are not replaced.
+
+ORDER_STATUS fixtures distinguish querying an existing order from creating an
+ORDER or checking STOCK_CHECK availability. They cover current/last-order
+questions, an explicit UUID, a product model that must not become an order ID,
+and an operation identifier that must not become an order ID. `order_id` is
+annotated as a string or explicit `null`; only explicit order identifiers are
+extracted. Conversation fallback and read-only database behavior are covered
+by deterministic unit/integration tests, not these single-turn classifier
+evaluations. No new local model quality measurement is claimed for these cases.
 
 ```sh
 python scripts/run_evals.py --mode local --suite historical \
@@ -87,7 +97,7 @@ The subsequent correction adds a small positive domain guard in
 PRODUCT_ADVICE. It recognizes supported tool categories and common French
 drilling/fastening/cutting/sanding forms in the original message, not an
 LLM-generated category. No signal changes that intent to UNKNOWN. ORDER and
-STOCK_CHECK are never filtered. Word boundaries avoid accidental substring
+STOCK_CHECK and ORDER_STATUS are never filtered. Word boundaries avoid accidental substring
 matches; this is a lexical scope check, not a semantic guarantee (for example,
 an unrelated request mentioning a cutting verb can still pass).
 
@@ -112,6 +122,7 @@ Models, hardware and Ollama versions can still change outputs.
 | Metric | Definition |
 |---|---|
 | `intent_accuracy` | Correct intent / annotated intent cases |
+| `order_id_accuracy` | Correct extracted order identifier / annotated order-ID cases, including explicit `null` |
 | `product_name_accuracy` | Correct canonical name / annotated product cases |
 | `quantity_accuracy` | Correct quantity / annotated quantity cases |
 | `category_accuracy` | Correct normalized category / annotated category cases |
@@ -127,6 +138,9 @@ Name matching uses Unicode NFKC, case folding and collapsed whitespace. Accents,
 punctuation and model numbers are preserved. Numeric budget comparison has
 an absolute tolerance of 0.000001. Set a case's
 `"comparison": {"product_name": "exact"}` when strict equality is required.
+Explicit order UUID fixtures use `"comparison": {"order_id": "exact"}` so the
+identifier must be preserved exactly. Reports include the extracted `order_id`
+and identify incorrect extraction as an `order_id` failed check.
 Do not compare free-form answer or usage prose.
 
 `expected_sources` is a **relevant set**, not a list of alternatives:
@@ -180,8 +194,9 @@ of the **60 historical cases**, timestamp `2026-10-09T22:40:43.230440+00:00`:
 zero failures, Recall@1 87.5%, MRR 1.0 and all other implemented rates 100%
 on their small annotated denominators (grounding: five actual recommendations;
 budget: only three cases). Dataset hashes, model configuration and tolerance
-remain unchanged. The additional datasets stay separate and the 78-case
-enriched run remains complementary validation.
+remain unchanged. The additional datasets stay separate; the earlier 78-case
+enriched measured run remains complementary validation, not a measurement of
+the current 88-case enriched suite.
 
 Promoting the enriched suite requires an explicit reference-suite change,
 a newly measured and human-reviewed baseline, and updating the CI suite in
@@ -237,5 +252,6 @@ Recall@K, MRR, grounding, validation, reporting and regression exit codes.
 
 Future work may evaluate writing quality, global relevance and advanced
 faithfulness with an optional LLM judge. It is not a primary metric here.
-Multi-turn ORDER/state transitions, transaction/idempotency correctness and
-availability remain the responsibility of the existing deterministic tests.
+Multi-turn ORDER/ORDER_STATUS state transitions, read-only status lookup,
+transaction/idempotency correctness and availability remain the responsibility
+of deterministic tests.

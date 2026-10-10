@@ -7,12 +7,17 @@ multi-turn orders. It combines structured intent extraction, product-document
 RAG and explicit order confirmation. It is a **development/demo backend**,
 not a production-ready commerce service.
 
+A customer-facing Vue 3/TypeScript MVP lives in [frontend/](frontend/README.md),
+with Assistant and My Orders pages and an in-memory local JWT connection panel.
+
 ## Key features
 
 - Structured intent classification and product/category/quantity/budget extraction.
 - Product advice grounded in local product documents through pgvector RAG.
 - Stock lookup against Mongo inventory, separate from document recommendations.
 - Multi-turn ORDER preparation followed by explicit confirmation.
+- ORDER_STATUS lookup by explicit order ID or the last created order in the
+  current thread, with a deterministic response read from Mongo.
 - Atomic stock reservation/order creation with Mongo replica-set transactions.
 - Idempotent confirmation using a stable business operation identifier.
 - Persistent LangGraph conversation checkpoints in PostgreSQL.
@@ -130,26 +135,55 @@ For an existing standalone Mongo, read the
 | `GET /health` | Process liveness, not dependency readiness |
 | `POST /chat` | `{"message":"..."}`; direct LLM generation |
 | `POST /classify` | `{"message":"..."}`; structured intent/extraction |
-| `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER |
+| `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp` claims; advice/stock/ORDER/ORDER_STATUS |
+| `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; Bearer-protected demo back-office lifecycle update |
+| `GET /orders` | Customer JWT required; own orders only, newest first; `limit=20` (max 100), `offset=0` |
+| `POST /orders/{order_id}/cancel` | No body; atomic cancellation/stock restoration, requires back-office Bearer token |
+
+Configure `CUSTOMER_JWT_SECRET` in the API environment and in a trusted token
+issuer. Generate a one-hour local/demo token with:
+
+```sh
+export CUSTOMER_TOKEN="$(python scripts/create_customer_token.py demo-customer)"
+```
+
+The issuer and API must use the same private signing secret. Do not commit or
+log the secret or token.
 
 ```sh
 curl http://localhost:8000/health
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Quel outil pour couper des panneaux de bois ?","thread_id":"demo-advice"}'
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Est-ce que Bosch X100 est disponible ?","thread_id":"demo-stock"}'
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Commande-moi 2 Bosch X100","thread_id":"demo-order"}'
 # Same thread: explicit confirmation modifies demo stock and creates an order:
-curl -X POST http://localhost:8000/assistant \
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"message":"Oui, je confirme","thread_id":"demo-order"}'
 ```
 
-Keep `thread_id` across turns/restarts; use fresh IDs for separate experiments.
+Keep the same verified customer identity and `thread_id` across turns/restarts;
+checkpoints are isolated by their pair. `X-Customer-Id` is ignored; only the
+signed JWT claim establishes identity.
+Use fresh thread IDs for separate experiments.
+After confirmation, ask for status in the same thread:
+
+```sh
+curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Quel est le statut de ma dernière commande ?","thread_id":"demo-order"}'
+```
+
+An explicit order ID takes priority. Only the matching customer's stored status
+is returned; wrong-owner, absent and legacy unowned orders all return NOT_FOUND.
+Old unnamespaced conversations are not resumed; no ownership backfill is performed.
+See [ORDER_STATUS](docs/order-flow.md#order_status-read-only-lookup) for lookup results.
+
 Matching operation replays return the original order without decrementing stock
 again. Unknown commit outcomes require reconciliation, not blind compensation.
 See [order flow](docs/order-flow.md).
@@ -233,7 +267,14 @@ must be verified, not assumed configured. See
 
 ## Current limitations
 
-No authentication, payment or frontend. Model extraction is probabilistic;
+No user directory/token-issuance service, payment or frontend. `/assistant`
+validates signed customer JWTs; a trusted issuer must mint them. Technical order
+routes use a separate shared `BACKOFFICE_API_TOKEN`; unset configuration
+disables those routes (503).
+See [back-office authentication](docs/order-flow.md#back-office-authentication).
+`/health`, `/chat` and `/classify` remain public; `/assistant` requires a valid
+customer JWT for both identity and ownership isolation.
+Model extraction is probabilistic;
 the advice-domain guard is lexical, not semantic. Small datasets and a
 three-document corpus limit quality conclusions. Product lookup assumes
 unambiguous canonical names. PyMongo is synchronous in an async flow.

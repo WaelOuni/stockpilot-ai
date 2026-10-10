@@ -54,6 +54,11 @@ The structured classification prompt preserves concrete product references
 after plural category/quantity words and excludes generic specifications.
 Application category normalization remains active.
 
+The classifier prompt gives inventory availability/remaining-stock questions
+priority over tool advice, with contrastive examples preserving product
+extraction and null quantity for unknown remaining stock. Budget/usage extraction
+remains independent; no deterministic intent override is added.
+
 The small positive guard in
 [supported_tooling.py](../src/stockpilot/domain/services/supported_tooling.py)
 is used only when the LLM returns PRODUCT_ADVICE. It recognizes supported

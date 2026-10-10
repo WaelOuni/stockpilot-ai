@@ -2,6 +2,11 @@ import logging
 from stockpilot.observability import Timer, bind_context, event, timed_event
 
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
+from stockpilot.application.dto.intent_result import IntentResult
+from stockpilot.application.use_cases.resolve_context import (
+    ConversationContext, ContextResolutionUseCase,
+)
+from stockpilot.domain.enums.intent import Intent
 from stockpilot.application.order_transaction_errors import (
     OrderOutcomeUnknownError,
     OrderTransactionFailedError,
@@ -9,6 +14,7 @@ from stockpilot.application.order_transaction_errors import (
 from stockpilot.application.workflows.state import StockPilotState
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
+from stockpilot.application.use_cases.get_order_status import GetOrderStatusUseCase
 from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
 from stockpilot.application.use_cases.recommend_product import RecommendProductUseCase
 from stockpilot.application.workflows.order_confirmation import (
@@ -36,9 +42,51 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase):
             "budget": result.budget,
             "usage": result.usage,
             "quantity": result.quantity,
+            "order_id": result.order_id,
         }
 
     return classify_node
+
+
+def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
+    async def context_node(state: StockPilotState) -> StockPilotState:
+        previous = ConversationContext()
+        owner_matches = state.get("context_customer_id") == state.get("customer_id")
+        order_finished = (
+            state.get("last_relevant_intent") == Intent.ORDER
+            and state.get("order_status") in {
+                PreparedOrderStatus.CONFIRMED.value, PreparedOrderStatus.CANCELLED.value,
+                PreparedOrderStatus.ORDER_OUTCOME_UNKNOWN.value,
+                PreparedOrderStatus.ORDER_CREATION_FAILED.value,
+                PreparedOrderStatus.RESERVATION_FAILED.value,
+            }
+        )
+        if owner_matches and not order_finished:
+            previous = ConversationContext(
+                intent=state.get("last_relevant_intent"),
+                product_name=state.get("last_product_name"), quantity=state.get("last_quantity"),
+                category=state.get("last_category"), budget=state.get("last_budget"),
+                usage=state.get("last_usage"), advice_query=state.get("last_advice_query"),
+            )
+        result = resolve_context.execute(
+            state["message"],
+            IntentResult(**{key: state.get(key) for key in IntentResult.model_fields}),
+            previous,
+        )
+        return {
+            **result.classification.model_dump(),
+            "last_relevant_intent": result.context.intent,
+            "last_product_name": result.context.product_name,
+            "last_quantity": result.context.quantity,
+            "last_category": result.context.category,
+            "last_budget": result.context.budget,
+            "last_usage": result.context.usage,
+            "last_advice_query": result.context.advice_query,
+            "context_customer_id": state.get("customer_id"),
+            "advice_query": result.advice_query,
+        }
+
+    return context_node
 
 
 def create_order_confirmation_node(
@@ -64,6 +112,9 @@ def create_order_confirmation_node(
         if decision is None:
             return {"confirmation_handled": False}
 
+        if pending_order.get("customer_id") != state.get("customer_id"):
+            raise ValueError("La commande en attente appartient à un autre client.")
+
         updated_order = dict(pending_order)
         if decision == "confirmed":
             product_name = str(updated_order["product_name"])
@@ -75,7 +126,8 @@ def create_order_confirmation_node(
             timer = Timer()
             try:
                 created_order = await finalize_order.execute(
-                    product_name, quantity, operation_id=operation_id
+                    product_name, quantity, operation_id=operation_id,
+                    customer_id=state.get("customer_id"),
                 )
             except OrderOutcomeUnknownError:
                 event(logger, "order_outcome_unknown", level=logging.CRITICAL,
@@ -138,13 +190,16 @@ def create_order_confirmation_node(
             response = "Commande annulée."
             created_order_id = None
 
-        return {
+        result: StockPilotState = {
             "pending_order": updated_order,
             "order_status": order_status.value,
             "confirmation_handled": True,
             "created_order_id": created_order_id,
             "response": response,
         }
+        if created_order_id is not None:
+            result["last_created_order_id"] = created_order_id
+        return result
 
     return resolve_order_confirmation_node
 
@@ -163,7 +218,7 @@ def create_advice_node(
         state: StockPilotState,
     ) -> StockPilotState:
         recommendation = await recommend_product.execute(
-            state["message"]
+            state.get("advice_query") or state["message"]
         )
         response = recommendation.answer
         product_name = recommendation.product_name
@@ -238,6 +293,7 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
                 "product_name": product_name or "",
                 "quantity": result.quantity,
                 "status": status.value,
+                **({"customer_id": state["customer_id"]} if state.get("customer_id") is not None else {}),
             }
             if result.quantity == 1:
                 response = (
@@ -272,6 +328,24 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
         }
 
     return order_node
+
+
+def create_order_status_node(get_order_status: GetOrderStatusUseCase):
+    async def order_status_node(state: StockPilotState) -> StockPilotState:
+        order_id = (
+            state.get("order_id")
+            or state.get("last_created_order_id")
+            or state.get("created_order_id")
+        )
+        result = await get_order_status.execute(order_id, customer_id=state.get("customer_id"))
+        return {
+            "queried_order_id": result.order_id,
+            "queried_order_status": result.status.value if result.status else None,
+            "order_status_result": result.result,
+            "response": result.response,
+        }
+
+    return order_status_node
 
 
 async def unknown_node(state: StockPilotState) -> StockPilotState:

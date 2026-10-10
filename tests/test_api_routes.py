@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
 from fastapi.testclient import TestClient
 
 from stockpilot.application.dto.intent_result import IntentResult
@@ -12,6 +13,13 @@ from stockpilot.application.workflows.stockpilot_workflow import build_graph
 from stockpilot.domain.enums.intent import Intent
 from stockpilot.domain.enums.product_category import ProductCategory
 from stockpilot.main import app
+from stockpilot.presentation.api.routes.assistant import customer_thread_key
+from customer_auth import configure_customer_auth, customer_headers
+
+
+@pytest.fixture(autouse=True)
+def customer_auth(monkeypatch):
+    configure_customer_auth(monkeypatch, app)
 
 
 def test_chat_uses_generate_use_case(monkeypatch) -> None:
@@ -49,6 +57,7 @@ def test_classify_uses_classify_use_case(monkeypatch) -> None:
         "budget": 125.0,
         "usage": "home renovation",
         "quantity": None,
+        "order_id": None,
     }
     llm.classify_intent.assert_awaited_once_with("I need a drill")
 
@@ -67,6 +76,7 @@ def test_assistant_uses_workflow(monkeypatch) -> None:
 
     response = TestClient(app).post(
         "/assistant",
+        headers=customer_headers("customer-a"),
         json={"message": "Is it in stock?", "thread_id": "route-thread"},
     )
 
@@ -77,13 +87,17 @@ def test_assistant_uses_workflow(monkeypatch) -> None:
         "response": "Stock flow selected for product=None",
     }
     workflow.ainvoke.assert_awaited_once_with(
-        {"message": "Is it in stock?"},
-        config={"configurable": {"thread_id": "route-thread"}},
+        {"message": "Is it in stock?", "customer_id": "customer-a"},
+        config={"configurable": {"thread_id": customer_thread_key("customer-a", "route-thread")}},
     )
 
 
 def test_assistant_requires_thread_id() -> None:
-    response = TestClient(app).post("/assistant", json={"message": "Hello"})
+    response = TestClient(app).post(
+        "/assistant",
+        headers=customer_headers("customer-a"),
+        json={"message": "Hello"},
+    )
 
     assert response.status_code == 422
 
@@ -116,11 +130,13 @@ def test_assistant_looks_up_stock_by_canonical_product_name(monkeypatch) -> None
         recommend_product_use_case,
         SimpleNamespace(execute=AsyncMock()),
         SimpleNamespace(execute=AsyncMock()),
+        get_order_status=SimpleNamespace(execute=AsyncMock()),
     )
     monkeypatch.setattr(app.state, "stockpilot_workflow", workflow)
 
     response = TestClient(app).post(
         "/assistant",
+        headers=customer_headers("customer-a"),
         json={"message": message, "thread_id": "stock-thread"},
     )
 

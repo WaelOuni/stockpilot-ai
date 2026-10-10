@@ -14,4 +14,7 @@ def route_by_intent(state: StockPilotState) -> str:
     if intent == Intent.ORDER:
         return "order"
 
+    if intent == Intent.ORDER_STATUS:
+        return "order_status"
+
     return "unknown"
