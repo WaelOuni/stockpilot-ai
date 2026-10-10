@@ -5,7 +5,50 @@ The customer endpoints `POST /assistant`, `GET /orders`,
 `GET /orders/{order_id}` and `POST /customer/orders/{order_id}/cancel` are used.
 The catalogue additionally uses public read-only `GET /products` and
 `GET /products/{sku}`; no JWT is sent with these public requests.
-There is no back-office UI, login service or client-side business transition logic.
+The separate V2 `/admin/login`, `/admin/orders`, `/admin/orders/:orderId` space
+uses server-side demo admin sessions and global read-only order endpoints.
+There is no client-side business transition logic.
+
+## Read-only administration
+
+Configure admin username, derived password verifier and trusted browser origin
+**on the backend only**; see [setup](../docs/getting-started.md#read-only-demo-administrator)
+and [security/production limits](../docs/order-flow.md#demo-administrator-sessions-v2).
+No VITE secret is required. `api/admin.ts` always uses same-origin
+`/api/backoffice`, `credentials: include`, no customer JWT or technical Bearer.
+Customer/public requests retain their existing cookie-free transport.
+
+Routes verify `/backoffice/session/me` before protected navigation; expired
+reads redirect to login. Reload revalidates the HttpOnly cookie. CSRF uses an
+explicit login custom header plus exact server Origin checking and a random
+session-bound logout token. Password input clears on submission; no credentials
+are stored in localStorage/sessionStorage or URLs. Only CSRF lives in module
+memory. Logout invalidates the server session, not merely the displayed UI.
+
+Lists show all owners, nullable legacy owner, product/quantity/date/status,
+loading/error/empty states and offset pagination (20). A full last page may lead
+to an empty page because V1 has no total/has_more. Detail uses the existing
+badge/timeline and records only server events. Refresh is manual; no mutation or
+admin polling is added. The customer JWT panel is hidden in this separate space.
+
+The isolated admin browser scenario adds no seed or business operation:
+
+```sh
+# Root, with required local services already available:
+source scripts/dev-env.sh >/dev/null
+cd frontend
+npm run test:e2e -- admin.spec.ts
+```
+
+The launcher generates ephemeral admin credentials/verifier in Node, passes only
+the verifier to the FastAPI child, and explicitly selects local HTTP origins.
+No admin secret is compiled into Vue. Existing order/catalogue scenarios remain
+unchanged. Mongo/PostgreSQL are restricted to `stockpilot_e2e` by checked guards
+and advisory locking; no global drop. Traces/screenshots/videos stay disabled.
+Admin-only coverage includes route protection, real cookie login/reload/logout,
+CSRF denial, technical read compatibility, mutation denial, empty pagination,
+missing detail and unchanged seed stock. Populated timelines, legacy owners,
+expiry, rotation and brute force are covered in backend/Vitest tests.
 
 ## Run locally
 

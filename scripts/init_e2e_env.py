@@ -139,7 +139,10 @@ def main() -> int:
                     process = subprocess.Popen([
                         sys.executable, "-m", "uvicorn", "stockpilot.main:app",
                         "--host", "127.0.0.1", "--port", "8002",
-                    ], cwd=ROOT)
+                    ], cwd=ROOT, env={
+                        key: value for key, value in os.environ.items()
+                        if key not in {"E2E_ADMIN_PASSWORD", "E2E_ADMIN_USERNAME"}
+                    })
                     try:
                         return process.wait()
                     finally:

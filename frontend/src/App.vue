@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { computed } from 'vue'
 import CustomerTokenPanel from './components/CustomerTokenPanel.vue'
+const route = useRoute()
+const adminArea = computed(() => route.path.toLowerCase().startsWith('/admin/'))
 </script>
 
 <template>
@@ -29,6 +32,9 @@ import CustomerTokenPanel from './components/CustomerTokenPanel.vue'
         <RouterLink to="/orders">
           My Orders
         </RouterLink>
+        <RouterLink to="/admin/orders">
+          Admin
+        </RouterLink>
       </nav>
       <span class="demo-badge">Local demo</span>
     </div>
@@ -37,7 +43,7 @@ import CustomerTokenPanel from './components/CustomerTokenPanel.vue'
     id="main-content"
     class="main-shell"
   >
-    <CustomerTokenPanel />
+    <CustomerTokenPanel v-if="!adminArea" />
     <RouterView />
   </main>
   <footer class="site-footer">

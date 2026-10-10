@@ -7,6 +7,14 @@ lookup and explicitly confirmed orders. It separates deterministic business
 rules from model interpretation and infrastructure through application ports.
 It is not a production commerce service.
 
+The V2 demo back-office has a separate, read-only Vue space and opaque
+server-side admin sessions. It uses the V1 global read use cases/repository port;
+it never invokes LangGraph or adds persistence mutations. Customer JWT ownership
+and technical Bearer mutation controls remain separate. Authentication and CSRF
+are enforced in the presentation boundary, not by Vue route guards alone.
+See [admin session architecture/security](order-flow.md#demo-administrator-sessions-v2)
+and [configuration](getting-started.md#read-only-demo-administrator).
+
 ## Request path and boundaries
 
 ```text

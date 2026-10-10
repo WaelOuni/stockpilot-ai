@@ -4,6 +4,13 @@ from pydantic import Field, SecretStr
 
 
 class Settings(BaseSettings):
+    admin_username: str | None = Field(default=None, repr=False)
+    admin_password_verifier: SecretStr | None = Field(default=None, repr=False)
+    admin_trusted_origin: str | None = None
+    deployment_environment: Literal["development", "production"] = "development"
+    admin_allow_local_http: bool = False
+    admin_session_ttl_seconds: int = Field(default=1800, ge=1, le=86400)
+    admin_max_sessions: int = Field(default=100, ge=1, le=1000)
     backoffice_api_token: SecretStr | None = Field(default=None, repr=False)
     customer_jwt_secret: SecretStr | None = Field(default=None, repr=False)
     otel_enabled: bool = False

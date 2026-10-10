@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
-import { randomBytes } from 'node:crypto'
+import { pbkdf2Sync, randomBytes } from 'node:crypto'
 import { resolve } from 'node:path'
 
 // Override normal development targets for the entire test process and its children.
@@ -9,6 +9,16 @@ process.env.E2E_CUSTOMER_JWT_SECRET ||= randomBytes(48).toString('base64url')
 process.env.CUSTOMER_JWT_SECRET = process.env.E2E_CUSTOMER_JWT_SECRET
 process.env.E2E_BACKOFFICE_API_TOKEN ||= randomBytes(48).toString('base64url')
 process.env.BACKOFFICE_API_TOKEN = process.env.E2E_BACKOFFICE_API_TOKEN
+process.env.E2E_ADMIN_USERNAME ||= `e2e-admin-${randomBytes(16).toString('hex')}`
+process.env.E2E_ADMIN_PASSWORD ||= randomBytes(48).toString('base64url')
+const adminSalt = randomBytes(16).toString('hex')
+process.env.ADMIN_USERNAME = process.env.E2E_ADMIN_USERNAME
+process.env.ADMIN_PASSWORD_VERIFIER = `pbkdf2_sha256$600000$${adminSalt}$${pbkdf2Sync(
+  process.env.E2E_ADMIN_PASSWORD, Buffer.from(adminSalt, 'hex'), 600000, 32, 'sha256',
+).toString('hex')}`
+process.env.ADMIN_TRUSTED_ORIGIN = 'http://127.0.0.1:5174'
+process.env.ADMIN_ALLOW_LOCAL_HTTP = 'true'
+process.env.DEPLOYMENT_ENVIRONMENT = 'development'
 process.env.MONGO_DATABASE = 'stockpilot_e2e'
 process.env.MONGO_URI = process.env.E2E_MONGO_URI ||
   'mongodb://localhost:27017/?replicaSet=rs0&directConnection=true'

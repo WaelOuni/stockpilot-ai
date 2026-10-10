@@ -2,6 +2,9 @@ from contextlib import asynccontextmanager
 import logging
 
 from fastapi import FastAPI
+from stockpilot.presentation.api.admin_auth import AdminSessions, router as admin_session_router
+from stockpilot.application.use_cases.backoffice_orders import GetBackofficeOrderUseCase, ListBackofficeOrdersUseCase
+from stockpilot.presentation.api.routes.backoffice_orders import router as backoffice_orders_router
 
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
@@ -144,9 +147,23 @@ app.state.list_customer_orders_use_case = list_customer_orders_use_case
 app.state.get_customer_order_use_case = get_customer_order_use_case
 app.state.get_product_use_case = GetProductUseCase(product_repository)
 app.state.list_products_use_case = ListProductsUseCase(product_repository)
+app.state.list_backoffice_orders_use_case = ListBackofficeOrdersUseCase(order_repository)
+app.state.get_backoffice_order_use_case = GetBackofficeOrderUseCase(order_repository)
 
 app.include_router(health_router)
 app.include_router(chat_router)
 app.include_router(assistant_router)
 app.include_router(orders_router)
 app.include_router(products_router)
+app.state.admin_sessions = AdminSessions()
+app.include_router(admin_session_router)
+app.include_router(backoffice_orders_router)
+
+
+@app.middleware("http")
+async def protect_admin_responses(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/backoffice/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response

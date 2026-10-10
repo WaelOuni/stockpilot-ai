@@ -358,6 +358,105 @@ limitations above still apply; never disclose signing secrets or bearer tokens.
 
 ## Technical order lifecycle
 
+### Read-only administrative orders
+
+`GET /backoffice/orders` and `GET /backoffice/orders/{order_id}` accept either a
+validated server-side admin session or the existing `BackofficeBearer`.
+An explicit Authorization header always goes through the original technical
+checks; a customer JWT never grants administrative access, even with a cookie.
+Technical callers retain their existing 401/503 behavior. These are global reads
+in the current development environment, not multi-tenant endpoints.
+
+The list accepts `limit` (default 20, 1..100) and `offset` (default 0, >=0).
+`ListBackofficeOrdersUseCase` delegates to `OrderRepositoryPort.find_all`;
+Mongo sorts by `created_at DESC, order_id DESC` before skip/limit, with no
+owner filter. Response: `items`, `limit`, `offset`, `count = len(items)`,
+without a total or `has_more`.
+
+`GetBackofficeOrderUseCase` reuses `find_by_order_id`; absent orders return 404.
+The separate `BackofficeOrderResponse` contains the existing order fields
+(`order_id`, `product_name`, `quantity`, `status`, `created_at`, `events`) plus
+nullable `customer_id`. Legacy owners remain null and absent events remain
+empty; malformed events still fail explicitly. No `_id`, `reserved_product_id`
+or `operation_id` is exposed. Timeline data is returned, not synthesized.
+
+Neither read performs stock/order/event/index writes or invokes the workflow.
+Customer GET routes retain their JWT/ownership checks and unchanged response
+schemas. Vue `/admin/orders` and `/admin/orders/:orderId` render these reads
+with customer IDs, nullable legacy owners, recorded timestamps, existing badge
+and timeline, loading/error/empty states and offset pagination. The list has no
+`has_more`; a full page can lead to an empty next page. No administrative mutation
+is available. Existing PATCH status and POST cancellation remain technical-only.
+
+### Demo administrator sessions (V2)
+
+`POST /backoffice/session/login` accepts only JSON `{username, password}`.
+`GET /backoffice/session/me` verifies the server session and returns
+`{username, csrf_token}`; `POST /backoffice/session/logout` invalidates it and
+expires the cookie (204). Missing/expired sessions return 401, unsafe/missing
+admin configuration 503, origin/CSRF violations 403, throttling 429. Validation
+errors never echo submitted input. All `/backoffice/*` responses use `no-store`.
+
+The server configuration contains an admin username and a salted PBKDF2-SHA256
+verifier, not a plaintext password. Format:
+`pbkdf2_sha256$600000$<16..64-byte lowercase hex salt>$<32-byte lowercase hex digest>`.
+Only that algorithm/work factor is accepted. UTF-8 password verification and
+username comparisons are constant-time. Login accepts 16..256 characters;
+configuration is rejected if the verifier matches `BACKOFFICE_API_TOKEN` or
+`CUSTOMER_JWT_SECRET`. These technical secrets are never admin login credentials.
+See [setup](getting-started.md#read-only-demo-administrator).
+
+Cookies contain 256-bit opaque random tokens, never JWTs/roles/passwords. Sessions
+and their independent random CSRF tokens exist only in a locked process-local
+store. Default TTL is 1,800 seconds (fixed expiry, no read-based renewal), maximum
+100 active sessions; settings cap TTL at 86,400 and capacity at 1,000. Successful
+login replaces the supplied session and its CSRF token; failed login leaves it
+intact. Expired entries are pruned on access. Capacity exhaustion returns 503
+without evicting another administrator. Configuration changes invalidate sessions.
+
+Default cookie is `__Host-stockpilot_admin`, HttpOnly, Secure, SameSite=Strict,
+Path=/, no Domain. HTTPS is required for admin session operations. An explicit
+`ADMIN_ALLOW_LOCAL_HTTP=true` exception uses `stockpilot_admin_local` (HttpOnly,
+non-Secure), only with a loopback HTTP trusted origin, loopback request host and
+`DEPLOYMENT_ENVIRONMENT=development`. It is rejected in production; it cannot be
+enabled for a non-loopback site. SameSite is defense-in-depth, **not** the CSRF
+boundary.
+
+Login and logout require exactly one Origin matching `ADMIN_TRUSTED_ORIGIN`
+(scheme, host and port; no trailing slash/path/query/userinfo). Missing, null,
+duplicate and foreign origins fail. Login additionally requires JSON and exactly
+one non-simple `X-Admin-CSRF: login` header: this pre-session sentinel is not a
+secret, and cross-origin browsers cannot send it without a CORS preflight. No
+admin CORS allowance is added. Logout instead requires `X-Admin-CSRF` equal to the
+random token of that exact live session, returned by login/me. Tokens from another
+session or an earlier login are rejected. Browser fetch alone does not override
+these server checks.
+
+Vue uses a separate fixed same-origin `/api/backoffice` fetch transport with
+`credentials: include`, no Bearer and no configurable VITE remote target.
+Customer fetch keeps `credentials: omit`. Guards call `/me` on every protected
+navigation; a 401 during page reads redirects to login and removes displayed
+data. Reload revalidates the cookie; logout failures stay visible rather than
+claiming success. Password input is cleared on submission. Passwords/session
+credentials are never put in browser storage or URLs; the HttpOnly cookie is
+browser-managed and only the CSRF token is held in transient module memory.
+
+Login throttling counts successful and failed credential checks: five attempts
+per client IP per rolling 60 seconds, plus fifty globally. Request client identity
+is supplied by the server, never a custom frontend identity header. Bounded
+attempt buckets (maximum 1,024) and global deque reject new attempts at capacity;
+old entries expire, successful login does not clear counters. Configure trusted
+proxy forwarding narrowly; never trust arbitrary forwarded addresses.
+
+**Demo/production limits:** one configured administrator, global orders, no
+tenant/RBAC/MFA/recovery/audit trail. Restarts invalidate sessions and reset
+throttling. Multiple workers/replicas have independent sessions/counters, so this
+mechanism is **single-process demo only**, even when HTTPS/production transport
+settings are used. Before exposure, replace it with managed identity and a shared
+session/rate-limit store, enforce TLS and trusted proxy settings, body/request
+limits, CSP/XSS controls, durable audit and tenant authorization. XSS on the
+same origin can still use a session; HttpOnly is not an XSS solution.
+
 Persisted business statuses follow a strict sequence:
 
 ```text

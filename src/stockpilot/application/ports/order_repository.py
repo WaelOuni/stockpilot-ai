@@ -5,6 +5,10 @@ from stockpilot.domain.enums.order_status import OrderStatus
 
 
 class OrderRepositoryPort(Protocol):
+    async def find_all(self, limit: int, offset: int) -> list[Order]:
+        """Return all owners, sorted by created_at and order_id descending."""
+        ...
+
     async def create(self, order: Order) -> Order:
         """Replay only the same operation, product, quantity and customer (including None)."""
         ...

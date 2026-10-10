@@ -50,6 +50,15 @@ class MongoOrderRepository(OrderRepositoryPort):
         document = self.collection.find_one({"order_id": order_id})
         return self._to_order(document) if document is not None else None
 
+    async def find_all(self, limit: int, offset: int) -> list[Order]:
+        cursor = (
+            self.collection.find({})
+            .sort([("created_at", -1), ("order_id", -1)])
+            .skip(offset)
+            .limit(limit)
+        )
+        return [self._to_order(document) for document in cursor]
+
     async def find_by_customer_id(
         self, customer_id: str, limit: int, offset: int,
     ) -> list[Order]:

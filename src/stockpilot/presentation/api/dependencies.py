@@ -1,4 +1,5 @@
 from fastapi import Request
+from stockpilot.application.use_cases.backoffice_orders import GetBackofficeOrderUseCase, ListBackofficeOrdersUseCase
 
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
 from stockpilot.application.use_cases.generate_response import GenerateResponseUseCase
@@ -43,3 +44,11 @@ def get_product_use_case(request: Request) -> GetProductUseCase:
 
 def get_list_products_use_case(request: Request) -> ListProductsUseCase:
     return request.app.state.list_products_use_case
+
+
+def get_list_backoffice_orders_use_case(request: Request) -> ListBackofficeOrdersUseCase:
+    return request.app.state.list_backoffice_orders_use_case
+
+
+def get_backoffice_order_use_case(request: Request) -> GetBackofficeOrderUseCase:
+    return request.app.state.get_backoffice_order_use_case

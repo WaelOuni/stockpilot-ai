@@ -64,6 +64,11 @@ variables; it does **not** automatically load `../.env.local`. Export values exp
 | `MONGO_DATABASE` | `stockpilot` |
 | `BACKOFFICE_API_TOKEN` | Unset: technical order routes return 503; configure a private shared Bearer secret |
 | `CUSTOMER_JWT_SECRET` | Unset: `/assistant` and `GET /orders` return 503; private HS256 signing secret |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD_VERIFIER` | Unset: demo admin sessions fail closed; server-only username and salted derived verifier |
+| `ADMIN_TRUSTED_ORIGIN` | Unset: exact browser origin required for login/logout, e.g. `https://admin.example.test` |
+| `DEPLOYMENT_ENVIRONMENT` | `development`; use `production` to forbid the local HTTP exception |
+| `ADMIN_ALLOW_LOCAL_HTTP` | `false`; explicit loopback-only development exception |
+| `ADMIN_SESSION_TTL_SECONDS` / `ADMIN_MAX_SESSIONS` | `1800` / `100`; fixed lifetime and bounded process-local capacity |
 | `POSTGRES_URL` | Compose local demo `stockpilot` PostgreSQL database |
 | `LANGGRAPH_CHECKPOINT_DB_URI` | Unset: checkpoint storage uses `POSTGRES_URL` |
 | `LOG_LEVEL` / `LOG_FILE` | `INFO` / `logs/stockpilot.jsonl`; empty file path disables file logs |
@@ -92,6 +97,39 @@ stack to the Internet. Existing volumes are preserved. Never use `down -v` or
 seed commands on valuable data. For an existing standalone Mongo, follow
 [non-destructive migration/recovery](database.md#mongo-replica-set-migration-and-recovery)
 before starting the API.
+
+## Read-only demo administrator
+
+Configure the backend process, never a `VITE_*` variable. Use a distinct,
+random 16..256-character password; do not reuse either technical API token or
+customer signing key. Generate its verifier with hidden terminal prompts:
+
+```sh
+source .venv/bin/activate
+python scripts/create_admin_verifier.py
+```
+
+Securely set the returned verifier as `ADMIN_PASSWORD_VERIFIER` and configure
+`ADMIN_USERNAME` plus `ADMIN_TRUSTED_ORIGIN`. There is no configured plaintext
+password field. The verifier is sensitive server configuration: do not commit
+it, publish its output or put it in browser artifacts. The helper deliberately
+does not accept a password as a command-line argument (shell/process history).
+
+HTTPS and a Secure HttpOnly `__Host-` cookie are the defaults. For a strictly
+local HTTP demo, explicitly export `ADMIN_ALLOW_LOCAL_HTTP=true`,
+`DEPLOYMENT_ENVIRONMENT=development` and an exact loopback browser origin
+including Vite's port, for example `http://127.0.0.1:5173`. Match the actual
+browser origin; no trailing slash. The backend request host must also be
+loopback. `production` rejects that exception. With TLS termination, configure
+Uvicorn's trusted proxy addresses narrowly so HTTPS scheme forwarding reflects
+the trusted TLS proxy only.
+
+Start the backend normally; open `/admin/login` on Vite, log in and consult
+`/admin/orders`. Customer JWTs and technical Bearer tokens are not login
+credentials and are not used by the admin Vue transport. No status, cancellation,
+stock or product mutations are exposed. Missing/unsafe configuration fails closed
+without preventing the existing customer/public/technical routes from running.
+See [session security and single-process limitations](order-flow.md#demo-administrator-sessions-v2).
 
 ## Fresh application RAG database
 

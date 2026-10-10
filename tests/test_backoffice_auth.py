@@ -271,7 +271,7 @@ def test_missing_token_does_not_prevent_startup(monkeypatch):
     workflow.ainvoke.assert_not_awaited()
 
 
-def test_openapi_bearer_security_is_only_on_mutation_endpoints():
+def test_openapi_separates_customer_technical_and_admin_session_security():
     schema = app.openapi()
     schemes = schema["components"]["securitySchemes"]
     bearer_names = {
@@ -280,12 +280,16 @@ def test_openapi_bearer_security_is_only_on_mutation_endpoints():
     }
     assert bearer_names
     protected = {
+        ("get", "/backoffice/orders"),
+        ("get", "/backoffice/orders/{order_id}"),
         ("get", "/orders"),
         ("get", "/orders/{order_id}"),
         ("patch", "/orders/{order_id}/status"),
         ("post", "/orders/{order_id}/cancel"),
         ("post", "/customer/orders/{order_id}/cancel"),
         ("post", "/assistant"),
+        ("get", "/backoffice/session/me"),
+        ("post", "/backoffice/session/logout"),
     }
     actual = set()
     for path, operations in schema["paths"].items():
@@ -295,7 +299,7 @@ def test_openapi_bearer_security_is_only_on_mutation_endpoints():
             security = operation.get("security", schema.get("security", []))
             if security:
                 actual.add((method, path))
-                assert any(set(requirement) & bearer_names for requirement in security)
+                assert any(set(requirement) & (bearer_names | {"AdminSessionCookie"}) for requirement in security)
                 assert {} not in security
     assert actual == protected
     assert schema["paths"]["/assistant"]["post"]["security"] == [
@@ -304,3 +308,8 @@ def test_openapi_bearer_security_is_only_on_mutation_endpoints():
     assert schema["paths"]["/orders/{order_id}/cancel"]["post"]["security"] == [
         {"BackofficeBearer": []},
     ]
+    assert schema["paths"]["/backoffice/orders"]["get"]["security"] == [
+        {"BackofficeBearer": []}, {"AdminSessionCookie": []},
+    ]
+    assert schema["paths"]["/backoffice/session/me"]["get"]["security"] == [{"AdminSessionCookie": []}]
+    assert "security" not in schema["paths"]["/backoffice/session/login"]["post"]
