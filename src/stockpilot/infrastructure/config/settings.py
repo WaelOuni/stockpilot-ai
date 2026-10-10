@@ -4,6 +4,8 @@ from pydantic import Field, SecretStr
 
 
 class Settings(BaseSettings):
+    product_import_max_bytes: int = Field(default=2 * 1024 * 1024, ge=1, le=16 * 1024 * 1024)
+    product_import_max_products: int = Field(default=500, ge=1, le=500)
     admin_username: str | None = Field(default=None, repr=False)
     admin_password_verifier: SecretStr | None = Field(default=None, repr=False)
     admin_trusted_origin: str | None = None

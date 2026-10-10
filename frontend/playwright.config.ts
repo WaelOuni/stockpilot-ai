@@ -43,7 +43,7 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', testIgnore: [
-      'admin.spec.ts', 'admin-products.spec.ts', 'admin-stock.spec.ts', 'admin-dashboard.spec.ts',
+      'admin.spec.ts', 'admin-products.spec.ts', 'admin-stock.spec.ts', 'admin-dashboard.spec.ts', 'admin-import.spec.ts',
     ], use: { ...devices['Desktop Chrome'] } },
     // Delivery permanently consumes seed stock; run admin operations last.
     { name: 'chromium-admin', testMatch: 'admin.spec.ts', dependencies: ['chromium'],
@@ -54,6 +54,8 @@ export default defineConfig({
     { name: 'chromium-stock', testMatch: 'admin-stock.spec.ts', dependencies: ['chromium-products'],
       use: { ...devices['Desktop Chrome'] } },
     { name: 'chromium-dashboard', testMatch: 'admin-dashboard.spec.ts', dependencies: ['chromium-stock'],
+      use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium-import', testMatch: 'admin-import.spec.ts', dependencies: ['chromium-dashboard'],
       use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: [

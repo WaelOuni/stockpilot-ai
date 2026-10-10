@@ -20,6 +20,7 @@ from pymongo.errors import PyMongoError
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
 from stockpilot.infrastructure.persistence.mongodb.product_indexes import prepare_unique_sku_index
+from stockpilot.infrastructure.persistence.mongodb.product_import import prepare_import_index
 from stockpilot.infrastructure.persistence.mongodb.stock_movement_indexes import (
     prepare_stock_movement_indexes,
 )
@@ -105,6 +106,7 @@ def reset_stores(settings: Settings, connection, mongo) -> None:
     mongo.orders.delete_many({})
     mongo.products.delete_many({})
     mongo["stock_movements"].delete_many({})
+    mongo["product_imports"].delete_many({})
     mongo.products.insert_one({
         "sku": "E2E-BOSCH-X100",
         "name": "Bosch X100",
@@ -119,6 +121,7 @@ def reset_stores(settings: Settings, connection, mongo) -> None:
     # Explicitly authorized E2E provisioning only, after both active-store guards.
     prepare_unique_sku_index(mongo.products)
     prepare_stock_movement_indexes(mongo["stock_movements"])
+    prepare_import_index(mongo["product_imports"])
     print("E2E reset: Mongo stockpilot_e2e, PostgreSQL stockpilot_e2e, Bosch X100 stock=10.", flush=True)
 
 

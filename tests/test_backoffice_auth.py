@@ -300,6 +300,9 @@ def test_openapi_separates_customer_technical_and_admin_session_security():
         ("get", "/backoffice/products/{sku}/stock-movements"),
         ("get", "/backoffice/stock-adjustments/{operation_id}"),
         ("get", "/backoffice/dashboard"),
+        ("post", "/backoffice/products/import/preview"),
+        ("post", "/backoffice/products/import/execute"),
+        ("get", "/backoffice/products/import/batches/{operation_id}"),
     }
     actual = set()
     for path, operations in schema["paths"].items():
@@ -327,7 +330,10 @@ def test_openapi_separates_customer_technical_and_admin_session_security():
                          ("/backoffice/products", "post"),
                          ("/backoffice/products/{sku}", "patch"),
                          ("/backoffice/products/{sku}/stock-adjustments", "post"),
-                         ("/backoffice/stock-adjustments/{operation_id}", "get")):
+                         ("/backoffice/stock-adjustments/{operation_id}", "get"),
+                         ("/backoffice/products/import/preview", "post"),
+                         ("/backoffice/products/import/execute", "post"),
+                         ("/backoffice/products/import/batches/{operation_id}", "get")):
         assert schema["paths"][path][method]["security"] == [{"AdminSessionCookie": []}]
     assert schema["paths"]["/backoffice/products/{sku}/stock-movements"]["get"]["security"] == [
         {"BackofficeBearer": []}, {"AdminSessionCookie": []},

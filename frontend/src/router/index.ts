@@ -11,6 +11,7 @@ import AdminProductsPage from '../pages/AdminProductsPage.vue'
 import AdminProductFormPage from '../pages/AdminProductFormPage.vue'
 import AdminProductStockPage from '../pages/AdminProductStockPage.vue'
 import AdminDashboardPage from '../pages/AdminDashboardPage.vue'
+import AdminProductImportPage from '../pages/AdminProductImportPage.vue'
 import { protectAdminRoutes } from './adminGuard'
 
 export const router = createRouter({
@@ -22,6 +23,7 @@ export const router = createRouter({
     { path: '/admin/orders/:orderId', component: AdminOrderDetailPage, meta: { admin: true } },
     { path: '/admin/products', component: AdminProductsPage, meta: { admin: true } },
     { path: '/admin/products/new', component: AdminProductFormPage, meta: { admin: true } },
+    { path: '/admin/products/import', component: AdminProductImportPage, meta: { admin: true } },
     { path: '/admin/products/:sku/edit', component: AdminProductFormPage, meta: { admin: true } },
     { path: '/admin/products/:sku/stock', component: AdminProductStockPage, meta: { admin: true } },
     { path: '/', redirect: '/assistant' },

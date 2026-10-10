@@ -22,6 +22,11 @@ from stockpilot.application.use_cases.get_customer_order import GetCustomerOrder
 from stockpilot.application.use_cases.catalog_products import GetProductUseCase, ListProductsUseCase
 from stockpilot.presentation.api.routes.products import router as products_router
 from stockpilot.presentation.api.routes.backoffice_products import router as backoffice_products_router
+from stockpilot.presentation.api.routes.backoffice_product_import import router as product_import_router
+from stockpilot.application.use_cases.product_csv_import import (
+    PreviewProductCsvImportUseCase, ExecuteProductCsvImportUseCase, GetProductCsvImportResultUseCase,
+)
+from stockpilot.infrastructure.persistence.mongodb.product_import import MongoProductCsvImport
 from stockpilot.presentation.api.routes.backoffice_stock import (
     operations_router as backoffice_stock_operations_router,
     products_router as backoffice_stock_products_router,
@@ -159,6 +164,14 @@ app.state.get_customer_order_use_case = get_customer_order_use_case
 app.state.get_product_use_case = GetProductUseCase(product_repository)
 app.state.list_products_use_case = ListProductsUseCase(product_repository)
 app.state.create_product_use_case = CreateProductUseCase(product_repository)
+app.state.preview_product_csv_import = PreviewProductCsvImportUseCase(
+    MongoProductCsvImport(mongo_database), max_bytes=settings.product_import_max_bytes,
+    max_products=settings.product_import_max_products,
+)
+app.state.execute_product_csv_import = ExecuteProductCsvImportUseCase(app.state.preview_product_csv_import)
+app.state.get_product_csv_import_result = GetProductCsvImportResultUseCase(
+    app.state.preview_product_csv_import.repository,
+)
 app.state.update_product_metadata_use_case = UpdateProductMetadataUseCase(product_repository)
 app.state.adjust_product_stock_use_case = AdjustProductStockUseCase(product_repository)
 app.state.get_stock_adjustment_use_case = GetStockAdjustmentUseCase(product_repository)
@@ -178,6 +191,7 @@ app.state.admin_sessions = AdminSessions()
 app.include_router(admin_session_router)
 app.include_router(backoffice_orders_router)
 app.include_router(backoffice_dashboard_router)
+app.include_router(product_import_router)
 app.include_router(backoffice_products_router)
 app.include_router(backoffice_stock_products_router)
 app.include_router(backoffice_stock_operations_router)

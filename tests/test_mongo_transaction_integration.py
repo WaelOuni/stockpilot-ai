@@ -226,7 +226,8 @@ def database():
                 validate_test_database(database, name)
                 # Each fixture owns a previously absent UUID database. Select
                 # document IDs explicitly; retain the empty collections/indexes.
-                for collection in (database.orders, database.products, database["stock_movements"]):
+                for collection in (database.orders, database.products, database["stock_movements"],
+                                   database["product_imports"]):
                     ids = [doc["_id"] for doc in collection.find({}, {"_id": 1})]
                     if ids:
                         collection.delete_many({"_id": {"$in": ids}})

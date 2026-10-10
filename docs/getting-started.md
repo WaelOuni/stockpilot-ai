@@ -69,6 +69,7 @@ variables; it does **not** automatically load `../.env.local`. Export values exp
 | `DEPLOYMENT_ENVIRONMENT` | `development`; use `production` to forbid the local HTTP exception |
 | `ADMIN_ALLOW_LOCAL_HTTP` | `false`; explicit loopback-only development exception |
 | `ADMIN_SESSION_TTL_SECONDS` / `ADMIN_MAX_SESSIONS` | `1800` / `100`; fixed lifetime and bounded process-local capacity |
+| `PRODUCT_IMPORT_MAX_BYTES` / `PRODUCT_IMPORT_MAX_PRODUCTS` | `2097152` / `500`; raw CSV byte limit and small atomic product batch limit |
 | `POSTGRES_URL` | Compose local demo `stockpilot` PostgreSQL database |
 | `LANGGRAPH_CHECKPOINT_DB_URI` | Unset: checkpoint storage uses `POSTGRES_URL` |
 | `LOG_LEVEL` / `LOG_FILE` | `INFO` / `logs/stockpilot.jsonl`; empty file path disables file logs |
@@ -140,12 +141,23 @@ V4.1 adds `/admin/products`, `/admin/products/new` and
 `/admin/products/:sku/edit` to the same guarded admin navigation. Metadata only:
 SKU/name/category/finite nonnegative price on creation, immutable SKU and
 name/category/price on edit, stock always read-only and initially zero.
-No deletion/disable or stock adjustment. Renaming preserves referenced existing
+No deletion/disable; stock adjustment uses its separate V4 page. Renaming preserves referenced existing
 order restitution, but pending confirmations using the old name can fail.
 See [SKU provisioning and the exact blocked activation](database.md#product-metadata-administration-and-sku-activation-v41).
-The normal `stockpilot` database has not been migrated: missing exact unique
-SKU index intentionally blocks writes with 503. The preparation command is
+The exact unique SKU index is now provisioned after separate authorization;
+missing prerequisites still block writes with 503. Preparation commands are
 read-only unless explicitly authorized with `--apply --confirm-database`.
+
+### CSV product import (V6)
+
+V6 adds `/admin/products/import`, linked from the admin product catalogue.
+Select a UTF-8 CSV, review per-line errors/existing conflicts and confirm
+CREATE_ONLY explicitly. Products start at stock zero; existing products are
+never changed. Downloadable examples use real domain categories. The normal SKU
+and stock prerequisites are already active, but the **new import receipt index
+is not**: execution intentionally fails closed until separately authorized.
+No normal provisioning is performed automatically. See
+[format, limits, HTTP headers and manual activation](database.md#create_only-product-csv-imports-v6).
 
 ## Fresh application RAG database
 

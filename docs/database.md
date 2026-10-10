@@ -1,6 +1,6 @@
 # Databases and persistent conversations
 
-[Back to README](../README.md) · [Getting started](getting-started.md) · [Order flow](order-flow.md)
+[Back to README](../README.md) · [Getting started](getting-started.md) · [Order flow](order-flow.md) · [Synthetic demo dataset](demo-dataset.md)
 
 All commands run from the project root in WSL/Linux. They are manual operational
 procedures, not steps performed by the documentation refactor or real-eval CI.
@@ -389,13 +389,16 @@ Conflicting existing indexes/build failures are refused, never dropped.
   --database stockpilot --apply --confirm-database stockpilot
 ```
 
-**Normal development activation remains blocked.** Read-only preflight on
+**Historical V4.1 activation was blocked.** Read-only preflight on
 10 October 2026 returned `invalid=0, duplicates=0`, but no qualifying unique
 SKU index. The operator procedure above still requires authorization; no normal
 database migration/index creation/write was executed. Code is provisioned and
 verified only on the authorized `stockpilot_e2e` stores. The existing isolated
 initializer prepares just this index after its exact Mongo/PostgreSQL guards and
-seed; production startup never calls it.
+seed; production startup never calls it. A later separately authorized SKU
+activation is now confirmed active by V6 read-only preflight; V6 did not create
+or modify that index. Only the additional import receipt prerequisite remains
+unprovisioned on normal stockpilot.
 
 ## Administrative stock movements (V4)
 
@@ -479,6 +482,108 @@ Stock units are a non-monetary sum across heterogeneous products; no low-stock
 threshold or currency conversion is inferred. Missing/non-numeric product stock
 does not satisfy either comparison and is ignored by Mongo's numeric sum.
 Concurrent writes can make the independent totals differ slightly in time.
+
+## CREATE_ONLY product CSV imports (V6)
+
+`/admin/products/import` previews a file without writes, then explicitly confirms
+one small atomic batch. Existing SKU/name/category/price/stock and all orders,
+snapshots and movements are untouched. New products have server-owned stock zero.
+Preview is **not** a SKU reservation: catalogue races refuse the entire batch.
+
+### CSV and HTTP contract
+
+The body is raw CSV bytes, not multipart or JSON. `Content-Type: text/csv;
+charset=utf-8` is a convention, not a security check; extensions/MIME are never
+trusted. No multipart dependency is needed. Both POST routes require a valid
+admin session, exact single Origin and session CSRF **before** reading the body
+or Mongo. Customer JWTs and technical Authorization are rejected, even with a
+cookie. All responses are no-store.
+
+| Endpoint | Request / result |
+|---|---|
+| `POST /backoffice/products/import/preview` | Raw file; typed counts, issues, valid products/physical starting lines, SHA-256 fingerprint and signed binding |
+| `POST /backoffice/products/import/execute` | Same raw bytes; `X-Import-Operation-Id` canonical UUIDv4, `X-Import-Preview` returned binding, `X-Import-Confirm: CREATE_ONLY` |
+| `GET /backoffice/products/import/batches/{operation_id}` | Session-cookie-only; committed original operation/fingerprint/created count/SKU list, or 404 (not evidence of rollback) |
+
+UTF-8 is strict, with optional leading BOM. The exact quote-aware header must
+contain `sku`, `name`, `category`, `price` exactly once, in any order; no extras
+(including stock), missing or repeated columns. A single comma or semicolon
+separator is selected only by that exact header. Quotes must start a field,
+embedded quotes must be doubled, and nothing may follow a closing quote except
+separator/newline. Quoted separators and multiline fields are accepted.
+Empty files/header-only files fail; blank physical records are invalid, while
+the final line terminator does not introduce an empty record.
+
+```csv
+sku,name,category,price
+EXAMPLE-DRILL,"Perceuse, exemple",DRILL,99.5
+EXAMPLE-SAW,Scie exemple,SAW,49
+```
+
+Categories are the existing exact enum: DRILL, SAW, SANDER, SCREWDRIVER, OTHER.
+SKU and name must not be blank and retain their exact identity (no trimming,
+case folding or normalization). Price uses existing Python float/finite
+nonnegative metadata validation, not a new precision/monetary model.
+Every internally repeated SKU line is invalid. Existing SKU lookups are one
+grouped `$in` query with simple collation, not N+1 queries.
+
+`PRODUCT_IMPORT_MAX_BYTES` defaults to 2 MiB (configurable up to 16 MiB);
+`PRODUCT_IMPORT_MAX_PRODUCTS` defaults to 500 (configurable 1..500). Size is
+checked against declared Content-Length and during bounded streaming before
+full buffering/parsing. Fields are limited to 4096 characters, detailed issues
+to 100 (`issues_truncated` reports truncation), and preview products to 500.
+Fatal file issues use line 0; record issues/valid products use the physical
+starting line (including multiline quoted records). Analysed counts exclude the
+header, invalid counts include fatal file errors, and existing conflicts are
+separate from valid/invalid records. A blocking issue prevents approval.
+Internally repeated rows may also be existing-SKU conflicts; those two blocking
+counts can overlap.
+
+Bindings are HMAC-SHA256, tied to the exact byte fingerprint and current session
+CSRF, with a 30-minute expiry and process-local random key. Execute reparses
+and validates instead of trusting submitted preview data. Restart/expiry requires
+a new preview for a new batch; a persisted same-ID/same-byte replay returns the
+original receipt even if its old preview expired. Different bytes with that
+operation ID return 409. Receipt GET remains usable across restarts/login.
+
+### Atomicity, ambiguity and activation
+
+`MongoProductCsvImport` rechecks operation and all SKUs in one snapshot/majority,
+primary transaction, then inserts products plus a `product_imports` receipt.
+There is no update/upsert/delete path. The existing full unique simple SKU index
+also arbitrates concurrent V4.1 creates. Any insertion/receipt/SKU failure rolls
+back all products; known conflicts return 409. Only known-uncommitted transient
+transactions retry, at most three attempts. Unknown commit takes priority even
+with a transient label: reconcile the receipt using primary/majority, never
+blindly reapply. An unproven outcome returns 503. A later GET 404 does not prove
+failure; preserve the original ID and seek manual operational resolution.
+The receipt exposes no Mongo IDs and stores no uploaded file or credentials.
+
+Every new batch fails closed with 503 unless both the existing SKU prerequisite
+and a **full unique single `operation_id ASC`, simple, non-sparse/non-partial/
+non-TTL** receipt index exist. No import index/collection is created at startup.
+The explicit opt-in script counts invalid/repeated operation IDs without printing
+records, never drops/replaces indexes or repairs data, and validates the URI target:
+
+```sh
+# Read-only; safe inspection, no collection/index/document creation:
+.venv/bin/python scripts/prepare_product_import_index.py --database stockpilot
+
+# OPERATOR PROCEDURE ONLY, after separate authorization and backup/data review.
+# NOT executed against normal stockpilot during V6 implementation:
+.venv/bin/python scripts/prepare_product_import_index.py \
+  --database stockpilot --apply --confirm-database stockpilot
+```
+
+Normal read-only inspection on 10 October 2026 confirms the existing SKU index
+is now active, but import receipts have `invalid=0, duplicates=0` and no required
+operation index: **normal V6 activation remains blocked**, while V4 SKU/stock
+activation is preserved. No normal writes/index changes were performed for V6.
+Only the guarded `stockpilot_e2e` initializer provisions/cleans the named
+`product_imports` collection after existing exact Mongo/Postgres guards and PG
+advisory lock. Opt-in real tests use the existing previously absent strict UUID
+fixture, retain empty collections/indexes and clean named documents by `_id`,
+never drop a database.
 
 ## Persistent LangGraph conversations
 

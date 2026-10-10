@@ -23,7 +23,7 @@ and edits only metadata using atomic `$set` while preserving BSON identity and
 concurrent stock. No product index is created at startup. An explicit guarded
 preflight/opt-in preparation command and authorized isolated E2E provisioning
 are described in [database activation](database.md#product-metadata-administration-and-sku-activation-v41).
-Normal product metadata writes remain blocked until its SKU index is provisioned.
+Normal product metadata writes require the already provisioned SKU index.
 Customer/order workflows, RAG and transaction business rules are unchanged;
 renaming can invalidate a pending confirmation by old name, while referenced
 existing order cancellation remains `_id`-safe.
@@ -33,6 +33,16 @@ Its dedicated use case uses narrow Mongo aggregations for order statuses and
 product/stock totals, plus stable top-five projections for recent orders and
 stock adjustments. It adds no generic reporting layer or indexes; independent
 reads are not presented as one transactional snapshot.
+
+V6 CSV imports are a separate deterministic vertical slice, not an assistant
+intent or ingestion into RAG. `PreviewProductCsvImportUseCase` owns strict CSV,
+bounded validation and session/fingerprint approval; `ExecuteProductCsvImportUseCase`
+revalidates and calls `ProductCsvImportPort`. Its Mongo adapter owns grouped
+exact-SKU queries and atomic product/receipt transactions, retries and majority
+reconciliation. Thin cookie/Origin/CSRF routes bound the raw request stream and
+offload synchronous use cases to the existing threadpool. Typed application DTOs
+also describe API responses. No domain dependency, framework or normal-startup
+index initialization was added. See [CSV contract and activation](database.md#create_only-product-csv-imports-v6).
 
 ## Request path and boundaries
 

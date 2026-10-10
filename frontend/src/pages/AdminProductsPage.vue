@@ -53,6 +53,9 @@ onBeforeUnmount(() => controller?.abort())
   <RouterLink to="/admin/products/new">
     Créer un produit
   </RouterLink>
+  <RouterLink to="/admin/products/import">
+    Importer des produits CSV
+  </RouterLink>
   <button
     :disabled="loading"
     @click="load"

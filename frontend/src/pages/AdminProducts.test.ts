@@ -36,6 +36,7 @@ async function open(path: string, app = false) {
       { path: '/admin/orders', component: { template: '<p>Admin orders</p>' }, meta: { admin: true } },
       { path: '/admin/products', component: AdminProductsPage, meta: { admin: true } },
       { path: '/admin/products/new', component: AdminProductFormPage, meta: { admin: true } },
+      { path: '/admin/products/import', component: { template: '<p>Import CSV</p>' }, meta: { admin: true } },
       { path: '/admin/products/:sku/edit', component: AdminProductFormPage, meta: { admin: true } },
       { path: '/admin/products/:sku/stock', component: { template: '<p>Stock adjustment</p>' }, meta: { admin: true } },
       { path: '/assistant', component: { template: '<p>Assistant</p>' } },

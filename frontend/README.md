@@ -113,6 +113,37 @@ the guarded E2E initializer separately provisions its isolated test indexes.
 Product metadata PATCH still cannot modify stock/SKU; new products still start
 at zero.
 
+### CREATE_ONLY CSV product imports (V6)
+
+`/admin/products/import`, linked from products, uses the existing session guard
+and fixed cookie/CSRF transport. Select a nonempty file (UI default maximum
+2 MiB), preview it, inspect counts/physical starting lines/errors/existing SKU
+conflicts, then check explicit confirmation. Changing the file invalidates the
+preview and checkbox. The server validates content, not extension/MIME, with
+500 products maximum and bounded errors; its limits remain authoritative.
+The downloadable UTF-8 example and page explain exact columns, category enum,
+comma/semicolon quoting and stock-zero CREATE_ONLY rules. Preview reserves nothing.
+See [full CSV/API contract](../docs/database.md#create_only-product-csv-imports-v6).
+
+Loading/double-click guards, abort/20-second timeout and epochs discard stale
+responses. Only a validated actual server receipt reports success and links back
+to the catalogue. Before POST, tab sessionStorage holds **only** stable UUID and
+SHA-256 file fingerprint, never CSV content, secrets or preview tokens. Network,
+invalid-response/server errors and session changes retain that operation;
+there is no automatic POST retry or replacement ID. Reload can GET-reconcile
+without the file. Matching receipt proves completion; missing 404 stays blocked.
+Corrupt/unavailable storage fails closed. Definitive validation/CSRF/conflict
+refusals require a fresh preview. Browser abort is not server rollback.
+Resolve unknown operations before manually clearing storage; closing a tab loses
+that local marker but does not undo the server batch. Keep the displayed ID.
+
+`chromium-import` depends on `chromium-dashboard` so all six earlier scenario
+sources/seed-dependent assertions remain intact. It previews multiple products
+without mutation, confirms through UI, checks actual Mongo zero stock and public
+catalogue, rejects reimport duplicates and compares actual dashboard totals.
+Only guarded E2E provisioning adds the new import receipt index; normal activation
+waits for separate authorization.
+
 The isolated admin browser scenario creates real orders via authenticated
 customer assistant preparation/confirmation, then operates on them through admin
 UI and verifies actual Mongo events/stock with the existing read-only probe:
@@ -122,8 +153,8 @@ UI and verifies actual Mongo events/stock with the existing read-only probe:
 source scripts/dev-env.sh >/dev/null
 cd frontend
 npm run test:e2e -- --project=chromium-admin --no-deps admin.spec.ts
-# All six scenarios: customer/catalogue first, then admin orders,
-# product metadata, stock and finally the dashboard.
+# All seven scenarios: customer/catalogue first, then admin orders,
+# product metadata, stock, dashboard and finally CSV import.
 npm run test:e2e
 ```
 
@@ -364,7 +395,7 @@ cursor pagination or production-grade administrative identity.
 
 Playwright preserves `e2e/order-flow.spec.ts`, `e2e/catalogue-navigation.spec.ts`,
 `e2e/admin.spec.ts` and `e2e/admin-products.spec.ts`, then runs the dedicated
-`e2e/admin-stock.spec.ts` and `e2e/admin-dashboard.spec.ts` scenarios. It starts a
+`e2e/admin-stock.spec.ts`, `e2e/admin-dashboard.spec.ts` and `e2e/admin-import.spec.ts` scenarios. It starts a
 dedicated FastAPI on port **8002** and Vite on **5174**, with no server reuse
 and no automatic retries. Only Mongo/Postgres/Ollama must already be running.
 The normal development FastAPI instance is neither used nor stopped.
@@ -380,7 +411,7 @@ The normal development FastAPI instance is neither used nor stopped.
 Before serving, `scripts/init_e2e_env.py` creates the dedicated PostgreSQL
 database if absent, runs the official checkpointer setup, truncates only
 `public.checkpoints`, `public.checkpoint_blobs` and `public.checkpoint_writes`,
-and resets only Mongo `orders`/`products`/`stock_movements`. It preserves checkpoint migration
+and resets only Mongo `orders`/`products`/`stock_movements`/`product_imports`. It preserves checkpoint migration
 tables, Mongo indexes and all unrelated tables/collections. Bosch X100 is seeded
 with SKU `E2E-BOSCH-X100`, category DRILL, price 99 and **stock 10**.
 No development or production data is copied. The ORDER scenario needs no RAG

@@ -15,18 +15,21 @@ let sessionGeneration = 0
 
 async function adminRequest<T>(
   path: string,
-  options: { method?: 'POST' | 'PATCH'; body?: unknown; csrf?: string; signal?: AbortSignal } = {},
+  options: { method?: 'POST' | 'PATCH'; body?: unknown; csrf?: string; signal?: AbortSignal;
+    raw?: Blob; headers?: Record<string, string> } = {},
 ): Promise<T> {
   const generation = sessionGeneration
   const headers = new Headers({ Accept: 'application/json' })
   if (options.body !== undefined) headers.set('Content-Type', 'application/json')
   if (options.csrf) headers.set('X-Admin-CSRF', options.csrf)
+  if (options.raw) headers.set('Content-Type', 'text/csv; charset=utf-8')
+  for (const [key, value] of Object.entries(options.headers || {})) headers.set(key, value)
   let response: Response
   try {
     // Fixed same-origin proxy: admin cookies must never follow a VITE URL.
     response = await fetch(`/api/backoffice${path}`, {
       method: options.method || 'GET', headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.raw || (options.body === undefined ? undefined : JSON.stringify(options.body)),
       credentials: 'include', cache: 'no-store', redirect: 'error', signal: options.signal,
     })
   } catch (cause) {
@@ -59,7 +62,16 @@ async function adminRequest<T>(
       422: 'Ajustement de stock invalide.',
       503: 'Ajustement indisponible ou résultat incertain. Vérifiez l’opération avant toute nouvelle action.',
     }
-    throw new ApiError((path.includes('/stock-') || path.startsWith('/stock-adjustments')
+    const importMessages: Record<number, string> = {
+      404: 'Aucun résultat de lot visible ; cela ne prouve pas un échec.',
+      409: 'Import CREATE_ONLY refusé : conflit de SKU ou d’opération. Prévisualisez à nouveau.',
+      413: 'Le CSV dépasse la limite serveur.',
+      422: 'CSV, confirmation ou aperçu invalide/expiré.',
+      500: 'Import impossible ou résultat incertain. Vérifiez le résultat du lot.',
+      503: 'Import indisponible ou résultat inconnu. Vérifiez les indexes SKU/import et le résultat du lot.',
+    }
+    throw new ApiError((path.startsWith('/products/import') && importMessages[response.status])
+      || (path.includes('/stock-') || path.startsWith('/stock-adjustments')
       ? stockMessages[response.status]
       : undefined)
       || (path.startsWith('/products') && productMessages[response.status])
@@ -300,4 +312,65 @@ export async function listAdminStockMovements(
   }
   page.items.forEach(movement => validateStockMovement(movement, { sku, operationId: movement.operation_id }))
   return page
+}
+
+export interface CsvPreview {
+  fingerprint: string; analysed: number; valid: number; invalid: number; existing_conflicts: number
+  issues: { line: number; code: string; message: string }[]
+  products: { sku: string; name: string; category: ProductCategory; price: number; stock: number }[]
+  product_lines: number[]
+  binding: string | null; delimiter: string | null; issues_truncated: boolean
+}
+export interface CsvImportResult { operation_id: string; fingerprint: string; created: number; skus: string[] }
+
+function validateImportResult(value: CsvImportResult, operationId: string): CsvImportResult {
+  if (!value || !exactKeys(value, ['operation_id', 'fingerprint', 'created', 'skus'])
+    || value.operation_id !== operationId || !/^[0-9a-f]{64}$/.test(value.fingerprint)
+    || !Number.isSafeInteger(value.created) || value.created < 1 || value.created > 500
+    || !Array.isArray(value.skus) || value.skus.length !== value.created
+    || value.skus.some(sku => typeof sku !== 'string' || !sku.trim())
+    || new Set(value.skus).size !== value.created) throw new ApiError('Résultat d’import invalide.', 0)
+  return value
+}
+
+export async function previewAdminProductCsv(file: Blob, signal?: AbortSignal): Promise<CsvPreview> {
+  if (!csrfToken) throw new ApiError('Session administrateur absente.', 401)
+  const value = await adminRequest<CsvPreview>('/products/import/preview', {
+    method: 'POST', raw: file, csrf: csrfToken, signal,
+  })
+  if (!value || !/^[0-9a-f]{64}$/.test(value.fingerprint)
+    || ![value.analysed, value.valid, value.invalid, value.existing_conflicts].every(nonnegativeInteger)
+    || value.analysed > 501 || value.valid > 500 || value.valid > value.analysed
+    || !Array.isArray(value.issues) || value.issues.length > 100
+    || value.issues.some(issue => !issue || !nonnegativeInteger(issue.line)
+      || typeof issue.code !== 'string' || typeof issue.message !== 'string')
+    || !Array.isArray(value.products) || value.products.length !== value.valid
+    || !Array.isArray(value.product_lines) || value.product_lines.length !== value.valid
+    || !value.product_lines.every(line => Number.isSafeInteger(line) && line > 1)
+    || value.products.some(p => !p || typeof p.sku !== 'string' || !p.sku.trim()
+      || typeof p.name !== 'string' || !p.name.trim() || !Object.hasOwn(productCategoryLabels, p.category)
+      || !Number.isFinite(p.price) || p.price < 0 || p.stock !== 0)
+    || !(value.binding === null || typeof value.binding === 'string')
+    || !(value.delimiter === null || [',', ';'].includes(value.delimiter))
+    || typeof value.issues_truncated !== 'boolean'
+    || (value.binding !== null && (value.invalid > 0 || value.existing_conflicts > 0))) {
+    throw new ApiError('Aperçu CSV invalide.', 0)
+  }
+  return value
+}
+
+export async function executeAdminProductCsv(
+  file: Blob, operationId: string, binding: string, signal?: AbortSignal,
+): Promise<CsvImportResult> {
+  if (!csrfToken) throw new ApiError('Session administrateur absente.', 401)
+  return validateImportResult(await adminRequest<CsvImportResult>('/products/import/execute', {
+    method: 'POST', raw: file, csrf: csrfToken, signal,
+    headers: { 'X-Import-Operation-Id': operationId, 'X-Import-Preview': binding, 'X-Import-Confirm': 'CREATE_ONLY' },
+  }), operationId)
+}
+
+export async function getAdminProductCsvBatch(operationId: string, signal?: AbortSignal): Promise<CsvImportResult> {
+  return validateImportResult(await adminRequest<CsvImportResult>(
+    `/products/import/batches/${encodeURIComponent(operationId)}`, { signal },
+  ), operationId)
 }
