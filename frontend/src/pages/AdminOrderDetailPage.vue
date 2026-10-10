@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { getAdminOrder, type AdminOrder } from '../api/admin'
+import { cancelAdminOrder, getAdminOrder, updateAdminOrderStatus, type AdminOrder } from '../api/admin'
+import type { OrderStatus } from '../types/api'
 import { ApiError } from '../api/http'
 import AdminLogout from '../components/AdminLogout.vue'
 import ApiErrorNotice from '../components/ApiErrorNotice.vue'
@@ -14,36 +15,119 @@ const orderId = computed(() => String(route.params.orderId || ''))
 const order = ref<AdminOrder | null>(null)
 const loading = ref(false)
 const error = ref<Error | null>(null)
+const mutating = ref(false)
+const blocked = ref(true)
+const loggingOut = ref(false)
+const confirming = ref(false)
+const feedback = ref('')
+const nextStatus = computed<OrderStatus | undefined>(() => ({
+  CREATED: 'PROCESSING', PROCESSING: 'SHIPPED', SHIPPED: 'DELIVERED',
+} as Partial<Record<OrderStatus, OrderStatus>>)[order.value?.status ?? 'CANCELLED'])
+const cancellable = computed(() => order.value?.status === 'CREATED' || order.value?.status === 'PROCESSING')
+const disabled = computed(() => loading.value || mutating.value || blocked.value || loggingOut.value)
 let controller: AbortController | undefined
-async function load() {
+let timeout: ReturnType<typeof setTimeout> | undefined
+let active = true
+function abortPending() {
   controller?.abort()
+  clearTimeout(timeout)
+}
+async function load(reconcile = false) {
+  abortPending()
   const request = new AbortController()
   controller = request
   loading.value = true
-  order.value = null
-  error.value = null
-  try { const result = await getAdminOrder(orderId.value, request.signal); if (!request.signal.aborted) order.value = result }
-  catch (cause) {
-    if (!request.signal.aborted) {
-      if (cause instanceof ApiError && cause.status === 401) await router.replace('/admin/login?reason=session')
-      else error.value = cause instanceof Error ? cause : new Error('Chargement impossible.')
+  blocked.value = true
+  confirming.value = false
+  if (!reconcile) { order.value = null; error.value = null; feedback.value = '' }
+  const id = orderId.value
+  const timer = setTimeout(() => request.abort(), 20_000)
+  timeout = timer
+  try {
+    const result = await getAdminOrder(id, request.signal)
+    if (active && controller === request && !request.signal.aborted && !loggingOut.value && result.order_id === id) {
+      order.value = result
+      blocked.value = false
+      if (reconcile) feedback.value = 'Statut vérifié auprès du serveur. Aucune opération n’a été relancée.'
+    } else if (controller === request && result.order_id !== id) {
+      error.value = new Error('Réponse de commande incohérente. Actualisez avant toute opération.')
     }
-  } finally { if (controller === request) loading.value = false }
+  }
+  catch (cause) {
+    if (active && controller === request && !loggingOut.value) {
+      if (cause instanceof ApiError && cause.status === 401) {
+        order.value = null
+        await router.replace('/admin/login?reason=session')
+      } else {
+        if (cause instanceof ApiError && cause.status === 404) order.value = null
+        error.value = cause instanceof Error ? cause : new Error('Chargement impossible.')
+      }
+    }
+  } finally { clearTimeout(timer); if (controller === request) loading.value = false }
 }
-watch(orderId, () => { void load() }, { immediate: true })
-onBeforeUnmount(() => controller?.abort())
+async function mutate(cancel = false) {
+  if (disabled.value || !order.value || (cancel ? !cancellable.value || !confirming.value : !nextStatus.value)) return
+  const id = orderId.value
+  const status = nextStatus.value
+  abortPending()
+  const request = new AbortController()
+  controller = request
+  mutating.value = true
+  blocked.value = true
+  confirming.value = false
+  error.value = null
+  feedback.value = ''
+  let timedOut = false
+  const timer = setTimeout(() => { timedOut = true; request.abort() }, 20_000)
+  timeout = timer
+  try {
+    const result = cancel ? await cancelAdminOrder(id, request.signal)
+      : await updateAdminOrderStatus(id, status!, request.signal)
+    if (!active || controller !== request || loggingOut.value || orderId.value !== id) return
+    if (timedOut || result.order_id !== id) throw new ApiError('Résultat incertain. Vérification nécessaire.', 0)
+    order.value = result
+    blocked.value = false
+    feedback.value = cancel ? 'Commande annulée.' : 'Statut mis à jour.'
+  } catch (cause) {
+    if (!active || controller !== request || loggingOut.value || orderId.value !== id) return
+    error.value = cause instanceof Error ? cause : new Error('Opération impossible.')
+    if (cause instanceof ApiError && cause.status === 401) {
+      order.value = null
+      await router.replace('/admin/login?reason=session')
+    } else if (timedOut || !(cause instanceof ApiError) || cause.status === 0 || cause.status === 409 || cause.status >= 500) {
+      clearTimeout(timer)
+      mutating.value = false
+      await load(true)
+    } else if (cause.status === 404) {
+      order.value = null
+    }
+  } finally { clearTimeout(timer); if (active && controller === request) mutating.value = false }
+}
+function logoutPending(value: boolean) {
+  loggingOut.value = value
+  if (value) {
+    abortPending()
+    controller = undefined
+    blocked.value = true
+    loading.value = false
+    mutating.value = false
+    confirming.value = false
+  }
+}
+watch(orderId, () => { mutating.value = false; void load() }, { immediate: true })
+onBeforeUnmount(() => { active = false; abortPending() })
 </script>
 <template>
   <header class="page-heading">
-    <span class="eyebrow">Back-office · Lecture seule</span><h1>Détail administratif</h1>
+    <span class="eyebrow">Back-office · Opérations</span><h1>Détail administratif</h1>
   </header>
   <RouterLink to="/admin/orders">
     Retour aux commandes administrateur
   </RouterLink>
-  <AdminLogout />
+  <AdminLogout @pending="logoutPending" />
   <button
-    :disabled="loading"
-    @click="load"
+    :disabled="loading || mutating || loggingOut"
+    @click="load()"
   >
     Actualiser
   </button>
@@ -57,6 +141,18 @@ onBeforeUnmount(() => controller?.abort())
     v-if="error"
     :error="error"
   />
+  <p
+    v-if="feedback"
+    role="status"
+  >
+    {{ feedback }}
+  </p>
+  <p
+    v-if="blocked && order"
+    role="status"
+  >
+    Actions bloquées jusqu’à une actualisation fiable du serveur.
+  </p>
   <article
     v-if="order"
     class="context-card"
@@ -66,6 +162,45 @@ onBeforeUnmount(() => controller?.abort())
     <p>{{ order.product_name }} · Quantité : {{ order.quantity }}</p>
     <time :datetime="order.created_at">{{ formatDate(order.created_at) }}</time>
     <OrderStatusBadge :status="order.status" />
+    <button
+      v-if="nextStatus"
+      :disabled="disabled"
+      @click="mutate()"
+    >
+      Passer à {{ nextStatus }}
+    </button>
+    <button
+      v-if="cancellable && !confirming"
+      :disabled="disabled"
+      @click="confirming = true"
+    >
+      Annuler la commande
+    </button>
+    <section
+      v-if="confirming"
+      role="group"
+      aria-label="Confirmation d’annulation"
+    >
+      <p>Confirmer l’annulation de cette commande ? Le stock réservé sera restitué.</p>
+      <button
+        :disabled="disabled"
+        @click="mutate(true)"
+      >
+        Confirmer l’annulation
+      </button>
+      <button
+        :disabled="disabled"
+        @click="confirming = false"
+      >
+        Conserver la commande
+      </button>
+    </section>
+    <p
+      v-if="mutating"
+      role="status"
+    >
+      Opération en cours…
+    </p>
     <OrderTimeline
       :status="order.status"
       :events="order.events"

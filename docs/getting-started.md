@@ -98,7 +98,7 @@ seed commands on valuable data. For an existing standalone Mongo, follow
 [non-destructive migration/recovery](database.md#mongo-replica-set-migration-and-recovery)
 before starting the API.
 
-## Read-only demo administrator
+## Demo administrator
 
 Configure the backend process, never a `VITE_*` variable. Use a distinct,
 random 16..256-character password; do not reuse either technical API token or
@@ -126,10 +126,15 @@ the trusted TLS proxy only.
 
 Start the backend normally; open `/admin/login` on Vite, log in and consult
 `/admin/orders`. Customer JWTs and technical Bearer tokens are not login
-credentials and are not used by the admin Vue transport. No status, cancellation,
-stock or product mutations are exposed. Missing/unsafe configuration fails closed
+credentials and are not used by the admin Vue transport. The detail offers the
+next legal status transition and confirmed cancellation for CREATED/PROCESSING.
+These dedicated cookie-only routes require the exact Origin and the existing
+session-bound CSRF token. No arbitrary stock or product mutation is exposed.
+Uncertain outcomes are reread, never retried automatically.
+Missing/unsafe configuration fails closed
 without preventing the existing customer/public/technical routes from running.
 See [session security and single-process limitations](order-flow.md#demo-administrator-sessions-v2).
+See [V3 operations and isolated E2E](order-flow.md#operational-administrator-orders-v3).
 
 ## Fresh application RAG database
 

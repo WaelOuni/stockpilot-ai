@@ -5,14 +5,14 @@ The customer endpoints `POST /assistant`, `GET /orders`,
 `GET /orders/{order_id}` and `POST /customer/orders/{order_id}/cancel` are used.
 The catalogue additionally uses public read-only `GET /products` and
 `GET /products/{sku}`; no JWT is sent with these public requests.
-The separate V2 `/admin/login`, `/admin/orders`, `/admin/orders/:orderId` space
-uses server-side demo admin sessions and global read-only order endpoints.
-There is no client-side business transition logic.
+The separate V3 `/admin/login`, `/admin/orders`, `/admin/orders/:orderId` space
+uses V2 server-side demo admin sessions, global reads and dedicated operational
+order endpoints. The server's existing business rules remain authoritative.
 
-## Read-only administration
+## Operational administration
 
 Configure admin username, derived password verifier and trusted browser origin
-**on the backend only**; see [setup](../docs/getting-started.md#read-only-demo-administrator)
+**on the backend only**; see [setup](../docs/getting-started.md#demo-administrator)
 and [security/production limits](../docs/order-flow.md#demo-administrator-sessions-v2).
 No VITE secret is required. `api/admin.ts` always uses same-origin
 `/api/backoffice`, `credentials: include`, no customer JWT or technical Bearer.
@@ -21,23 +21,35 @@ Customer/public requests retain their existing cookie-free transport.
 Routes verify `/backoffice/session/me` before protected navigation; expired
 reads redirect to login. Reload revalidates the HttpOnly cookie. CSRF uses an
 explicit login custom header plus exact server Origin checking and a random
-session-bound logout token. Password input clears on submission; no credentials
+session-bound token shared by logout and mutations. Password input clears on submission; no credentials
 are stored in localStorage/sessionStorage or URLs. Only CSRF lives in module
 memory. Logout invalidates the server session, not merely the displayed UI.
 
 Lists show all owners, nullable legacy owner, product/quantity/date/status,
 loading/error/empty states and offset pagination (20). A full last page may lead
 to an empty page because V1 has no total/has_more. Detail uses the existing
-badge/timeline and records only server events. Refresh is manual; no mutation or
-admin polling is added. The customer JWT panel is hidden in this separate space.
+badge/timeline and records only server events. Detail offers the next legal
+transition and explicit cancellation confirmation for CREATED/PROCESSING.
+Pending operations disable mutations/refresh. Success replaces status/events
+from the server; conflict, network/20-second timeout, invalid response or server
+error blocks actions and GET-reconciles, without mutation retries or compensation.
+Failed reconciliation stays blocked until a reliable manual refresh; 401
+redirects to login, 404 clears data, 403 requires refresh. Route/logout/expiry
+discard stale responses and abort pending requests. No admin polling is added.
+The customer JWT panel is hidden in this separate space.
 
-The isolated admin browser scenario adds no seed or business operation:
+The isolated admin browser scenario creates real orders via authenticated
+customer assistant preparation/confirmation, then operates on them through admin
+UI and verifies actual Mongo events/stock with the existing read-only probe:
 
 ```sh
 # Root, with required local services already available:
 source scripts/dev-env.sh >/dev/null
 cd frontend
-npm run test:e2e -- admin.spec.ts
+npm run test:e2e -- --project=chromium-admin --no-deps admin.spec.ts
+# All three scenarios: existing chromium customer/catalogue tests run first;
+# chromium-admin depends on them because delivery permanently consumes stock.
+npm run test:e2e
 ```
 
 The launcher generates ephemeral admin credentials/verifier in Node, passes only
@@ -46,9 +58,11 @@ No admin secret is compiled into Vue. Existing order/catalogue scenarios remain
 unchanged. Mongo/PostgreSQL are restricted to `stockpilot_e2e` by checked guards
 and advisory locking; no global drop. Traces/screenshots/videos stay disabled.
 Admin-only coverage includes route protection, real cookie login/reload/logout,
-CSRF denial, technical read compatibility, mutation denial, empty pagination,
-missing detail and unchanged seed stock. Populated timelines, legacy owners,
-expiry, rotation and brute force are covered in backend/Vitest tests.
+CSRF/Origin denial, technical read compatibility, client/technical mutation
+denial, empty pagination, missing detail, every lifecycle step, cancellation,
+replay/restock once and terminal denial. Stored BACKOFFICE events and final stock
+(one delivered reservation consumed) are asserted. Legacy owners, concurrency,
+expiry/rotation, uncertain outcomes and brute force are covered in backend/Vitest.
 
 ## Run locally
 

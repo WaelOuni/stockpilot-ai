@@ -41,7 +41,12 @@ export default defineConfig({
     screenshot: 'off',
     video: 'off',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', testIgnore: 'admin.spec.ts', use: { ...devices['Desktop Chrome'] } },
+    // Delivery permanently consumes seed stock; run admin operations last.
+    { name: 'chromium-admin', testMatch: 'admin.spec.ts', dependencies: ['chromium'],
+      use: { ...devices['Desktop Chrome'] } },
+  ],
   webServer: [
     {
       command: `"${python}" ../scripts/init_e2e_env.py --serve`,

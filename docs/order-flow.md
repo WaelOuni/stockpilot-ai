@@ -385,8 +385,54 @@ Customer GET routes retain their JWT/ownership checks and unchanged response
 schemas. Vue `/admin/orders` and `/admin/orders/:orderId` render these reads
 with customer IDs, nullable legacy owners, recorded timestamps, existing badge
 and timeline, loading/error/empty states and offset pagination. The list has no
-`has_more`; a full page can lead to an empty next page. No administrative mutation
-is available. Existing PATCH status and POST cancellation remain technical-only.
+`has_more`; a full page can lead to an empty next page. The existing `/orders/*`
+PATCH status and POST cancellation remain technical Bearer-only; the separate
+cookie-only operational endpoints below reuse exactly the same business use cases.
+
+### Operational administrator orders (V3)
+
+`PATCH /backoffice/orders/{order_id}/status` accepts `{"status":"PROCESSING"}`;
+`POST /backoffice/orders/{order_id}/cancel` has no body. Both require a live
+server-side admin cookie session, exactly one trusted Origin and the existing V2
+session-bound `X-Admin-CSRF` token. Authorization headers are rejected even with
+a valid cookie; neither customer JWTs nor the technical Bearer grant access.
+Reads retain their session/technical compatibility. Missing, expired and revoked
+sessions return 401; Origin/CSRF violations 403; absent orders 404; forbidden or
+concurrent changes 409; unsafe session configuration 503.
+
+The routes call only `UpdateOrderStatusUseCase` and `CancelOrderUseCase`.
+Progression is CREATED → PROCESSING → SHIPPED → DELIVERED, without jumps or
+reverse transitions. Cancellation uses its separate endpoint, never PATCH to
+move to CANCELLED. CREATED/PROCESSING can be cancelled, SHIPPED/DELIVERED cannot.
+Same-status updates and repeated cancellations preserve the existing no-op
+semantics (including an already CANCELLED status); no extra event/restock occurs.
+The existing Mongo compare-and-swap and cancellation transaction remain the
+only write implementations. Mutation responses use `BackofficeOrderResponse`,
+including nullable customer ID and actual events, never internal identifiers.
+Administrative events have source BACKOFFICE; customer behavior is unchanged.
+
+Vue detail offers only the next transition, plus explicit confirm/decline
+cancellation for CREATED/PROCESSING. Pending operations disable all mutations
+and refresh, preventing duplicate/cross submissions. Status/events are replaced
+only by validated server responses, never optimistic events or compensation.
+Network/20-second timeout, invalid response, 409 and server failures block
+actions and trigger a GET reconciliation. Failed reconciliation remains blocked;
+only a reliable reread re-enables actions. No mutation is retried automatically.
+403 remains blocked until manual refresh; 404 removes the detail; 401 removes it
+and redirects to login. Route/unmount/logout abort pending requests and ignore
+late responses; logout failure requires a fresh detail read before acting again.
+Transport generations discard responses from a prior login/logout/expired
+session, including late JSON parsing.
+
+The real browser test creates orders through the authenticated customer
+assistant preparation/confirmation flow, then changes them through cookie-only
+admin UI and verifies stored BACKOFFICE events and stock restoration exactly
+once with the existing read-only Mongo probe. Mongo/PostgreSQL/checkpoints remain
+strictly `stockpilot_e2e`; no artificial order seeding, dev writes or global
+cleanup. Because delivery consumes stock permanently, the `chromium-admin`
+project depends on the existing `chromium` customer/catalogue project. A full
+E2E run executes those regressions first; an isolated admin-only run uses
+`npm run test:e2e -- --project=chromium-admin --no-deps admin.spec.ts`.
 
 ### Demo administrator sessions (V2)
 
@@ -404,7 +450,7 @@ Only that algorithm/work factor is accepted. UTF-8 password verification and
 username comparisons are constant-time. Login accepts 16..256 characters;
 configuration is rejected if the verifier matches `BACKOFFICE_API_TOKEN` or
 `CUSTOMER_JWT_SECRET`. These technical secrets are never admin login credentials.
-See [setup](getting-started.md#read-only-demo-administrator).
+See [setup](getting-started.md#demo-administrator).
 
 Cookies contain 256-bit opaque random tokens, never JWTs/roles/passwords. Sessions
 and their independent random CSRF tokens exist only in a locked process-local
@@ -422,12 +468,12 @@ non-Secure), only with a loopback HTTP trusted origin, loopback request host and
 enabled for a non-loopback site. SameSite is defense-in-depth, **not** the CSRF
 boundary.
 
-Login and logout require exactly one Origin matching `ADMIN_TRUSTED_ORIGIN`
+Login, logout and V3 mutations require exactly one Origin matching `ADMIN_TRUSTED_ORIGIN`
 (scheme, host and port; no trailing slash/path/query/userinfo). Missing, null,
 duplicate and foreign origins fail. Login additionally requires JSON and exactly
 one non-simple `X-Admin-CSRF: login` header: this pre-session sentinel is not a
 secret, and cross-origin browsers cannot send it without a CORS preflight. No
-admin CORS allowance is added. Logout instead requires `X-Admin-CSRF` equal to the
+admin CORS allowance is added. Logout and V3 mutations require `X-Admin-CSRF` equal to the
 random token of that exact live session, returned by login/me. Tokens from another
 session or an earlier login are rejected. Browser fetch alone does not override
 these server checks.

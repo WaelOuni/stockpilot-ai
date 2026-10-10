@@ -5,17 +5,19 @@ import { adminLogout } from '../api/admin'
 import { ApiError } from '../api/http'
 import ApiErrorNotice from './ApiErrorNotice.vue'
 const router = useRouter()
+const emit = defineEmits<{ pending: [value: boolean] }>()
 const loading = ref(false)
 const error = ref<Error | null>(null)
 async function logout() {
   if (loading.value) return
   loading.value = true
+  emit('pending', true)
   error.value = null
   try { await adminLogout(); await router.replace('/admin/login') }
   catch (cause) {
     if (cause instanceof ApiError && cause.status === 401) await router.replace('/admin/login')
     else error.value = cause instanceof Error ? cause : new Error('Déconnexion impossible.')
-  } finally { loading.value = false }
+  } finally { loading.value = false; emit('pending', false) }
 }
 </script>
 <template>

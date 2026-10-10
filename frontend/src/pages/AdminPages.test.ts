@@ -5,6 +5,7 @@ import AdminLoginPage from './AdminLoginPage.vue'
 import AdminOrdersPage from './AdminOrdersPage.vue'
 import AdminOrderDetailPage from './AdminOrderDetailPage.vue'
 import { protectAdminRoutes } from '../router/adminGuard'
+import { adminMe } from '../api/admin'
 
 const fetchMock = vi.fn<typeof fetch>()
 let wrapper: VueWrapper | undefined
@@ -103,7 +104,9 @@ it('list renders customer, date and badge with read-only navigation', async () =
   await flushPromises()
   expect(router.currentRoute.value.path).toBe('/admin/orders/admin-order')
   expect(wrapper!.text()).toContain('BACKOFFICE')
-  expect(wrapper!.findAll('button').map((item) => item.text())).toEqual(['Se déconnecter', 'Actualiser'])
+  expect(wrapper!.findAll('button').map((item) => item.text())).toEqual([
+    'Se déconnecter', 'Actualiser', 'Passer à SHIPPED', 'Annuler la commande',
+  ])
 })
 
 it('detail preserves real timeline and legacy null owner/empty events', async () => {
@@ -212,4 +215,199 @@ it('list errors discard stale data and manual refresh can recover', async () => 
   await flushPromises()
   expect(wrapper!.find('article').exists()).toBe(true)
   expect(wrapper!.find('[role="alert"]').exists()).toBe(false)
+})
+
+it.each([
+  ['CREATED', 'PROCESSING', true], ['PROCESSING', 'SHIPPED', true],
+  ['SHIPPED', 'DELIVERED', false], ['DELIVERED', null, false], ['CANCELLED', null, false],
+])('detail exposes only valid actions for %s', async (status, next, cancel) => {
+  fetchMock.mockImplementation(async input => String(input).includes('/session/')
+    ? json({ username: 'admin', csrf_token: 'csrf' }) : json({ ...order, status }))
+  await open('/admin/orders/admin-order')
+  const actions = wrapper!.findAll('button').map(item => item.text())
+  expect(actions.filter(text => text.startsWith('Passer à'))).toEqual(next ? [`Passer à ${next}`] : [])
+  expect(actions.includes('Annuler la commande')).toBe(cancel)
+})
+
+it('cancel requires explicit confirmation, decline sends nothing, success uses server timeline', async () => {
+  await open('/admin/orders/admin-order')
+  const before = fetchMock.mock.calls.length
+  await button('Annuler la commande').trigger('click')
+  expect(wrapper!.text()).toContain('Le stock réservé sera restitué')
+  await button('Conserver la commande').trigger('click')
+  expect(fetchMock).toHaveBeenCalledTimes(before)
+  await button('Annuler la commande').trigger('click')
+  const events = [...order.events, { status: 'CANCELLED', source: 'BACKOFFICE', occurred_at: '2026-10-10T10:10:00Z' }]
+  fetchMock.mockResolvedValue(json({ ...order, status: 'CANCELLED', events }))
+  await button('Confirmer l’annulation').trigger('click')
+  await flushPromises()
+  expect(fetchMock.mock.calls.at(-1)![0]).toBe('/api/backoffice/orders/admin-order/cancel')
+  expect(fetchMock.mock.calls.at(-1)![1]!.method).toBe('POST')
+  expect(wrapper!.findAll('.order-timeline li')).toHaveLength(3)
+  expect(wrapper!.text()).toContain('Commande annulée.')
+  expect(wrapper!.findAll('button').map(item => item.text())).toEqual(['Se déconnecter', 'Actualiser'])
+})
+
+it('blocks double and cross mutation plus refresh while pending; no optimistic updates', async () => {
+  await open('/admin/orders/admin-order')
+  let resolve!: (response: Response) => void
+  fetchMock.mockReturnValue(new Promise<Response>(done => { resolve = done }))
+  await button('Passer à SHIPPED').trigger('click')
+  await button('Passer à SHIPPED').trigger('click')
+  await button('Annuler la commande').trigger('click')
+  expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'PATCH')).toHaveLength(1)
+  expect(button('Actualiser').attributes('disabled')).toBeDefined()
+  expect(wrapper!.text()).toContain('(PROCESSING)')
+  resolve(json({ ...order, status: 'SHIPPED', events: [] }))
+  await flushPromises()
+  expect(wrapper!.text()).toContain('Statut mis à jour.')
+  expect(button('Passer à DELIVERED').attributes('disabled')).toBeUndefined()
+})
+
+it.each([0, 409, 500])('ambiguous failure %i reconciles via GET without mutation replay', async status => {
+  await open('/admin/orders/admin-order')
+  let resolve!: (response: Response) => void
+  if (status === 0) fetchMock.mockRejectedValueOnce(new TypeError('network-private'))
+  else fetchMock.mockResolvedValueOnce(json({}, status))
+  fetchMock.mockReturnValueOnce(new Promise<Response>(done => { resolve = done }))
+  await button('Passer à SHIPPED').trigger('click')
+  await flushPromises()
+  expect(button('Passer à SHIPPED').attributes('disabled')).toBeDefined()
+  expect(wrapper!.text()).toContain('Actions bloquées')
+  expect(fetchMock.mock.calls.at(-1)![1]!.method).toBe('GET')
+  resolve(json({ ...order, status: 'SHIPPED', events: [] }))
+  await flushPromises()
+  expect(button('Passer à DELIVERED').attributes('disabled')).toBeUndefined()
+  expect(wrapper!.text()).toContain('Statut vérifié auprès du serveur')
+  expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'PATCH')).toHaveLength(1)
+})
+
+it('failed reconciliation stays blocked until a reliable manual read', async () => {
+  await open('/admin/orders/admin-order')
+  fetchMock.mockResolvedValueOnce(json({}, 409)).mockResolvedValueOnce(json({}, 503))
+  await button('Passer à SHIPPED').trigger('click')
+  await flushPromises()
+  expect(button('Passer à SHIPPED').attributes('disabled')).toBeDefined()
+  fetchMock.mockResolvedValueOnce(json({ ...order, status: 'CREATED' }))
+  await button('Actualiser').trigger('click')
+  await flushPromises()
+  expect(button('Passer à PROCESSING').attributes('disabled')).toBeUndefined()
+})
+
+it.each([401, 403, 404])('mutation error %i never invents success or retries', async status => {
+  const router = await open('/admin/orders/admin-order')
+  const before = fetchMock.mock.calls.length
+  fetchMock.mockResolvedValueOnce(json({}, status))
+  await button('Passer à SHIPPED').trigger('click')
+  await flushPromises()
+  expect(fetchMock.mock.calls.slice(before).filter(([, options]) => options?.method === 'PATCH')).toHaveLength(1)
+  if (status === 401) expect(router.currentRoute.value.path).toBe('/admin/login')
+  else {
+    expect(wrapper!.find('[role="alert"]').exists()).toBe(true)
+    if (status === 403) expect(button('Passer à SHIPPED').attributes('disabled')).toBeDefined()
+    else expect(wrapper!.find('article').exists()).toBe(false)
+  }
+  expect(wrapper!.text()).not.toContain('Statut mis à jour.')
+})
+
+it('timeout aborts mutation and reconciles without replay', async () => {
+  await open('/admin/orders/admin-order')
+  vi.useFakeTimers()
+  try {
+    fetchMock.mockImplementationOnce((_input, options) => new Promise<Response>((_resolve, reject) => {
+      options!.signal!.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+    }))
+    fetchMock.mockResolvedValueOnce(json({ ...order, status: 'SHIPPED' }))
+    await button('Passer à SHIPPED').trigger('click')
+    await vi.advanceTimersByTimeAsync(20_000)
+    await flushPromises()
+    expect(button('Passer à DELIVERED').attributes('disabled')).toBeUndefined()
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'PATCH')).toHaveLength(1)
+    expect(fetchMock.mock.calls.find(([, options]) => options?.method === 'PATCH')![1]!.signal!.aborted).toBe(true)
+  } finally { vi.useRealTimers() }
+})
+
+it('route change discards a late mutation even if fetch ignores abort', async () => {
+  const router = await open('/admin/orders/admin-order')
+  let resolve!: (response: Response) => void
+  fetchMock.mockReturnValueOnce(new Promise<Response>(done => { resolve = done }))
+  await button('Passer à SHIPPED').trigger('click')
+  const signal = fetchMock.mock.calls.at(-1)![1]!.signal!
+  fetchMock.mockImplementation(async input => String(input).includes('/session/')
+    ? json({ username: 'admin', csrf_token: 'csrf' })
+    : json({ ...order, order_id: 'other-order', status: 'CREATED' }))
+  await router.push('/admin/orders/other-order')
+  await flushPromises()
+  expect(signal.aborted).toBe(true)
+  resolve(json({ ...order, status: 'SHIPPED' }))
+  await flushPromises()
+  expect(wrapper!.text()).toContain('other-order')
+  expect(button('Passer à PROCESSING').attributes('disabled')).toBeUndefined()
+  expect(wrapper!.text()).not.toContain('Statut mis à jour.')
+})
+
+it('logout aborts pending mutation and late success cannot restore the detail', async () => {
+  const router = await open('/admin/orders/admin-order')
+  let resolve!: (response: Response) => void
+  fetchMock.mockReturnValueOnce(new Promise<Response>(done => { resolve = done }))
+  await button('Passer à SHIPPED').trigger('click')
+  const signal = fetchMock.mock.calls.at(-1)![1]!.signal!
+  fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+  await button('Se déconnecter').trigger('click')
+  await flushPromises()
+  expect(signal.aborted).toBe(true)
+  expect(router.currentRoute.value.path).toBe('/admin/login')
+  resolve(json({ ...order, status: 'SHIPPED' }))
+  await flushPromises()
+  expect(wrapper!.find('article').exists()).toBe(false)
+})
+
+it('expiry discovered during a pending mutation invalidates its late success', async () => {
+  const router = await open('/admin/orders/admin-order')
+  let resolve!: (response: Response) => void
+  fetchMock.mockReturnValueOnce(new Promise<Response>(done => { resolve = done }))
+  await button('Passer à SHIPPED').trigger('click')
+  fetchMock.mockResolvedValueOnce(json({}, 401))
+  await expect(adminMe()).rejects.toMatchObject({ status: 401 })
+  resolve(json({ ...order, status: 'SHIPPED' }))
+  await flushPromises()
+  expect(router.currentRoute.value.path).toBe('/admin/login')
+  expect(wrapper!.find('article').exists()).toBe(false)
+  expect(wrapper!.text()).not.toContain('Statut mis à jour.')
+})
+
+it('failed logout blocks mutations until an authenticated detail refresh', async () => {
+  await open('/admin/orders/admin-order')
+  fetchMock.mockResolvedValueOnce(json({}, 403))
+  await button('Se déconnecter').trigger('click')
+  await flushPromises()
+  expect(button('Passer à SHIPPED').attributes('disabled')).toBeDefined()
+  fetchMock.mockResolvedValueOnce(json(order))
+  await button('Actualiser').trigger('click')
+  await flushPromises()
+  expect(button('Passer à SHIPPED').attributes('disabled')).toBeUndefined()
+})
+
+it.each([401, 404])('reconciliation error %i clears stale detail', async status => {
+  const router = await open('/admin/orders/admin-order')
+  fetchMock.mockResolvedValueOnce(json({}, 409)).mockResolvedValueOnce(json({}, status))
+  await button('Passer à SHIPPED').trigger('click')
+  await flushPromises()
+  expect(wrapper!.find('article').exists()).toBe(false)
+  if (status === 401) expect(router.currentRoute.value.path).toBe('/admin/login')
+})
+
+it('unmount aborts pending mutation and clears its timeout', async () => {
+  await open('/admin/orders/admin-order')
+  vi.useFakeTimers()
+  try {
+    fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}))
+    await button('Passer à SHIPPED').trigger('click')
+    const signal = fetchMock.mock.calls.at(-1)![1]!.signal!
+    expect(vi.getTimerCount()).toBe(1)
+    wrapper!.unmount()
+    wrapper = undefined
+    expect(signal.aborted).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+  } finally { vi.useRealTimers() }
 })

@@ -1,4 +1,4 @@
-"""Single-process demo admin authentication; never grants mutation privileges."""
+"""Single-process demo admin authentication with session-bound CSRF protection."""
 
 from collections import deque
 from dataclasses import dataclass
@@ -155,6 +155,18 @@ def trusted_origin(request: Request, settings: Settings) -> None:
         raise HTTPException(403, "Untrusted admin origin.")
 
 
+def require_admin_mutation(
+    request: Request, session: Session = Depends(require_admin_session),
+) -> Session:
+    if "authorization" in request.headers:
+        raise HTTPException(401, "Admin mutations require cookie authentication only.")
+    trusted_origin(request, configuration(request))
+    tokens = request.headers.getlist("x-admin-csrf")
+    if len(tokens) != 1 or not secrets.compare_digest(tokens[0].encode(), session.csrf_token.encode()):
+        raise HTTPException(403, "Invalid admin CSRF token.")
+    return session
+
+
 class LoginBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     username: str = Field(min_length=1, max_length=128)
@@ -221,12 +233,8 @@ def me(session: Session = Depends(require_admin_session)) -> SessionResponse:
 
 @router.post("/logout", status_code=204)
 def logout(request: Request, response: Response,
-           session: Session = Depends(require_admin_session)) -> None:
+           session: Session = Depends(require_admin_mutation)) -> None:
     settings = configuration(request)
-    trusted_origin(request, settings)
-    tokens = request.headers.getlist("x-admin-csrf")
-    if len(tokens) != 1 or not secrets.compare_digest(tokens[0].encode(), session.csrf_token.encode()):
-        raise HTTPException(403, "Invalid admin CSRF token.")
     state = store(request)
     with state.lock:
         state.sessions.pop(request.cookies.get(cookie_name(settings), ""), None)
