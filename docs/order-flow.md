@@ -67,15 +67,181 @@ order creation or changes to a pending confirmation:
 | `NO_ORDER_ASSOCIATED` | No explicit ID or known created order in this conversation |
 
 `queried_order_status` is null for absent orders. The existing conversation
-`order_status` is not overwritten by lookup results. Mongo currently stores
-`OrderStatus.CREATED`; this is not the conversation's `CONFIRMED`, and no
-shipping/payment/fulfilment states are invented. Mongo errors propagate through
+`order_status` is not overwritten by lookup results. Mongo stores
+`OrderStatus` values; these are not the conversation's `CONFIRMED`.
+Statuses change only through the technical lifecycle use case below, never
+through LLM inference. Mongo errors propagate through
 the existing API error handling rather than masquerading as NOT_FOUND.
 
 There is no global/latest-order search, customer identity or authentication.
 An explicit ID can be queried without an ownership check: this remains a local
 demo, not a secure customer-facing tracking endpoint. Pre-feature checkpoints
 cannot recover a created ID that was already cleared before this feature.
+
+## Technical order lifecycle
+
+Persisted business statuses follow a strict sequence:
+
+```text
+CREATED -> PROCESSING -> SHIPPED -> DELIVERED
+```
+
+`domain/services/order_lifecycle.py` validates transitions. Skipping a stage,
+moving backwards or leaving DELIVERED is rejected with
+`InvalidOrderStatusTransitionError`. Repeating the current status returns the
+existing order without writing. `PreparedOrderStatus` remains separate.
+
+The technical entry point is `UpdateOrderStatusUseCase(order_repository)`.
+A local caller can invoke
+`await use_case.execute(order_id, OrderStatus.PROCESSING)`, using the
+`OrderStatus` enum rather than plain strings. The HTTP back-office route below
+delegates to this same use case; no user intent is added. It simulates business progression,
+not real shipping or delivery.
+
+An absent order returns `None`. Mongo atomically updates only the `status` field
+when both `order_id` and the previously read status match. A concurrent change
+or deletion raises `OrderStatusConflictError`: reread Mongo before deciding
+whether to retry; there is no unconditional overwrite or automatic retry.
+Other persistence errors propagate.
+
+Existing string `"CREATED"` documents are compatible without migration.
+Creation still starts at CREATED; idempotent creation replays return the existing
+order with its current status instead of resetting it. ORDER_STATUS reads the
+updated enum value directly from Mongo. Quantity, stock, operation ID, creation
+time and conversation state are not changed by lifecycle updates.
+
+Business cancellation uses the separate transactional path described below.
+The existing conversational cancellation before confirmation is unchanged.
+
+### Demo back-office HTTP endpoint
+
+**`PATCH /orders/{order_id}/status` requires a shared Bearer token.**
+Use only on trusted local/demo infrastructure; do not expose it as a
+production back-office endpoint.
+It performs no ownership, role or payment check and triggers no real delivery.
+
+#### Back-office authentication
+
+Export `BACKOFFICE_API_TOKEN` before starting/restarting the API. Settings reads
+the environment explicitly, not an env file automatically. Generate a separate
+secret rather than using a published example value:
+
+```sh
+export BACKOFFICE_API_TOKEN="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+# Start/restart the API in this environment; retain the same variable for curl.
+```
+
+Both technical order routes require
+`Authorization: Bearer $BACKOFFICE_API_TOKEN`. The dependency compares token
+bytes with a constant-time comparison, before invoking a business use case.
+The setting uses Pydantic `SecretStr`; errors/logs never include the token.
+Do not print it, commit it, use `curl -v` with it or enable Authorization header
+capture in telemetry. If operationally enabling HTTP header capture, explicitly
+sanitize `authorization`. Keep env files private and outside Git.
+
+Missing/blank configuration disables only back-office routes with 503
+(`Back-office authentication is not configured.`); there is no open fallback.
+Missing, malformed or wrong credentials return 401 with `WWW-Authenticate: Bearer`
+and generic detail. `/assistant`, `/health`, `/chat` and `/classify` remain public.
+This is a shared local/demo API key, not user authentication: no identity,
+ownership, roles, expiration or automated rotation. Use TLS on any non-loopback
+connection to avoid exposing the credential in transit.
+
+Request: `{"status":"PROCESSING"}`. Accepted values are CREATED, PROCESSING,
+SHIPPED, DELIVERED and CANCELLED; valid values are still subject to domain transitions.
+PATCH cannot transition into CANCELLED (409): use the dedicated cancel endpoint.
+PATCH on an already CANCELLED order accepts only CANCELLED as a no-op.
+Success (200) returns `order_id`, `product_name`, `quantity`, `status` and
+`created_at` (ISO 8601). The operation identifier is not included.
+
+| HTTP status | Meaning |
+|---|---|
+| 200 | Updated stored order, or no-op when status already matches |
+| 401 | Missing or invalid Bearer credentials |
+| 404 | Order identifier not found |
+| 409 | Forbidden transition or concurrent change; reread before retrying |
+| 422 | Missing, malformed or unsupported status/body |
+| 500 | Unexpected technical error, logged and sanitized by the existing middleware |
+| 503 | Back-office token configuration missing or blank |
+
+The route owns HTTP validation/error mapping only. It does not implement
+transitions, access Mongo directly, invoke the LLM or alter stock.
+
+For an existing demo order initially at CREATED, replace the example ID with its
+real `order_id`. Run from the project root:
+
+```sh
+ORDER_ID='replace-with-real-order-id'
+curl --fail-with-body -X PATCH "http://localhost:8000/orders/$ORDER_ID/status" \
+  -H "Authorization: Bearer $BACKOFFICE_API_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"status":"PROCESSING"}'
+curl --fail-with-body -X PATCH "http://localhost:8000/orders/$ORDER_ID/status" \
+  -H "Authorization: Bearer $BACKOFFICE_API_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"status":"SHIPPED"}'
+curl --fail-with-body -X PATCH "http://localhost:8000/orders/$ORDER_ID/status" \
+  -H "Authorization: Bearer $BACKOFFICE_API_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"status":"DELIVERED"}'
+# ORDER_STATUS remains POST /assistant, not GET:
+curl --fail-with-body -X POST http://localhost:8000/assistant \
+  -H 'Content-Type: application/json' \
+  -d "{\"message\":\"Quel est le statut de la commande $ORDER_ID ?\",\"thread_id\":\"demo-order\"}"
+```
+
+The last response's `queried_order_status` should be DELIVERED, read from Mongo.
+These PATCH calls mutate the real demo order: no automatic scheduler advances it.
+Concurrent updates can conflict; do not bypass the transition policy to retry.
+
+### Atomic business cancellation
+
+`POST /orders/{order_id}/cancel` has no request body. Like the status PATCH,
+it is a **Bearer-protected local/demo back-office endpoint**, not a production
+customer-facing operation.
+
+| Stored status | Cancellation |
+|---|---|
+| CREATED / PROCESSING | Restore reserved quantity and set CANCELLED atomically |
+| CANCELLED | Return the existing order; no second stock increment |
+| SHIPPED / DELIVERED | Reject with 409; no changes |
+
+The route delegates to `CancelOrderUseCase`, then
+`OrderRepositoryPort.cancel`. The Mongo adapter uses a session with
+`with_transaction`, snapshot reads, majority writes and PRIMARY read preference:
+
+1. Reread the order and validate its status inside each transaction attempt.
+2. Return immediately if CANCELLED; reject a changed status as a conflict.
+3. Increment the existing product stock by the stored order quantity.
+4. Conditionally set the order to CANCELLED in that same session, then commit.
+
+Missing products, invalid stored quantities, failed writes or unmatched conditional
+updates abort the transaction. The stock increment cannot commit alone.
+PyMongo owns transient transaction retries: each retry rereads the order, and
+concurrent cancellations cannot commit a second restoration.
+Product matching retains the existing canonical-name lookup convention; unique,
+unambiguous product names remain an application assumption.
+
+200 returns the same `OrderResponse` fields as PATCH, including status CANCELLED.
+Unknown order -> 404; non-cancellable status or concurrency conflict -> 409;
+unexpected technical errors -> logged/sanitized 500. An exhausted ambiguous
+commit is not evidence of rollback: reread Mongo before interpreting the result.
+Retrying cancellation is safe because CANCELLED prevents another stock increment.
+There is no separate compensation write, refund or payment logic.
+
+Example for an existing CREATED or PROCESSING demo order:
+
+```sh
+ORDER_ID='replace-with-real-order-id'
+curl --fail-with-body -X POST "http://localhost:8000/orders/$ORDER_ID/cancel" \
+  -H "Authorization: Bearer $BACKOFFICE_API_TOKEN"
+# Replay: same response, no second stock restitution.
+curl --fail-with-body -X POST "http://localhost:8000/orders/$ORDER_ID/cancel" \
+  -H "Authorization: Bearer $BACKOFFICE_API_TOKEN"
+curl --fail-with-body -X POST http://localhost:8000/assistant \
+  -H 'Content-Type: application/json' \
+  -d "{\"message\":\"Quel est le statut de la commande $ORDER_ID ?\",\"thread_id\":\"demo-order\"}"
+```
+
+ORDER_STATUS reads CANCELLED from Mongo. No LLM cancellation intent, LangGraph
+transition or modification of the existing order-creation transaction is added.
 
 ## Atomic confirmation
 

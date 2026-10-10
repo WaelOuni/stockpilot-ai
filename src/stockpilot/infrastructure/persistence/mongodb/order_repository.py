@@ -3,11 +3,17 @@ from stockpilot.observability import event
 from datetime import datetime
 
 from pymongo.errors import DuplicateKeyError
+from pymongo import ReadPreference, ReturnDocument
+from pymongo.read_concern import ReadConcern
+from pymongo.write_concern import WriteConcern
 
 from stockpilot.application.order_idempotency import validate_order_payload
 from stockpilot.application.ports.order_repository import OrderRepositoryPort
+from stockpilot.application.use_cases.update_order_status import OrderStatusConflictError
 from stockpilot.domain.entities.order import Order
 from stockpilot.domain.enums.order_status import OrderStatus
+from stockpilot.domain.services.order_lifecycle import validate_order_cancellation
+from stockpilot.infrastructure.persistence.mongodb.product_repository import MongoProductRepository
 
 
 logger = logging.getLogger(__name__)
@@ -16,6 +22,7 @@ logger = logging.getLogger(__name__)
 class MongoOrderRepository(OrderRepositoryPort):
     def __init__(self, database) -> None:
         self.collection = database["orders"]
+        self._database = database
 
     def initialize(self) -> None:
         self.collection.create_index(
@@ -31,6 +38,58 @@ class MongoOrderRepository(OrderRepositoryPort):
     async def find_by_order_id(self, order_id: str) -> Order | None:
         document = self.collection.find_one({"order_id": order_id})
         return self._to_order(document) if document is not None else None
+
+    async def update_status(
+        self, order_id: str, *, expected_status: OrderStatus, status: OrderStatus,
+    ) -> Order | None:
+        document = self.collection.find_one_and_update(
+            {"order_id": order_id, "status": expected_status.value},
+            {"$set": {"status": status.value}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return self._to_order(document) if document is not None else None
+
+    async def cancel(self, order_id: str, *, expected_status: OrderStatus) -> Order | None:
+        def transaction(session):
+            document = self.collection.find_one({"order_id": order_id}, session=session)
+            if document is None:
+                return None
+            order = self._to_order(document)
+            if order.status == OrderStatus.CANCELLED:
+                return order
+            if order.status != expected_status:
+                raise OrderStatusConflictError(
+                    "La commande a changé avant son annulation ; relisez son statut."
+                )
+            validate_order_cancellation(order.status)
+            if isinstance(order.quantity, bool) or not isinstance(order.quantity, int) or order.quantity < 1:
+                raise ValueError("La quantité stockée est invalide pour la restitution.")
+            stock_result = self._database["products"].update_one(
+                MongoProductRepository._name_filter(order.product_name),
+                {"$inc": {"stock": order.quantity}},
+                session=session,
+            )
+            if stock_result.matched_count != 1:
+                raise RuntimeError("Le produit de la commande est introuvable pour la restitution.")
+            updated = self.collection.find_one_and_update(
+                {"order_id": order_id, "status": expected_status.value},
+                {"$set": {"status": OrderStatus.CANCELLED.value}},
+                return_document=ReturnDocument.AFTER,
+                session=session,
+            )
+            if updated is None:
+                raise OrderStatusConflictError(
+                    "La commande a changé pendant son annulation ; relisez son statut."
+                )
+            return self._to_order(updated)
+
+        with self._database.client.start_session() as session:
+            return session.with_transaction(
+                transaction,
+                read_concern=ReadConcern("snapshot"),
+                write_concern=WriteConcern("majority"),
+                read_preference=ReadPreference.PRIMARY,
+            )
 
     def find_by_operation_id_sync(self, operation_id: str, session=None) -> Order | None:
         session_options = {"session": session} if session is not None else {}

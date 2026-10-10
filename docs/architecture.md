@@ -106,7 +106,8 @@ python -m pytest -q
 
 ## Boundaries and limitations
 
-- No authentication, payment or frontend; not hardened for public access.
+- No user authentication, payment or frontend; a shared Bearer token protects
+  only technical order mutation routes. Not hardened for public access.
 - Model extraction is probabilistic and the advice guard is lexical.
 - Product lookup uses the existing regex strategy and assumes an unambiguous
   canonical product name.

@@ -133,6 +133,8 @@ For an existing standalone Mongo, read the
 | `POST /chat` | `{"message":"..."}`; direct LLM generation |
 | `POST /classify` | `{"message":"..."}`; structured intent/extraction |
 | `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER/ORDER_STATUS |
+| `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; Bearer-protected demo back-office lifecycle update |
+| `POST /orders/{order_id}/cancel` | No body; atomic cancellation/stock restoration, requires back-office Bearer token |
 
 ```sh
 curl http://localhost:8000/health
@@ -247,7 +249,10 @@ must be verified, not assumed configured. See
 
 ## Current limitations
 
-No authentication, payment or frontend. Model extraction is probabilistic;
+No user authentication, payment or frontend. Technical order routes use a shared
+`BACKOFFICE_API_TOKEN`; unset configuration disables those routes (503).
+See [back-office authentication](docs/order-flow.md#back-office-authentication).
+Public assistant endpoints remain unauthenticated. Model extraction is probabilistic;
 the advice-domain guard is lexical, not semantic. Small datasets and a
 three-document corpus limit quality conclusions. Product lookup assumes
 unambiguous canonical names. PyMongo is synchronous in an async flow.

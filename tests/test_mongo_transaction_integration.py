@@ -10,6 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import OperationFailure
 
 from stockpilot.application.order_transaction_errors import OrderTransactionFailedError
+from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.domain.entities.order import Order
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
@@ -103,3 +104,31 @@ def test_real_concurrent_same_operation_only_decrements_once(database, monkeypat
     assert results[0] == results[1]
     assert database.orders.count_documents({"operation_id": operation_id}) == 1
     assert database.products.find_one({"name": "Bosch X100"})["stock"] == 8
+
+
+def test_real_concurrent_cancellations_restore_stock_only_once(database, monkeypatch):
+    order = make_order()
+    assert asyncio.run(MongoOrderTransaction(database).execute(order)) == order
+    barrier = Barrier(2)
+    original_lookup = MongoOrderRepository.find_by_order_id
+
+    async def synchronized_lookup(self, order_id):
+        existing = await original_lookup(self, order_id)
+        assert existing.status is OrderStatus.CREATED
+        barrier.wait(timeout=10)
+        return existing
+
+    monkeypatch.setattr(MongoOrderRepository, "find_by_order_id", synchronized_lookup)
+
+    def cancel():
+        return asyncio.run(CancelOrderUseCase(MongoOrderRepository(database)).execute(order.order_id))
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(cancel)
+        second = pool.submit(cancel)
+        results = [first.result(timeout=150), second.result(timeout=150)]
+    assert results[0] == results[1]
+    assert results[0].status is OrderStatus.CANCELLED
+    assert database.orders.count_documents({}) == 1
+    assert database.orders.find_one({"order_id": order.order_id})["status"] == "CANCELLED"
+    assert database.products.find_one({"name": "Bosch X100"})["stock"] == 10

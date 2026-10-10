@@ -62,6 +62,7 @@ variables; it does **not** automatically load `../.env.local`. Export values exp
 | `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` |
 | `MONGO_URI` | `mongodb://localhost:27017/?replicaSet=rs0&directConnection=true` |
 | `MONGO_DATABASE` | `stockpilot` |
+| `BACKOFFICE_API_TOKEN` | Unset: technical order routes return 503; configure a private shared Bearer secret |
 | `POSTGRES_URL` | Compose local demo `stockpilot` PostgreSQL database |
 | `LANGGRAPH_CHECKPOINT_DB_URI` | Unset: checkpoint storage uses `POSTGRES_URL` |
 | `LOG_LEVEL` / `LOG_FILE` | `INFO` / `logs/stockpilot.jsonl`; empty file path disables file logs |
@@ -120,6 +121,8 @@ failure is explicit; there is no in-memory checkpoint fallback.
 | `POST /chat` | `{"message":"..."}`; direct LLM generation |
 | `POST /classify` | `{"message":"..."}`; structured intent/extraction |
 | `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER/ORDER_STATUS |
+| `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; technical/demo lifecycle update, back-office Bearer token required |
+| `POST /orders/{order_id}/cancel` | No body; transactional cancellation, back-office Bearer token required |
 
 ```sh
 curl http://localhost:8000/health
