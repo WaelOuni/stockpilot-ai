@@ -1,0 +1,198 @@
+{
+  "measured_at": "2026-10-10T20:38:22.567733+00:00",
+  "database": "stockpilot_demo",
+  "dataset_id": "stockpilot-demo-v1-seed-20261010",
+  "baseline_sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+  "transport_scope": "isolated Mongo adapter and in-process TestClient only; no main app/lifespan/PostgreSQL",
+  "run_id": "1f8253db-4403-4123-9680-067801c903b5",
+  "mode": "execute",
+  "baseline_before": {
+    "reference": {
+      "dataset_id": "stockpilot-demo-v1-seed-20261010",
+      "sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+      "products": 500,
+      "orders": 2000,
+      "stock_movements": 3000,
+      "manifests": 1
+    },
+    "test_fixtures": {
+      "runs": 3,
+      "runs_by_status": {
+        "failed": 2,
+        "completed": 1
+      },
+      "products": 39,
+      "orders": 12,
+      "stock_movements": 18
+    },
+    "total_documents": {
+      "products": 539,
+      "orders": 2012,
+      "stock_movements": 3018,
+      "demo_manifests": 4
+    }
+  },
+  "baseline_after": {
+    "reference": {
+      "dataset_id": "stockpilot-demo-v1-seed-20261010",
+      "sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+      "products": 500,
+      "orders": 2000,
+      "stock_movements": 3000,
+      "manifests": 1
+    },
+    "test_fixtures": {
+      "runs": 4,
+      "runs_by_status": {
+        "failed": 2,
+        "completed": 2
+      },
+      "products": 52,
+      "orders": 17,
+      "stock_movements": 35
+    },
+    "total_documents": {
+      "products": 552,
+      "orders": 2017,
+      "stock_movements": 3035,
+      "demo_manifests": 5
+    }
+  },
+  "transaction_results": {
+    "concurrent_reservation": {
+      "attempts": 2,
+      "committed_orders": 1,
+      "final_stock": 0,
+      "negative_stock": false
+    },
+    "concurrent_duplicate_order_operation": {
+      "requests": 2,
+      "persisted_orders": 1,
+      "final_stock": 8
+    },
+    "concurrent_cancellation": {
+      "requests": 2,
+      "cancelled_events": 1,
+      "final_stock": 10
+    },
+    "concurrent_order_and_adjustment": {
+      "order_committed": true,
+      "adjustment_committed": true,
+      "final_stock": 4
+    },
+    "concurrent_duplicate_adjustment_operation": {
+      "requests": 2,
+      "persisted_movements": 1,
+      "final_stock": 13
+    },
+    "movement_insert_failure_rollback": {
+      "injected_failure": true,
+      "stock_unchanged": true,
+      "movement_count": 0
+    },
+    "bounded_transient_conflict_retry": {
+      "injected_aborts": 2,
+      "transaction_attempts": 3,
+      "configured_max_attempts": 3,
+      "final_stock": 11
+    },
+    "adjustment_commit_response_lost": {
+      "real_commit": true,
+      "injected_client_response_loss": true,
+      "reconciled_movement_count": 1,
+      "final_stock": 12
+    },
+    "adjustment_uncommitted_unknown": {
+      "injected_before_commit_ack": true,
+      "reported_success": false,
+      "stock_unchanged": true,
+      "movement_count": 0
+    },
+    "missing_sku_and_zero_stock_guards": {
+      "missing_sku": "not found; no write",
+      "zero_stock_decrement": "rejected; stock remains 0"
+    },
+    "order_commit_response_lost": {
+      "real_commit": true,
+      "injected_client_response_loss": true,
+      "reconciled_order_count": 1,
+      "final_stock": 8
+    },
+    "order_uncommitted_unknown": {
+      "injected_before_commit_ack": true,
+      "reported_success": false,
+      "stock_unchanged": true,
+      "order_count": 0
+    },
+    "http_response_loss_reconcile": {
+      "client_timeout_injected_after_application_response": true,
+      "lookup_status": 200,
+      "history_matches": true,
+      "persisted_movements": 1,
+      "post_count": 1,
+      "automatic_retry": false,
+      "reread_stock": 18
+    },
+    "post_adjustment_benchmark": {
+      "requests": 12,
+      "errors": 0,
+      "status_codes": {
+        "200": 12
+      },
+      "p50_ms": 7.31,
+      "p95_ms": 10.119,
+      "transport": "in-process FastAPI TestClient; real guarded route/use case/Mongo transaction"
+    },
+    "stable_stock_history": {
+      "movements": 13,
+      "pages": 3,
+      "duplicate_ids": 0
+    }
+  },
+  "execution_status": "completed",
+  "failure": null,
+  "writes_preserved": true,
+  "cleanup_performed": false,
+  "mongo_command_counts": {
+    "abortTransaction": 13,
+    "aggregate": 11,
+    "commitTransaction": 27,
+    "endSessions": 1,
+    "find": 148,
+    "findAndModify": 34,
+    "getMore": 12,
+    "hello": 1,
+    "insert": 28,
+    "listCollections": 2,
+    "listIndexes": 26,
+    "update": 26
+  },
+  "mongo_write_command_counts": {
+    "findAndModify:orders": 1,
+    "findAndModify:products": 33,
+    "insert:demo_manifests": 1,
+    "insert:orders": 6,
+    "insert:products": 1,
+    "insert:stock_movements": 20,
+    "update:demo_manifests": 1,
+    "update:orders": 6,
+    "update:products": 2,
+    "update:stock_movements": 17
+  },
+  "unapproved_mongo_writes": 0,
+  "mongo_collections_created_or_indexes_changed": 0,
+  "retained_harness_diagnostics": [
+    {
+      "status": "failed; retained in the isolated demo manifest",
+      "defect": "The first duplicate-order probe assigned different operation UUIDs.",
+      "correction": "Both contenders now use one UUIDv4 operation ID."
+    },
+    {
+      "status": "failed; retained in the isolated demo manifest",
+      "defect": "An injected session proxy was not accepted by PyMongo's native session parameter.",
+      "correction": "Fault injection now hooks a real PyMongo ClientSession instance."
+    }
+  ],
+  "postgresql_accessed": false,
+  "e2e_started_or_reset": false
+}
