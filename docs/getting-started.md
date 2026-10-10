@@ -1,0 +1,164 @@
+# Getting started
+
+[Back to README](../README.md) · [Database](database.md) · [Observability](observability.md)
+
+All shell commands here run from the **project root in WSL/Linux**, not `docs/`.
+Prerequisites: Python **3.12**, Docker Desktop with Ubuntu WSL integration
+(or compatible Docker Engine/Compose), and local Ollama. Model downloads need
+disk space; Qwen needs adequate RAM and CPU inference can be slow.
+
+## Python and local models
+
+```sh
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+
+# Separate terminal, only if Ollama is not already running:
+ollama serve
+# Another terminal connected to that same Ollama instance:
+ollama pull qwen2.5:7b
+ollama pull nomic-embed-text
+```
+
+On Windows, Ollama may run on the Windows host. The existing
+[scripts/dev-env.sh](../scripts/dev-env.sh) activates `.venv` if present,
+uses `ip route`/`awk` to obtain the current gateway, and exports
+`WINDOWS_HOST`, `OLLAMA_BASE_URL`, Qwen and embedding model settings.
+It requires the `ip` command (iproute2); it is not a universal WSL networking
+detector and does not configure Windows listeners/firewalls.
+
+```sh
+# Only for Windows-host Ollama:
+source scripts/dev-env.sh
+curl "$OLLAMA_BASE_URL/api/tags"
+```
+
+Keep Ollama reachable only from a trusted local environment. Do not hardcode a
+WSL IP. Verify the actual network path before changing host bindings/firewalls.
+[Self-hosted runner](self-hosted-runner.md) explains why workflow-process
+connectivity must be configured separately from an interactive shell.
+
+## Environment and Compose
+
+```sh
+cp .env.local.example .env.local
+# Review .env.local before exporting:
+set -a
+source .env.local
+set +a
+# Only when using Windows-host Ollama, after sourcing .env.local:
+source scripts/dev-env.sh
+docker compose up -d --wait
+```
+
+[Settings](../src/stockpilot/infrastructure/config/settings.py) reads environment
+variables; it does **not** automatically load `../.env.local`. Export values explicitly.
+
+| Variable | Default / role |
+|---|---|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` |
+| `OLLAMA_MODEL` | `qwen2.5:7b` |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` |
+| `MONGO_URI` | `mongodb://localhost:27017/?replicaSet=rs0&directConnection=true` |
+| `MONGO_DATABASE` | `stockpilot` |
+| `POSTGRES_URL` | Compose local demo `stockpilot` PostgreSQL database |
+| `LANGGRAPH_CHECKPOINT_DB_URI` | Unset: checkpoint storage uses `POSTGRES_URL` |
+| `LOG_LEVEL` / `LOG_FILE` | `INFO` / `logs/stockpilot.jsonl`; empty file path disables file logs |
+| `OTEL_ENABLED` | `false` |
+| `OTEL_SERVICE_NAME` | `stockpilot-ai` |
+| `OTEL_EXPORTER` | Settings default `console`; `.env.example` selects `otlp` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Base URL `http://localhost:4318` |
+| `OTEL_METRIC_EXPORT_INTERVAL_MS` | `10000`, positive integer |
+
+Compose has public **demo-only** PostgreSQL credentials. Mongo/PostgreSQL ports
+are published beyond loopback: use a trusted machine/firewall, never expose this
+stack to the Internet. Existing volumes are preserved. Never use `down -v` or
+seed commands on valuable data. For an existing standalone Mongo, follow
+[non-destructive migration/recovery](database.md#mongo-replica-set-migration-and-recovery)
+before starting the API.
+
+## Fresh application RAG database
+
+For a **new demo database**, these SQL files create the extension/table and then
+add source uniqueness. They do not drop tables/data:
+
+```sh
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
+  -U stockpilot -d stockpilot < migrations/000_create_knowledge_chunks.sql
+# Apply once to a newly created table, not an already migrated database:
+docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
+  -U stockpilot -d stockpilot < migrations/001_knowledge_chunks_source_unique.sql
+python scripts/ingest_products.py
+```
+
+Do not reapply 001 blindly. Inspect constraints/duplicates on existing databases
+and run migrations sequentially, not concurrently. Nomic vectors are 768
+dimensions; changing model requires a separate migration/corpus plan, not
+mixing embeddings in a populated table. See [RAG](rag.md) and
+[dedicated eval database](database.md#dedicated-eval-database).
+
+## Demo inventory and API
+
+**`scripts/seed_products.py` deletes every product in local
+`stockpilot.products` before inserting the three fixtures.** It directly uses
+local Mongo, not `MONGO_URI`. Do not run it against real inventory.
+Seeding is optional when the demo products already exist.
+
+```sh
+python scripts/seed_products.py
+python -m uvicorn stockpilot.main:app --reload
+```
+
+Startup creates the unique partial order-operation index and official PostgreSQL
+checkpoint tables. Mongo must be a healthy replica set. PostgreSQL startup
+failure is explicit; there is no in-memory checkpoint fallback.
+
+| Endpoint | Contract |
+|---|---|
+| `GET /health` | `{"status":"UP"}` process liveness, not dependency readiness |
+| `POST /chat` | `{"message":"..."}`; direct LLM generation |
+| `POST /classify` | `{"message":"..."}`; structured intent/extraction |
+| `POST /assistant` | `{"message":"...","thread_id":"..."}`; advice/stock/ORDER |
+
+```sh
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/assistant \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Quel outil pour couper des panneaux de bois ?","thread_id":"demo-advice"}'
+curl -X POST http://localhost:8000/assistant \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Est-ce que Bosch X100 est disponible ?","thread_id":"demo-stock"}'
+curl -X POST http://localhost:8000/assistant \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Commande-moi 2 Bosch X100","thread_id":"demo-order"}'
+# Same thread; confirmation modifies demo stock and creates a Mongo order:
+curl -X POST http://localhost:8000/assistant \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"Oui, je confirme","thread_id":"demo-order"}'
+```
+
+Use fresh thread IDs for independent experiments. Repeating a matching
+operation ID is idempotent; starting another order is a new business operation.
+[Order flow](order-flow.md) explains refusal, replay and unknown outcomes.
+
+## Validation and shutdown
+
+```sh
+python -m pytest -q
+python scripts/run_evals.py --mode deterministic --suite enriched
+docker compose config --quiet
+```
+
+Deterministic evals are fixture/framework checks, not AI quality. Real measurement
+commands and reviewed baseline policy are in [AI evals](ai-evals.md).
+Generated reports, logs, `../.env.local`, IDE state and Mongo backups stay outside Git.
+
+Stop Uvicorn with Ctrl+C (including its reload supervisor), and preserve volumes:
+
+```sh
+docker compose stop
+```
+
+Do not delete volumes to diagnose startup failures. Use the targeted
+[database diagnostics](database.md) or [telemetry diagnostics](observability.md).
