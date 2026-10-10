@@ -271,6 +271,35 @@ customer directly in Mongo. Idempotency still uses the global operation index
 and rejects a different owner on replay.
 Privileged lifecycle/cancellation updates preserve the stored owner.
 
+## Public operational product catalogue
+
+`GET /products?limit=20&offset=0` reads Mongo products, sorted by SKU ascending
+with `_id` as an internal tie-breaker, before applying skip/limit. Limit is
+1..100 and offset is nonnegative; invalid pagination returns 422.
+`GET /products/{sku}` uses exact case-sensitive SKU equality, not the assistant's
+canonical-name regex. SKU is the existing domain identifier, not a new Mongo ID.
+The local audit found three products, all with distinct string SKUs. No data
+migration or speculative product index was added. A duplicate SKU detail lookup
+fails explicitly instead of returning an arbitrary product.
+
+Both endpoints are public and read-only. List response is
+`{"items": [...], "limit": 20, "offset": 0, "count": 3}`; each item and detail
+contains only `sku`, `product_name` (Mongo `name`), `category`, `price`, `stock`.
+Mongo `_id` and any extra fields are not exposed. Missing SKU returns 404;
+technical failures use the existing sanitized 500 middleware. Empty list is 200.
+There is no description/currency in Mongo's current operational product model;
+the catalogue does not extract them from RAG or invent them.
+
+```sh
+curl --fail-with-body 'http://localhost:8000/products?limit=20&offset=0'
+# Use an actual SKU returned by the list, URL-encoded if necessary:
+curl --fail-with-body 'http://localhost:8000/products/E2E-BOSCH-X100'
+```
+
+The E2E SKU example exists only in the isolated E2E database/server, not
+necessarily the normal development API. Product writes, stock reservation,
+order confirmation, transactions and RAG remain unchanged.
+
 ## Persistent LangGraph conversations
 
 Startup uses the official `langgraph-checkpoint-postgres==3.1.2`

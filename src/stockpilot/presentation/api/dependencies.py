@@ -6,6 +6,7 @@ from stockpilot.application.use_cases.update_order_status import UpdateOrderStat
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.application.use_cases.list_customer_orders import ListCustomerOrdersUseCase
 from stockpilot.application.use_cases.get_customer_order import GetCustomerOrderUseCase
+from stockpilot.application.use_cases.catalog_products import GetProductUseCase, ListProductsUseCase
 
 
 def get_generate_response_use_case(request: Request) -> GenerateResponseUseCase:
@@ -34,3 +35,11 @@ def get_list_customer_orders_use_case(request: Request) -> ListCustomerOrdersUse
 
 def get_customer_order_use_case(request: Request) -> GetCustomerOrderUseCase:
     return request.app.state.get_customer_order_use_case
+
+
+def get_product_use_case(request: Request) -> GetProductUseCase:
+    return request.app.state.get_product_use_case
+
+
+def get_list_products_use_case(request: Request) -> ListProductsUseCase:
+    return request.app.state.list_products_use_case

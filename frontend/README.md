@@ -3,6 +3,8 @@
 Vue 3 + TypeScript + Vite, Composition API, vue-router and native fetch.
 Only the customer endpoints `POST /assistant`, `GET /orders` and
 `GET /orders/{order_id}` are used.
+The catalogue additionally uses public read-only `GET /products` and
+`GET /products/{sku}`; no JWT is sent with these public requests.
 There is no back-office UI, login service or client-side business transition logic.
 
 ## Run locally
@@ -106,6 +108,29 @@ Aborting a browser request does not roll back server-side work; consult order
 history/status before submitting another confirmation.
 
 ## Validation
+
+### Product catalogue
+
+`/products` lists Mongo products in stable SKU order with limit 20 and offset
+pagination. `/products/:sku` displays name, SKU, category, price and stock.
+The backend exposes only these operational fields; no description, image or
+currency is invented (the current model stores a numeric price without a
+currency field). Availability is derived from stock > 0 and remains a snapshot.
+
+`Demander à StockPilot` and `Commander` navigate to `/assistant?message=...`
+and prefill the composer via Vue props. They never auto-send, change threads
+or bypass confirmation. The advice draft includes the actual tooling category,
+so it remains compatible with the existing supported-tooling classifier guard.
+JWT is still required to send. Connecting a JWT preserves this catalogue draft;
+switching customers clears the session and composer as before.
+Query parameters contain only the product-based message, never credentials;
+the draft may appear in browser history and can be edited before sending.
+No cart, search, filters, payment, catalogue recommendations or new RAG ingestion
+is implemented. Unknown SKU returns 404; malformed catalog data fails explicitly.
+
+The isolated browser E2E starts at Catalogue, opens seeded Bosch X100, clicks
+Commander, sends the prefilled draft and uses the existing confirmation UI before
+checking My Orders, order detail and ORDER_STATUS.
 
 ```sh
 npm run build

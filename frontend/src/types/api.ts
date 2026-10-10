@@ -58,3 +58,18 @@ export interface CustomerOrdersResponse {
   offset: number
   count: number
 }
+
+export interface ProductResponse {
+  sku: string
+  product_name: string
+  category: ProductCategory
+  price: number
+  stock: number
+}
+
+export interface ProductsResponse {
+  items: ProductResponse[]
+  limit: number
+  offset: number
+  count: number
+}

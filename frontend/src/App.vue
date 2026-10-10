@@ -20,6 +20,9 @@ import CustomerTokenPanel from './components/CustomerTokenPanel.vue'
         >S</span>StockPilot <span class="brand-ai">AI</span>
       </RouterLink>
       <nav aria-label="Navigation principale">
+        <RouterLink to="/products">
+          Catalogue
+        </RouterLink>
         <RouterLink to="/assistant">
           Assistant
         </RouterLink>

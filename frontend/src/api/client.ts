@@ -1,4 +1,4 @@
-import type { AssistantRequest, AssistantResponse, CustomerOrdersResponse, OrderResponse } from '../types/api'
+import type { AssistantRequest, AssistantResponse, CustomerOrdersResponse, OrderResponse, ProductResponse, ProductsResponse } from '../types/api'
 import { ApiError, requestJson } from './http'
 
 export async function sendAssistantMessage(body: AssistantRequest, signal?: AbortSignal): Promise<AssistantResponse & { response: string }> {
@@ -35,5 +35,30 @@ function isOrder(value: unknown): value is OrderResponse {
 export async function getCustomerOrder(orderId: string, signal?: AbortSignal): Promise<OrderResponse> {
   const result = await requestJson<unknown>(`/orders/${encodeURIComponent(orderId)}`, { signal })
   if (!isOrder(result)) throw new ApiError('Le detail de commande est incomplet.', 200)
+  return result
+}
+
+function isProduct(value: unknown): value is ProductResponse {
+  return typeof value === 'object' && value !== null &&
+    'sku' in value && typeof value.sku === 'string' &&
+    'product_name' in value && typeof value.product_name === 'string' &&
+    'category' in value && typeof value.category === 'string' &&
+    ['DRILL', 'SAW', 'SANDER', 'SCREWDRIVER', 'OTHER'].includes(value.category) &&
+    'price' in value && typeof value.price === 'number' && Number.isFinite(value.price) &&
+    'stock' in value && typeof value.stock === 'number' && Number.isInteger(value.stock)
+}
+
+export async function listProducts(limit = 20, offset = 0, signal?: AbortSignal): Promise<ProductsResponse> {
+  const result = await requestJson<ProductsResponse>(`/products?${new URLSearchParams({ limit: String(limit), offset: String(offset) })}`, { public: true, signal })
+  if (!result || !Array.isArray(result.items) || !result.items.every(isProduct) ||
+      result.count !== result.items.length || result.limit !== limit || result.offset !== offset) {
+    throw new ApiError('Le catalogue est incomplet.', 200)
+  }
+  return result
+}
+
+export async function getProduct(sku: string, signal?: AbortSignal): Promise<ProductResponse> {
+  const result = await requestJson<unknown>(`/products/${encodeURIComponent(sku)}`, { public: true, signal })
+  if (!isProduct(result)) throw new ApiError('La fiche produit est incomplete.', 200)
   return result
 }

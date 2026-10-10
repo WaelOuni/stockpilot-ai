@@ -27,6 +27,10 @@ class MongoProductRepository(ProductRepositoryPort):
         if document is None:
             return None
 
+        return self._to_product(document)
+
+    @staticmethod
+    def _to_product(document) -> Product:
         return Product(
             sku=document["sku"],
             name=document["name"],
@@ -34,6 +38,16 @@ class MongoProductRepository(ProductRepositoryPort):
             price=float(document["price"]),
             stock=int(document["stock"]),
         )
+
+    async def list_products(self, limit: int, offset: int) -> list[Product]:
+        cursor = self.collection.find({}).sort([("sku", 1), ("_id", 1)]).skip(offset).limit(limit)
+        return [self._to_product(document) for document in cursor]
+
+    async def find_by_sku(self, sku: str) -> Product | None:
+        documents = list(self.collection.find({"sku": sku}).limit(2))
+        if len(documents) > 1:
+            raise ValueError("Duplicate product SKU; catalog lookup is ambiguous.")
+        return self._to_product(documents[0]) if documents else None
 
     async def reserve_stock(
         self,

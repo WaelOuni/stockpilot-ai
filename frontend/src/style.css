@@ -94,6 +94,7 @@ dd { text-align: right; margin: 0; }
 .order-timeline small { display: block; }
 .cancelled-notice { padding: 1rem; background: #f4e6e4; border-radius: 10px; color: #804138; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.action-link { background: var(--accent); color: white; border-radius: 10px; padding: .65rem 1.15rem; text-decoration: none; font-weight: 600; }
 @media (max-width: 640px) {
   .header-inner { flex-wrap: wrap; gap: .8rem; padding: 1rem; }
   .demo-badge { display: none; }

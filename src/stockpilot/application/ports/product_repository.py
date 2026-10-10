@@ -7,6 +7,12 @@ from stockpilot.domain.entities.product import Product
 
 
 class ProductRepositoryPort(Protocol):
+    async def list_products(self, limit: int, offset: int) -> list[Product]:
+        ...
+
+    async def find_by_sku(self, sku: str) -> Product | None:
+        ...
+
     async def find_by_name(self, name: str) -> Product | None:
         ...
 

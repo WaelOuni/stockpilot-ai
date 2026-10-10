@@ -6,9 +6,13 @@ import { useAssistant } from './useAssistant'
 import AssistantResponseCard from './AssistantResponseCard.vue'
 
 const { state, send, reset, decide } = useAssistant()
+const props = defineProps<{ initialMessage?: string }>()
 const draft = ref('')
 const transcript = ref<HTMLElement | null>(null)
-watch(customerToken, () => { draft.value = '' })
+watch(() => props.initialMessage, (message) => { draft.value = message || '' }, { immediate: true })
+watch(customerToken, (token, previous) => {
+  draft.value = token && !previous ? props.initialMessage || '' : ''
+})
 watch(() => state.messages.length, async () => {
   await nextTick()
   transcript.value?.scrollTo?.({ top: transcript.value.scrollHeight, behavior: 'smooth' })
