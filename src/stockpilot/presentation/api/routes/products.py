@@ -18,9 +18,9 @@ async def list_products(
     available: bool | None = Query(default=None),
     use_case: ListProductsUseCase = Depends(get_list_products_use_case),
 ) -> ProductsResponse:
-    products = await use_case.execute(limit=limit, offset=offset, q=q, category=category, available=available)
-    items = [ProductResponse.from_product(product) for product in products]
-    return ProductsResponse(items=items, limit=limit, offset=offset, count=len(items))
+    page = await use_case.execute(limit=limit, offset=offset, q=q, category=category, available=available)
+    items = [ProductResponse.from_product(product) for product in page.items]
+    return ProductsResponse(items=items, limit=limit, offset=offset, count=len(items), has_more=page.has_more)
 
 
 @router.get("/products/{sku}", response_model=ProductResponse)

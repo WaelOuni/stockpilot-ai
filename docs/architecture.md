@@ -118,13 +118,17 @@ python -m pytest -q
 
 ## Boundaries and limitations
 
-- No user authentication, payment or frontend; a shared Bearer token protects
-  only technical order mutation routes. Not hardened for public access.
+- A Vue customer frontend and signed customer JWT checks exist; no real
+  login/refresh/revocation, payment, admin UI or tenant isolation exists.
+  A separate shared back-office token protects technical order mutations.
+  Not hardened for public access.
 - Customer ownership isolation uses the verified `customer_id` claim in a signed
   expiring JWT; caller-supplied identity headers are ignored.
 - Model extraction is probabilistic and the advice guard is lexical.
-- Product lookup uses the existing regex strategy and assumes an unambiguous
-  canonical product name.
+- Advice/preparation retain the name regex lookup. Confirmation resolves an
+  unambiguous complete literal name and reserves by Mongo `_id`; cancellation
+  uses the persistence-only `reserved_product_id`. Ambiguous legacy stock
+  identities are refused. Public detail uses exact SKU equality.
 - Synchronous PyMongo calls in an async flow can block the event loop.
 - Durable checkpoints alone do not serialize simultaneous requests for a thread.
   Operation idempotency and Mongo transactions still protect finalization.

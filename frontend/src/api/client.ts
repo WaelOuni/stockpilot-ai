@@ -78,7 +78,8 @@ export async function listProducts(limit = 20, offset = 0, signal?: AbortSignal,
   if (filters.available !== undefined) params.set('available', String(filters.available))
   const result = await requestJson<ProductsResponse>(`/products?${params}`, { public: true, signal })
   if (!result || !Array.isArray(result.items) || !result.items.every(isProduct) ||
-      result.count !== result.items.length || result.limit !== limit || result.offset !== offset) {
+      result.count !== result.items.length || result.limit !== limit || result.offset !== offset ||
+      typeof result.has_more !== 'boolean') {
     throw new ApiError('Le catalogue est incomplet.', 200)
   }
   return result

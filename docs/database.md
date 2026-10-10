@@ -301,6 +301,9 @@ The audit did not modify development products or indexes.
 `GET /products?limit=20&offset=0` reads Mongo products, sorted by SKU ascending
 with `_id` as an internal tie-breaker, before applying skip/limit. Limit is
 1..100 and offset is nonnegative; invalid pagination returns 422.
+After filtering and offset, Mongo fetches `limit + 1` documents in one query,
+returns only `limit` items and reports whether the extra document exists as
+`has_more`. No total count query is performed.
 `GET /products/{sku}` uses exact case-sensitive SKU equality, not the assistant's
 canonical-name regex. SKU is the existing domain identifier, not a new Mongo ID.
 The local audit found three products, all with distinct string SKUs. No data
@@ -308,7 +311,8 @@ migration or speculative product index was added. A duplicate SKU detail lookup
 fails explicitly instead of returning an arbitrary product.
 
 Both endpoints are public and read-only. List response is
-`{"items": [...], "limit": 20, "offset": 0, "count": 3}`; each item and detail
+`{"items": [...], "limit": 20, "offset": 0, "count": 3, "has_more": false}`;
+`count` is exactly the returned page size, not the total. Each item and detail
 contains only `sku`, `product_name` (Mongo `name`), `category`, `price`, `stock`.
 Mongo `_id` and any extra fields are not exposed. Missing SKU returns 404;
 technical failures use the existing sanitized 500 middleware. Empty list is 200.

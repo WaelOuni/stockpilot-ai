@@ -65,7 +65,8 @@ No Pinia is needed: a small reactive assistant session survives route navigation
 Orders reload on page entry and through the refresh button. All history states,
 including CANCELLED, are shown. Pagination uses limit 20 and offset increments of
 20; `count` is the page size, not a total. A full last page can lead to an empty
-next page because the API has no `has_more` field.
+next page because the customer orders API has no `has_more` field. The product
+catalogue has a separate `has_more` contract and does not use this heuristic.
 
 Each history card and identified assistant summary links to its detail page.
 The page loads the current owned order directly through the customer API, not
@@ -136,6 +137,11 @@ history/status before submitting another confirmation.
 
 `/products` lists Mongo products in stable SKU order with limit 20 and offset
 pagination. `/products/:sku` displays name, SKU, category, price and stock.
+The list response retains `items`, `limit`, `offset` and `count` (page size)
+and includes `has_more`. Mongo reads one extra document after filtering and
+offset in the same query; only `limit` products are exposed. The catalogue
+enables Suivant only when `has_more` is true, including for a full last page.
+Customer order history pagination is unchanged.
 The backend exposes only these operational fields; no description, image or
 currency is invented (the current model stores a numeric price without a
 currency field). Availability is derived from stock > 0 and remains a snapshot.
@@ -160,6 +166,16 @@ refresh/back navigation restores it, and pagination preserves it. Reset clears
 both submitted filters and unsent drafts. Invalid URL criteria show an error,
 not silently broadened results. Filtered empty pages show a criteria-specific
 empty state.
+
+Product-card links carry only validated applied `q`, `category`, `available`
+and `offset` parameters into the detail URL. `Retour au catalogue` restores
+that context, including after a detail-page refresh; direct detail access
+without context returns to `/products`. Unknown, repeated or invalid context
+values are omitted individually from navigation links. The catalogue itself
+retains its explicit invalid-URL error behavior. No `returnUrl`, global state
+or browser storage is used. Native browser back navigation remains unchanged.
+Card links include the product name for accessible identification. Assistant
+links still carry only their prefilled message, not the catalogue context.
 
 Categories reuse the existing typed category-label mapping for DRILL/SAW/SANDER/
 SCREWDRIVER/OTHER, which corresponds to the fixed backend enum, rather than
@@ -200,7 +216,8 @@ cursor pagination or back-office mutations.
 
 ## Real browser E2E
 
-Playwright runs one Chromium test in `e2e/order-flow.spec.ts`. It starts a
+Playwright runs two Chromium scenarios: `e2e/order-flow.spec.ts` and
+`e2e/catalogue-navigation.spec.ts`. It starts a
 dedicated FastAPI on port **8002** and Vite on **5174**, with no server reuse
 and no automatic retries. Only Mongo/Postgres/Ollama must already be running.
 The normal development FastAPI instance is neither used nor stopped.
@@ -266,7 +283,8 @@ The signing secret and generated JWT are never hardcoded or logged.
 Avoid enabling Playwright debug/API logging, which can record token input.
 Screenshots, traces and videos are deliberately disabled.
 
-The scenario connects through the UI, sends `Commande-moi une Bosch X100`,
+The order scenario connects through the UI, sends the catalogue draft
+`Commande-moi 1 Bosch X100`,
 checks preparation and explicit confirmation, clicks **Confirmer** (sending
 `Oui je confirme`), checks
 the created order directly in Mongo, opens My Orders and the CREATED detail page,
@@ -275,6 +293,10 @@ and asks `Quel est le statut de ma dernière commande ?`. It checks that all
 assistant requests share the same generated thread, that the listing displays
 the created order, and that ORDER_STATUS matches the stored Mongo status.
 It also rejects console errors and uncaught browser exceptions.
+The catalogue scenario covers detail reload, return link, native browser back,
+direct access and offset preservation using the same three products. It checks
+six real list responses for `has_more` across limits, offset and DRILL/availability
+filters, the unchanged detail contract, and the disabled Suivant button.
 
 `e2e/support/backend_probe.py` refuses non-E2E targets and performs **read-only**
 checks: exactly one matching Bosch X100 with **stock 10**, no previous orders for this new customer, and direct

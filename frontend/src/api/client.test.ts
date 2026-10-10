@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getCustomerOrder, listCustomerOrders, sendAssistantMessage } from './client'
+import { getCustomerOrder, listCustomerOrders, listProducts, sendAssistantMessage } from './client'
 import { ApiError, requestJson } from './http'
 import { setCustomerToken } from '../utils/customerSession'
 
@@ -21,6 +21,18 @@ afterEach(() => {
 })
 
 describe('HTTP client', () => {
+  it.each([true, false])('preserves the catalogue has_more boolean: %s', async (has_more) => {
+    const product = { sku: 'SKU', product_name: 'Bosch X100', category: 'DRILL', price: 99, stock: 10 }
+    const page = { items: [product], count: 1, limit: 1, offset: 2, has_more }
+    fetchMock.mockResolvedValue(json(page))
+    expect(await listProducts(1, 2)).toEqual(page)
+  })
+
+  it.each([undefined, null, 0, 1, 'true', 'false'])('rejects missing or invalid catalogue has_more: %s', async (has_more) => {
+    fetchMock.mockResolvedValue(json({ items: [], count: 0, limit: 20, offset: 0, has_more }))
+    await expect(listProducts()).rejects.toThrow('incomplet')
+  })
+
   it('encodes an order identifier and validates detail response', async () => {
     fetchMock.mockResolvedValueOnce(json({ order_id: 'a/b', product_name: 'Bosch X100', quantity: 1, status: 'CREATED', created_at: '2026-10-10' }))
     expect((await getCustomerOrder('a/b')).order_id).toBe('a/b')

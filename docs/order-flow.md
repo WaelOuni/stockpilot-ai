@@ -376,8 +376,8 @@ A local caller can invoke
 delegates to this same use case; no user intent is added. It simulates business progression,
 not real shipping or delivery.
 
-An absent order returns `None`. Mongo atomically updates only the `status` field
-when both `order_id` and the previously read status match. A concurrent change
+An absent order returns `None`. Mongo atomically sets `status` and appends one
+BACKOFFICE event when both `order_id` and the previously read status match. A concurrent change
 or deletion raises `OrderStatusConflictError`: reread Mongo before deciding
 whether to retry; there is no unconditional overwrite or automatic retry.
 Other persistence errors propagate.
@@ -488,15 +488,16 @@ The route delegates to `CancelOrderUseCase`, then
 
 1. Reread the order and validate its status inside each transaction attempt.
 2. Return immediately if CANCELLED; reject a changed status as a conflict.
-3. Increment the existing product stock by the stored order quantity.
-4. Conditionally set the order to CANCELLED in that same session, then commit.
+3. Increment the reserved product by its saved `_id` and stored order quantity;
+   legacy orders require the safe identity resolution described above.
+4. Conditionally set CANCELLED and append its event in that same session, then commit.
 
 Missing products, invalid stored quantities, failed writes or unmatched conditional
 updates abort the transaction. The stock increment cannot commit alone.
 PyMongo owns transient transaction retries: each retry rereads the order, and
 concurrent cancellations cannot commit a second restoration.
-Product matching retains the existing canonical-name lookup convention; unique,
-unambiguous product names remain an application assumption.
+There is no fallback from a missing saved product identity to a name/SKU.
+Ambiguous legacy identities fail before mutation.
 
 200 returns the same `OrderResponse` fields as PATCH, including status CANCELLED.
 Unknown order -> 404; non-cancellable status or concurrency conflict -> 409;
@@ -589,12 +590,16 @@ After manually starting a healthy demo replica set, opt-in integration tests:
 
 ```sh
 export MONGO_TEST_URI='mongodb://localhost:27017/?replicaSet=rs0&directConnection=true'
-.venv/bin/python -m pytest -q -m integration
+.venv/bin/python -m pytest -q -m integration tests/test_mongo_transaction_integration.py
 ```
 
-They use a unique generated database to check commit, rollback and concurrent
-confirmations, then drop **only their own database**, never `stockpilot` or
-historical data. The general integration selector can also select PostgreSQL
+They require a writable `rs0` replica set with sessions and use a validated,
+previously absent `stockpilot_transaction_test_<UUID>` database per test.
+They check commit, rollback, concurrent confirmations/cancellations, native
+reserved product identity and exact initial events. Cleanup deletes only the
+test documents selected by `_id`; no database or collection is dropped.
+Empty test databases and indexes remain. Neither `stockpilot` nor
+`stockpilot_e2e` is used. The general integration selector can also select PostgreSQL
 integration tests; see [checkpoint validation](database.md#checkpoint-validation).
 
 ## Limits and diagnostics
@@ -606,7 +611,8 @@ Mongo orders are not one distributed transaction.
 
 Replica-set availability and commit reconciliation may fail. Atomicity does
 not guarantee that the client immediately knows the result. Product lookup
-assumes an unambiguous canonical name under the existing regex strategy.
+retains regex matching for advice/preparation, while confirmation resolves a
+complete literal name and cancellation uses the saved Mongo identity.
 The local single-node configuration has no redundancy or production hardening.
 
 [Database](database.md) retains replica-set status, backup/recovery, network and

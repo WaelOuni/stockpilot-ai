@@ -79,4 +79,5 @@ export interface ProductsResponse {
   limit: number
   offset: number
   count: number
+  has_more: boolean
 }

@@ -6,9 +6,10 @@ import { ApiError } from '../api/http'
 import ApiErrorNotice from '../components/ApiErrorNotice.vue'
 import ProductInfo from '../components/ProductInfo.vue'
 import type { ProductResponse } from '../types/api'
-import { productCategoryLabels } from '../utils/products'
+import { catalogueQuery, productCategoryLabels } from '../utils/products'
 
 const route = useRoute()
+const catalogueLocation = computed(() => ({ path: '/products', query: catalogueQuery(route.query) }))
 const sku = computed(() => String(route.params.sku || ''))
 const product = ref<ProductResponse | null>(null)
 const loading = ref(false)
@@ -49,7 +50,7 @@ function message(action: 'advice' | 'order'): string {
 
 <template>
   <header class="page-heading">
-    <RouterLink to="/products">
+    <RouterLink :to="catalogueLocation">
       Retour au catalogue
     </RouterLink>
     <h1>Fiche produit</h1>

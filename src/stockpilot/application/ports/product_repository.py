@@ -1,5 +1,6 @@
 from typing import Protocol
 
+from stockpilot.application.dto.product_page import ProductPage
 from stockpilot.application.dto.stock_reservation_result import (
     StockReservationResult,
 )
@@ -11,7 +12,7 @@ class ProductRepositoryPort(Protocol):
     async def list_products(
         self, limit: int, offset: int, *, q: str | None = None,
         category: ProductCategory | None = None, available: bool | None = None,
-    ) -> list[Product]:
+    ) -> ProductPage:
         ...
 
     async def find_by_sku(self, sku: str) -> Product | None:

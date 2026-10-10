@@ -5,10 +5,11 @@ import { listProducts, type ProductFilters } from '../api/client'
 import ApiErrorNotice from '../components/ApiErrorNotice.vue'
 import ProductInfo from '../components/ProductInfo.vue'
 import type { ProductsResponse, ProductCategory } from '../types/api'
-import { productCategoryLabels } from '../utils/products'
+import { catalogueQuery, productCategoryLabels } from '../utils/products'
 
 const route = useRoute()
 const router = useRouter()
+const catalogueContext = computed(() => catalogueQuery(route.query))
 const page = ref<ProductsResponse | null>(null)
 const offset = computed(() => Number(route.query.offset || 0))
 const search = ref('')
@@ -177,9 +178,9 @@ onBeforeUnmount(() => { controller?.abort() })
           <ProductInfo :product="product" />
           <RouterLink
             class="context-link"
-            :to="`/products/${encodeURIComponent(product.sku)}`"
+            :to="{ path: `/products/${encodeURIComponent(product.sku)}`, query: catalogueContext }"
           >
-            Voir le produit
+            Voir le produit {{ product.product_name }}
           </RouterLink>
         </article>
       </div>
@@ -197,7 +198,7 @@ onBeforeUnmount(() => { controller?.abort() })
       <button
         type="button"
         class="secondary"
-        :disabled="loading || !page || page.count < 20"
+        :disabled="loading || !page || !page.has_more"
         @click="paginate(offset + 20)"
       >
         Suivant

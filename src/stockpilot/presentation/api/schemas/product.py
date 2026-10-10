@@ -24,3 +24,4 @@ class ProductsResponse(BaseModel):
     limit: int
     offset: int
     count: int
+    has_more: bool

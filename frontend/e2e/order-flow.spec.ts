@@ -117,7 +117,7 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   await page.getByRole('button', { name: 'Réinitialiser les filtres', exact: true }).click()
   await expect(page.getByRole('article')).toHaveCount(3)
   const productCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Bosch X100', exact: true }) })
-  await productCard.getByRole('link', { name: 'Voir le produit', exact: true }).click()
+  await productCard.getByRole('link', { name: 'Voir le produit Bosch X100', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Fiche produit', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Commander', exact: true }).click()
   await expect(page.getByLabel('Votre message', { exact: true })).toHaveValue('Commande-moi 1 Bosch X100')

@@ -5,11 +5,11 @@ import ProductsPage from './ProductsPage.vue'
 
 const fetchMock = vi.fn<typeof fetch>()
 let wrapper: VueWrapper | undefined
-function response(offset = 0, count = 1) {
+function response(offset = 0, count = 1, has_more = false) {
   return new Response(JSON.stringify({
     items: Array.from({ length: count }, (_, index) => ({
       sku: `SKU-${index}`, product_name: 'Bosch X100', category: 'DRILL', stock: 10, price: 99,
-    })), limit: 20, offset, count,
+    })), limit: 20, offset, count, has_more,
   }))
 }
 beforeEach(() => { fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock) })
@@ -50,7 +50,7 @@ it('restores query fields and pagination on initial router load', async () => {
 })
 
 it('resets pagination on changed filters and keeps filters while paginating', async () => {
-  fetchMock.mockResolvedValueOnce(response(20, 20)).mockResolvedValueOnce(response(0, 20))
+  fetchMock.mockResolvedValueOnce(response(20, 20, true)).mockResolvedValueOnce(response(0, 20, true))
     .mockResolvedValueOnce(response(20, 1))
   const router = await open('/products?q=bosch&offset=20')
   await wrapper!.findAll('select')[0]!.setValue('DRILL')
@@ -60,6 +60,8 @@ it('resets pagination on changed filters and keeps filters while paginating', as
   await flushPromises()
   expect(router.currentRoute.value.query).toEqual({ q: 'bosch', category: 'DRILL', offset: '20' })
   expect(fetchMock.mock.calls[2]![0]).toBe('/api/products?limit=20&offset=20&q=bosch&category=DRILL')
+  expect(button('Suivant').attributes('disabled')).toBeDefined()
+  expect(button('Précédent').attributes('disabled')).toBeUndefined()
 })
 
 it('resets every filter and returns to the first page', async () => {
@@ -103,12 +105,15 @@ it('shows loading and recoverable error for a filtered request', async () => {
   await open('/products?q=missing')
   expect(wrapper!.get('[role="status"]').text()).toContain('Chargement')
   expect(button('Rechercher').attributes('disabled')).toBeDefined()
+  expect(button('Suivant').attributes('disabled')).toBeDefined()
   done(new Response('{}', { status: 500 }))
   await flushPromises()
   expect(wrapper!.get('[role="alert"]').text()).toContain('serveur')
+  expect(button('Suivant').attributes('disabled')).toBeDefined()
   await button('Actualiser').trigger('click')
   await flushPromises()
   expect(wrapper!.text()).toContain('Aucun produit ne correspond à vos critères')
+  expect(button('Suivant').attributes('disabled')).toBeDefined()
 })
 
 it.each(['offset=-1', 'offset=abc', 'category=INVALID', 'available=invalid', 'q=bosch&q=makita'])('rejects invalid URL instead of silently changing criteria: %s', async (query) => {

@@ -1,3 +1,4 @@
+from stockpilot.application.dto.product_page import ProductPage
 from stockpilot.application.ports.product_repository import ProductRepositoryPort
 from stockpilot.domain.entities.product import Product
 from stockpilot.domain.enums.product_category import ProductCategory
@@ -10,7 +11,7 @@ class ListProductsUseCase:
     async def execute(
         self, limit: int = 20, offset: int = 0, *, q: str | None = None,
         category: ProductCategory | None = None, available: bool | None = None,
-    ) -> list[Product]:
+    ) -> ProductPage:
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("limit must be between 1 and 100.")
         if type(offset) is not int or offset < 0:

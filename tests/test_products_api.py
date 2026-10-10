@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from stockpilot.application.dto.product_page import ProductPage
 from stockpilot.application.use_cases.catalog_products import ListProductsUseCase, GetProductUseCase
 from stockpilot.infrastructure.persistence.mongodb.product_repository import MongoProductRepository
 from stockpilot.main import app
@@ -14,7 +15,9 @@ from test_order_conversation import make_product
 def catalogue(monkeypatch):
     products = [make_product("Bosch X100", stock=3), make_product("Makita D200", stock=0)]
     repository = SimpleNamespace(
-        list_products=AsyncMock(side_effect=lambda limit, offset, **filters: products[offset:offset+limit]),
+        list_products=AsyncMock(side_effect=lambda limit, offset, **filters: ProductPage(
+            items=products[offset:offset+limit], has_more=len(products) > offset + limit,
+        )),
         find_by_sku=AsyncMock(side_effect=lambda sku: next((p for p in products if p.sku == sku), None)),
     )
     monkeypatch.setattr(app.state, "list_products_use_case", ListProductsUseCase(repository))
@@ -28,6 +31,8 @@ def test_public_catalogue_contract_and_pagination(catalogue):
     assert response.status_code == 200
     payload = response.json()
     assert payload["limit"] == 1 and payload["offset"] == 1 and payload["count"] == 1
+    assert set(payload) == {"items", "limit", "offset", "count", "has_more"}
+    assert payload["has_more"] is False
     assert set(payload["items"][0]) == {"sku", "product_name", "category", "price", "stock"}
     assert payload["items"][0]["stock"] == 0
     repository.list_products.assert_awaited_once_with(1, 1)
@@ -70,11 +75,12 @@ def test_mongo_catalogue_queries_pagination_and_never_writes():
     cursor = collection.find.return_value
     cursor.sort.return_value.skip.return_value.limit.return_value = [document]
     result = asyncio.run(repository.list_products(20, 5))
-    assert result[0].name == "Bosch X100"
+    assert result.items[0].name == "Bosch X100"
+    assert result.has_more is False
     collection.find.assert_called_once_with({})
     cursor.sort.assert_called_once_with([("sku", 1), ("_id", 1)])
     cursor.sort.return_value.skip.assert_called_once_with(5)
-    cursor.sort.return_value.skip.return_value.limit.assert_called_once_with(20)
+    cursor.sort.return_value.skip.return_value.limit.assert_called_once_with(21)
     cursor.limit.return_value = [document]
     assert asyncio.run(repository.find_by_sku("BOSCH-X100")).stock == 10
     collection.find.assert_called_with({"sku": "BOSCH-X100"})
@@ -85,6 +91,7 @@ def test_mongo_catalogue_queries_pagination_and_never_writes():
         asyncio.run(repository.find_by_sku("BOSCH-X100"))
     for method in ("insert_one", "update_one", "find_one_and_update", "delete_many"):
         getattr(collection, method).assert_not_called()
+    collection.count_documents.assert_not_called()
 
 
 def test_catalogue_unexpected_failure_is_sanitized(catalogue):

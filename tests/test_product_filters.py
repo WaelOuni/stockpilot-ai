@@ -39,15 +39,18 @@ class Cursor:
         self.rows = rows
 
     def sort(self, fields):
+        self.sort_fields = fields
         assert fields == [("sku", 1), ("_id", 1)]
-        self.rows.sort(key=lambda row: row["sku"])
+        self.rows.sort(key=lambda row: (row["sku"], row.get("_id", "")))
         return self
 
     def skip(self, offset):
+        self.offset = offset
         self.rows = self.rows[offset:]
         return self
 
     def limit(self, limit):
+        self.requested_limit = limit
         return self.rows[:limit]
 
 
@@ -96,6 +99,94 @@ def test_query_is_literal_and_combined(catalogue):
         ],
         "category": "OTHER", "stock": {"$lte": 0},
     })
+
+
+@pytest.mark.parametrize("total,offset,count,has_more", [
+    (0, 0, 0, False),
+    (2, 0, 2, False),
+    (3, 0, 3, False),
+    (4, 0, 3, True),
+    (6, 3, 3, False),
+    (7, 3, 3, True),
+    (4, 3, 1, False),
+    (4, 10, 0, False),
+])
+def test_mongo_page_boundaries_in_public_response(catalogue, total, offset, count, has_more):
+    client, collection = catalogue
+    rows = [
+        {**DOCUMENTS[0], "_id": index, "sku": f"SKU-{index:03d}"}
+        for index in reversed(range(total))
+    ]
+    cursors = []
+
+    def find(query):
+        cursor = Cursor([dict(row) for row in rows if matches(row, query)])
+        cursors.append(cursor)
+        return cursor
+
+    collection.find.side_effect = find
+    response = client.get(f"/products?limit=3&offset={offset}")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "items": [
+            {"sku": f"SKU-{index:03d}", "product_name": "Bosch X100",
+             "category": "DRILL", "price": 99.0, "stock": 10}
+            for index in range(offset, min(total, offset + 3))
+        ],
+        "limit": 3, "offset": offset, "count": count, "has_more": has_more,
+    }
+    collection.find.assert_called_once_with({})
+    assert cursors[0].sort_fields == [("sku", 1), ("_id", 1)]
+    assert cursors[0].offset == offset
+    assert cursors[0].requested_limit == 4
+    collection.count_documents.assert_not_called()
+    for method in ("insert_one", "update_one", "delete_many", "find_one_and_update"):
+        getattr(collection, method).assert_not_called()
+
+
+@pytest.mark.parametrize("offset,names,has_more", [
+    (0, ["Bosch A"], True),
+    (1, ["Bosch B"], False),
+    (2, [], False),
+])
+def test_has_more_uses_only_combined_filter_matches(catalogue, offset, names, has_more):
+    client, collection = catalogue
+    rows = [
+        {**DOCUMENTS[0], "_id": index, "sku": f"SKU-{index}", "name": name,
+         "category": category, "stock": stock}
+        for index, (name, category, stock) in enumerate([
+            ("Bosch A", "DRILL", 10), ("Bosch B", "DRILL", 1),
+            ("Bosch C", "DRILL", 0), ("Bosch D", "SAW", 10),
+            ("Makita E", "DRILL", 10),
+        ])
+    ]
+    collection.find.side_effect = lambda query: Cursor([row for row in rows if matches(row, query)])
+    payload = client.get(
+        f"/products?q=bosch&category=DRILL&available=true&limit=1&offset={offset}",
+    ).json()
+    assert [item["product_name"] for item in payload["items"]] == names
+    assert payload["count"] == len(names)
+    assert payload["has_more"] is has_more
+    collection.find.assert_called_once()
+    collection.count_documents.assert_not_called()
+
+
+def test_stable_sku_and_id_sort_across_pages(catalogue):
+    client, collection = catalogue
+    rows = [
+        {**DOCUMENTS[0], "_id": identity, "sku": sku, "name": name}
+        for identity, sku, name in [
+            (3, "A", "Third"), (0, "B", "Fourth"),
+            (2, "A", "Second"), (1, "A", "First"),
+        ]
+    ]
+    collection.find.side_effect = lambda query: Cursor([dict(row) for row in rows])
+    pages = [client.get(f"/products?limit=2&offset={offset}").json() for offset in (0, 2)]
+    assert [[item["product_name"] for item in page["items"]] for page in pages] == [
+        ["First", "Second"], ["Third", "Fourth"],
+    ]
+    assert [page["has_more"] for page in pages] == [True, False]
 
 
 @pytest.mark.parametrize("query", ["category=INVALID", "category=drill", "available=invalid", "q=" + "x" * 101])

@@ -10,9 +10,9 @@ import { getProduct, listProducts } from '../api/client'
 
 const product = { sku: 'BOSCH-X100', product_name: 'Bosch X100', category: 'DRILL', price: 99, stock: 10 }
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status })
-const list = (count = 1, offset = 0) => json({
+const list = (count = 1, offset = 0, has_more = false) => json({
   items: Array.from({ length: count }, (_, i) => ({ ...product, sku: `sku-${i}` })),
-  count, limit: 20, offset,
+  count, limit: 20, offset, has_more,
 })
 const fetchMock = vi.fn<typeof fetch>()
 let wrapper: VueWrapper | undefined
@@ -68,9 +68,9 @@ it('shows loading, empty and recoverable error states', async () => {
 })
 
 it('paginates and opens product detail', async () => {
-  fetchMock.mockResolvedValueOnce(list(20)).mockResolvedValueOnce(list(1, 20)).mockResolvedValueOnce(json(product))
+  fetchMock.mockResolvedValueOnce(list(20, 0, true)).mockResolvedValueOnce(list(1, 20)).mockResolvedValueOnce(json(product))
   const router = await open()
-  await wrapper!.get('.pagination button:last-child').trigger('click')
+  await wrapper!.findAll('button').find((button) => button.text() === 'Suivant')!.trigger('click')
   await flushPromises()
   expect(fetchMock.mock.calls[1]![0]).toBe('/api/products?limit=20&offset=20')
   await wrapper!.get('a').trigger('click')
@@ -78,6 +78,21 @@ it('paginates and opens product detail', async () => {
   expect(router.currentRoute.value.path).toBe('/products/sku-0')
   expect(wrapper!.text()).toContain('Fiche produit')
   expect(wrapper!.text()).toContain('Disponible')
+})
+
+it.each([
+  [0, false], [3, false], [20, false], [20, true],
+])('uses has_more for next-page availability (count=%s, has_more=%s)', async (count, hasMore) => {
+  fetchMock.mockResolvedValue(list(count, 0, hasMore))
+  const router = await open()
+  const next = wrapper!.findAll('button').find((button) => button.text() === 'Suivant')!
+  expect(next.attributes('disabled') !== undefined).toBe(!hasMore)
+  if (!hasMore) {
+    await next.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/products')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  }
 })
 
 it.each(['Commander', 'Demander à StockPilot'])('prefills Assistant from %s without auto-sending', async (action) => {

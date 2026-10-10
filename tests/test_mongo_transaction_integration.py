@@ -1,23 +1,33 @@
 import asyncio
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import datetime, timezone
 from threading import Barrier, local
 from uuid import uuid4
 
 import pytest
+from bson import ObjectId
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from stockpilot.application.order_transaction_errors import OrderTransactionFailedError
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.domain.entities.order import Order
+from stockpilot.domain.entities.order_event import OrderEvent, OrderEventSource
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
 from stockpilot.infrastructure.persistence.mongodb.order_transaction import MongoOrderTransaction
 
 
 pytestmark = pytest.mark.integration
+
+
+def validate_test_database(database, name):
+    assert re.fullmatch(r"stockpilot_transaction_test_[0-9a-f]{32}", name)
+    assert name not in {"stockpilot", "stockpilot_e2e"}
+    assert database.name == name
 
 
 @pytest.fixture
@@ -29,16 +39,35 @@ def database():
     client = MongoClient(uri, serverSelectionTimeoutMS=5000)
     name = "stockpilot_transaction_test_" + uuid4().hex
     database = client[name]
+    initialized = False
     try:
+        validate_test_database(database, name)
         hello = client.admin.command("hello")
         assert hello.get("setName") == "rs0"
         assert hello["isWritablePrimary"]
+        assert hello.get("logicalSessionTimeoutMinutes") is not None
+        assert name not in client.list_database_names()
+        assert database.list_collection_names() == []
+        initialized = True
         MongoOrderRepository(database).initialize()
-        database.products.insert_one({"name": "Bosch X100", "stock": 10})
+        database.products.insert_many([
+            {"name": "Bosch X100 Pro", "stock": 0},
+            {"name": "Bosch X100", "stock": 10},
+        ])
         yield database
     finally:
-        client.drop_database(name)
-        client.close()
+        try:
+            if initialized:
+                validate_test_database(database, name)
+                # Each fixture owns a previously absent UUID database. Select
+                # document IDs explicitly; retain the empty collections/indexes.
+                for collection in (database.orders, database.products):
+                    ids = [doc["_id"] for doc in collection.find({}, {"_id": 1})]
+                    if ids:
+                        collection.delete_many({"_id": {"$in": ids}})
+                    assert collection.count_documents({}) == 0
+        finally:
+            client.close()
 
 
 def make_order(operation_id=None):
@@ -49,7 +78,37 @@ def make_order(operation_id=None):
         quantity=2,
         status=OrderStatus.CREATED,
         created_at=datetime.now(timezone.utc),
+        customer_id="integration-owner",
     )
+
+
+def created_order(order):
+    return replace(order, events=(
+        OrderEvent(OrderStatus.CREATED, order.created_at, OrderEventSource.SYSTEM),
+    ))
+
+
+def assert_persisted_creation(database, order):
+    document = database.orders.find_one({"order_id": order.order_id})
+    product = database.products.find_one({"name": order.product_name})
+    assert document["order_id"] == order.order_id
+    assert document["operation_id"] == order.operation_id
+    assert document["product_name"] == order.product_name
+    assert document["quantity"] == order.quantity
+    assert document["customer_id"] == order.customer_id
+    assert document["status"] == "CREATED"
+    assert document["created_at"] == order.created_at.isoformat()
+    assert document["reserved_product_id"] == product["_id"]
+    assert isinstance(document["reserved_product_id"], ObjectId)
+    assert database.orders.count_documents({
+        "order_id": order.order_id, "reserved_product_id": {"$type": "objectId"},
+    }) == 1
+    assert document["events"] == [{
+        "status": "CREATED", "source": "SYSTEM",
+        "occurred_at": order.created_at.isoformat(),
+    }]
+    assert database.products.find_one({"name": "Bosch X100 Pro"})["stock"] == 0
+    return document
 
 
 def test_real_order_indexes_are_stable_and_preserve_legacy_documents(database):
@@ -162,9 +221,18 @@ def test_real_order_query_plans_use_indexes_without_blocking_sort(database):
 def test_real_transaction_commits_stock_and_order(database):
     order = make_order()
     result = asyncio.run(MongoOrderTransaction(database).execute(order))
-    assert result == order
+    assert result == created_order(order)
+    document = assert_persisted_creation(database, order)
     assert database.products.find_one({"name": "Bosch X100"})["stock"] == 8
     assert database.orders.count_documents({"operation_id": order.operation_id}) == 1
+    replay = asyncio.run(MongoOrderTransaction(database).execute(
+        replace(order, order_id=str(uuid4())),
+    ))
+    assert replay == result
+    assert database.orders.find_one({"order_id": order.order_id}) == document
+    assert database.orders.count_documents({}) == 1
+    assert database.products.find_one({"name": "Bosch X100"})["stock"] == 8
+    assert database.products.find_one({"name": "Bosch X100 Pro"})["stock"] == 0
 
 
 def test_real_transaction_rolls_back_insert_failure(database, monkeypatch):
@@ -178,6 +246,7 @@ def test_real_transaction_rolls_back_insert_failure(database, monkeypatch):
         asyncio.run(MongoOrderTransaction(database).execute(order))
     assert database.products.find_one({"name": "Bosch X100"})["stock"] == 10
     assert database.orders.count_documents({}) == 0
+    assert database.products.find_one({"name": "Bosch X100 Pro"})["stock"] == 0
 
 
 def test_real_concurrent_same_operation_only_decrements_once(database, monkeypatch):
@@ -209,13 +278,16 @@ def test_real_concurrent_same_operation_only_decrements_once(database, monkeypat
         second = pool.submit(confirm)
         results = [first.result(timeout=150), second.result(timeout=150)]
     assert results[0] == results[1]
+    assert results[0] == created_order(results[0])
+    assert_persisted_creation(database, results[0])
     assert database.orders.count_documents({"operation_id": operation_id}) == 1
     assert database.products.find_one({"name": "Bosch X100"})["stock"] == 8
 
 
 def test_real_concurrent_cancellations_restore_stock_only_once(database, monkeypatch):
     order = make_order()
-    assert asyncio.run(MongoOrderTransaction(database).execute(order)) == order
+    assert asyncio.run(MongoOrderTransaction(database).execute(order)) == created_order(order)
+    initial = assert_persisted_creation(database, order)
     barrier = Barrier(2)
     original_lookup = MongoOrderRepository.find_by_order_id
 
@@ -238,4 +310,27 @@ def test_real_concurrent_cancellations_restore_stock_only_once(database, monkeyp
     assert results[0].status is OrderStatus.CANCELLED
     assert database.orders.count_documents({}) == 1
     assert database.orders.find_one({"order_id": order.order_id})["status"] == "CANCELLED"
+    assert database.products.find_one({"name": "Bosch X100"})["stock"] == 10
+    document = database.orders.find_one({"order_id": order.order_id})
+    assert document["reserved_product_id"] == initial["reserved_product_id"]
+    for field in ("order_id", "operation_id", "product_name", "quantity", "customer_id", "created_at"):
+        assert document[field] == initial[field]
+    assert document["events"][0] == initial["events"][0]
+    assert len(document["events"]) == 2
+    cancelled_event = document["events"][1]
+    assert cancelled_event["status"] == "CANCELLED"
+    assert cancelled_event["source"] == "BACKOFFICE"
+    assert datetime.fromisoformat(cancelled_event["occurred_at"]) >= order.created_at
+    assert results[0].events == (
+        created_order(order).events[0],
+        OrderEvent(OrderStatus.CANCELLED,
+                   datetime.fromisoformat(cancelled_event["occurred_at"]),
+                   OrderEventSource.BACKOFFICE),
+    )
+    assert database.products.find_one({"name": "Bosch X100 Pro"})["stock"] == 0
+    replay = asyncio.run(MongoOrderRepository(database).cancel(
+        order.order_id, expected_status=OrderStatus.CREATED,
+    ))
+    assert replay == results[0]
+    assert database.orders.find_one({"order_id": order.order_id}) == document
     assert database.products.find_one({"name": "Bosch X100"})["stock"] == 10
