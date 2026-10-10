@@ -39,3 +39,4 @@ Thumbs.db
 *.p12
 *.pfx
 stockpilot-before-rs.archive
+/docs/PROJECT_CONTEXT.md

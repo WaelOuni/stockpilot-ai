@@ -2,6 +2,7 @@ import asyncio
 from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
+import re
 
 import pytest
 from pymongo import ReadPreference, ReturnDocument
@@ -33,7 +34,7 @@ def make_order() -> Order:
     )
 
 
-def document(order):
+def document(order, reserved_product_id=None):
     return {
         "order_id": order.order_id,
         "operation_id": order.operation_id,
@@ -46,6 +47,7 @@ def document(order):
              "source": item.source.value}
             for item in order.events
         ],
+        **({"reserved_product_id": reserved_product_id} if reserved_product_id is not None else {}),
         **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
     }
 
@@ -67,17 +69,29 @@ class FakeCollection:
         documents = session.documents if session else self.database.documents
         return documents.get(query["operation_id"]["$eq"])
 
+    def find(self, query, projection, **options):
+        assert self.name == "products"
+        self.database.product_lookups.append((query, projection, options))
+        pattern = query["name"]["$regex"].replace(r"\z", r"\Z")
+        assert query["name"]["$options"] == "i"
+        matches = [
+            {"_id": product["_id"], "name": product["name"]}
+            for product in self.database.products
+            if re.fullmatch(pattern, product["name"], re.IGNORECASE)
+        ]
+        return FakeCursor(matches)
+
     def find_one_and_update(self, query, update, **options):
         assert self.name == "products"
-        assert query["name"] == {"$regex": "Bosch X100", "$options": "i"}
-        assert options["projection"] == {"stock": 1}
+        assert query["_id"] == "product-bosch"
+        assert options["projection"] == {"_id": 1, "stock": 1}
         assert options["return_document"] == ReturnDocument.AFTER
         session = options["session"]
         self.database.writes.append(("reserve", session, query, update))
         if session.stock < query["stock"]["$gte"]:
             return None
         session.stock += update["$inc"]["stock"]
-        return {"stock": session.stock}
+        return {"_id": query["_id"], "stock": session.stock}
 
     def insert_one(self, order, **options):
         session = options["session"]
@@ -85,6 +99,14 @@ class FakeCollection:
         session.documents[order["operation_id"]] = deepcopy(order)
         if self.database.insert_errors:
             raise self.database.insert_errors.pop(0)
+
+
+class FakeCursor:
+    def __init__(self, documents):
+        self.documents = documents
+
+    def limit(self, count):
+        return self.documents[:count]
 
 
 class FakeSession:
@@ -150,6 +172,8 @@ class FakeDatabase:
         self.commit_error = None
         self.persist_on_error = False
         self.retry_transient = False
+        self.products = [{"_id": "product-bosch", "name": "Bosch X100"}]
+        self.product_lookups = []
         self.session = FakeSession(self)
         self.sessions_started = 0
         self.client = self
@@ -180,14 +204,25 @@ def test_commits_quantity_three_and_order_with_the_same_session():
     expected = created_order(order)
     assert execute(database, order) == expected
     assert database.stock == 7
-    assert database.documents == {order.operation_id: document(expected)}
+    assert database.documents == {
+        order.operation_id: document(expected, reserved_product_id="product-bosch")
+    }
     assert database.session.commits == 1
     assert database.session.aborts == 0
     assert [write[:2] for write in database.writes] == [
         ("reserve", database.session), ("insert", database.session)
     ]
-    assert database.writes[0][2]["stock"] == {"$gte": 3}
+    assert database.writes[0][2] == {
+        "_id": "product-bosch", "stock": {"$gte": 3},
+    }
     assert database.writes[0][3] == {"$inc": {"stock": -3}}
+    assert database.product_lookups == [
+        (
+            {"name": {"$regex": r"\ABosch\ X100\z", "$options": "i"}},
+            {"_id": 1, "name": 1},
+            {"session": database.session},
+        ),
+    ]
     assert database.lookups == [
         ({"operation_id": {"$eq": order.operation_id, "$type": "string"}}, {}),
         ({"operation_id": {"$eq": order.operation_id, "$type": "string"}},
@@ -310,7 +345,9 @@ def test_driver_callback_retry_rechecks_idempotency_and_reserves_only_once_effec
     assert database.session.commits == 1
     assert database.stock == 7
     assert len(database.documents) == 1
-    assert database.documents["operation-123"] == document(created_order())
+    assert database.documents["operation-123"] == document(
+        created_order(), reserved_product_id="product-bosch",
+    )
     assert len([lookup for lookup in database.lookups if lookup[1]]) == 2
 
 
@@ -365,7 +402,9 @@ def test_ambiguous_commit_recovers_committed_order_and_logs_recovery(caplog):
     assert execute(database) == created_order()
     assert database.sessions_started == 1
     assert database.stock == 7
-    assert database.documents == {"operation-123": document(created_order())}
+    assert database.documents == {
+        "operation-123": document(created_order(), reserved_product_id="product-bosch")
+    }
 
 
 @pytest.mark.parametrize("failure_kind", ["insert", "duplicate", "commit", "stock"])

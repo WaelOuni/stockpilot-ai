@@ -20,7 +20,7 @@ from stockpilot.application.use_cases.recommend_product import RecommendProductU
 from stockpilot.application.workflows.order_confirmation import (
     normalize_order_confirmation,
 )
-from stockpilot.domain.enums.order_status import PreparedOrderStatus
+from stockpilot.domain.enums.order_status import OrderStatus, PreparedOrderStatus
 
 
 logger = logging.getLogger(__name__)
@@ -172,17 +172,27 @@ def create_order_confirmation_node(
                         "pour finaliser la commande."
                     ),
                 }
-            updated_order["status"] = PreparedOrderStatus.CONFIRMED.value
+            order_status = (
+                PreparedOrderStatus.CANCELLED
+                if created_order.status == OrderStatus.CANCELLED
+                else PreparedOrderStatus.CONFIRMED
+            )
+            updated_order["status"] = order_status.value
             bind_context(order_id=created_order.order_id)
             event(logger, "order_finalized", order_id=created_order.order_id,
                   operation_id=operation_id, quantity=quantity,
-                  product_name=product_name, order_status="CONFIRMED",
+                  product_name=product_name, order_status=order_status.value,
                   duration_ms=timer.duration_ms)
-            order_status = PreparedOrderStatus.CONFIRMED
-            response = (
-                f"Commande {created_order.order_id} créée pour "
-                f"{quantity} {product_name}."
-            )
+            if created_order.status == OrderStatus.CANCELLED:
+                response = (
+                    f"La commande {created_order.order_id} existe déjà, "
+                    "mais elle est annulée. Aucune nouvelle commande n'a été créée."
+                )
+            else:
+                response = (
+                    f"Commande {created_order.order_id} créée pour "
+                    f"{quantity} {product_name}."
+                )
             created_order_id = created_order.order_id
         else:
             updated_order["status"] = PreparedOrderStatus.CANCELLED.value

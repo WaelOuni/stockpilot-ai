@@ -75,13 +75,15 @@ class MongoOrderTransaction(OrderTransactionPort):
             existing = self._existing(order, session)
             if existing is not None:
                 return existing
-            reservation = self.products.reserve_stock_sync(
+            reservation = self.products.reserve_stock_document(
                 order.product_name, order.quantity, session=session
             )
-            if not reservation.success:
+            if reservation is None:
                 # Raising, rather than returning, makes with_transaction abort.
                 raise _InsufficientStock
-            return self.orders.insert(order, session=session)
+            return self.orders.insert(
+                order, session=session, reserved_product_id=reservation["_id"],
+            )
 
         try:
             mark_transaction(started=True)

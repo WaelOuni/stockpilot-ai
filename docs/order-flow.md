@@ -30,6 +30,35 @@ is a new operation; idempotency does not equate every order from one thread.
 `operation_id` identifies the business operation, while `order_id` identifies
 the persisted order.
 
+### Reserved product identity
+
+Stock mutations resolve the complete literal product name, case-insensitively,
+and reject multiple matching documents even if only one has sufficient stock.
+The confirmation transaction decrements that document by Mongo `_id` and stores
+its native `_id` as `reserved_product_id` in the order document, atomically with
+order insertion. This persistence-only reference is not part of the domain
+entity, workflow state or public API. SKU is not used as a stock identity because
+there is no unique SKU index.
+
+Cancellation restores stock only through the saved `_id`, including after a
+product rename. A missing referenced document or invalid reference fails without
+falling back to a name or SKU. For legacy orders without this field, cancellation
+requires exactly one candidate under the old reservation regex in the transaction
+snapshot, and that candidate must also match the complete name. An exact match
+alongside a similar name is not proof of the historical reservation identity.
+Missing, nonexact or ambiguous matches fail before any stock, status or event
+mutation. Legacy reads remain unchanged. No migration or new index is required.
+
+### Confirmation replay after cancellation
+
+Replaying a pending confirmation with the same `operation_id` returns the
+existing order without stock, status or event writes. If Mongo returns a
+`CANCELLED` order, the conversation reports that it already exists but is
+cancelled, and both `order_status` and `pending_order.status` are `CANCELLED`.
+The original order ID remains in `created_order_id` and `last_created_order_id`
+for subsequent owned lookup. No new status or response field is introduced;
+initial confirmations and active-order replays retain their existing behavior.
+
 ## Customer ownership boundary
 
 Every `/assistant` and `GET /orders` call requires an `Authorization: Bearer`

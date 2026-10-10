@@ -45,6 +45,24 @@ def test_insert_normalizes_exactly_one_created_system_event(supplied_events):
     assert asyncio.run(repository.find_by_order_id(original.order_id)) == expected
 
 
+def test_reserved_product_identity_is_internal_to_the_stored_order():
+    original = make_order()
+    database = FakeDatabase()
+    repository = MongoOrderRepository(database)
+
+    created = repository.insert(original, reserved_product_id="product-private")
+    expected = replace(original, events=(
+        OrderEvent(OrderStatus.CREATED, original.created_at, OrderEventSource.SYSTEM),
+    ))
+
+    assert created == expected
+    assert not hasattr(created, "reserved_product_id")
+    assert database.state["order"] == {
+        **document(expected), "reserved_product_id": "product-private",
+    }
+    assert asyncio.run(repository.find_by_order_id(original.order_id)) == expected
+
+
 def test_create_use_case_returns_repository_enriched_order():
     database = FakeDatabase()
     order = asyncio.run(CreateOrderUseCase(MongoOrderRepository(database)).execute(

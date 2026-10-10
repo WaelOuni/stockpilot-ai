@@ -2,6 +2,7 @@ import asyncio
 from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
+import re
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -152,11 +153,29 @@ class FakeCollection:
         state = session.state if session is not None else self.database.state
         state["order"] = deepcopy(order)
 
+    def find(self, query, projection, **options):
+        assert self.name == "products"
+        self.database.product_lookups.append((query, projection, options))
+        pattern = query["name"]["$regex"]
+        assert query["name"]["$options"] == "i"
+        products = self.database.product_documents if self.database.product_exists else []
+        python_pattern = pattern.replace(r"\z", r"\Z")
+        matcher = re.fullmatch if python_pattern.startswith(r"\A") else re.search
+        matches = [
+            {"_id": product["_id"], "name": product["name"]}
+            for product in products
+            if matcher(python_pattern, product["name"], re.IGNORECASE)
+        ]
+        return FakeCursor(matches)
+
     def update_one(self, query, update, **options):
         assert self.name == "products"
         session = options["session"]
         self.database.writes.append(("stock", query, update, options))
-        if not self.database.product_exists:
+        if not any(
+            product["_id"] == query["_id"]
+            for product in self.database.product_documents
+        ):
             return SimpleNamespace(matched_count=0)
         session.state["stock"] += update["$inc"]["stock"]
         if self.database.stock_error is not None:
@@ -227,9 +246,19 @@ class FakeSession:
             return result
 
 
+class FakeCursor:
+    def __init__(self, documents):
+        self.documents = documents
+
+    def limit(self, count):
+        return self.documents[:count]
+
+
 class FakeDatabase:
     def __init__(self, order=None):
         self.state = {"stock": 7, "order": document(order or make_order())}
+        self.product_documents = [{"_id": "product-bosch", "name": "Bosch X100"}]
+        self.product_lookups = []
         self.reads = []
         self.writes = []
         self.product_exists = True
@@ -283,8 +312,15 @@ def test_transaction_restores_stock_and_serializes_cancelled_once(status):
         "read_preference": ReadPreference.PRIMARY,
     }
     assert database.reads == [({"order_id": order.order_id}, {"session": session})]
+    assert database.product_lookups == [
+        (
+            {"name": {"$regex": "Bosch X100", "$options": "i"}},
+            {"_id": 1, "name": 1},
+            {"session": session},
+        ),
+    ]
     assert database.writes == [
-        ("stock", MongoProductRepository._name_filter(order.product_name),
+        ("stock", {"_id": "product-bosch"},
          {"$inc": {"stock": 3}}, {"session": session}),
         ("order", {"order_id": order.order_id, "status": status.value},
          {"$set": {"status": "CANCELLED"},
@@ -307,6 +343,82 @@ def test_transaction_restores_stock_and_serializes_cancelled_once(status):
     assert result.result == "FOUND"
     assert result.response == "Commande order-cancel : statut CANCELLED."
     assert database.state["order"]["status"] == "CANCELLED"
+
+
+def test_cancellation_uses_the_reserved_product_id_without_name_lookup():
+    database = FakeDatabase()
+    database.state["order"]["reserved_product_id"] = "product-reserved"
+    database.product_documents = [
+        {"_id": "product-bosch", "name": "Bosch X100"},
+        {"_id": "product-reserved", "name": "Renamed product"},
+    ]
+
+    assert cancel(database).status is OrderStatus.CANCELLED
+
+    assert database.product_lookups == []
+    assert database.writes[0] == (
+        "stock", {"_id": "product-reserved"},
+        {"$inc": {"stock": 3}}, {"session": database.sessions[0]},
+    )
+
+
+@pytest.mark.parametrize("reserved_product_id", [None, {}, []])
+def test_cancellation_rejects_invalid_reserved_product_identity(reserved_product_id):
+    database = FakeDatabase()
+    database.state["order"]["reserved_product_id"] = reserved_product_id
+    before = deepcopy(database.state)
+
+    with pytest.raises(RuntimeError, match="Identité du produit réservé invalide"):
+        cancel(database)
+
+    assert database.state == before
+    assert database.product_lookups == []
+    assert database.writes == []
+
+
+def test_cancellation_refuses_ambiguous_legacy_product_name():
+    database = FakeDatabase()
+    database.product_documents.append({"_id": "product-duplicate", "name": "bosch x100"})
+    before = deepcopy(database.state)
+
+    with pytest.raises(RuntimeError, match="Identité produit ambiguë"):
+        cancel(database)
+
+    assert database.state == before
+    assert database.writes == []
+
+
+def test_cancellation_refuses_exact_name_when_legacy_regex_also_matches_longer_name():
+    database = FakeDatabase()
+    database.product_documents.append({"_id": "product-pro", "name": "Bosch X100 Pro"})
+    before = deepcopy(database.state)
+
+    with pytest.raises(RuntimeError, match="Identité produit ambiguë"):
+        cancel(database)
+
+    assert database.state == before
+    assert database.writes == []
+    assert database.product_lookups == [
+        (
+            {"name": {"$regex": "Bosch X100", "$options": "i"}},
+            {"_id": 1, "name": 1},
+            {"session": database.sessions[0]},
+        ),
+    ]
+
+
+def test_cancellation_refuses_a_legacy_regex_candidate_with_a_different_full_name():
+    database = FakeDatabase()
+    database.product_documents = [
+        {"_id": "product-similar", "name": "Bosch X100 Pro"},
+    ]
+    before = deepcopy(database.state)
+
+    with pytest.raises(RuntimeError, match="Identité produit legacy non fiable"):
+        cancel(database)
+
+    assert database.state == before
+    assert database.writes == []
 
 
 def test_use_case_and_repository_replay_does_not_start_second_transaction():
@@ -404,7 +516,8 @@ def test_transaction_fault_rolls_back_both_writes(fault):
     assert session.commits == 0
     assert session.exited
     assert [write[0] for write in database.writes] == (
-        ["stock"] if fault in ("missing-product", "stock-error") else ["stock", "order"]
+        [] if fault == "missing-product" else
+        ["stock"] if fault == "stock-error" else ["stock", "order"]
     )
 
 

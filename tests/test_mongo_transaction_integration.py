@@ -170,7 +170,7 @@ def test_real_transaction_commits_stock_and_order(database):
 def test_real_transaction_rolls_back_insert_failure(database, monkeypatch):
     order = make_order()
 
-    def fail_insert(self, order, session=None):
+    def fail_insert(self, order, session=None, *, reserved_product_id=None):
         raise OperationFailure("forced insertion failure", code=121)
 
     monkeypatch.setattr(MongoOrderRepository, "insert", fail_insert)

@@ -108,13 +108,24 @@ class MongoOrderRepository(OrderRepositoryPort):
             validate_order_cancellation(order.status)
             if isinstance(order.quantity, bool) or not isinstance(order.quantity, int) or order.quantity < 1:
                 raise ValueError("La quantité stockée est invalide pour la restitution.")
+            if "reserved_product_id" in document:
+                product_id = document["reserved_product_id"]
+                if product_id is None or isinstance(product_id, (dict, list)):
+                    raise RuntimeError("Identité du produit réservé invalide ; restitution refusée.")
+            else:
+                product = MongoProductRepository(self._database).resolve_stock_product(
+                    order.product_name, session, legacy=True,
+                )
+                if product is None:
+                    raise RuntimeError("Identité produit legacy introuvable ; restitution refusée.")
+                product_id = product["_id"]
             stock_result = self._database["products"].update_one(
-                MongoProductRepository._name_filter(order.product_name),
+                {"_id": product_id},
                 {"$inc": {"stock": order.quantity}},
                 session=session,
             )
             if stock_result.matched_count != 1:
-                raise RuntimeError("Le produit de la commande est introuvable pour la restitution.")
+                raise RuntimeError("Le document produit réservé est introuvable pour la restitution.")
             updated = self.collection.find_one_and_update(
                 {**order_filter, "status": expected_status.value},
                 {
@@ -176,7 +187,7 @@ class MongoOrderRepository(OrderRepositoryPort):
             "source": item.source.value,
         }
 
-    def insert(self, order: Order, session=None) -> Order:
+    def insert(self, order: Order, session=None, *, reserved_product_id=None) -> Order:
         session_options = {"session": session} if session is not None else {}
         order = replace(order, events=(OrderEvent(
             OrderStatus.CREATED, order.created_at, OrderEventSource.SYSTEM,
@@ -190,6 +201,7 @@ class MongoOrderRepository(OrderRepositoryPort):
                 "status": order.status.value,
                 "created_at": order.created_at.isoformat(),
                 "events": [self._event_document(item) for item in order.events],
+                **({"reserved_product_id": reserved_product_id} if reserved_product_id is not None else {}),
                 **({"customer_id": order.customer_id} if order.customer_id is not None else {}),
             },
             **session_options,

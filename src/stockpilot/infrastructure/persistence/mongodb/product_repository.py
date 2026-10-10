@@ -69,23 +69,52 @@ class MongoProductRepository(ProductRepositoryPort):
     ) -> StockReservationResult:
         return self.reserve_stock_sync(product_name, quantity)
 
+    def resolve_stock_product(
+        self, product_name: str, session=None, *, legacy: bool = False,
+    ) -> dict | None:
+        session_options = {"session": session} if session is not None else {}
+        # Legacy reservations used an unanchored, unescaped regex. Any of its
+        # candidates may have been decremented; an exact match alone is unsafe.
+        query = self._name_filter(product_name) if legacy else {
+            "name": {"$regex": r"\A" + re.escape(product_name) + r"\z", "$options": "i"},
+        }
+        documents = list(self.collection.find(
+            query,
+            {"_id": 1, "name": 1},
+            **session_options,
+        ).limit(2))
+        if len(documents) > 1:
+            raise RuntimeError("Identité produit ambiguë ; aucune mutation de stock autorisée.")
+        if not documents:
+            return None
+        if legacy and documents[0].get("name", "").casefold() != product_name.casefold():
+            raise RuntimeError("Identité produit legacy non fiable ; restitution refusée.")
+        if documents[0].get("_id") is None:
+            raise RuntimeError("Identité du document produit indisponible.")
+        return documents[0]
+
+    def reserve_stock_document(
+        self, product_name: str, quantity: int, session=None,
+    ) -> dict | None:
+        product = self.resolve_stock_product(product_name, session)
+        if product is None:
+            return None
+        session_options = {"session": session} if session is not None else {}
+        return self.collection.find_one_and_update(
+            {"_id": product["_id"], "stock": {"$gte": quantity}},
+            {"$inc": {"stock": -quantity}},
+            projection={"_id": 1, "stock": 1},
+            return_document=ReturnDocument.AFTER,
+            **session_options,
+        )
+
     def reserve_stock_sync(
         self,
         product_name: str,
         quantity: int,
         session=None,
     ) -> StockReservationResult:
-        session_options = {"session": session} if session is not None else {}
-        document = self.collection.find_one_and_update(
-            {
-                **self._name_filter(product_name),
-                "stock": {"$gte": quantity},
-            },
-            {"$inc": {"stock": -quantity}},
-            projection={"stock": 1},
-            return_document=ReturnDocument.AFTER,
-            **session_options,
-        )
+        document = self.reserve_stock_document(product_name, quantity, session)
 
         if document is None:
             return StockReservationResult(success=False)
@@ -100,8 +129,11 @@ class MongoProductRepository(ProductRepositoryPort):
         product_name: str,
         quantity: int,
     ) -> bool:
+        product = self.resolve_stock_product(product_name)
+        if product is None:
+            return False
         result = self.collection.update_one(
-            self._name_filter(product_name),
+            {"_id": product["_id"]},
             {"$inc": {"stock": quantity}},
         )
         return result.matched_count == 1
