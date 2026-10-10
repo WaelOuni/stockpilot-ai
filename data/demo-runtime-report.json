@@ -1,0 +1,210 @@
+{
+  "baseline_before": {
+    "reference": {
+      "dataset_id": "stockpilot-demo-v1-seed-20261010",
+      "sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+      "products": 500,
+      "orders": 2000,
+      "stock_movements": 3000,
+      "manifests": 1
+    },
+    "test_fixtures": {
+      "runs": 6,
+      "runs_by_status": {
+        "failed": 3,
+        "completed": 3
+      },
+      "products": 54,
+      "orders": 18,
+      "stock_movements": 39
+    },
+    "total_documents": {
+      "products": 554,
+      "orders": 2018,
+      "stock_movements": 3039,
+      "demo_manifests": 7
+    }
+  },
+  "rag_rows": 0,
+  "business": {
+    "run_id": "e219fa96-b7cf-44b6-920d-ae4bb1f568a2",
+    "sku": "DEMO-TEST-e219fa96b7cf44b6920dae4bb1f568a2-RUNTIME",
+    "order_id": "72a915b1-c5d6-4032-8ee5-56cd3361dba9",
+    "mode": "retained_fixture_read_only",
+    "assistant_order": "previously_completed",
+    "adjustment_replay": "previously_completed",
+    "stock_history_deltas": [
+      -1,
+      5
+    ],
+    "lifecycle": [
+      "CREATED",
+      "PROCESSING",
+      "CANCELLED"
+    ],
+    "cancel_exactly_once": "persisted_verified"
+  },
+  "benchmark": {
+    "/api/products?limit=20": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 2.89,
+      "p95_ms": 3.587
+    },
+    "/api/products?q=DEMO&category=DRILL&available=true": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 3.196,
+      "p95_ms": 3.805
+    },
+    "/api/products?available=false": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 2.534,
+      "p95_ms": 2.872
+    },
+    "/api/backoffice/dashboard": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 10.988,
+      "p95_ms": 11.45
+    },
+    "/api/backoffice/orders?limit=20": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 4.848,
+      "p95_ms": 5.209
+    }
+  },
+  "baseline_after": {
+    "reference": {
+      "dataset_id": "stockpilot-demo-v1-seed-20261010",
+      "sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+      "products": 500,
+      "orders": 2000,
+      "stock_movements": 3000,
+      "manifests": 1
+    },
+    "test_fixtures": {
+      "runs": 6,
+      "runs_by_status": {
+        "failed": 3,
+        "completed": 3
+      },
+      "products": 54,
+      "orders": 18,
+      "stock_movements": 39
+    },
+    "total_documents": {
+      "products": 554,
+      "orders": 2018,
+      "stock_movements": 3039,
+      "demo_manifests": 7
+    }
+  },
+  "dashboard": {
+    "order_stats": {
+      "total_orders": 2018,
+      "by_status": {
+        "CREATED": 214,
+        "PROCESSING": 200,
+        "SHIPPED": 200,
+        "DELIVERED": 1200,
+        "CANCELLED": 204
+      }
+    },
+    "product_stats": {
+      "total_products": 554,
+      "available_products": 546,
+      "unavailable_products": 8,
+      "total_stock_units": 41882
+    },
+    "recent_orders": [
+      {
+        "order_id": "72a915b1-c5d6-4032-8ee5-56cd3361dba9",
+        "product_name": "Bosch DEMOe219fa96",
+        "quantity": 1,
+        "status": "CANCELLED",
+        "created_at": "2026-10-10T21:06:39.355764Z"
+      },
+      {
+        "order_id": "613b0c23-8d2f-47a7-889e-7f785b0aa43e",
+        "product_name": "Demo isolated test 1f8253db order-committed-unknown",
+        "quantity": 2,
+        "status": "CREATED",
+        "created_at": "2026-10-10T20:38:22.884718Z"
+      },
+      {
+        "order_id": "d48e7468-0579-4081-9ce7-f9c57497e9f7",
+        "product_name": "Demo isolated test 1f8253db adjust-race",
+        "quantity": 3,
+        "status": "CREATED",
+        "created_at": "2026-10-10T20:38:22.819352Z"
+      },
+      {
+        "order_id": "463157fa-b042-46ba-9918-2fd88c26aa19",
+        "product_name": "Demo isolated test 1f8253db cancel-once",
+        "quantity": 2,
+        "status": "CANCELLED",
+        "created_at": "2026-10-10T20:38:22.802432Z"
+      },
+      {
+        "order_id": "b817958f-90c9-4df4-95cb-cd7fa1e372b2",
+        "product_name": "Demo isolated test 1f8253db order-replay",
+        "quantity": 2,
+        "status": "CREATED",
+        "created_at": "2026-10-10T20:38:22.786602Z"
+      }
+    ],
+    "recent_stock_movements": [
+      {
+        "product_sku": "DEMO-OTHER-0500",
+        "delta": -5,
+        "occurred_at": "2026-11-11T17:45:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      },
+      {
+        "product_sku": "DEMO-SCREWDRIVER-0499",
+        "delta": 4,
+        "occurred_at": "2026-11-11T17:30:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      },
+      {
+        "product_sku": "DEMO-SANDER-0498",
+        "delta": -3,
+        "occurred_at": "2026-11-11T17:15:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      },
+      {
+        "product_sku": "DEMO-SAW-0497",
+        "delta": 2,
+        "occurred_at": "2026-11-11T17:00:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      },
+      {
+        "product_sku": "DEMO-DRILL-0496",
+        "delta": -1,
+        "occurred_at": "2026-11-11T16:45:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      }
+    ]
+  },
+  "browser_exit_code": 0,
+  "owned_servers_stopped": true,
+  "final_v7_live_validation": {
+    "measured_at": "2026-10-10T22:15:56.793488+00:00",
+    "mode": "no_business_mutations",
+    "demo_target_resolution": "passed",
+    "mongo_identity_rs0": "passed",
+    "postgres_identity": "passed",
+    "reference_sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+    "fastapi_vue_startup": "passed",
+    "admin_login_dashboard": "passed",
+    "admin_logout": "passed",
+    "owned_servers_stopped": true,
+    "all_mongo_documents_indexes_unchanged": true,
+    "all_public_postgres_tables_indexes_unchanged": true,
+    "reference_unchanged": true,
+    "rag_rows": 0
+  }
+}

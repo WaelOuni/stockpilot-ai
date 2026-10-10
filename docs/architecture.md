@@ -7,6 +7,43 @@ lookup and explicitly confirmed orders. It separates deterministic business
 rules from model interpretation and infrastructure through application ports.
 It is not a production commerce service.
 
+The V4.1 demo back-office has a separate operational Vue space and opaque
+server-side V2 admin sessions. It uses the V1 global read use cases/repository port
+and the existing status/cancellation use cases, never LangGraph or duplicated
+transaction code. Customer JWT ownership
+and technical Bearer mutation controls remain separate. Authentication and CSRF
+are enforced in the presentation boundary, not by Vue route guards alone.
+See [admin session architecture/security](order-flow.md#demo-administrator-sessions-v2)
+and [configuration](getting-started.md#demo-administrator).
+
+Product management reuses catalogue read use cases and adds application create/
+metadata-update operations through `ProductRepositoryPort`. The Mongo adapter
+enforces a provisioned exact unique SKU index before writes, inserts stock zero,
+and edits only metadata using atomic `$set` while preserving BSON identity and
+concurrent stock. No product index is created at startup. An explicit guarded
+preflight/opt-in preparation command and authorized isolated E2E provisioning
+are described in [database activation](database.md#product-metadata-administration-and-sku-activation-v41).
+Normal product metadata writes require the already provisioned SKU index.
+Customer/order workflows, RAG and transaction business rules are unchanged;
+renaming can invalidate a pending confirmation by old name, while referenced
+existing order cancellation remains `_id`-safe.
+
+The V5 `/admin/dashboard` is a session-cookie-only, read-only operational view.
+Its dedicated use case uses narrow Mongo aggregations for order statuses and
+product/stock totals, plus stable top-five projections for recent orders and
+stock adjustments. It adds no generic reporting layer or indexes; independent
+reads are not presented as one transactional snapshot.
+
+V6 CSV imports are a separate deterministic vertical slice, not an assistant
+intent or ingestion into RAG. `PreviewProductCsvImportUseCase` owns strict CSV,
+bounded validation and session/fingerprint approval; `ExecuteProductCsvImportUseCase`
+revalidates and calls `ProductCsvImportPort`. Its Mongo adapter owns grouped
+exact-SKU queries and atomic product/receipt transactions, retries and majority
+reconciliation. Thin cookie/Origin/CSRF routes bound the raw request stream and
+offload synchronous use cases to the existing threadpool. Typed application DTOs
+also describe API responses. No domain dependency, framework or normal-startup
+index initialization was added. See [CSV contract and activation](database.md#create_only-product-csv-imports-v6).
+
 ## Request path and boundaries
 
 ```text
@@ -118,13 +155,18 @@ python -m pytest -q
 
 ## Boundaries and limitations
 
-- No user authentication, payment or frontend; a shared Bearer token protects
-  only technical order mutation routes. Not hardened for public access.
+- A Vue customer frontend and signed customer JWT checks exist; no real customer
+  login/refresh/revocation, payment or tenant isolation exists.
+  A separate shared back-office token protects technical order mutations; the
+  operational admin UI uses single-process demo sessions, not managed identity.
+  Not hardened for public access.
 - Customer ownership isolation uses the verified `customer_id` claim in a signed
   expiring JWT; caller-supplied identity headers are ignored.
 - Model extraction is probabilistic and the advice guard is lexical.
-- Product lookup uses the existing regex strategy and assumes an unambiguous
-  canonical product name.
+- Advice/preparation retain the name regex lookup. Confirmation resolves an
+  unambiguous complete literal name and reserves by Mongo `_id`; cancellation
+  uses the persistence-only `reserved_product_id`. Ambiguous legacy stock
+  identities are refused. Public detail uses exact SKU equality.
 - Synchronous PyMongo calls in an async flow can block the event loop.
 - Durable checkpoints alone do not serialize simultaneous requests for a thread.
   Operation idempotency and Mongo transactions still protect finalization.

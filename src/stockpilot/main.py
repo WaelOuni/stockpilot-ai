@@ -2,6 +2,11 @@ from contextlib import asynccontextmanager
 import logging
 
 from fastapi import FastAPI
+from stockpilot.presentation.api.admin_auth import AdminSessions, router as admin_session_router
+from stockpilot.application.use_cases.backoffice_orders import GetBackofficeOrderUseCase, ListBackofficeOrdersUseCase
+from stockpilot.presentation.api.routes.backoffice_orders import router as backoffice_orders_router
+from stockpilot.application.use_cases.backoffice_dashboard import GetBackofficeDashboardUseCase
+from stockpilot.presentation.api.routes.backoffice_dashboard import router as backoffice_dashboard_router
 
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
@@ -14,6 +19,22 @@ from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.application.use_cases.list_customer_orders import ListCustomerOrdersUseCase
 from stockpilot.application.use_cases.resolve_context import ContextResolutionUseCase
 from stockpilot.application.use_cases.get_customer_order import GetCustomerOrderUseCase
+from stockpilot.application.use_cases.catalog_products import GetProductUseCase, ListProductsUseCase
+from stockpilot.presentation.api.routes.products import router as products_router
+from stockpilot.presentation.api.routes.backoffice_products import router as backoffice_products_router
+from stockpilot.presentation.api.routes.backoffice_product_import import router as product_import_router
+from stockpilot.application.use_cases.product_csv_import import (
+    PreviewProductCsvImportUseCase, ExecuteProductCsvImportUseCase, GetProductCsvImportResultUseCase,
+)
+from stockpilot.infrastructure.persistence.mongodb.product_import import MongoProductCsvImport
+from stockpilot.presentation.api.routes.backoffice_stock import (
+    operations_router as backoffice_stock_operations_router,
+    products_router as backoffice_stock_products_router,
+)
+from stockpilot.application.use_cases.manage_products import CreateProductUseCase, UpdateProductMetadataUseCase
+from stockpilot.application.use_cases.adjust_product_stock import (
+    AdjustProductStockUseCase, GetStockAdjustmentUseCase, ListStockMovementsUseCase,
+)
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -140,8 +161,46 @@ app.state.update_order_status_use_case = update_order_status_use_case
 app.state.cancel_order_use_case = cancel_order_use_case
 app.state.list_customer_orders_use_case = list_customer_orders_use_case
 app.state.get_customer_order_use_case = get_customer_order_use_case
+app.state.get_product_use_case = GetProductUseCase(product_repository)
+app.state.list_products_use_case = ListProductsUseCase(product_repository)
+app.state.create_product_use_case = CreateProductUseCase(product_repository)
+app.state.preview_product_csv_import = PreviewProductCsvImportUseCase(
+    MongoProductCsvImport(mongo_database), max_bytes=settings.product_import_max_bytes,
+    max_products=settings.product_import_max_products,
+)
+app.state.execute_product_csv_import = ExecuteProductCsvImportUseCase(app.state.preview_product_csv_import)
+app.state.get_product_csv_import_result = GetProductCsvImportResultUseCase(
+    app.state.preview_product_csv_import.repository,
+)
+app.state.update_product_metadata_use_case = UpdateProductMetadataUseCase(product_repository)
+app.state.adjust_product_stock_use_case = AdjustProductStockUseCase(product_repository)
+app.state.get_stock_adjustment_use_case = GetStockAdjustmentUseCase(product_repository)
+app.state.list_stock_movements_use_case = ListStockMovementsUseCase(product_repository)
+app.state.list_backoffice_orders_use_case = ListBackofficeOrdersUseCase(order_repository)
+app.state.get_backoffice_order_use_case = GetBackofficeOrderUseCase(order_repository)
+app.state.get_backoffice_dashboard_use_case = GetBackofficeDashboardUseCase(
+    order_repository, product_repository,
+)
 
 app.include_router(health_router)
 app.include_router(chat_router)
 app.include_router(assistant_router)
 app.include_router(orders_router)
+app.include_router(products_router)
+app.state.admin_sessions = AdminSessions()
+app.include_router(admin_session_router)
+app.include_router(backoffice_orders_router)
+app.include_router(backoffice_dashboard_router)
+app.include_router(product_import_router)
+app.include_router(backoffice_products_router)
+app.include_router(backoffice_stock_products_router)
+app.include_router(backoffice_stock_operations_router)
+
+
+@app.middleware("http")
+async def protect_admin_responses(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/backoffice/"):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
+    return response

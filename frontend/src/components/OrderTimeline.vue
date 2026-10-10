@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { OrderStatus } from '../types/api'
-import { orderStatusLabel } from '../utils/format'
-defineProps<{ status: OrderStatus }>()
-const steps: OrderStatus[] = ['CREATED', 'PROCESSING', 'SHIPPED', 'DELIVERED']
+import type { OrderEvent, OrderStatus } from '../types/api'
+import { formatDate, orderStatusLabel } from '../utils/format'
+defineProps<{ status: OrderStatus; events?: OrderEvent[] }>()
 </script>
 
 <template>
@@ -11,22 +10,30 @@ const steps: OrderStatus[] = ['CREATED', 'PROCESSING', 'SHIPPED', 'DELIVERED']
       v-if="status === 'CANCELLED'"
       class="cancelled-notice"
     >
-      Commande annulée. Les étapes suivantes ne sont pas atteintes.
+      Commande annulée.
     </p>
     <ol
-      v-else
+      v-if="events?.length"
       class="order-timeline"
     >
       <li
-        v-for="(step, index) in steps"
-        :key="step"
-        :class="{ reached: index <= steps.indexOf(status) }"
-        :aria-current="step === status ? 'step' : undefined"
+        v-for="(event, index) in events"
+        :key="index"
+        class="reached"
+        :aria-current="index === events.length - 1 ? 'step' : undefined"
       >
-        <span>{{ orderStatusLabel(step) }}</span>
-        <small>{{ step }}</small>
-        <span class="sr-only">{{ index < steps.indexOf(status) ? 'Étape atteinte' : step === status ? 'Étape actuelle' : 'À venir' }}</span>
+        <span>{{ orderStatusLabel(event.status) }}</span>
+        <small>{{ event.status }}</small>
+        <time :datetime="event.occurred_at">{{ formatDate(event.occurred_at) }}</time>
+        <small>Source : {{ event.source }}</small>
       </li>
     </ol>
+    <p
+      v-else
+      class="hint"
+    >
+      Statut actuel : {{ orderStatusLabel(status) }} ({{ status }}).
+      L’historique détaillé n’est pas disponible.
+    </p>
   </section>
 </template>

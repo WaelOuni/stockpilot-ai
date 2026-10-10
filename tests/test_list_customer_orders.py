@@ -225,6 +225,7 @@ def test_api_defaults_response_metadata_and_no_private_fields(monkeypatch):
         "items": [{
             "order_id": "order-a", "product_name": "Bosch X100", "quantity": 2,
             "status": "CREATED", "created_at": "2026-10-10T00:00:00Z",
+            "events": [],
         }],
         "limit": 20, "offset": 0, "count": 1,
     }
@@ -277,8 +278,9 @@ def test_api_actual_use_case_repository_isolates_owner_before_pagination(monkeyp
     assert payload["limit"] == 1
     assert payload["offset"] == 1
     assert set(payload["items"][0]) == {
-        "order_id", "product_name", "quantity", "status", "created_at",
+        "order_id", "product_name", "quantity", "status", "created_at", "events",
     }
+    assert payload["items"][0]["events"] == []
     assert collection.calls[0] == ("find", {"customer_id": "customer-a"})
 
 

@@ -1,9 +1,188 @@
 # StockPilot frontend MVP
 
 Vue 3 + TypeScript + Vite, Composition API, vue-router and native fetch.
-Only the customer endpoints `POST /assistant`, `GET /orders` and
-`GET /orders/{order_id}` are used.
-There is no back-office UI, login service or client-side business transition logic.
+The customer endpoints `POST /assistant`, `GET /orders`,
+`GET /orders/{order_id}` and `POST /customer/orders/{order_id}/cancel` are used.
+The catalogue additionally uses public read-only `GET /products` and
+`GET /products/{sku}`; no JWT is sent with these public requests.
+The separate admin `/admin/login`, `/admin/orders`, `/admin/orders/:orderId` space
+uses V2 server-side demo admin sessions, global reads and dedicated operational
+order endpoints. The server's existing business rules remain authoritative.
+The protected `/admin/dashboard` presents read-only operational counts and
+bounded recent activity from `GET /backoffice/dashboard`.
+
+## Operational administration
+
+Configure admin username, derived password verifier and trusted browser origin
+**on the backend only**; see [setup](../docs/getting-started.md#demo-administrator)
+and [security/production limits](../docs/order-flow.md#demo-administrator-sessions-v2).
+No VITE secret is required. `api/admin.ts` always uses same-origin
+`/api/backoffice`, `credentials: include`, no customer JWT or technical Bearer.
+Customer/public requests retain their existing cookie-free transport.
+
+Routes verify `/backoffice/session/me` before protected navigation; expired
+reads redirect to login. Reload revalidates the HttpOnly cookie. CSRF uses an
+explicit login custom header plus exact server Origin checking and a random
+session-bound token shared by logout and mutations. Password input clears on submission; no credentials
+are stored in localStorage/sessionStorage or URLs. Only CSRF lives in module
+memory. Logout invalidates the server session, not merely the displayed UI.
+
+Lists show all owners, nullable legacy owner, product/quantity/date/status,
+loading/error/empty states and offset pagination (20). A full last page may lead
+to an empty page because V1 has no total/has_more. Detail uses the existing
+badge/timeline and records only server events. Detail offers the next legal
+transition and explicit cancellation confirmation for CREATED/PROCESSING.
+Pending operations disable mutations/refresh. Success replaces status/events
+from the server; conflict, network/20-second timeout, invalid response or server
+error blocks actions and GET-reconciles, without mutation retries or compensation.
+Failed reconciliation stays blocked until a reliable manual refresh; 401
+redirects to login, 404 clears data, 403 requires refresh. Route/logout/expiry
+discard stale responses and abort pending requests. No admin polling is added.
+The customer JWT panel is hidden in this separate space.
+
+### Read-only operational dashboard (V5)
+
+`/admin/dashboard` is protected by the existing backend-verified admin route
+guard and session cookie; the dashboard endpoint additionally rejects public,
+customer JWT and technical Bearer access. It uses the same fixed same-origin,
+`credentials: include`, `cache: no-store` transport. Expired sessions redirect
+to admin login. Refresh and navigation/unmount invalidate stale responses.
+
+Order totals include legacy orders without an owner and show counts for each
+stored lifecycle status. Product cards distinguish stock `> 0` from `<= 0` and
+sum stock units without combining prices, currencies or defining a low-stock
+threshold. The five recent orders link to admin detail; five recent stock
+adjustments link to the product's complete movement history. Empty recent lists,
+loading and sanitized retryable errors are explicit. Dashboard reads are
+independent, so concurrent writes may briefly make metrics reflect slightly
+different instants; the dashboard is not a transactional snapshot or full audit.
+
+### Product metadata administration (V4.1)
+
+The same navigation/guard protects `/admin/products`, `/admin/products/new` and
+`/admin/products/:sku/edit`. List shows metadata/read-only stock, loading,
+errors/empty/refresh and offset pagination driven only by catalogue `has_more`.
+Create accepts SKU/name/category/finite nonnegative price and initializes server
+stock to zero. Edit sends only name/category/price and shows immutable SKU.
+No DELETE, disable, stock input, UI library or global store.
+
+Responses supply persisted values; submit and refresh are guarded against
+overlap/double clicks. A successful creation stays disabled and links to edit.
+Ambiguous/failed creation is **never reposted automatically**: GET the exact
+submitted SKU. Found means creation remains blocked (do not claim ownership of a
+concurrent create); missing after a reliable 404 permits only manual resubmission.
+Failed reconciliation remains blocked until a successful manual reload.
+Edit failures likewise reload persisted metadata before another action.
+401 redirects/clears the session; abort/route/logout/timeouts discard stale work.
+Cookie CSRF transport remains distinct from customer JWT requests.
+
+Renaming preserves existing referenced orders' stock restitution by `_id`, but
+can invalidate pending confirmations prepared by old name; the form warns about
+this unchanged workflow behavior. Normal product metadata writes remain blocked
+until the exact unique SKU index is explicitly provisioned by an authorized
+operator; [preflight/provisioning](../docs/database.md#product-metadata-administration-and-sku-activation-v41).
+
+### Administrative stock adjustments (V4)
+
+Product list/edit link to the protected `/admin/products/:sku/stock` page.
+Enter a strict signed nonzero integer delta (absolute maximum 1,000,000) and a
+trimmed reason (1..500 characters). Preview is not a mutation: it shows estimated
+stock, requires explicit confirmation and refuses a negative estimate. The
+server remains authoritative under concurrent orders/adjustments.
+Cookie-only POST with existing Origin/session CSRF writes one StockMovement.
+GET history is paginated using `has_more`, with actual timestamp/reason/source
+and stock-before/after, never invented order events.
+
+One operation ID is generated and persisted with SKU/delta/reason in tab-local
+sessionStorage **before** POST; no credentials are stored. Double clicks are
+guarded. Network/timeout/invalid response/server failures never retry POST.
+The UI GET-reconciles that operation plus current product/history. An unresolved
+operation remains blocked even after reload/route changes; verification sends
+only GET and retains its original ID. A 404 is not evidence of rollback.
+A proven matching commit plus successful rereads re-enables actions; definitive
+409 rejection is checked separately. Corrupt storage stays blocked, unavailable
+storage prevents sending. Logout/route/unmount/session epochs discard stale work.
+An abort does not compensate a server commit. The reason is operational data:
+avoid sensitive personal information in it, and resolve unknown operations
+before manually clearing tab storage.
+
+Normal stock adjustments require the explicitly authorized
+[unique operation index](../docs/database.md#administrative-stock-movements-v4),
+which is now provisioned on `stockpilot`. No index is created at normal startup;
+the guarded E2E initializer separately provisions its isolated test indexes.
+Product metadata PATCH still cannot modify stock/SKU; new products still start
+at zero.
+
+### CREATE_ONLY CSV product imports (V6)
+
+`/admin/products/import`, linked from products, uses the existing session guard
+and fixed cookie/CSRF transport. Select a nonempty file (UI default maximum
+2 MiB), preview it, inspect counts/physical starting lines/errors/existing SKU
+conflicts, then check explicit confirmation. Changing the file invalidates the
+preview and checkbox. The server validates content, not extension/MIME, with
+500 products maximum and bounded errors; its limits remain authoritative.
+The downloadable UTF-8 example and page explain exact columns, category enum,
+comma/semicolon quoting and stock-zero CREATE_ONLY rules. Preview reserves nothing.
+See [full CSV/API contract](../docs/database.md#create_only-product-csv-imports-v6).
+
+Loading/double-click guards, abort/20-second timeout and epochs discard stale
+responses. Only a validated actual server receipt reports success and links back
+to the catalogue. Before POST, tab sessionStorage holds **only** stable UUID and
+SHA-256 file fingerprint, never CSV content, secrets or preview tokens. Network,
+invalid-response/server errors and session changes retain that operation;
+there is no automatic POST retry or replacement ID. Reload can GET-reconcile
+without the file. Matching receipt proves completion; missing 404 stays blocked.
+Corrupt/unavailable storage fails closed. Definitive validation/CSRF/conflict
+refusals require a fresh preview. Browser abort is not server rollback.
+Resolve unknown operations before manually clearing storage; closing a tab loses
+that local marker but does not undo the server batch. Keep the displayed ID.
+
+`chromium-import` depends on `chromium-dashboard` so all six earlier scenario
+sources/seed-dependent assertions remain intact. It previews multiple products
+without mutation, confirms through UI, checks actual Mongo zero stock and public
+catalogue, rejects reimport duplicates and compares actual dashboard totals.
+Only guarded E2E provisioning adds the new import receipt index; normal activation
+waits for separate authorization.
+
+The isolated admin browser scenario creates real orders via authenticated
+customer assistant preparation/confirmation, then operates on them through admin
+UI and verifies actual Mongo events/stock with the existing read-only probe:
+
+```sh
+# Root, with required local services already available:
+source scripts/dev-env.sh >/dev/null
+cd frontend
+npm run test:e2e -- --project=chromium-admin --no-deps admin.spec.ts
+# All seven scenarios: customer/catalogue first, then admin orders,
+# product metadata, stock, dashboard and finally CSV import.
+npm run test:e2e
+```
+
+The launcher generates ephemeral admin credentials/verifier in Node, passes only
+the verifier to the FastAPI child, and explicitly selects local HTTP origins.
+No admin secret is compiled into Vue. Existing order/catalogue scenarios remain
+unchanged. Mongo/PostgreSQL are restricted to `stockpilot_e2e` by checked guards
+and advisory locking; no global drop. Traces/screenshots/videos stay disabled.
+Admin-only coverage includes route protection, real cookie login/reload/logout,
+CSRF/Origin denial, technical read compatibility, client/technical mutation
+denial, empty pagination, missing detail, every lifecycle step, cancellation,
+replay/restock once and terminal denial. Stored BACKOFFICE events and final stock
+(one delivered reservation consumed) are asserted. Legacy owners, concurrency,
+expiry/rotation, uncertain outcomes and brute force are covered in backend/Vitest.
+`chromium-products` depends on `chromium-admin`; its real scenario creates/edits
+metadata, checks Mongo identity/stock zero and public reads, refuses stock/SKU/
+deletion/CSRF violations, races duplicate creation against the actual Mongo unique
+constraint, and exercises customer ORDER refusal on the new zero-stock product.
+`chromium-stock` depends on `chromium-products` so all four historical scenarios
+stay unchanged. Its additional scenario previews/confirms positive/negative stock adjustments, rejects
+insufficient stock in UI/server, replays an identical operation without another
+movement, and reserves/cancels a real assistant order against adjusted stock.
+Read-only Mongo probes assert movements, stock, order events and internal product
+identity. `chromium-dashboard` depends on `chromium-stock`: it compares dashboard
+counts and recent results with independent read-only Mongo probes, creates and
+evolves a real order through the existing assistant/admin path, then records one
+V4 stock adjustment and verifies it after a dashboard refresh. Only `stockpilot_e2e`
+gets SKU/stock-movement indexes from the guarded initializer.
 
 ## Run locally
 
@@ -63,14 +242,17 @@ No Pinia is needed: a small reactive assistant session survives route navigation
 Orders reload on page entry and through the refresh button. All history states,
 including CANCELLED, are shown. Pagination uses limit 20 and offset increments of
 20; `count` is the page size, not a total. A full last page can lead to an empty
-next page because the API has no `has_more` field.
+next page because the customer orders API has no `has_more` field. The product
+catalogue has a separate `has_more` contract and does not use this heuristic.
 
 Each history card and identified assistant summary links to its detail page.
 The page loads the current owned order directly through the customer API, not
 through the LLM. It renders product, quantity, identifier, creation date and
-status, plus a CREATED / PROCESSING / SHIPPED / DELIVERED timeline. CANCELLED
+status, plus a timeline of recorded `events`, in their persisted order. Each event
+shows status, formatted timestamp and source SYSTEM/BACKOFFICE/CUSTOMER. CANCELLED
 shows cancellation without suggesting subsequent stages were reached.
-There are no stage timestamps in the contract, so none are invented.
+Legacy orders with absent/empty events show their current status and an
+unavailable-history notice; neither earlier steps nor timestamps are inferred.
 
 The detail page polls 15 seconds **after each completed successful request**,
 only while mounted and non-terminal, without overlapping requests. DELIVERED,
@@ -78,6 +260,27 @@ CANCELLED and errors stop polling; manual refresh remains available. Changing
 the route/JWT aborts stale requests and clears the old detail. 404 does not
 distinguish foreign, legacy and nonexistent orders. A request already processed
 by the server is not rolled back by browser cancellation.
+
+### Local status notifications
+
+Order Detail compares each successful GET status with the last successfully
+loaded status for the current order/session. Initial reads and unchanged statuses
+never notify. Later changed statuses (polling, manual refresh or reconciliation)
+show a page-local `OrderStatusNotification` with deterministic French messages.
+Events are replaced from the API response, never synthesized for notifications.
+
+The accessible `role="status"` message can be closed manually and expires after
+8 seconds. A newer change replaces the notification and restarts its lifetime;
+equal reads do not restart or recreate it. Changing JWT/order or leaving the page
+cleans the notification and timer. DELIVERED/CANCELLED still stop polling while
+allowing the final notification to finish. Successful direct cancellation keeps
+its existing action feedback rather than producing a duplicate notification.
+
+E2E uses an ephemeral back-office credential only in Playwright's Node process
+to PATCH the dedicated E2E backend to PROCESSING. No browser code receives that
+credential or gains a mutation action. The normal 15-second polling then updates
+the badge, recorded timeline and notification. The final history is exactly
+CREATED/SYSTEM, PROCESSING/BACKOFFICE, CANCELLED/CUSTOMER.
 
 `/assistant` returns the existing partial LangGraph state, not a dedicated
 Pydantic response DTO. Types are based on `schemas/chat.py`, `schemas/order.py`,
@@ -107,6 +310,61 @@ history/status before submitting another confirmation.
 
 ## Validation
 
+### Product catalogue
+
+`/products` lists Mongo products in stable SKU order with limit 20 and offset
+pagination. `/products/:sku` displays name, SKU, category, price and stock.
+The list response retains `items`, `limit`, `offset` and `count` (page size)
+and includes `has_more`. Mongo reads one extra document after filtering and
+offset in the same query; only `limit` products are exposed. The catalogue
+enables Suivant only when `has_more` is true, including for a full last page.
+Customer order history pagination is unchanged.
+The backend exposes only these operational fields; no description, image or
+currency is invented (the current model stores a numeric price without a
+currency field). Availability is derived from stock > 0 and remains a snapshot.
+
+`Demander à StockPilot` and `Commander` navigate to `/assistant?message=...`
+and prefill the composer via Vue props. They never auto-send, change threads
+or bypass confirmation. The advice draft includes the actual tooling category,
+so it remains compatible with the existing supported-tooling classifier guard.
+JWT is still required to send. Connecting a JWT preserves this catalogue draft;
+switching customers clears the session and composer as before.
+Query parameters contain only the product-based message, never credentials;
+the draft may appear in browser history and can be edited before sending.
+No cart, payment, catalogue recommendations or new RAG ingestion
+is implemented. Unknown SKU returns 404; malformed catalog data fails explicitly.
+
+The catalogue has explicit-submit filters: literal case-insensitive text in name
+or SKU (`q`, max 100 characters), exact domain category and availability
+(`true`: stock > 0; `false`: stock <= 0). Editing fields makes no request until
+Rechercher is clicked. All fields are applied together and reset offset to zero.
+The URL is the source of applied state (`q`, `category`, `available`, `offset`);
+refresh/back navigation restores it, and pagination preserves it. Reset clears
+both submitted filters and unsent drafts. Invalid URL criteria show an error,
+not silently broadened results. Filtered empty pages show a criteria-specific
+empty state.
+
+Product-card links carry only validated applied `q`, `category`, `available`
+and `offset` parameters into the detail URL. `Retour au catalogue` restores
+that context, including after a detail-page refresh; direct detail access
+without context returns to `/products`. Unknown, repeated or invalid context
+values are omitted individually from navigation links. The catalogue itself
+retains its explicit invalid-URL error behavior. No `returnUrl`, global state
+or browser storage is used. Native browser back navigation remains unchanged.
+Card links include the product name for accessible identification. Assistant
+links still carry only their prefilled message, not the catalogue context.
+
+Categories reuse the existing typed category-label mapping for DRILL/SAW/SANDER/
+SCREWDRIVER/OTHER, which corresponds to the fixed backend enum, rather than
+deriving an incomplete list from a paginated response. No categories endpoint,
+search engine or debounce dependency is introduced.
+
+The isolated browser E2E first checks combined search/category/availability,
+reset and URL restoration with Bosch X100 (DRILL, stock 10), Makita D200
+(DRILL, stock 0) and Bosch S500 (SAW, stock 5). It then opens Bosch X100, clicks
+Commander, sends the prefilled draft and uses the existing confirmation UI before
+checking My Orders, order detail and ORDER_STATUS.
+
 ```sh
 npm run build
 npm run test
@@ -131,11 +389,13 @@ This is local/demo auth: no login, refresh, revocation or automatic expiry check
 An XSS vulnerability or malicious browser extension can still access an in-memory
 token. Local conversation and thread IDs disappear on reload; server-side
 checkpoints/orders remain. There are no streaming responses, automatic retries,
-cursor pagination or back-office mutations.
+cursor pagination or production-grade administrative identity.
 
 ## Real browser E2E
 
-Playwright runs one Chromium test in `e2e/order-flow.spec.ts`. It starts a
+Playwright preserves `e2e/order-flow.spec.ts`, `e2e/catalogue-navigation.spec.ts`,
+`e2e/admin.spec.ts` and `e2e/admin-products.spec.ts`, then runs the dedicated
+`e2e/admin-stock.spec.ts`, `e2e/admin-dashboard.spec.ts` and `e2e/admin-import.spec.ts` scenarios. It starts a
 dedicated FastAPI on port **8002** and Vite on **5174**, with no server reuse
 and no automatic retries. Only Mongo/Postgres/Ollama must already be running.
 The normal development FastAPI instance is neither used nor stopped.
@@ -151,7 +411,7 @@ The normal development FastAPI instance is neither used nor stopped.
 Before serving, `scripts/init_e2e_env.py` creates the dedicated PostgreSQL
 database if absent, runs the official checkpointer setup, truncates only
 `public.checkpoints`, `public.checkpoint_blobs` and `public.checkpoint_writes`,
-and resets only Mongo `orders`/`products`. It preserves checkpoint migration
+and resets only Mongo `orders`/`products`/`stock_movements`/`product_imports`. It preserves checkpoint migration
 tables, Mongo indexes and all unrelated tables/collections. Bosch X100 is seeded
 with SKU `E2E-BOSCH-X100`, category DRILL, price 99 and **stock 10**.
 No development or production data is copied. The ORDER scenario needs no RAG
@@ -201,7 +461,8 @@ The signing secret and generated JWT are never hardcoded or logged.
 Avoid enabling Playwright debug/API logging, which can record token input.
 Screenshots, traces and videos are deliberately disabled.
 
-The scenario connects through the UI, sends `Commande-moi une Bosch X100`,
+The order scenario connects through the UI, sends the catalogue draft
+`Commande-moi 1 Bosch X100`,
 checks preparation and explicit confirmation, clicks **Confirmer** (sending
 `Oui je confirme`), checks
 the created order directly in Mongo, opens My Orders and the CREATED detail page,
@@ -210,16 +471,39 @@ and asks `Quel est le statut de ma dernière commande ?`. It checks that all
 assistant requests share the same generated thread, that the listing displays
 the created order, and that ORDER_STATUS matches the stored Mongo status.
 It also rejects console errors and uncaught browser exceptions.
+The catalogue scenario covers detail reload, return link, native browser back,
+direct access and offset preservation using the same three products. It checks
+six real list responses for `has_more` across limits, offset and DRILL/availability
+filters, the unchanged detail contract, and the disabled Suivant button.
 
 `e2e/support/backend_probe.py` refuses non-E2E targets and performs **read-only**
 checks: exactly one matching Bosch X100 with **stock 10**, no previous orders for this new customer, and direct
 verification of the owned order after creation/status lookup. It does not import
 `main.py`, create indexes, seed fixtures or mutate stock.
 
-Each success leaves exactly one E2E order, stock **9** and its checkpoint for
+Each success leaves exactly one CANCELLED E2E order, stock **10** and its checkpoint for
 inspection. The next `npm run test:e2e` resets these stores to stock 10 with no
-orders/checkpoint payloads. The test asserts both initial and remaining stock.
+orders/checkpoint payloads. The test asserts initial stock 10, reserved stock 9,
+then restored stock 10 after customer cancellation and again after reload.
+The test also verifies CREATED/SYSTEM, PROCESSING/BACKOFFICE then CANCELLED/CUSTOMER events,
+valid ordered timestamps, the rendered three-event timeline and unchanged persisted
+timestamps after reload.
 There is no broad database drop or back-office cancellation.
+
+### Customer cancellation UX
+
+Order Detail offers cancellation only for CREATED/PROCESSING, with an inline
+confirmation and no immediate mutation on the first click. Buttons are disabled
+during POST, duplicate clicks are guarded, and success updates the detail and
+timeline to CANCELLED and stops polling.
+
+A conflict or ambiguous technical failure never retries the POST automatically.
+The page performs a GET to reconcile the true status; another action is offered
+only after a successful read. Failed reconciliation requires manual Actualiser.
+Changing JWT, changing route or unmounting aborts outstanding requests and ignores
+their stale results, but cannot undo a server-side transaction already committed.
+My Orders reads CANCELLED naturally on its next load. No payment/refund logic,
+new library or back-office client capability is introduced.
 
 ### Reset safety
 

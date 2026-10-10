@@ -30,6 +30,44 @@ is a new operation; idempotency does not equate every order from one thread.
 `operation_id` identifies the business operation, while `order_id` identifies
 the persisted order.
 
+### Reserved product identity
+
+Stock mutations resolve the complete literal product name, case-insensitively,
+and reject multiple matching documents even if only one has sufficient stock.
+The confirmation transaction decrements that document by Mongo `_id` and stores
+its native `_id` as `reserved_product_id` in the order document, atomically with
+order insertion. This persistence-only reference is not part of the domain
+entity, workflow state or public API. SKU is not used as a stock identity:
+V4.1 requires a unique SKU index for metadata administration, but does not
+replace the existing reserved BSON identity or change order transactions.
+The normal database's SKU index preparation remains pending.
+
+Cancellation restores stock only through the saved `_id`, including after a
+product rename. A missing referenced document or invalid reference fails without
+falling back to a name or SKU. For legacy orders without this field, cancellation
+requires exactly one candidate under the old reservation regex in the transaction
+snapshot, and that candidate must also match the complete name. An exact match
+alongside a similar name is not proof of the historical reservation identity.
+
+V4.1 metadata renaming leaves persisted order snapshots and checkpoints untouched.
+An already prepared confirmation still resolves its old product name and may
+fail after rename. No aliases, automatic pending-order rewrites or new rename
+business restriction are introduced. Legacy cancellations retain the stricter
+historical-name proof requirements above. Product stock is read-only in the UI
+and never changed by create/edit (creation starts at zero).
+Missing, nonexact or ambiguous matches fail before any stock, status or event
+mutation. Legacy reads remain unchanged. No migration or new index is required.
+
+### Confirmation replay after cancellation
+
+Replaying a pending confirmation with the same `operation_id` returns the
+existing order without stock, status or event writes. If Mongo returns a
+`CANCELLED` order, the conversation reports that it already exists but is
+cancelled, and both `order_status` and `pending_order.status` are `CANCELLED`.
+The original order ID remains in `created_order_id` and `last_created_order_id`
+for subsequent owned lookup. No new status or response field is introduced;
+initial confirmations and active-order replays retain their existing behavior.
+
 ## Customer ownership boundary
 
 Every `/assistant` and `GET /orders` call requires an `Authorization: Bearer`
@@ -177,7 +215,7 @@ index is needed. There is no global lookup followed by an application ownership
 check, and no LLM invocation. ORDER_STATUS remains unchanged.
 
 200 returns the existing `OrderResponse`: `order_id`, `product_name`, `quantity`,
-`status`, `created_at`. Missing, foreign and unowned legacy orders all return the
+`status`, `created_at`, `events`. Missing, foreign and unowned legacy orders all return the
 same 404 `Commande introuvable (NOT_FOUND).` No owner or operation ID is exposed.
 Missing/invalid JWT returns 401, missing auth configuration 503, and unexpected
 technical errors use the existing logged/sanitized 500 middleware.
@@ -189,11 +227,87 @@ curl --fail-with-body "http://localhost:8000/orders/$ORDER_ID" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-The Vue route `/orders/:orderId` renders the current detail and status timeline,
+The Vue route `/orders/:orderId` renders the current detail and recorded event timeline,
 with manual refresh and 15-second polling while non-terminal. CANCELLED has a
 separate cancellation view rather than implying later lifecycle stages occurred.
-No stage timestamps are stored/exposed, so the timeline shows only progress,
-not invented event dates. Only back-office routes can change lifecycle status.
+Event dates come only from the stored events; legacy orders show current status
+and an unavailable-history notice, with no inferred earlier steps.
+Forward lifecycle transitions remain back-office-only;
+customers can cancel their own eligible orders as described below.
+
+### Embedded order events
+
+The domain `Order` has an immutable `events` tuple of `OrderEvent(status,
+occurred_at, source)`. Mongo persists it as an ordered array inside the same
+order document. The API returns it as an `events` array in `OrderResponse`,
+including owned detail, list and mutation responses.
+
+Sources are SYSTEM for insertion, BACKOFFICE for lifecycle PATCH and back-office
+cancellation, CUSTOMER for JWT-scoped cancellation. Sources are selected by the
+server, never accepted from a request body. Timestamps are server-generated UTC
+ISO 8601 values; the creation event uses the actual `created_at`.
+
+All insertion paths share `MongoOrderRepository.insert`: exactly one
+CREATED/SYSTEM event is persisted with the new order. Replaying an operation
+returns the stored order rather than reinserting events. A status transition uses
+one conditional Mongo update with `$set` status and `$push` event, so they cannot
+be partially applied. Same-status use-case calls perform no mutation; a direct
+repository same-status call also performs no append.
+
+CANCELLED is appended within the existing stock-restoration transaction and its
+conditional order update. Rollback removes both status and event changes along
+with stock changes. Transaction retries can rerun the callback, but only a
+committed append survives; replay of a committed cancellation appends nothing.
+Chronology is the persisted append order, not reconstructed from lifecycle.
+
+Legacy documents without `events` read as `[]`; no migration/backfill is run.
+A subsequent real transition appends only its new event, not invented historical
+CREATED or intermediate events. Invalid recorded event fields fail explicitly
+through existing error handling instead of being silently discarded.
+
+Example detail fragment:
+
+```json
+{
+  "events": [
+    {"status": "CREATED", "occurred_at": "2026-10-10T10:02:00Z", "source": "SYSTEM"},
+    {"status": "CANCELLED", "occurred_at": "2026-10-10T10:08:00Z", "source": "CUSTOMER"}
+  ]
+}
+```
+
+This is a minimal status history, not event sourcing or a tamper-proof audit.
+It depends on synchronized application server clocks. No actor IDs, metadata,
+separate collection, notifications or new index are introduced.
+
+### Customer cancellation
+
+`POST /customer/orders/{order_id}/cancel` accepts no body and uses the existing
+customer JWT dependency. The separate `/orders/{order_id}/cancel` back-office
+route and its authentication are unchanged; the client never invokes it.
+
+Both routes share `CancelOrderUseCase` and the same Mongo cancellation transaction.
+The client passes the verified token's `customer_id` as an explicit scope. Initial
+lookup, transaction read and conditional order update all filter by
+`order_id` plus `customer_id`. Missing, foreign and ownerless legacy orders return
+the same 404; request bodies, query parameters and headers cannot override owner.
+The scope is rechecked inside the transaction before any stock restoration.
+
+200 returns the existing `OrderResponse`, with CANCELLED (also for an idempotent
+replay). CREATED and PROCESSING restore exactly the ordered quantity; SHIPPED,
+DELIVERED and concurrent status changes return 409. Stock restoration and status
+update remain atomic, with the same rollback and retry behavior. Missing/invalid
+JWT returns 401, unavailable JWT configuration 503, technical failures sanitized
+500 with the existing request ID and server logging.
+
+Order Detail offers an inline confirmation only for CREATED/PROCESSING. Opening
+the confirmation pauses polling; returning refreshes detail and resumes polling
+when applicable. Mutation and refresh cannot overlap. Success replaces the
+detail immediately with CANCELLED and stops polling. No mutation is automatically
+retried on error: a 409 or ambiguous technical response triggers a detail GET.
+Until that GET succeeds, cancellation stays unavailable. If reconciliation fails,
+the user must explicitly refresh. Aborting a browser request does not roll back
+an already committed server transaction; reopening detail reads the true state.
 
 `GET /orders?limit=20&offset=0` uses the same customer JWT dependency as
 `/assistant`. Only the verified `customer_id` claim determines the owner;
@@ -253,6 +367,151 @@ limitations above still apply; never disclose signing secrets or bearer tokens.
 
 ## Technical order lifecycle
 
+### Read-only administrative orders
+
+`GET /backoffice/orders` and `GET /backoffice/orders/{order_id}` accept either a
+validated server-side admin session or the existing `BackofficeBearer`.
+An explicit Authorization header always goes through the original technical
+checks; a customer JWT never grants administrative access, even with a cookie.
+Technical callers retain their existing 401/503 behavior. These are global reads
+in the current development environment, not multi-tenant endpoints.
+
+The list accepts `limit` (default 20, 1..100) and `offset` (default 0, >=0).
+`ListBackofficeOrdersUseCase` delegates to `OrderRepositoryPort.find_all`;
+Mongo sorts by `created_at DESC, order_id DESC` before skip/limit, with no
+owner filter. Response: `items`, `limit`, `offset`, `count = len(items)`,
+without a total or `has_more`.
+
+`GetBackofficeOrderUseCase` reuses `find_by_order_id`; absent orders return 404.
+The separate `BackofficeOrderResponse` contains the existing order fields
+(`order_id`, `product_name`, `quantity`, `status`, `created_at`, `events`) plus
+nullable `customer_id`. Legacy owners remain null and absent events remain
+empty; malformed events still fail explicitly. No `_id`, `reserved_product_id`
+or `operation_id` is exposed. Timeline data is returned, not synthesized.
+
+Neither read performs stock/order/event/index writes or invokes the workflow.
+Customer GET routes retain their JWT/ownership checks and unchanged response
+schemas. Vue `/admin/orders` and `/admin/orders/:orderId` render these reads
+with customer IDs, nullable legacy owners, recorded timestamps, existing badge
+and timeline, loading/error/empty states and offset pagination. The list has no
+`has_more`; a full page can lead to an empty next page. The existing `/orders/*`
+PATCH status and POST cancellation remain technical Bearer-only; the separate
+cookie-only operational endpoints below reuse exactly the same business use cases.
+
+### Operational administrator orders (V3)
+
+`PATCH /backoffice/orders/{order_id}/status` accepts `{"status":"PROCESSING"}`;
+`POST /backoffice/orders/{order_id}/cancel` has no body. Both require a live
+server-side admin cookie session, exactly one trusted Origin and the existing V2
+session-bound `X-Admin-CSRF` token. Authorization headers are rejected even with
+a valid cookie; neither customer JWTs nor the technical Bearer grant access.
+Reads retain their session/technical compatibility. Missing, expired and revoked
+sessions return 401; Origin/CSRF violations 403; absent orders 404; forbidden or
+concurrent changes 409; unsafe session configuration 503.
+
+The routes call only `UpdateOrderStatusUseCase` and `CancelOrderUseCase`.
+Progression is CREATED → PROCESSING → SHIPPED → DELIVERED, without jumps or
+reverse transitions. Cancellation uses its separate endpoint, never PATCH to
+move to CANCELLED. CREATED/PROCESSING can be cancelled, SHIPPED/DELIVERED cannot.
+Same-status updates and repeated cancellations preserve the existing no-op
+semantics (including an already CANCELLED status); no extra event/restock occurs.
+The existing Mongo compare-and-swap and cancellation transaction remain the
+only write implementations. Mutation responses use `BackofficeOrderResponse`,
+including nullable customer ID and actual events, never internal identifiers.
+Administrative events have source BACKOFFICE; customer behavior is unchanged.
+
+Vue detail offers only the next transition, plus explicit confirm/decline
+cancellation for CREATED/PROCESSING. Pending operations disable all mutations
+and refresh, preventing duplicate/cross submissions. Status/events are replaced
+only by validated server responses, never optimistic events or compensation.
+Network/20-second timeout, invalid response, 409 and server failures block
+actions and trigger a GET reconciliation. Failed reconciliation remains blocked;
+only a reliable reread re-enables actions. No mutation is retried automatically.
+403 remains blocked until manual refresh; 404 removes the detail; 401 removes it
+and redirects to login. Route/unmount/logout abort pending requests and ignore
+late responses; logout failure requires a fresh detail read before acting again.
+Transport generations discard responses from a prior login/logout/expired
+session, including late JSON parsing.
+
+The real browser test creates orders through the authenticated customer
+assistant preparation/confirmation flow, then changes them through cookie-only
+admin UI and verifies stored BACKOFFICE events and stock restoration exactly
+once with the existing read-only Mongo probe. Mongo/PostgreSQL/checkpoints remain
+strictly `stockpilot_e2e`; no artificial order seeding, dev writes or global
+cleanup. Because delivery consumes stock permanently, the `chromium-admin`
+project depends on the existing `chromium` customer/catalogue project. A full
+E2E run executes those regressions first; an isolated admin-only run uses
+`npm run test:e2e -- --project=chromium-admin --no-deps admin.spec.ts`.
+
+### Demo administrator sessions (V2)
+
+`POST /backoffice/session/login` accepts only JSON `{username, password}`.
+`GET /backoffice/session/me` verifies the server session and returns
+`{username, csrf_token}`; `POST /backoffice/session/logout` invalidates it and
+expires the cookie (204). Missing/expired sessions return 401, unsafe/missing
+admin configuration 503, origin/CSRF violations 403, throttling 429. Validation
+errors never echo submitted input. All `/backoffice/*` responses use `no-store`.
+
+The server configuration contains an admin username and a salted PBKDF2-SHA256
+verifier, not a plaintext password. Format:
+`pbkdf2_sha256$600000$<16..64-byte lowercase hex salt>$<32-byte lowercase hex digest>`.
+Only that algorithm/work factor is accepted. UTF-8 password verification and
+username comparisons are constant-time. Login accepts 16..256 characters;
+configuration is rejected if the verifier matches `BACKOFFICE_API_TOKEN` or
+`CUSTOMER_JWT_SECRET`. These technical secrets are never admin login credentials.
+See [setup](getting-started.md#demo-administrator).
+
+Cookies contain 256-bit opaque random tokens, never JWTs/roles/passwords. Sessions
+and their independent random CSRF tokens exist only in a locked process-local
+store. Default TTL is 1,800 seconds (fixed expiry, no read-based renewal), maximum
+100 active sessions; settings cap TTL at 86,400 and capacity at 1,000. Successful
+login replaces the supplied session and its CSRF token; failed login leaves it
+intact. Expired entries are pruned on access. Capacity exhaustion returns 503
+without evicting another administrator. Configuration changes invalidate sessions.
+
+Default cookie is `__Host-stockpilot_admin`, HttpOnly, Secure, SameSite=Strict,
+Path=/, no Domain. HTTPS is required for admin session operations. An explicit
+`ADMIN_ALLOW_LOCAL_HTTP=true` exception uses `stockpilot_admin_local` (HttpOnly,
+non-Secure), only with a loopback HTTP trusted origin, loopback request host and
+`DEPLOYMENT_ENVIRONMENT=development`. It is rejected in production; it cannot be
+enabled for a non-loopback site. SameSite is defense-in-depth, **not** the CSRF
+boundary.
+
+Login, logout and V3 mutations require exactly one Origin matching `ADMIN_TRUSTED_ORIGIN`
+(scheme, host and port; no trailing slash/path/query/userinfo). Missing, null,
+duplicate and foreign origins fail. Login additionally requires JSON and exactly
+one non-simple `X-Admin-CSRF: login` header: this pre-session sentinel is not a
+secret, and cross-origin browsers cannot send it without a CORS preflight. No
+admin CORS allowance is added. Logout and V3 mutations require `X-Admin-CSRF` equal to the
+random token of that exact live session, returned by login/me. Tokens from another
+session or an earlier login are rejected. Browser fetch alone does not override
+these server checks.
+
+Vue uses a separate fixed same-origin `/api/backoffice` fetch transport with
+`credentials: include`, no Bearer and no configurable VITE remote target.
+Customer fetch keeps `credentials: omit`. Guards call `/me` on every protected
+navigation; a 401 during page reads redirects to login and removes displayed
+data. Reload revalidates the cookie; logout failures stay visible rather than
+claiming success. Password input is cleared on submission. Passwords/session
+credentials are never put in browser storage or URLs; the HttpOnly cookie is
+browser-managed and only the CSRF token is held in transient module memory.
+
+Login throttling counts successful and failed credential checks: five attempts
+per client IP per rolling 60 seconds, plus fifty globally. Request client identity
+is supplied by the server, never a custom frontend identity header. Bounded
+attempt buckets (maximum 1,024) and global deque reject new attempts at capacity;
+old entries expire, successful login does not clear counters. Configure trusted
+proxy forwarding narrowly; never trust arbitrary forwarded addresses.
+
+**Demo/production limits:** one configured administrator, global orders, no
+tenant/RBAC/MFA/recovery/audit trail. Restarts invalidate sessions and reset
+throttling. Multiple workers/replicas have independent sessions/counters, so this
+mechanism is **single-process demo only**, even when HTTPS/production transport
+settings are used. Before exposure, replace it with managed identity and a shared
+session/rate-limit store, enforce TLS and trusted proxy settings, body/request
+limits, CSP/XSS controls, durable audit and tenant authorization. XSS on the
+same origin can still use a session; HttpOnly is not an XSS solution.
+
 Persisted business statuses follow a strict sequence:
 
 ```text
@@ -271,8 +530,8 @@ A local caller can invoke
 delegates to this same use case; no user intent is added. It simulates business progression,
 not real shipping or delivery.
 
-An absent order returns `None`. Mongo atomically updates only the `status` field
-when both `order_id` and the previously read status match. A concurrent change
+An absent order returns `None`. Mongo atomically sets `status` and appends one
+BACKOFFICE event when both `order_id` and the previously read status match. A concurrent change
 or deletion raises `OrderStatusConflictError`: reread Mongo before deciding
 whether to retry; there is no unconditional overwrite or automatic retry.
 Other persistence errors propagate.
@@ -383,15 +642,16 @@ The route delegates to `CancelOrderUseCase`, then
 
 1. Reread the order and validate its status inside each transaction attempt.
 2. Return immediately if CANCELLED; reject a changed status as a conflict.
-3. Increment the existing product stock by the stored order quantity.
-4. Conditionally set the order to CANCELLED in that same session, then commit.
+3. Increment the reserved product by its saved `_id` and stored order quantity;
+   legacy orders require the safe identity resolution described above.
+4. Conditionally set CANCELLED and append its event in that same session, then commit.
 
 Missing products, invalid stored quantities, failed writes or unmatched conditional
 updates abort the transaction. The stock increment cannot commit alone.
 PyMongo owns transient transaction retries: each retry rereads the order, and
 concurrent cancellations cannot commit a second restoration.
-Product matching retains the existing canonical-name lookup convention; unique,
-unambiguous product names remain an application assumption.
+There is no fallback from a missing saved product identity to a name/SKU.
+Ambiguous legacy identities fail before mutation.
 
 200 returns the same `OrderResponse` fields as PATCH, including status CANCELLED.
 Unknown order -> 404; non-cancellable status or concurrency conflict -> 409;
@@ -416,6 +676,60 @@ curl --fail-with-body -X POST http://localhost:8000/assistant -H "Authorization:
 
 ORDER_STATUS reads CANCELLED from Mongo. No LLM cancellation intent, LangGraph
 transition or modification of the existing order-creation transaction is added.
+
+## Administrative stock adjustments (V4)
+
+These operations are independent of ORDER, lifecycle, embedded OrderEvents and
+LLM/checkpoints. Metadata POST still creates stock zero; metadata PATCH remains
+restricted to name/category/price, with immutable unique SKU. Stock adjustment
+does not rename/rewrite products or orders.
+
+| Endpoint | Contract |
+|---|---|
+| `POST /backoffice/products/{sku}/stock-adjustments` | Cookie session only, exact Origin and session CSRF; `operation_id`, `delta`, `reason` |
+| `GET /backoffice/products/{sku}/stock-movements` | Protected session or existing technical read credential; limit 1..100, offset >=0 |
+| `GET /backoffice/stock-adjustments/{operation_id}` | Cookie session only; reconciliation without a mutation |
+
+Mutation/reconciliation reject explicit Authorization even with a cookie.
+Customer JWT and technical credentials never grant adjustment access.
+Delta is a strict nonzero integer in -1,000,000..1,000,000 (no bool/string/float);
+reason is trimmed and 1..500 characters, and operation ID is canonical UUIDv4.
+Extra fields, client timestamps/source/reference/stock values are rejected.
+POST returns 200 with the stored StockMovement for both commit and matching
+replay. Different SKU/delta/normalized reason on an existing operation is 409,
+without a second write. Insufficient stock or ambiguous SKU is 409; missing
+product 404; missing prerequisite index or unknown outcome 503; technical
+transaction failure sanitized 500; invalid requests sanitized 422.
+
+History returns items, limit, offset, count (page size), has_more, ordered by
+occurred_at/movement_id descending. It reads limit+1 records, has no total and
+offset pages are not a cross-request snapshot. Reconciliation 404 means only
+**no visible movement**, not proof that an uncertain commit failed.
+
+The dedicated Mongo adapter owns all sessions and writes through the repository
+port. It rechecks the stable operation inside the transaction, increments exact
+product stock conditionally and inserts its movement atomically. It shares the
+existing Mongo error-label strategy: at most three attempts for a known
+uncommitted `TransientTransactionError`; an unknown commit label takes
+precedence. Ambiguous commit/connection failures reconcile the original
+operation from the primary with majority read concern and validate payload.
+They never blindly reapply the delta. Unresolved results remain unknown; there
+is no compensation, automatic new operation or nontransactional fallback.
+See [index activation](database.md#administrative-stock-movements-v4).
+
+Vue `/admin/products/:sku/stock` previews delta, reason and estimated stock, then
+requires explicit confirmation. Server response/history/current product replace
+the estimate. Double submission, route/session stale responses and logout are
+guarded. Before sending, the tab retains its stable operation ID and normalized
+payload in sessionStorage (no credentials). It survives refresh/navigation and
+an uncertain result blocks even another product's adjustment in that tab.
+Reconciliation reads the operation **and current product**, never reposts.
+Found matching operation proves commit; a definitive 409 plus no movement and
+a successful product read allows a new preview. Unknown result plus 404 stays
+blocked; manual verification reuses the same ID. Corrupt/unavailable persistence
+fails closed. Browser abort/20-second timeout does not roll back server work.
+Operators must resolve pending unknown operations before clearing local state.
+No stock polling, admin identity/RBAC/audit hardening or new workflow is added.
 
 ## Atomic confirmation
 
@@ -484,12 +798,16 @@ After manually starting a healthy demo replica set, opt-in integration tests:
 
 ```sh
 export MONGO_TEST_URI='mongodb://localhost:27017/?replicaSet=rs0&directConnection=true'
-.venv/bin/python -m pytest -q -m integration
+.venv/bin/python -m pytest -q -m integration tests/test_mongo_transaction_integration.py
 ```
 
-They use a unique generated database to check commit, rollback and concurrent
-confirmations, then drop **only their own database**, never `stockpilot` or
-historical data. The general integration selector can also select PostgreSQL
+They require a writable `rs0` replica set with sessions and use a validated,
+previously absent `stockpilot_transaction_test_<UUID>` database per test.
+They check commit, rollback, concurrent confirmations/cancellations, native
+reserved product identity and exact initial events. Cleanup deletes only the
+test documents selected by `_id`; no database or collection is dropped.
+Empty test databases and indexes remain. Neither `stockpilot` nor
+`stockpilot_e2e` is used. The general integration selector can also select PostgreSQL
 integration tests; see [checkpoint validation](database.md#checkpoint-validation).
 
 ## Limits and diagnostics
@@ -501,7 +819,8 @@ Mongo orders are not one distributed transaction.
 
 Replica-set availability and commit reconciliation may fail. Atomicity does
 not guarantee that the client immediately knows the result. Product lookup
-assumes an unambiguous canonical name under the existing regex strategy.
+retains regex matching for advice/preparation, while confirmation resolves a
+complete literal name and cancellation uses the saved Mongo identity.
 The local single-node configuration has no redundancy or production hardening.
 
 [Database](database.md) retains replica-set status, backup/recovery, network and

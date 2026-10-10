@@ -101,6 +101,8 @@ def test_e2e_reset_only_touches_named_resources(monkeypatch):
     settings.postgres_url = "dbname=stockpilot_e2e"
     settings.langgraph_checkpoint_db_uri = settings.postgres_url
     mongo = MagicMock()
+    named_collections = {"stock_movements": MagicMock(), "product_imports": MagicMock()}
+    mongo.__getitem__.side_effect = named_collections.__getitem__
     mongo.name = "stockpilot_e2e"
     mongo.client.admin.command.return_value = {"setName": "rs0", "isWritablePrimary": True}
     connection = MagicMock()
@@ -108,11 +110,24 @@ def test_e2e_reset_only_touches_named_resources(monkeypatch):
     from unittest.mock import AsyncMock
     monkeypatch.setattr(e2e, "setup_checkpoints", AsyncMock())
     monkeypatch.setattr(e2e, "MongoOrderRepository", MagicMock())
+    provision = MagicMock()
+    monkeypatch.setattr(e2e, "prepare_unique_sku_index", provision)
+    movement_provision = MagicMock()
+    monkeypatch.setattr(e2e, "prepare_stock_movement_indexes", movement_provision)
+    import_provision = MagicMock()
+    monkeypatch.setattr(e2e, "prepare_import_index", import_provision)
 
     e2e.reset_stores(settings, connection, mongo)
 
+    provision.assert_called_once_with(mongo.products)
+    movement_provision.assert_called_once_with(mongo["stock_movements"])
+    import_provision.assert_called_once_with(mongo["product_imports"])
     mongo.orders.delete_many.assert_called_once_with({})
     mongo.products.delete_many.assert_called_once_with({})
+    assert mongo.__getitem__.call_args_list
+    assert {call.args[0] for call in mongo.__getitem__.call_args_list} == {"stock_movements", "product_imports"}
+    mongo["stock_movements"].delete_many.assert_called_once_with({})
+    mongo["product_imports"].delete_many.assert_called_once_with({})
     assert mongo.products.insert_one.call_args.args[0]["stock"] == 10
     mongo.client.drop_database.assert_not_called()
     reset_sql = connection.execute.call_args.args[0].as_string()

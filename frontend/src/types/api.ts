@@ -44,12 +44,19 @@ export interface AssistantResponse {
   advice_query?: string | null
 }
 
+export interface OrderEvent {
+  status: OrderStatus
+  occurred_at: string
+  source: 'SYSTEM' | 'BACKOFFICE' | 'CUSTOMER'
+}
+
 export interface OrderResponse {
   order_id: string
   product_name: string
   quantity: number
   status: OrderStatus
   created_at: string
+  events?: OrderEvent[]
 }
 
 export interface CustomerOrdersResponse {
@@ -57,4 +64,55 @@ export interface CustomerOrdersResponse {
   limit: number
   offset: number
   count: number
+}
+
+export interface ProductResponse {
+  sku: string
+  product_name: string
+  category: ProductCategory
+  price: number
+  stock: number
+}
+
+export interface ProductsResponse {
+  items: ProductResponse[]
+  limit: number
+  offset: number
+  count: number
+  has_more: boolean
+}
+
+export interface StockMovement {
+  movement_id: string
+  operation_id: string
+  product_sku: string
+  delta: number
+  stock_before: number
+  stock_after: number
+  reason: string
+  occurred_at: string
+  source: 'BACKOFFICE'
+}
+
+export interface StockMovementsResponse {
+  items: StockMovement[]
+  limit: number
+  offset: number
+  count: number
+  has_more: boolean
+}
+
+export interface BackofficeDashboard {
+  order_stats: {
+    total_orders: number
+    by_status: Record<OrderStatus, number>
+  }
+  product_stats: {
+    total_products: number
+    available_products: number
+    unavailable_products: number
+    total_stock_units: number
+  }
+  recent_orders: Array<Pick<OrderResponse, 'order_id' | 'product_name' | 'quantity' | 'status' | 'created_at'>>
+  recent_stock_movements: Array<Pick<StockMovement, 'product_sku' | 'delta' | 'occurred_at' | 'reason'>>
 }

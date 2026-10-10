@@ -1,0 +1,9 @@
+{
+  "owned_restarts": 2,
+  "session_expiry_relogin": "passed",
+  "old_cookie_rejected": true,
+  "checkpoint_rows_preserved": 9,
+  "mongo_summary_preserved": true,
+  "rag_rows": 0,
+  "owned_servers_stopped": true
+}

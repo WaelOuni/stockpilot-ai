@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AssistantConversation from '../features/assistant/AssistantConversation.vue'
+defineProps<{ initialMessage?: string }>()
 </script>
 
 <template>
@@ -8,5 +9,5 @@ import AssistantConversation from '../features/assistant/AssistantConversation.v
     <h1>Assistant</h1>
     <p>Du bon conseil a la commande, une conversation a la fois.</p>
   </header>
-  <AssistantConversation />
+  <AssistantConversation :initial-message="initialMessage" />
 </template>

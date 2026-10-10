@@ -138,6 +138,9 @@ For an existing standalone Mongo, read the
 | `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp` claims; advice/stock/ORDER/ORDER_STATUS |
 | `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; Bearer-protected demo back-office lifecycle update |
 | `GET /orders` | Customer JWT required; own orders only, newest first; `limit=20` (max 100), `offset=0` |
+| `GET /products` | Public read-only Mongo catalogue; optional `q`, `category`, `available`; `limit=20` (1..100), `offset=0` |
+| `GET /products/{sku}` | Public exact SKU lookup; product name/category/price/stock only |
+| `POST /customer/orders/{order_id}/cancel` | Customer JWT required; cancel only an owned CREATED/PROCESSING order; CANCELLED is idempotent |
 | `POST /orders/{order_id}/cancel` | No body; atomic cancellation/stock restoration, requires back-office Bearer token |
 
 Configure `CUSTOMER_JWT_SECRET` in the API environment and in a trusted token

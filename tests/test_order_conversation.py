@@ -510,7 +510,8 @@ def test_create_failure_rolls_back_without_manual_release() -> None:
     )
 
 
-def test_replay_before_reservation_returns_existing_order() -> None:
+@pytest.mark.parametrize("status", list(OrderStatus))
+def test_replay_before_reservation_returns_existing_order(status) -> None:
     workflow, _, _, repository, products, reservations, releases = make_workflow()
     prepared = invoke(workflow, "Commande-moi 3 Bosch X100", "replay-thread")
     existing = Order(
@@ -518,7 +519,7 @@ def test_replay_before_reservation_returns_existing_order() -> None:
         operation_id=prepared["pending_order"]["operation_id"],
         product_name="Bosch X100",
         quantity=3,
-        status=OrderStatus.CREATED,
+        status=status,
         created_at=datetime.now(timezone.utc),
         customer_id="customer-a",
     )
@@ -526,8 +527,16 @@ def test_replay_before_reservation_returns_existing_order() -> None:
 
     result = invoke(workflow, "Oui, je confirme", "replay-thread")
 
-    assert result["order_status"] == "CONFIRMED"
+    expected = "CANCELLED" if status == OrderStatus.CANCELLED else "CONFIRMED"
+    assert result["order_status"] == result["pending_order"]["status"] == expected
+    assert result["confirmation_handled"] is True
     assert result["created_order_id"] == existing.order_id
+    assert result["last_created_order_id"] == existing.order_id
+    assert result["pending_order"]["operation_id"] == existing.operation_id
+    assert result["pending_order"]["customer_id"] == existing.customer_id
+    if status == OrderStatus.CANCELLED:
+        assert "existe déjà" in result["response"]
+        assert "elle est annulée" in result["response"]
     assert reservations == []
     assert releases == []
     assert repository.orders == [existing]

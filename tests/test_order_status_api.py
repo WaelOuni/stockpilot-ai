@@ -50,6 +50,7 @@ def test_allowed_progression_uses_business_use_case(monkeypatch, current, target
     assert response.json() == {
         "order_id": "order-123", "product_name": "Bosch X100",
         "quantity": 2, "status": target.value, "created_at": "2026-10-10T00:00:00Z",
+        "events": [],
     }
     repo.find_by_order_id.assert_awaited_once_with("order-123")
     repo.update_status.assert_awaited_once_with(

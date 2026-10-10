@@ -13,11 +13,12 @@ export class ApiError extends Error {
 
 export async function requestJson<T>(
   path: string,
-  options: { method?: 'GET' | 'POST'; body?: unknown; signal?: AbortSignal } = {},
+  options: { method?: 'GET' | 'POST'; body?: unknown; signal?: AbortSignal; public?: boolean } = {},
 ): Promise<T> {
   const token = customerToken.value
-  if (!token) throw new ApiError('Ajoutez un JWT client pour vous connecter.', 401)
-  const headers = new Headers({ Accept: 'application/json', Authorization: `Bearer ${token}` })
+  if (!token && !options.public) throw new ApiError('Ajoutez un JWT client pour vous connecter.', 401)
+  const headers = new Headers({ Accept: 'application/json' })
+  if (!options.public) headers.set('Authorization', `Bearer ${token}`)
   if (options.body !== undefined) headers.set('Content-Type', 'application/json')
   const baseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '')
   let response: Response
@@ -41,7 +42,7 @@ export async function requestJson<T>(
     const messages: Record<number, string> = {
       401: 'JWT absent, invalide ou expire. Remplacez le token client.',
       403: 'Acces refuse.',
-      404: 'Commande introuvable.',
+      404: 'Ressource introuvable.',
       422: 'La requete est invalide.',
       503: 'Service indisponible. Verifiez la configuration du backend.',
     }

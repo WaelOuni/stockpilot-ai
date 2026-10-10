@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
+import { computed } from 'vue'
 import CustomerTokenPanel from './components/CustomerTokenPanel.vue'
+const route = useRoute()
+const adminArea = computed(() => route.path.toLowerCase().startsWith('/admin/'))
 </script>
 
 <template>
@@ -20,11 +23,31 @@ import CustomerTokenPanel from './components/CustomerTokenPanel.vue'
         >S</span>StockPilot <span class="brand-ai">AI</span>
       </RouterLink>
       <nav aria-label="Navigation principale">
+        <RouterLink to="/products">
+          Catalogue
+        </RouterLink>
         <RouterLink to="/assistant">
           Assistant
         </RouterLink>
         <RouterLink to="/orders">
           My Orders
+        </RouterLink>
+        <RouterLink to="/admin/orders">
+          Admin
+        </RouterLink>
+      </nav>
+      <nav
+        v-if="adminArea"
+        aria-label="Navigation back-office"
+      >
+        <RouterLink to="/admin/dashboard">
+          Tableau de bord
+        </RouterLink>
+        <RouterLink to="/admin/orders">
+          Commandes admin
+        </RouterLink>
+        <RouterLink to="/admin/products">
+          Produits admin
         </RouterLink>
       </nav>
       <span class="demo-badge">Local demo</span>
@@ -34,7 +57,7 @@ import CustomerTokenPanel from './components/CustomerTokenPanel.vue'
     id="main-content"
     class="main-shell"
   >
-    <CustomerTokenPanel />
+    <CustomerTokenPanel v-if="!adminArea" />
     <RouterView />
   </main>
   <footer class="site-footer">

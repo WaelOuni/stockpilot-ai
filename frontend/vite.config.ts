@@ -2,8 +2,10 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
+  const envDir = process.env.STOCKPILOT_DEMO_ENV_DIR || process.cwd()
+  const env = loadEnv(mode, envDir, '')
   return {
+    envDir,
     plugins: [vue()],
     server: {
       proxy: {

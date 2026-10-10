@@ -19,6 +19,11 @@ from pymongo.errors import PyMongoError
 
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
+from stockpilot.infrastructure.persistence.mongodb.product_indexes import prepare_unique_sku_index
+from stockpilot.infrastructure.persistence.mongodb.product_import import prepare_import_index
+from stockpilot.infrastructure.persistence.mongodb.stock_movement_indexes import (
+    prepare_stock_movement_indexes,
+)
 from stockpilot.infrastructure.persistence.postgres.checkpointer import open_checkpointer
 
 
@@ -100,6 +105,8 @@ def reset_stores(settings: Settings, connection, mongo) -> None:
     MongoOrderRepository(mongo).initialize()
     mongo.orders.delete_many({})
     mongo.products.delete_many({})
+    mongo["stock_movements"].delete_many({})
+    mongo["product_imports"].delete_many({})
     mongo.products.insert_one({
         "sku": "E2E-BOSCH-X100",
         "name": "Bosch X100",
@@ -107,6 +114,14 @@ def reset_stores(settings: Settings, connection, mongo) -> None:
         "price": 99.0,
         "stock": INITIAL_STOCK,
     })
+    mongo.products.insert_many([
+        {"sku": "E2E-MAKITA-D200", "name": "Makita D200", "category": "DRILL", "price": 169.99, "stock": 0},
+        {"sku": "E2E-BOSCH-S500", "name": "Bosch S500", "category": "SAW", "price": 199.99, "stock": 5},
+    ])
+    # Explicitly authorized E2E provisioning only, after both active-store guards.
+    prepare_unique_sku_index(mongo.products)
+    prepare_stock_movement_indexes(mongo["stock_movements"])
+    prepare_import_index(mongo["product_imports"])
     print("E2E reset: Mongo stockpilot_e2e, PostgreSQL stockpilot_e2e, Bosch X100 stock=10.", flush=True)
 
 
@@ -135,7 +150,10 @@ def main() -> int:
                     process = subprocess.Popen([
                         sys.executable, "-m", "uvicorn", "stockpilot.main:app",
                         "--host", "127.0.0.1", "--port", "8002",
-                    ], cwd=ROOT)
+                    ], cwd=ROOT, env={
+                        key: value for key, value in os.environ.items()
+                        if key not in {"E2E_ADMIN_PASSWORD", "E2E_ADMIN_USERNAME"}
+                    })
                     try:
                         return process.wait()
                     finally:

@@ -24,6 +24,10 @@ it('navigates between client pages while preserving the assistant thread and tra
     routes: [
       { path: '/assistant', component: AssistantPage },
       { path: '/orders', component: OrdersPage },
+      { path: '/products', component: { template: '<div />' } },
+      { path: '/admin/orders', component: { template: '<div>Admin read-only</div>' } },
+      { path: '/admin/dashboard', component: { template: '<div>Admin dashboard</div>' } },
+      { path: '/admin/products', component: { template: '<div>Admin products</div>' } },
     ],
   })
   await router.push('/assistant')
@@ -41,5 +45,11 @@ it('navigates between client pages while preserving the assistant thread and tra
   expect(wrapper.get('h1').text()).toBe('Assistant')
   expect(wrapper.text()).toContain('Bonjour client')
   expect(useAssistant().state.threadId).toBe(threadId)
+  await wrapper.get('nav a[href="/admin/orders"]').trigger('click')
+  await flushPromises()
+  expect(wrapper.text()).toContain('Admin read-only')
+  expect(wrapper.find('input[type="password"]').exists()).toBe(false)
+  expect(wrapper.find('#customer-token').exists()).toBe(false)
+  expect(wrapper.text()).not.toContain('JWT client')
   wrapper.unmount()
 })

@@ -23,6 +23,21 @@ from stockpilot.presentation.api.schemas.order import (
 router = APIRouter()
 
 
+@router.post("/customer/orders/{order_id}/cancel", response_model=OrderResponse)
+async def cancel_customer_order(
+    order_id: str,
+    customer_id: str = Depends(require_customer_identity),
+    use_case: CancelOrderUseCase = Depends(get_cancel_order_use_case),
+) -> OrderResponse:
+    try:
+        order = await use_case.execute(order_id, customer_id=customer_id)
+    except (InvalidOrderStatusTransitionError, OrderStatusConflictError) as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    if order is None:
+        raise HTTPException(status_code=404, detail="Commande introuvable (NOT_FOUND).")
+    return OrderResponse.model_validate(order)
+
+
 @router.get("/orders/{order_id}", response_model=OrderResponse)
 async def get_customer_order(
     order_id: str,

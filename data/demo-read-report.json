@@ -1,0 +1,335 @@
+{
+  "measured_at": "2026-10-10T21:09:27.058550+00:00",
+  "database": "stockpilot_demo",
+  "dataset_id": "stockpilot-demo-v1-seed-20261010",
+  "sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+  "seed": 20261010,
+  "content_before": {
+    "reference": {
+      "dataset_id": "stockpilot-demo-v1-seed-20261010",
+      "sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+      "products": 500,
+      "orders": 2000,
+      "stock_movements": 3000,
+      "manifests": 1
+    },
+    "test_fixtures": {
+      "runs": 6,
+      "runs_by_status": {
+        "failed": 3,
+        "completed": 3
+      },
+      "products": 54,
+      "orders": 18,
+      "stock_movements": 39
+    },
+    "total_documents": {
+      "products": 554,
+      "orders": 2018,
+      "stock_movements": 3039,
+      "demo_manifests": 7
+    }
+  },
+  "method": "In-process FastAPI TestClient; real routers/use cases/Mongo adapters; sequential reads.",
+  "not_measured": [
+    "external HTTP/TLS/browser latency",
+    "CSV import (unapproved receipt collection/index)",
+    "PostgreSQL assistant/checkpointer",
+    "shared service restarts",
+    "real process restarts",
+    "Playwright (reset/write scope withheld)"
+  ],
+  "dashboard": {
+    "order_stats": {
+      "total_orders": 2018,
+      "by_status": {
+        "CREATED": 214,
+        "PROCESSING": 200,
+        "SHIPPED": 200,
+        "DELIVERED": 1200,
+        "CANCELLED": 204
+      }
+    },
+    "product_stats": {
+      "total_products": 554,
+      "available_products": 546,
+      "unavailable_products": 8,
+      "total_stock_units": 41882
+    },
+    "recent_orders": [
+      {
+        "order_id": "72a915b1-c5d6-4032-8ee5-56cd3361dba9",
+        "product_name": "Bosch DEMOe219fa96",
+        "quantity": 1,
+        "status": "CANCELLED",
+        "created_at": "2026-10-10T21:06:39.355764Z"
+      },
+      {
+        "order_id": "613b0c23-8d2f-47a7-889e-7f785b0aa43e",
+        "product_name": "Demo isolated test 1f8253db order-committed-unknown",
+        "quantity": 2,
+        "status": "CREATED",
+        "created_at": "2026-10-10T20:38:22.884718Z"
+      },
+      {
+        "order_id": "d48e7468-0579-4081-9ce7-f9c57497e9f7",
+        "product_name": "Demo isolated test 1f8253db adjust-race",
+        "quantity": 3,
+        "status": "CREATED",
+        "created_at": "2026-10-10T20:38:22.819352Z"
+      },
+      {
+        "order_id": "463157fa-b042-46ba-9918-2fd88c26aa19",
+        "product_name": "Demo isolated test 1f8253db cancel-once",
+        "quantity": 2,
+        "status": "CANCELLED",
+        "created_at": "2026-10-10T20:38:22.802432Z"
+      },
+      {
+        "order_id": "b817958f-90c9-4df4-95cb-cd7fa1e372b2",
+        "product_name": "Demo isolated test 1f8253db order-replay",
+        "quantity": 2,
+        "status": "CREATED",
+        "created_at": "2026-10-10T20:38:22.786602Z"
+      }
+    ],
+    "recent_stock_movements": [
+      {
+        "product_sku": "DEMO-OTHER-0500",
+        "delta": -5,
+        "occurred_at": "2026-11-11T17:45:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      },
+      {
+        "product_sku": "DEMO-SCREWDRIVER-0499",
+        "delta": 4,
+        "occurred_at": "2026-11-11T17:30:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      },
+      {
+        "product_sku": "DEMO-SANDER-0498",
+        "delta": -3,
+        "occurred_at": "2026-11-11T17:15:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      },
+      {
+        "product_sku": "DEMO-SAW-0497",
+        "delta": 2,
+        "occurred_at": "2026-11-11T17:00:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      },
+      {
+        "product_sku": "DEMO-DRILL-0496",
+        "delta": -1,
+        "occurred_at": "2026-11-11T16:45:00Z",
+        "reason": "Synthetic demo inventory adjustment"
+      }
+    ]
+  },
+  "integrity_http": {
+    "catalogue_paginated": 554,
+    "admin_orders_paginated": 2018,
+    "customer_orders_paginated": 20,
+    "stock_history_paginated": 6,
+    "missing_and_foreign_details": "404",
+    "pagination_bounds": "422",
+    "out_of_range_filter": "empty",
+    "unavailable_filter": "matches persisted stock",
+    "data_mutations": "405 blocked"
+  },
+  "read_latency": {
+    "catalogue": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 2.184,
+      "p95_ms": 2.423
+    },
+    "catalogue_filters": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 2.475,
+      "p95_ms": 2.635
+    },
+    "catalogue_unavailable_filter": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 1.884,
+      "p95_ms": 2.093
+    },
+    "product_detail": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 1.556,
+      "p95_ms": 1.715
+    },
+    "dashboard": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 10.867,
+      "p95_ms": 11.995
+    },
+    "customer_history": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 2.511,
+      "p95_ms": 2.913
+    },
+    "customer_detail": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 2.168,
+      "p95_ms": 4.932
+    },
+    "admin_orders": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 6.348,
+      "p95_ms": 6.946
+    },
+    "admin_order_detail": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 2.797,
+      "p95_ms": 3.296
+    },
+    "stock_history": {
+      "requests": 10,
+      "errors": 0,
+      "p50_ms": 3.167,
+      "p95_ms": 3.867
+    }
+  },
+  "session_resilience": {
+    "expired_cookie": "401",
+    "relogin_after_expiry": "200",
+    "recomposed_app_old_cookie": "401",
+    "recomposed_app_relogin": "200; dashboard identical",
+    "shared_mongo_restart": "not performed",
+    "real_process_restart": "not performed"
+  },
+  "explain": {
+    "catalogue": {
+      "stages": [
+        "COLLSCAN",
+        "SORT"
+      ],
+      "indexes": [],
+      "returned": 21,
+      "docs_examined": 554,
+      "keys_examined": 0,
+      "server_execution_ms": 0
+    },
+    "catalogue_filtered": {
+      "stages": [
+        "COLLSCAN",
+        "SORT"
+      ],
+      "indexes": [],
+      "returned": 21,
+      "docs_examined": 554,
+      "keys_examined": 0,
+      "server_execution_ms": 0
+    },
+    "product_detail": {
+      "stages": [
+        "EXPRESS_IXSCAN"
+      ],
+      "indexes": [
+        "products_sku_unique"
+      ],
+      "returned": 1,
+      "docs_examined": 1,
+      "keys_examined": 1,
+      "server_execution_ms": 0
+    },
+    "customer_history": {
+      "stages": [
+        "FETCH",
+        "IXSCAN",
+        "LIMIT"
+      ],
+      "indexes": [
+        "orders_customer_created_order_desc"
+      ],
+      "returned": 20,
+      "docs_examined": 20,
+      "keys_examined": 20,
+      "server_execution_ms": 0
+    },
+    "admin_orders": {
+      "stages": [
+        "COLLSCAN",
+        "SORT"
+      ],
+      "indexes": [],
+      "returned": 20,
+      "docs_examined": 2018,
+      "keys_examined": 0,
+      "server_execution_ms": 2
+    },
+    "stock_history": {
+      "stages": [
+        "FETCH",
+        "IXSCAN",
+        "LIMIT"
+      ],
+      "indexes": [
+        "stock_movements_product_history"
+      ],
+      "returned": 6,
+      "docs_examined": 6,
+      "keys_examined": 6,
+      "server_execution_ms": 0
+    },
+    "dashboard_recent_stock": {
+      "stages": [
+        "COLLSCAN",
+        "SORT"
+      ],
+      "indexes": [],
+      "returned": 5,
+      "docs_examined": 3039,
+      "keys_examined": 0,
+      "server_execution_ms": 2
+    }
+  },
+  "content_after": {
+    "reference": {
+      "dataset_id": "stockpilot-demo-v1-seed-20261010",
+      "sha256": "a7112fc09fb3afd2618dfd3bb7b8f5a2e3f83203b5e40d17e64083bdeee8d22c",
+      "products": 500,
+      "orders": 2000,
+      "stock_movements": 3000,
+      "manifests": 1
+    },
+    "test_fixtures": {
+      "runs": 6,
+      "runs_by_status": {
+        "failed": 3,
+        "completed": 3
+      },
+      "products": 54,
+      "orders": 18,
+      "stock_movements": 39
+    },
+    "total_documents": {
+      "products": 554,
+      "orders": 2018,
+      "stock_movements": 3039,
+      "demo_manifests": 7
+    }
+  },
+  "mongo_commands": {
+    "aggregate": 28,
+    "endSessions": 1,
+    "explain": 7,
+    "find": 199,
+    "getMore": 14,
+    "hello": 1,
+    "listCollections": 2,
+    "listIndexes": 4
+  },
+  "persistent_write_commands": 0,
+  "benchmark_requests": 100,
+  "benchmark_errors": 0
+}

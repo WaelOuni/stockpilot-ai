@@ -153,10 +153,11 @@ def test_finalize_transaction_persists_owner_with_single_stock_decrement():
 def test_mongo_persists_customer_and_missing_field_deserializes_as_unowned():
     repository, collection = make_repository()
     owned = replace(make_order(), customer_id="customer-a")
-    asyncio.run(repository.create(owned))
+    created = asyncio.run(repository.create(owned))
     persisted = collection.insert_one.call_args.args[0]
     assert persisted["customer_id"] == "customer-a"
-    assert repository._to_order(persisted) == owned
+    assert repository._to_order(persisted) == created
+    assert replace(created, events=()) == owned
     assert repository._to_order(order_document(make_order())).customer_id is None
 
 

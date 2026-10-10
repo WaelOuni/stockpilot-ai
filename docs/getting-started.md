@@ -64,6 +64,12 @@ variables; it does **not** automatically load `../.env.local`. Export values exp
 | `MONGO_DATABASE` | `stockpilot` |
 | `BACKOFFICE_API_TOKEN` | Unset: technical order routes return 503; configure a private shared Bearer secret |
 | `CUSTOMER_JWT_SECRET` | Unset: `/assistant` and `GET /orders` return 503; private HS256 signing secret |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD_VERIFIER` | Unset: demo admin sessions fail closed; server-only username and salted derived verifier |
+| `ADMIN_TRUSTED_ORIGIN` | Unset: exact browser origin required for login/logout, e.g. `https://admin.example.test` |
+| `DEPLOYMENT_ENVIRONMENT` | `development`; use `production` to forbid the local HTTP exception |
+| `ADMIN_ALLOW_LOCAL_HTTP` | `false`; explicit loopback-only development exception |
+| `ADMIN_SESSION_TTL_SECONDS` / `ADMIN_MAX_SESSIONS` | `1800` / `100`; fixed lifetime and bounded process-local capacity |
+| `PRODUCT_IMPORT_MAX_BYTES` / `PRODUCT_IMPORT_MAX_PRODUCTS` | `2097152` / `500`; raw CSV byte limit and small atomic product batch limit |
 | `POSTGRES_URL` | Compose local demo `stockpilot` PostgreSQL database |
 | `LANGGRAPH_CHECKPOINT_DB_URI` | Unset: checkpoint storage uses `POSTGRES_URL` |
 | `LOG_LEVEL` / `LOG_FILE` | `INFO` / `logs/stockpilot.jsonl`; empty file path disables file logs |
@@ -92,6 +98,66 @@ stack to the Internet. Existing volumes are preserved. Never use `down -v` or
 seed commands on valuable data. For an existing standalone Mongo, follow
 [non-destructive migration/recovery](database.md#mongo-replica-set-migration-and-recovery)
 before starting the API.
+
+## Demo administrator
+
+Configure the backend process, never a `VITE_*` variable. Use a distinct,
+random 16..256-character password; do not reuse either technical API token or
+customer signing key. Generate its verifier with hidden terminal prompts:
+
+```sh
+source .venv/bin/activate
+python scripts/create_admin_verifier.py
+```
+
+Securely set the returned verifier as `ADMIN_PASSWORD_VERIFIER` and configure
+`ADMIN_USERNAME` plus `ADMIN_TRUSTED_ORIGIN`. There is no configured plaintext
+password field. The verifier is sensitive server configuration: do not commit
+it, publish its output or put it in browser artifacts. The helper deliberately
+does not accept a password as a command-line argument (shell/process history).
+
+HTTPS and a Secure HttpOnly `__Host-` cookie are the defaults. For a strictly
+local HTTP demo, explicitly export `ADMIN_ALLOW_LOCAL_HTTP=true`,
+`DEPLOYMENT_ENVIRONMENT=development` and an exact loopback browser origin
+including Vite's port, for example `http://127.0.0.1:5173`. Match the actual
+browser origin; no trailing slash. The backend request host must also be
+loopback. `production` rejects that exception. With TLS termination, configure
+Uvicorn's trusted proxy addresses narrowly so HTTPS scheme forwarding reflects
+the trusted TLS proxy only.
+
+Start the backend normally; open `/admin/login` on Vite, log in and consult
+`/admin/orders`. Customer JWTs and technical Bearer tokens are not login
+credentials and are not used by the admin Vue transport. The detail offers the
+next legal status transition and confirmed cancellation for CREATED/PROCESSING.
+These dedicated cookie-only routes require the exact Origin and the existing
+session-bound CSRF token. No arbitrary stock mutation is exposed.
+Uncertain outcomes are reread, never retried automatically.
+Missing/unsafe configuration fails closed
+without preventing the existing customer/public/technical routes from running.
+See [session security and single-process limitations](order-flow.md#demo-administrator-sessions-v2).
+See [V3 operations and isolated E2E](order-flow.md#operational-administrator-orders-v3).
+
+V4.1 adds `/admin/products`, `/admin/products/new` and
+`/admin/products/:sku/edit` to the same guarded admin navigation. Metadata only:
+SKU/name/category/finite nonnegative price on creation, immutable SKU and
+name/category/price on edit, stock always read-only and initially zero.
+No deletion/disable; stock adjustment uses its separate V4 page. Renaming preserves referenced existing
+order restitution, but pending confirmations using the old name can fail.
+See [SKU provisioning and the exact blocked activation](database.md#product-metadata-administration-and-sku-activation-v41).
+The exact unique SKU index is now provisioned after separate authorization;
+missing prerequisites still block writes with 503. Preparation commands are
+read-only unless explicitly authorized with `--apply --confirm-database`.
+
+### CSV product import (V6)
+
+V6 adds `/admin/products/import`, linked from the admin product catalogue.
+Select a UTF-8 CSV, review per-line errors/existing conflicts and confirm
+CREATE_ONLY explicitly. Products start at stock zero; existing products are
+never changed. Downloadable examples use real domain categories. The normal SKU
+and stock prerequisites are already active, but the **new import receipt index
+is not**: execution intentionally fails closed until separately authorized.
+No normal provisioning is performed automatically. See
+[format, limits, HTTP headers and manual activation](database.md#create_only-product-csv-imports-v6).
 
 ## Fresh application RAG database
 
@@ -137,6 +203,7 @@ failure is explicit; there is no in-memory checkpoint fallback.
 | `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp`; advice/stock/ORDER/ORDER_STATUS |
 | `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; technical/demo lifecycle update, back-office Bearer token required |
 | `GET /orders` | Customer JWT required; own order history, bounded limit/offset pagination |
+| `POST /customer/orders/{order_id}/cancel` | Customer JWT required; owned-order transactional cancellation |
 | `POST /orders/{order_id}/cancel` | No body; transactional cancellation, back-office Bearer token required |
 
 ```sh
