@@ -64,6 +64,36 @@ blocked until the exact unique SKU index is explicitly provisioned by an
 authorized operator; [preflight/provisioning](../docs/database.md#product-metadata-administration-and-sku-activation-v41).
 No development migration was executed.
 
+### Administrative stock adjustments (V4)
+
+Product list/edit link to the protected `/admin/products/:sku/stock` page.
+Enter a strict signed nonzero integer delta (absolute maximum 1,000,000) and a
+trimmed reason (1..500 characters). Preview is not a mutation: it shows estimated
+stock, requires explicit confirmation and refuses a negative estimate. The
+server remains authoritative under concurrent orders/adjustments.
+Cookie-only POST with existing Origin/session CSRF writes one StockMovement.
+GET history is paginated using `has_more`, with actual timestamp/reason/source
+and stock-before/after, never invented order events.
+
+One operation ID is generated and persisted with SKU/delta/reason in tab-local
+sessionStorage **before** POST; no credentials are stored. Double clicks are
+guarded. Network/timeout/invalid response/server failures never retry POST.
+The UI GET-reconciles that operation plus current product/history. An unresolved
+operation remains blocked even after reload/route changes; verification sends
+only GET and retains its original ID. A 404 is not evidence of rollback.
+A proven matching commit plus successful rereads re-enables actions; definitive
+409 rejection is checked separately. Corrupt storage stays blocked, unavailable
+storage prevents sending. Logout/route/unmount/session epochs discard stale work.
+An abort does not compensate a server commit. The reason is operational data:
+avoid sensitive personal information in it, and resolve unknown operations
+before manually clearing tab storage.
+
+Normal stock adjustments fail closed until an authorized operator provisions the
+[unique operation index](../docs/database.md#administrative-stock-movements-v4).
+Nothing provisions it at normal startup. The guarded E2E initializer alone
+provisions it during tests. Metadata PATCH still cannot modify stock/SKU; new
+products still start at zero.
+
 The isolated admin browser scenario creates real orders via authenticated
 customer assistant preparation/confirmation, then operates on them through admin
 UI and verifies actual Mongo events/stock with the existing read-only probe:
@@ -73,8 +103,8 @@ UI and verifies actual Mongo events/stock with the existing read-only probe:
 source scripts/dev-env.sh >/dev/null
 cd frontend
 npm run test:e2e -- --project=chromium-admin --no-deps admin.spec.ts
-# All four scenarios: customer/catalogue first, then admin orders,
-# then chromium-products (catalogue creation changes seeded size).
+# All five scenarios: customer/catalogue first, then admin orders,
+# then chromium-products and finally chromium-stock.
 npm run test:e2e
 ```
 
@@ -93,7 +123,12 @@ expiry/rotation, uncertain outcomes and brute force are covered in backend/Vites
 metadata, checks Mongo identity/stock zero and public reads, refuses stock/SKU/
 deletion/CSRF violations, races duplicate creation against the actual Mongo unique
 constraint, and exercises customer ORDER refusal on the new zero-stock product.
-Only `stockpilot_e2e` gets the SKU index from the guarded initializer.
+`chromium-stock` depends on `chromium-products` so all four historical scenarios
+stay unchanged. Its additional scenario previews/confirms positive/negative stock adjustments, rejects
+insufficient stock in UI/server, replays an identical operation without another
+movement, and reserves/cancels a real assistant order against adjusted stock.
+Read-only Mongo probes assert movements, stock, order events and internal product
+identity. Only `stockpilot_e2e` gets SKU/stock-movement indexes from the guarded initializer.
 
 ## Run locally
 
@@ -300,12 +335,13 @@ This is local/demo auth: no login, refresh, revocation or automatic expiry check
 An XSS vulnerability or malicious browser extension can still access an in-memory
 token. Local conversation and thread IDs disappear on reload; server-side
 checkpoints/orders remain. There are no streaming responses, automatic retries,
-cursor pagination or back-office mutations.
+cursor pagination or production-grade administrative identity.
 
 ## Real browser E2E
 
-Playwright runs two Chromium scenarios: `e2e/order-flow.spec.ts` and
-`e2e/catalogue-navigation.spec.ts`. It starts a
+Playwright preserves `e2e/order-flow.spec.ts`, `e2e/catalogue-navigation.spec.ts`,
+`e2e/admin.spec.ts` and `e2e/admin-products.spec.ts`, then runs the dedicated
+`e2e/admin-stock.spec.ts` scenario. It starts a
 dedicated FastAPI on port **8002** and Vite on **5174**, with no server reuse
 and no automatic retries. Only Mongo/Postgres/Ollama must already be running.
 The normal development FastAPI instance is neither used nor stopped.
@@ -321,7 +357,7 @@ The normal development FastAPI instance is neither used nor stopped.
 Before serving, `scripts/init_e2e_env.py` creates the dedicated PostgreSQL
 database if absent, runs the official checkpointer setup, truncates only
 `public.checkpoints`, `public.checkpoint_blobs` and `public.checkpoint_writes`,
-and resets only Mongo `orders`/`products`. It preserves checkpoint migration
+and resets only Mongo `orders`/`products`/`stock_movements`. It preserves checkpoint migration
 tables, Mongo indexes and all unrelated tables/collections. Bosch X100 is seeded
 with SKU `E2E-BOSCH-X100`, category DRILL, price 99 and **stock 10**.
 No development or production data is copied. The ORDER scenario needs no RAG

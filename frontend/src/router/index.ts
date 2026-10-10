@@ -9,6 +9,7 @@ import AdminOrdersPage from '../pages/AdminOrdersPage.vue'
 import AdminOrderDetailPage from '../pages/AdminOrderDetailPage.vue'
 import AdminProductsPage from '../pages/AdminProductsPage.vue'
 import AdminProductFormPage from '../pages/AdminProductFormPage.vue'
+import AdminProductStockPage from '../pages/AdminProductStockPage.vue'
 import { protectAdminRoutes } from './adminGuard'
 
 export const router = createRouter({
@@ -20,6 +21,7 @@ export const router = createRouter({
     { path: '/admin/products', component: AdminProductsPage, meta: { admin: true } },
     { path: '/admin/products/new', component: AdminProductFormPage, meta: { admin: true } },
     { path: '/admin/products/:sku/edit', component: AdminProductFormPage, meta: { admin: true } },
+    { path: '/admin/products/:sku/stock', component: AdminProductStockPage, meta: { admin: true } },
     { path: '/', redirect: '/assistant' },
     { path: '/assistant', component: AssistantPage, props: (route) => ({
       initialMessage: typeof route.query.message === 'string' ? route.query.message : '',

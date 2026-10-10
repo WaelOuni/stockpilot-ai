@@ -677,6 +677,60 @@ curl --fail-with-body -X POST http://localhost:8000/assistant -H "Authorization:
 ORDER_STATUS reads CANCELLED from Mongo. No LLM cancellation intent, LangGraph
 transition or modification of the existing order-creation transaction is added.
 
+## Administrative stock adjustments (V4)
+
+These operations are independent of ORDER, lifecycle, embedded OrderEvents and
+LLM/checkpoints. Metadata POST still creates stock zero; metadata PATCH remains
+restricted to name/category/price, with immutable unique SKU. Stock adjustment
+does not rename/rewrite products or orders.
+
+| Endpoint | Contract |
+|---|---|
+| `POST /backoffice/products/{sku}/stock-adjustments` | Cookie session only, exact Origin and session CSRF; `operation_id`, `delta`, `reason` |
+| `GET /backoffice/products/{sku}/stock-movements` | Protected session or existing technical read credential; limit 1..100, offset >=0 |
+| `GET /backoffice/stock-adjustments/{operation_id}` | Cookie session only; reconciliation without a mutation |
+
+Mutation/reconciliation reject explicit Authorization even with a cookie.
+Customer JWT and technical credentials never grant adjustment access.
+Delta is a strict nonzero integer in -1,000,000..1,000,000 (no bool/string/float);
+reason is trimmed and 1..500 characters, and operation ID is canonical UUIDv4.
+Extra fields, client timestamps/source/reference/stock values are rejected.
+POST returns 200 with the stored StockMovement for both commit and matching
+replay. Different SKU/delta/normalized reason on an existing operation is 409,
+without a second write. Insufficient stock or ambiguous SKU is 409; missing
+product 404; missing prerequisite index or unknown outcome 503; technical
+transaction failure sanitized 500; invalid requests sanitized 422.
+
+History returns items, limit, offset, count (page size), has_more, ordered by
+occurred_at/movement_id descending. It reads limit+1 records, has no total and
+offset pages are not a cross-request snapshot. Reconciliation 404 means only
+**no visible movement**, not proof that an uncertain commit failed.
+
+The dedicated Mongo adapter owns all sessions and writes through the repository
+port. It rechecks the stable operation inside the transaction, increments exact
+product stock conditionally and inserts its movement atomically. It shares the
+existing Mongo error-label strategy: at most three attempts for a known
+uncommitted `TransientTransactionError`; an unknown commit label takes
+precedence. Ambiguous commit/connection failures reconcile the original
+operation from the primary with majority read concern and validate payload.
+They never blindly reapply the delta. Unresolved results remain unknown; there
+is no compensation, automatic new operation or nontransactional fallback.
+See [index activation](database.md#administrative-stock-movements-v4).
+
+Vue `/admin/products/:sku/stock` previews delta, reason and estimated stock, then
+requires explicit confirmation. Server response/history/current product replace
+the estimate. Double submission, route/session stale responses and logout are
+guarded. Before sending, the tab retains its stable operation ID and normalized
+payload in sessionStorage (no credentials). It survives refresh/navigation and
+an uncertain result blocks even another product's adjustment in that tab.
+Reconciliation reads the operation **and current product**, never reposts.
+Found matching operation proves commit; a definitive 409 plus no movement and
+a successful product read allows a new preview. Unknown result plus 404 stays
+blocked; manual verification reuses the same ID. Corrupt/unavailable persistence
+fails closed. Browser abort/20-second timeout does not roll back server work.
+Operators must resolve pending unknown operations before clearing local state.
+No stock polling, admin identity/RBAC/audit hardening or new workflow is added.
+
 ## Atomic confirmation
 
 `FinalizeOrderUseCase` constructs an order and delegates to `OrderTransactionPort`.

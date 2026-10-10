@@ -110,12 +110,16 @@ def test_e2e_reset_only_touches_named_resources(monkeypatch):
     monkeypatch.setattr(e2e, "MongoOrderRepository", MagicMock())
     provision = MagicMock()
     monkeypatch.setattr(e2e, "prepare_unique_sku_index", provision)
+    movement_provision = MagicMock()
+    monkeypatch.setattr(e2e, "prepare_stock_movement_indexes", movement_provision)
 
     e2e.reset_stores(settings, connection, mongo)
 
     provision.assert_called_once_with(mongo.products)
+    movement_provision.assert_called_once_with(mongo["stock_movements"])
     mongo.orders.delete_many.assert_called_once_with({})
     mongo.products.delete_many.assert_called_once_with({})
+    mongo["stock_movements"].delete_many.assert_called_once_with({})
     assert mongo.products.insert_one.call_args.args[0]["stock"] == 10
     mongo.client.drop_database.assert_not_called()
     reset_sql = connection.execute.call_args.args[0].as_string()

@@ -1,6 +1,8 @@
 import { ApiError } from './http'
 import type { CustomerOrdersResponse, OrderResponse, OrderStatus } from '../types/api'
-import type { ProductResponse as Product, ProductCategory, ProductsResponse } from '../types/api'
+import type {
+  ProductResponse as Product, ProductCategory, ProductsResponse, StockMovement, StockMovementsResponse,
+} from '../types/api'
 import { productCategoryLabels } from '../utils/products'
 
 export interface AdminSession { username: string; csrf_token: string }
@@ -47,7 +49,18 @@ async function adminRequest<T>(
       422: 'Informations produit invalides.',
       503: 'Gestion produits indisponible : vérifiez la configuration et la préparation de l’index SKU.',
     }
-    throw new ApiError((path.startsWith('/products') && productMessages[response.status])
+    const stockMessages: Record<number, string> = {
+      404: path.includes('/stock-adjustments/')
+        ? 'Aucun mouvement visible pour cette opération.'
+        : 'Produit ou mouvement introuvable.',
+      409: 'Ajustement refusé : vérifiez le stock actuel et le résultat de l’opération.',
+      422: 'Ajustement de stock invalide.',
+      503: 'Ajustement indisponible ou résultat incertain. Vérifiez l’opération avant toute nouvelle action.',
+    }
+    throw new ApiError((path.includes('/stock-') || path.startsWith('/stock-adjustments')
+      ? stockMessages[response.status]
+      : undefined)
+      || (path.startsWith('/products') && productMessages[response.status])
       || messages[response.status] || 'Erreur du back-office.', response.status)
   }
   if (response.status === 204) return undefined as T
@@ -119,7 +132,7 @@ function validateProduct(product: Product): Product {
     || typeof product.product_name !== 'string' || !product.product_name.trim()
     || !Object.hasOwn(productCategoryLabels, product.category)
     || typeof product.price !== 'number' || !Number.isFinite(product.price) || product.price < 0
-    || !Number.isInteger(product.stock) || product.stock < 0) {
+    || !Number.isSafeInteger(product.stock) || product.stock < 0) {
     throw new ApiError('Réponse produit invalide. Actualisez avant toute opération.', 0)
   }
   return product
@@ -159,4 +172,79 @@ export async function updateAdminProduct(sku: string, values: ProductMetadata, s
   }))
   if (product.sku !== sku) throw new ApiError('Réponse produit incohérente.', 0)
   return product
+}
+
+const operationUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+function validateStockMovement(
+  movement: StockMovement,
+  expected?: { sku: string; operationId: string; delta?: number; reason?: string },
+): StockMovement {
+  if (!movement || typeof movement.movement_id !== 'string' || !movement.movement_id
+    || typeof movement.operation_id !== 'string' || !operationUuid.test(movement.operation_id)
+    || typeof movement.product_sku !== 'string' || !movement.product_sku.trim()
+    || !Number.isSafeInteger(movement.delta) || movement.delta === 0 || Math.abs(movement.delta) > 1_000_000
+    || !Number.isSafeInteger(movement.stock_before) || movement.stock_before < 0
+    || !Number.isSafeInteger(movement.stock_after) || movement.stock_after < 0
+    || movement.stock_after !== movement.stock_before + movement.delta
+    || typeof movement.reason !== 'string' || !movement.reason.trim()
+    || movement.reason !== movement.reason.trim() || movement.reason.length > 500
+    || !Number.isFinite(Date.parse(movement.occurred_at))
+    || movement.source !== 'BACKOFFICE'
+    || (expected && (movement.product_sku !== expected.sku
+      || movement.operation_id !== expected.operationId
+      || (expected.delta !== undefined && movement.delta !== expected.delta)
+      || (expected.reason !== undefined && movement.reason !== expected.reason)))) {
+    throw new ApiError('Réponse de mouvement invalide. Vérifiez le stock avant toute action.', 0)
+  }
+  return movement
+}
+
+export async function adjustAdminProductStock(
+  sku: string,
+  operationId: string,
+  delta: number,
+  reason: string,
+  signal?: AbortSignal,
+): Promise<StockMovement> {
+  if (!csrfToken) throw new ApiError('Session administrateur absente.', 401)
+  if (!Number.isSafeInteger(delta) || delta === 0 || Math.abs(delta) > 1_000_000
+    || !operationUuid.test(operationId) || !reason.trim() || reason.trim().length > 500) {
+    throw new ApiError('Ajustement de stock invalide.', 422)
+  }
+  const movement = await adminRequest<StockMovement>(
+    `/products/${encodeURIComponent(sku)}/stock-adjustments`,
+    { method: 'POST', body: { operation_id: operationId, delta, reason: reason.trim() }, csrf: csrfToken, signal },
+  )
+  return validateStockMovement(movement, { sku, operationId, delta, reason: reason.trim() })
+}
+
+export async function getAdminStockAdjustment(
+  operationId: string,
+  signal?: AbortSignal,
+): Promise<StockMovement> {
+  const movement = await adminRequest<StockMovement>(
+    `/stock-adjustments/${encodeURIComponent(operationId)}`, { signal },
+  )
+  const valid = validateStockMovement(movement)
+  if (valid.operation_id !== operationId) {
+    throw new ApiError('Réponse de rapprochement incohérente.', 0)
+  }
+  return valid
+}
+
+export async function listAdminStockMovements(
+  sku: string,
+  offset: number,
+  signal?: AbortSignal,
+): Promise<StockMovementsResponse> {
+  const page = await adminRequest<StockMovementsResponse>(
+    `/products/${encodeURIComponent(sku)}/stock-movements?limit=20&offset=${offset}`, { signal },
+  )
+  if (!page || !Array.isArray(page.items) || page.items.length > 20 || typeof page.has_more !== 'boolean'
+    || page.limit !== 20 || page.offset !== offset || page.count !== page.items.length) {
+    throw new ApiError('Réponse de mouvements invalide.', 0)
+  }
+  page.items.forEach(movement => validateStockMovement(movement, { sku, operationId: movement.operation_id }))
+  return page
 }

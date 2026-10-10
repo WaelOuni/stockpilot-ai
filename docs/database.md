@@ -11,7 +11,7 @@ to troubleshoot unknown data.
 
 | Store | Contents |
 |---|---|
-| Mongo `stockpilot` | Products and atomically finalized orders |
+| Mongo `stockpilot` | Products, atomically finalized orders and administrative stock movements (V4 activation gated) |
 | PostgreSQL `stockpilot` | Application RAG and default conversation checkpoints |
 | PostgreSQL `stockpilot_eval` | Dedicated, repeatable product-document eval corpus |
 
@@ -339,7 +339,8 @@ only `sku`, `name`, `category`, `price`, with server-owned `stock=0`;
 `category`, `price` only. Blank names/SKUs, null metadata, unknown categories,
 nonfinite/negative prices and extra fields are rejected. SKU is immutable:
 even resubmitting the same SKU in PATCH is forbidden. No DELETE, disable or
-stock-management operation exists.
+stock field is accepted by these metadata endpoints. V4 adjustments use the
+separate transaction endpoint below.
 
 Mutations require a valid admin cookie, exactly the trusted Origin and the
 existing session-bound CSRF token. Any explicit Authorization is refused.
@@ -395,6 +396,62 @@ database migration/index creation/write was executed. Code is provisioned and
 verified only on the authorized `stockpilot_e2e` stores. The existing isolated
 initializer prepares just this index after its exact Mongo/PostgreSQL guards and
 seed; production startup never calls it.
+
+## Administrative stock movements (V4)
+
+`stock_movements` is a dedicated collection, not an order event log. Each
+committed adjustment stores `movement_id`, stable canonical UUIDv4 `operation_id`,
+`product_sku`, signed `delta`, `stock_before`, `stock_after`, trimmed `reason`,
+server UTC BSON datetime `occurred_at` and server-selected `source=BACKOFFICE`.
+Internal `product_id` retains the native BSON products `_id`; neither reference
+nor movement `_id` is returned by the API. Timestamps use Mongo millisecond
+precision so replay returns the exact persisted result.
+
+The adapter resolves an exact, simple-collation SKU without ambiguity, then
+conditionally `$inc`s **that document's `_id`** and inserts the movement in one
+snapshot/majority Mongo transaction. Stored stock must be an integer, remain
+nonnegative, and not overflow BSON int64. Insert/validation failures roll back
+the stock change. Order reservations and cancellations continue using their
+existing identity/transactions; no order or OrderEvent is written by adjustment.
+The history is not tamper-proof audit, actor identity or event sourcing.
+
+### Required operation index and explicit provisioning
+
+Every adjustment requires a full unique single ascending `operation_id` index
+with simple collation, no sparse/partial/TTL qualification. Missing index
+(including an absent collection) fails closed with 503 before any write.
+`stock_movements_operation_id_unique` enforces concurrent global operation
+uniqueness. Explicit provisioning also creates `stock_movements_product_history`
+on `product_sku ASC, occurred_at DESC, movement_id DESC` for stable history pages.
+No stock movement index or collection is created at normal application startup.
+Keep index-management privileges restricted; removal must not race writers.
+
+```sh
+# Read-only by default; never creates a collection/index or changes documents:
+.venv/bin/python scripts/prepare_stock_movement_indexes.py --database stockpilot
+
+# OPERATOR PROCEDURE ONLY: requires separate authorization and data review.
+# NOT executed against normal stockpilot during V4 implementation:
+.venv/bin/python scripts/prepare_stock_movement_indexes.py \
+  --database stockpilot --apply --confirm-database stockpilot
+```
+
+The explicit target must agree with any URI database; apply requires an exact
+confirmation. Preflight counts invalid/missing/nonstring/blank operation IDs and
+duplicate exact strings without printing records. Unsafe data or conflicting
+indexes fail without merge, deletion, replacement or silent repair. A compatible
+operation index is reused. An index-build conflict may leave earlier successful
+indexes in place; Mongo arbitrates races after preflight.
+
+**Normal activation awaits authorization.** No normal database stock/document/
+index changes were executed. Read-only preflight on 10 October 2026 found
+`invalid=0, duplicates=0` and the required operation index absent.
+E2E provisioning is explicitly authorized only
+after exact Mongo/PostgreSQL `stockpilot_e2e` checks and the advisory lock.
+Initializer cleanup adds only the named `stock_movements` collection to the
+existing named products/orders cleanup; no DROP or wildcard cleanup.
+Opt-in transaction tests use previously absent strict UUID databases and clean
+documents by `_id`, retaining empty collections/indexes.
 
 ## Persistent LangGraph conversations
 

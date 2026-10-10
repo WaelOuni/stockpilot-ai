@@ -81,3 +81,23 @@ export interface ProductsResponse {
   count: number
   has_more: boolean
 }
+
+export interface StockMovement {
+  movement_id: string
+  operation_id: string
+  product_sku: string
+  delta: number
+  stock_before: number
+  stock_after: number
+  reason: string
+  occurred_at: string
+  source: 'BACKOFFICE'
+}
+
+export interface StockMovementsResponse {
+  items: StockMovement[]
+  limit: number
+  offset: number
+  count: number
+  has_more: boolean
+}

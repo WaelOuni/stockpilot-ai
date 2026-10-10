@@ -60,7 +60,7 @@ onBeforeUnmount(() => controller?.abort())
     Actualiser
   </button>
   <p class="hint">
-    Stock en lecture seule. Aucun ajustement ou retrait de produit ici.
+    Stock en lecture seule ici. Les ajustements audités utilisent une page dédiée ; aucun retrait de produit.
   </p>
   <p
     v-if="loading"
@@ -84,6 +84,9 @@ onBeforeUnmount(() => controller?.abort())
       <h2>{{ product.product_name }}</h2>
       <p>SKU : {{ product.sku }} · {{ productCategoryLabels[product.category] }}</p>
       <p>Prix : {{ product.price.toLocaleString('fr-FR') }} · Stock : {{ product.stock }} (lecture seule)</p>
+      <RouterLink :to="`/admin/products/${encodeURIComponent(product.sku)}/stock`">
+        Ajuster le stock de {{ product.product_name }}
+      </RouterLink>
       <RouterLink :to="`/admin/products/${encodeURIComponent(product.sku)}/edit`">
         Modifier {{ product.product_name }}
       </RouterLink>

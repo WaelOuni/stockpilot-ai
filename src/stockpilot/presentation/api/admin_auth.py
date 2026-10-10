@@ -135,6 +135,14 @@ def require_admin_session(request: Request, _cookie: str | None = Depends(_admin
         return session
 
 
+def require_admin_cookie_only(
+    request: Request, session: Session = Depends(require_admin_session),
+) -> Session:
+    if "authorization" in request.headers:
+        raise HTTPException(401, "Admin access requires cookie authentication only.")
+    return session
+
+
 def require_backoffice_read(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_backoffice_bearer),

@@ -296,6 +296,9 @@ def test_openapi_separates_customer_technical_and_admin_session_security():
         ("get", "/backoffice/products/{sku}"),
         ("post", "/backoffice/products"),
         ("patch", "/backoffice/products/{sku}"),
+        ("post", "/backoffice/products/{sku}/stock-adjustments"),
+        ("get", "/backoffice/products/{sku}/stock-movements"),
+        ("get", "/backoffice/stock-adjustments/{operation_id}"),
     }
     actual = set()
     for path, operations in schema["paths"].items():
@@ -321,6 +324,11 @@ def test_openapi_separates_customer_technical_and_admin_session_security():
     for path, method in (("/backoffice/orders/{order_id}/status", "patch"),
                          ("/backoffice/orders/{order_id}/cancel", "post"),
                          ("/backoffice/products", "post"),
-                         ("/backoffice/products/{sku}", "patch")):
+                         ("/backoffice/products/{sku}", "patch"),
+                         ("/backoffice/products/{sku}/stock-adjustments", "post"),
+                         ("/backoffice/stock-adjustments/{operation_id}", "get")):
         assert schema["paths"][path][method]["security"] == [{"AdminSessionCookie": []}]
+    assert schema["paths"]["/backoffice/products/{sku}/stock-movements"]["get"]["security"] == [
+        {"BackofficeBearer": []}, {"AdminSessionCookie": []},
+    ]
     assert "security" not in schema["paths"]["/backoffice/session/login"]["post"]

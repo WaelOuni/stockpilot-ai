@@ -19,6 +19,14 @@ from stockpilot.domain.entities.order_event import OrderEvent, OrderEventSource
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
 from stockpilot.infrastructure.persistence.mongodb.order_transaction import MongoOrderTransaction
+from stockpilot.application.use_cases.adjust_product_stock import (
+    AdjustProductStockUseCase, InsufficientStockError, StockAdjustmentConflictError,
+    StockAdjustmentTransactionFailedError,
+)
+from stockpilot.infrastructure.persistence.mongodb.product_repository import MongoProductRepository
+from stockpilot.infrastructure.persistence.mongodb.stock_movement_indexes import (
+    prepare_stock_movement_indexes,
+)
 
 
 pytestmark = pytest.mark.integration
@@ -28,6 +36,162 @@ def validate_test_database(database, name):
     assert re.fullmatch(r"stockpilot_transaction_test_[0-9a-f]{32}", name)
     assert name not in {"stockpilot", "stockpilot_e2e"}
     assert database.name == name
+
+
+def adjust(database, sku, delta, operation_id=None, reason="integration recount"):
+    return asyncio.run(AdjustProductStockUseCase(
+        MongoProductRepository(database),
+    ).execute(sku, delta, reason, operation_id or str(uuid4())))
+
+
+def test_real_stock_transaction_replay_conflict_and_atomic_history(database):
+    operation_id = str(uuid4())
+    before_orders = list(database.orders.find({}))
+    first = adjust(database, "TEST-BOSCH-X100", 4, operation_id)
+    replay = adjust(database, "TEST-BOSCH-X100", 4, operation_id)
+    assert replay == first
+    assert database.products.find_one({"sku": "TEST-BOSCH-X100"})["stock"] == 14
+    assert database["stock_movements"].count_documents({}) == 1
+    with pytest.raises(StockAdjustmentConflictError):
+        adjust(database, "TEST-BOSCH-X100", 5, operation_id)
+    with pytest.raises(InsufficientStockError):
+        adjust(database, "TEST-BOSCH-X100", -15)
+    assert database.products.find_one({"sku": "TEST-BOSCH-X100"})["stock"] == 14
+    assert database["stock_movements"].count_documents({}) == 1
+    assert list(database.orders.find({})) == before_orders
+
+    stored = database["stock_movements"].find_one({"operation_id": operation_id})
+    product = database.products.find_one({"sku": "TEST-BOSCH-X100"})
+    assert stored["product_id"] == product["_id"]
+    assert stored["stock_before"] == 10 and stored["stock_after"] == 14
+    assert stored["source"] == "BACKOFFICE" and stored["reason"] == "integration recount"
+    assert "_id" not in first.__dict__ and "product_id" not in first.__dict__
+
+
+def test_real_concurrent_same_operation_commits_once(database):
+    operation_id = str(uuid4())
+    barrier = Barrier(8)
+
+    def adjust_same(_):
+        barrier.wait(timeout=10)
+        return adjust(database, "TEST-BOSCH-X100", 3, operation_id)
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(adjust_same, range(8)))
+    assert all(result == results[0] for result in results)
+    assert database.products.find_one({"sku": "TEST-BOSCH-X100"})["stock"] == 13
+    assert database["stock_movements"].count_documents({"operation_id": operation_id}) == 1
+
+
+def test_real_adjustments_concurrent_with_order_reserve_and_cancel(database):
+    operation = str(uuid4())
+    order = make_order(operation_id=str(uuid4()))
+    before_orders = database.orders.count_documents({})
+
+    def reserve():
+        return asyncio.run(MongoOrderTransaction(database).execute(order))
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        adjust_future = executor.submit(adjust, database, "TEST-BOSCH-X100", 5, operation)
+        order_future = executor.submit(reserve)
+        movement = adjust_future.result(timeout=20)
+        created = order_future.result(timeout=20)
+    assert movement.stock_before in (8, 10)
+    assert movement.stock_after == movement.stock_before + 5
+    assert created.order_id == order.order_id
+    assert database.products.find_one({"sku": "TEST-BOSCH-X100"})["stock"] == 13
+    persisted = database.orders.find_one({"order_id": order.order_id})
+    assert persisted["events"] == [{
+        "status": "CREATED", "source": "SYSTEM", "occurred_at": order.created_at.isoformat(),
+    }]
+
+    def cancel():
+        return asyncio.run(CancelOrderUseCase(MongoOrderRepository(database)).execute(order.order_id))
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        cancel_future = executor.submit(cancel)
+        adjustment_future = executor.submit(
+            adjust, database, "TEST-BOSCH-X100", 3, str(uuid4()), "late delivery",
+        )
+        cancelled = cancel_future.result(timeout=20)
+        adjustment_future.result(timeout=20)
+    assert cancelled.status == OrderStatus.CANCELLED
+    assert database.products.find_one({"sku": "TEST-BOSCH-X100"})["stock"] == 18
+    final_order = database.orders.find_one({"order_id": order.order_id})
+    assert [event["status"] for event in final_order["events"]] == ["CREATED", "CANCELLED"]
+    assert [event["source"] for event in final_order["events"]] == ["SYSTEM", "BACKOFFICE"]
+    assert database.orders.count_documents({}) == before_orders + 1
+
+
+def test_real_stock_movement_history_has_stable_timestamp_tiebreak_and_pages(database):
+    for _ in range(23):
+        adjust(database, "TEST-BOSCH-X100", 1)
+    same_time = datetime.now(timezone.utc)
+    same_time = same_time.replace(microsecond=(same_time.microsecond // 1000) * 1000)
+    database["stock_movements"].update_many(
+        {"product_sku": "TEST-BOSCH-X100"},
+        {"$set": {"occurred_at": same_time}},
+    )
+    first = asyncio.run(MongoProductRepository(database).list_stock_movements(
+        "TEST-BOSCH-X100", 20, 0,
+    ))
+    second = asyncio.run(MongoProductRepository(database).list_stock_movements(
+        "TEST-BOSCH-X100", 20, 20,
+    ))
+    assert len(first.items) == 20 and first.has_more
+    assert len(second.items) == 3 and not second.has_more
+    movement_ids = [item.movement_id for item in first.items + second.items]
+    assert len(set(movement_ids)) == 23
+    assert movement_ids == sorted(movement_ids, reverse=True)
+    assert all(item.occurred_at == same_time for item in first.items + second.items)
+
+
+def test_real_movement_insert_validation_failure_rolls_back_stock(database):
+    database.command("collMod", "stock_movements", validator={"source": {"$eq": "REJECTED"}})
+    try:
+        with pytest.raises(StockAdjustmentTransactionFailedError):
+            adjust(database, "TEST-BOSCH-X100", 3)
+        assert database.products.find_one({"sku": "TEST-BOSCH-X100"})["stock"] == 10
+        assert database["stock_movements"].count_documents({}) == 0
+    finally:
+        database.command("collMod", "stock_movements", validator={})
+
+
+def test_real_concurrent_decrements_never_make_stock_negative(database):
+    barrier = Barrier(2)
+    def decrement():
+        barrier.wait(timeout=10)
+        try:
+            return adjust(database, "TEST-BOSCH-X100", -7)
+        except InsufficientStockError:
+            return None
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = [future.result(timeout=20) for future in (
+            executor.submit(decrement), executor.submit(decrement),
+        )]
+    assert sum(item is not None for item in results) == 1
+    assert database.products.find_one({"sku": "TEST-BOSCH-X100"})["stock"] == 3
+    assert database["stock_movements"].count_documents({}) == 1
+
+
+def test_real_same_operation_different_products_rolls_back_losing_delta(database):
+    operation_id = str(uuid4())
+    barrier = Barrier(2)
+    def adjust_product(sku):
+        barrier.wait(timeout=10)
+        try:
+            return adjust(database, sku, 2, operation_id)
+        except StockAdjustmentConflictError:
+            return None
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(adjust_product, ["TEST-BOSCH-X100", "TEST-BOSCH-X100-PRO"]))
+    assert sum(item is not None for item in results) == 1
+    assert database["stock_movements"].count_documents({}) == 1
+    movement = database["stock_movements"].find_one({"operation_id": operation_id})
+    for sku, initial in [("TEST-BOSCH-X100", 10), ("TEST-BOSCH-X100-PRO", 0)]:
+        assert database.products.find_one({"sku": sku})["stock"] == initial + (
+            2 if sku == movement["product_sku"] else 0
+        )
 
 
 @pytest.fixture
@@ -50,9 +214,10 @@ def database():
         assert database.list_collection_names() == []
         initialized = True
         MongoOrderRepository(database).initialize()
+        prepare_stock_movement_indexes(database["stock_movements"])
         database.products.insert_many([
-            {"name": "Bosch X100 Pro", "stock": 0},
-            {"name": "Bosch X100", "stock": 10},
+            {"sku": "TEST-BOSCH-X100-PRO", "name": "Bosch X100 Pro", "stock": 0},
+            {"sku": "TEST-BOSCH-X100", "name": "Bosch X100", "stock": 10},
         ])
         yield database
     finally:
@@ -61,7 +226,7 @@ def database():
                 validate_test_database(database, name)
                 # Each fixture owns a previously absent UUID database. Select
                 # document IDs explicitly; retain the empty collections/indexes.
-                for collection in (database.orders, database.products):
+                for collection in (database.orders, database.products, database["stock_movements"]):
                     ids = [doc["_id"] for doc in collection.find({}, {"_id": 1})]
                     if ids:
                         collection.delete_many({"_id": {"$in": ids}})

@@ -142,6 +142,12 @@ onBeforeUnmount(() => {
   <RouterLink to="/admin/products">
     Retour aux produits
   </RouterLink>
+  <RouterLink
+    v-if="editing"
+    :to="`/admin/products/${encodeURIComponent(routeSku)}/stock`"
+  >
+    Ajuster le stock
+  </RouterLink>
   <p
     v-if="editing"
     class="hint"

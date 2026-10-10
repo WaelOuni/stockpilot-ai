@@ -36,6 +36,7 @@ async function open(path: string, app = false) {
       { path: '/admin/products', component: AdminProductsPage, meta: { admin: true } },
       { path: '/admin/products/new', component: AdminProductFormPage, meta: { admin: true } },
       { path: '/admin/products/:sku/edit', component: AdminProductFormPage, meta: { admin: true } },
+      { path: '/admin/products/:sku/stock', component: { template: '<p>Stock adjustment</p>' }, meta: { admin: true } },
       { path: '/assistant', component: { template: '<p>Assistant</p>' } },
       { path: '/products', component: { template: '<p>Catalogue</p>' } },
       { path: '/orders', component: { template: '<p>Orders</p>' } },
@@ -69,6 +70,7 @@ it('lists metadata with stock read-only, edit links and authoritative has_more',
   await open('/admin/products')
   expect(wrapper!.text()).toContain('Stock : 7 (lecture seule)')
   expect(wrapper!.find('a[href="/admin/products/SKU-1/edit"]').text()).toContain('Drill')
+  expect(wrapper!.find('a[href="/admin/products/SKU-1/stock"]').text()).toContain('Ajuster le stock de Drill')
   expect(button('Suivant').attributes('disabled')).toBeDefined()
   expect(wrapper!.findAll('input')).toHaveLength(0)
   expect(writes()).toHaveLength(0)

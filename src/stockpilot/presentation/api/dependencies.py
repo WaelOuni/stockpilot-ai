@@ -9,6 +9,9 @@ from stockpilot.application.use_cases.list_customer_orders import ListCustomerOr
 from stockpilot.application.use_cases.get_customer_order import GetCustomerOrderUseCase
 from stockpilot.application.use_cases.catalog_products import GetProductUseCase, ListProductsUseCase
 from stockpilot.application.use_cases.manage_products import CreateProductUseCase, UpdateProductMetadataUseCase
+from stockpilot.application.use_cases.adjust_product_stock import (
+    AdjustProductStockUseCase, GetStockAdjustmentUseCase, ListStockMovementsUseCase,
+)
 
 
 def get_create_product_use_case(request: Request) -> CreateProductUseCase:
@@ -17,6 +20,18 @@ def get_create_product_use_case(request: Request) -> CreateProductUseCase:
 
 def get_update_product_metadata_use_case(request: Request) -> UpdateProductMetadataUseCase:
     return request.app.state.update_product_metadata_use_case
+
+
+def get_adjust_product_stock_use_case(request: Request) -> AdjustProductStockUseCase:
+    return request.app.state.adjust_product_stock_use_case
+
+
+def get_stock_adjustment_use_case(request: Request) -> GetStockAdjustmentUseCase:
+    return request.app.state.get_stock_adjustment_use_case
+
+
+def get_list_stock_movements_use_case(request: Request) -> ListStockMovementsUseCase:
+    return request.app.state.list_stock_movements_use_case
 
 
 def get_generate_response_use_case(request: Request) -> GenerateResponseUseCase:

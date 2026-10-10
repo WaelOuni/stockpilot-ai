@@ -1,15 +1,19 @@
 import re
+from datetime import datetime, timezone
 
-from pymongo import ReturnDocument
+from pymongo import ReadPreference, ReturnDocument
+from pymongo.read_concern import ReadConcern
 from pymongo.errors import DuplicateKeyError
 from pymongo.collation import Collation
 
 from stockpilot.application.dto.product_page import ProductPage
+from stockpilot.application.dto.stock_movement_page import StockMovementPage
 from stockpilot.application.dto.stock_reservation_result import (
     StockReservationResult,
 )
 from stockpilot.application.ports.product_repository import ProductRepositoryPort
 from stockpilot.domain.entities.product import Product
+from stockpilot.domain.entities.stock_movement import StockMovement
 from stockpilot.domain.enums.product_category import ProductCategory
 from stockpilot.application.use_cases.manage_products import (
     DuplicateProductSkuError, validate_metadata,
@@ -19,6 +23,7 @@ from stockpilot.infrastructure.persistence.mongodb.product_indexes import requir
 
 class MongoProductRepository(ProductRepositoryPort):
     def __init__(self, database):
+        self.database = database
         self.collection = database["products"]
 
     async def create_product(self, product: Product) -> Product:
@@ -100,6 +105,64 @@ class MongoProductRepository(ProductRepositoryPort):
         if len(documents) > 1:
             raise ValueError("Duplicate product SKU; catalog lookup is ambiguous.")
         return self._to_product(documents[0]) if documents else None
+
+    async def adjust_stock(
+        self, *, sku: str, delta: int, reason: str, operation_id: str,
+        movement_id: str, occurred_at: datetime,
+    ) -> StockMovement:
+        from stockpilot.infrastructure.persistence.mongodb.stock_adjustment_transaction import (
+            MongoStockAdjustmentTransaction,
+        )
+
+        return MongoStockAdjustmentTransaction(self.database).execute(
+            sku=sku,
+            delta=delta,
+            reason=reason,
+            operation_id=operation_id,
+            movement_id=movement_id,
+            occurred_at=occurred_at,
+        )
+
+    @staticmethod
+    def _to_stock_movement(document) -> StockMovement:
+        occurred_at = document["occurred_at"]
+        if occurred_at.tzinfo is None:
+            occurred_at = occurred_at.replace(tzinfo=timezone.utc)
+        return StockMovement(
+            movement_id=document["movement_id"],
+            operation_id=document["operation_id"],
+            product_sku=document["product_sku"],
+            delta=int(document["delta"]),
+            stock_before=int(document["stock_before"]),
+            stock_after=int(document["stock_after"]),
+            reason=document["reason"],
+            occurred_at=occurred_at,
+            source=document["source"],
+        )
+
+    async def find_stock_adjustment(self, operation_id: str) -> StockMovement | None:
+        collection = self.database["stock_movements"].with_options(
+            read_concern=ReadConcern("majority"), read_preference=ReadPreference.PRIMARY,
+        )
+        document = collection.find_one(
+            {"operation_id": operation_id}, collation=Collation("simple"),
+        )
+        return self._to_stock_movement(document) if document is not None else None
+
+    async def list_stock_movements(
+        self, sku: str, limit: int, offset: int,
+    ) -> StockMovementPage:
+        documents = list(
+            self.database["stock_movements"].find(
+                {"product_sku": sku},
+                {"_id": 0, "product_id": 0},
+                collation=Collation("simple"),
+            ).sort([("occurred_at", -1), ("movement_id", -1)]).skip(offset).limit(limit + 1)
+        )
+        return StockMovementPage(
+            items=[self._to_stock_movement(document) for document in documents[:limit]],
+            has_more=len(documents) > limit,
+        )
 
     async def reserve_stock(
         self,

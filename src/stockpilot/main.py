@@ -20,7 +20,14 @@ from stockpilot.application.use_cases.get_customer_order import GetCustomerOrder
 from stockpilot.application.use_cases.catalog_products import GetProductUseCase, ListProductsUseCase
 from stockpilot.presentation.api.routes.products import router as products_router
 from stockpilot.presentation.api.routes.backoffice_products import router as backoffice_products_router
+from stockpilot.presentation.api.routes.backoffice_stock import (
+    operations_router as backoffice_stock_operations_router,
+    products_router as backoffice_stock_products_router,
+)
 from stockpilot.application.use_cases.manage_products import CreateProductUseCase, UpdateProductMetadataUseCase
+from stockpilot.application.use_cases.adjust_product_stock import (
+    AdjustProductStockUseCase, GetStockAdjustmentUseCase, ListStockMovementsUseCase,
+)
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -151,6 +158,9 @@ app.state.get_product_use_case = GetProductUseCase(product_repository)
 app.state.list_products_use_case = ListProductsUseCase(product_repository)
 app.state.create_product_use_case = CreateProductUseCase(product_repository)
 app.state.update_product_metadata_use_case = UpdateProductMetadataUseCase(product_repository)
+app.state.adjust_product_stock_use_case = AdjustProductStockUseCase(product_repository)
+app.state.get_stock_adjustment_use_case = GetStockAdjustmentUseCase(product_repository)
+app.state.list_stock_movements_use_case = ListStockMovementsUseCase(product_repository)
 app.state.list_backoffice_orders_use_case = ListBackofficeOrdersUseCase(order_repository)
 app.state.get_backoffice_order_use_case = GetBackofficeOrderUseCase(order_repository)
 
@@ -163,6 +173,8 @@ app.state.admin_sessions = AdminSessions()
 app.include_router(admin_session_router)
 app.include_router(backoffice_orders_router)
 app.include_router(backoffice_products_router)
+app.include_router(backoffice_stock_products_router)
+app.include_router(backoffice_stock_operations_router)
 
 
 @app.middleware("http")

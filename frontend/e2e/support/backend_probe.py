@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from scripts.init_e2e_env import DATABASE, INITIAL_STOCK, configure_environment
 
 from pymongo import MongoClient
+from bson import ObjectId
 from pymongo.errors import PyMongoError
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -17,11 +18,12 @@ from stockpilot.infrastructure.persistence.mongodb.product_repository import (
     MongoProductRepository,
 )
 from stockpilot.infrastructure.persistence.mongodb.product_indexes import require_unique_sku_index
+from stockpilot.infrastructure.persistence.mongodb.stock_movement_indexes import require_unique_operation_index
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("stock", "order", "product"))
+    parser.add_argument("action", choices=("stock", "order", "product", "movements"))
     parser.add_argument("customer_id")
     parser.add_argument("order_id", nargs="?")
     args = parser.parse_args()
@@ -58,18 +60,46 @@ def main() -> int:
                     "unique_sku_index": True,
                     "customer_orders": database.orders.count_documents({"customer_id": args.customer_id}),
                 }))
+            elif args.action == "movements":
+                if not args.order_id:
+                    raise ValueError("A product SKU is required.")
+                require_unique_sku_index(database.products)
+                require_unique_operation_index(database["stock_movements"])
+                product = database.products.find_one({"sku": args.order_id})
+                if product is None:
+                    raise ValueError("E2E product not found.")
+                movements = list(database["stock_movements"].find(
+                    {"product_sku": args.order_id},
+                    {"_id": 0},
+                ).sort([("occurred_at", -1), ("movement_id", -1)]))
+                internal_product_matches = all(
+                    isinstance(movement.get("product_id"), ObjectId)
+                    and movement["product_id"] == product["_id"] for movement in movements
+                )
+                for movement in movements:
+                    movement.pop("product_id", None)
+                print(json.dumps({
+                    "stock": product["stock"],
+                    "movements": movements,
+                    "internal_product_matches": internal_product_matches,
+                    "customer_orders": database.orders.count_documents({"customer_id": args.customer_id}),
+                }, default=lambda value: value.isoformat() if hasattr(value, "isoformat") else str(value)))
             else:
                 if not args.order_id:
                     raise ValueError("An order identifier is required.")
                 order = database.orders.find_one(
                     {"order_id": args.order_id, "customer_id": args.customer_id},
                     {"_id": 0, "order_id": 1, "product_name": 1, "quantity": 1,
-                     "status": 1, "customer_id": 1, "operation_id": 1, "events": 1},
+                     "status": 1, "customer_id": 1, "operation_id": 1, "events": 1, "reserved_product_id": 1},
                 )
                 if order is None:
                     raise ValueError("The created E2E order was not found in the configured Mongo database.")
-                stock = database.products.find_one({"sku": "E2E-BOSCH-X100"})["stock"]
-                print(json.dumps({**order, "remaining_stock": stock}))
+                product = database.products.find_one({"sku": "E2E-BOSCH-X100"})
+                reference = order.pop("reserved_product_id", None)
+                print(json.dumps({
+                    **order, "remaining_stock": product["stock"],
+                    "reserved_product_matches": isinstance(reference, ObjectId) and reference == product["_id"],
+                }))
     except PyMongoError:
         print("Mongo E2E read failed; verify MONGO_URI and MONGO_DATABASE.", file=sys.stderr)
         return 1
