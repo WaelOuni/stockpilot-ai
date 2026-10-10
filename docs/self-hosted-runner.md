@@ -36,12 +36,29 @@ New self-hosted runner** and select **Linux**, **x64**.
 Use GitHub's **current generated** download URL, archive name and verification
 command; do not copy an invented version/checksum from a guide.
 
-The repository-local `actions-runner/` directory is ignored by Git. From the
-project root in WSL/Linux:
+Keep the runner **outside the repository** in WSL/Linux:
+
+```text
+~/projects/stockpilot-ai/   project
+~/actions-runner/          runner, configuration and _work checkouts
+```
+
+The existing local runner has been moved to `~/actions-runner/` without
+reconfiguration. To start that registered runner, use only:
 
 ```sh
-mkdir -p actions-runner
-cd actions-runner
+cd ~/actions-runner
+./run.sh
+```
+
+The download/registration commands below are for a **new installation only**.
+Do not rerun `config.sh` or extract an archive over the existing runner.
+The repository retains `actions-runner/` in `.gitignore` as an extra safeguard,
+but ignoring a directory does not prevent pytest from discovering files in it.
+
+```sh
+mkdir -p ~/actions-runner
+cd ~/actions-runner
 # Replace placeholders with the current values shown by GitHub:
 curl -fL -o RUNNER_ARCHIVE.tar.gz 'GITHUB_PROVIDED_LINUX_X64_DOWNLOAD_URL'
 # Run GitHub's generated archive verification command before extracting.
@@ -68,10 +85,24 @@ installation directory. The workflow checks out the repository into its own
 workspace and creates its own Python venv; an interactive project venv is not
 proof of the workflow environment.
 
-If that workspace is nested under this project, plain pytest discovery can find
-both copies of the tests and report import mismatches. From the project root,
-`python -m pytest -q tests` runs the full repository test directory without
-collecting the runner's separate checkout; do not delete runner data to fix this.
+Keep `_work` outside the project along with the runner. A nested checkout was
+previously responsible for 29 pytest collection errors from duplicate test
+modules; moving the runner resolved this without deleting `_work` or adding
+pytest exclusions. The normal project command now works directly:
+
+```sh
+cd ~/projects/stockpilot-ai
+source .venv/bin/activate
+python -m pytest -q
+```
+
+The post-move validation returned **240 passed, 0 failed, 0 errors,
+4 deselected**. If relocating an existing runner again, first stop its process
+cleanly and ensure it has no active job. Preserve the complete directory,
+including hidden configuration/credential files, `_diag` and `_work`.
+Do not print credential contents or re-register a runner that reconnects
+successfully. An installed system service also needs its old paths reviewed;
+the relocated local runner currently uses `./run.sh`, not a system service.
 
 ## Optional system service
 
@@ -79,6 +110,7 @@ Only after approval and a successful foreground run, GitHub's Linux runner
 supports service installation from its installation directory:
 
 ```sh
+cd ~/actions-runner
 sudo ./svc.sh install
 sudo ./svc.sh start
 sudo ./svc.sh status
