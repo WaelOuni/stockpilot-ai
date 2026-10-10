@@ -2,6 +2,11 @@ import logging
 from stockpilot.observability import Timer, bind_context, event, timed_event
 
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
+from stockpilot.application.dto.intent_result import IntentResult
+from stockpilot.application.use_cases.resolve_context import (
+    ConversationContext, ContextResolutionUseCase,
+)
+from stockpilot.domain.enums.intent import Intent
 from stockpilot.application.order_transaction_errors import (
     OrderOutcomeUnknownError,
     OrderTransactionFailedError,
@@ -41,6 +46,47 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase):
         }
 
     return classify_node
+
+
+def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
+    async def context_node(state: StockPilotState) -> StockPilotState:
+        previous = ConversationContext()
+        owner_matches = state.get("context_customer_id") == state.get("customer_id")
+        order_finished = (
+            state.get("last_relevant_intent") == Intent.ORDER
+            and state.get("order_status") in {
+                PreparedOrderStatus.CONFIRMED.value, PreparedOrderStatus.CANCELLED.value,
+                PreparedOrderStatus.ORDER_OUTCOME_UNKNOWN.value,
+                PreparedOrderStatus.ORDER_CREATION_FAILED.value,
+                PreparedOrderStatus.RESERVATION_FAILED.value,
+            }
+        )
+        if owner_matches and not order_finished:
+            previous = ConversationContext(
+                intent=state.get("last_relevant_intent"),
+                product_name=state.get("last_product_name"), quantity=state.get("last_quantity"),
+                category=state.get("last_category"), budget=state.get("last_budget"),
+                usage=state.get("last_usage"), advice_query=state.get("last_advice_query"),
+            )
+        result = resolve_context.execute(
+            state["message"],
+            IntentResult(**{key: state.get(key) for key in IntentResult.model_fields}),
+            previous,
+        )
+        return {
+            **result.classification.model_dump(),
+            "last_relevant_intent": result.context.intent,
+            "last_product_name": result.context.product_name,
+            "last_quantity": result.context.quantity,
+            "last_category": result.context.category,
+            "last_budget": result.context.budget,
+            "last_usage": result.context.usage,
+            "last_advice_query": result.context.advice_query,
+            "context_customer_id": state.get("customer_id"),
+            "advice_query": result.advice_query,
+        }
+
+    return context_node
 
 
 def create_order_confirmation_node(
@@ -172,7 +218,7 @@ def create_advice_node(
         state: StockPilotState,
     ) -> StockPilotState:
         recommendation = await recommend_product.execute(
-            state["message"]
+            state.get("advice_query") or state["message"]
         )
         response = recommendation.answer
         product_name = recommendation.product_name

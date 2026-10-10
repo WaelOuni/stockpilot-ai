@@ -7,6 +7,9 @@ multi-turn orders. It combines structured intent extraction, product-document
 RAG and explicit order confirmation. It is a **development/demo backend**,
 not a production-ready commerce service.
 
+A customer-facing Vue 3/TypeScript MVP lives in [frontend/](frontend/README.md),
+with Assistant and My Orders pages and an in-memory local JWT connection panel.
+
 ## Key features
 
 - Structured intent classification and product/category/quantity/budget extraction.

@@ -114,6 +114,57 @@ echo the requested ID but never reveals whether a foreign order exists or its
 status. No known ID still yields NO_ORDER_ASSOCIATED. Pre-feature checkpoints
 are not resumed through the new HTTP namespace.
 
+## Deterministic conversational continuity
+
+Classification still reads only the current message. Before routing, a dedicated
+`ContextResolutionUseCase` completes narrowly recognized follow-ups using the
+checkpoint's last relevant task. No raw transcript is sent to classification.
+The existing confirmation node runs first and still short-circuits the workflow.
+
+| Previous task | Recognized follow-up | Result |
+|---|---|---|
+| ORDER, Bosch X100, quantity 2 (including insufficient stock) | `est ce que je peux demander 10` / `Et si j'en demande 10 ?` | ORDER, Bosch X100, quantity 10 |
+| ORDER, quantity 2, product missing | `de Bosch X100` | ORDER, Bosch X100, quantity 2 |
+| STOCK_CHECK, Bosch X100 | `Est-il disponible ?` | STOCK_CHECK, Bosch X100 |
+| STOCK_CHECK, Bosch X100 | `Et la S500 ?` | STOCK_CHECK, Bosch S500 |
+| PRODUCT_ADVICE, drill recommendation | `Et pour du béton ?` | Advice with the reference task and updated usage |
+
+Current classifier fields always win; carry-over only fills missing fields.
+UNKNOWN can be recovered only when the entire message matches the allowlist
+for the previous intent. A recognized different intent is never overridden.
+Model shorthand expands a missing product only if the previous brand/model
+has an unambiguous two-part representation. No product catalog is invented.
+Advice follow-ups support a short list of tooling materials and numeric euro
+budgets, not arbitrary `Et ...` messages.
+
+State additions: `last_relevant_intent`, `last_product_name`, `last_quantity`,
+`last_category`, `last_budget`, `last_usage`, `last_advice_query` and
+`context_customer_id`. `advice_query` is a transient resolved retrieval query.
+For advice, the stored reference request does not grow on each follow-up:
+the node sends that request plus current category/budget/usage and the new
+precision, without assistant answers or previous user-message chains.
+Standalone advice requests still use their original query.
+
+Greetings/out-of-domain messages remain UNKNOWN and clear this carry-over
+context. ORDER_STATUS is never completed using product or quantity context and
+clears carry-over; its existing remembered-order lookup remains unchanged.
+Completed/cancelled/failed confirmations cannot be reopened by a short fragment.
+Explicit new complete orders default to the existing quantity behavior instead
+of inheriting a previous quantity.
+
+The memory belongs only to the existing authenticated customer/thread checkpoint,
+with an additional owner check before using saved context. Legacy checkpoints
+without these fields start with no carry-over; there is no migration or global
+memory. Repreparing an order uses a new pending operation as before: it does not
+confirm the old operation, reserve stock or change transaction/idempotency rules.
+The pending confirmation payload is never used as a source for guessed context.
+
+This is intentionally conservative: free-form ambiguous fragments, bare numbers,
+unrecognized materials and broader anaphora require a complete request.
+Tests in `tests/test_context_resolution.py` exercise the resolver and real graph
+with mocked classification/storage, including insufficient stock, missing
+product, confirmation, ORDER_STATUS, and thread/customer isolation.
+
 ## Authenticated customer order history
 
 `GET /orders?limit=20&offset=0` uses the same customer JWT dependency as

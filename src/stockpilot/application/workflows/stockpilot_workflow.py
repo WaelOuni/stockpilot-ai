@@ -7,9 +7,11 @@ from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCa
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
 from stockpilot.application.use_cases.recommend_product import RecommendProductUseCase
+from stockpilot.application.use_cases.resolve_context import ContextResolutionUseCase
 from stockpilot.application.workflows.nodes import (
     create_advice_node,
     create_classify_node,
+    create_context_resolution_node,
     create_order_confirmation_node,
     create_order_node,
     create_order_status_node,
@@ -30,6 +32,7 @@ def build_graph(
     checkpointer: BaseCheckpointSaver | None = None,
     *,
     get_order_status: GetOrderStatusUseCase,
+    resolve_context: ContextResolutionUseCase | None = None,
 ):
     graph = StateGraph(StockPilotState)
 
@@ -40,6 +43,9 @@ def build_graph(
         ),
     )
     graph.add_node("classify", create_classify_node(classify_intent))
+    graph.add_node(
+        "resolve_context", create_context_resolution_node(resolve_context or ContextResolutionUseCase()),
+    )
     graph.add_node(
         "advice",
         create_advice_node(recommend_product, check_stock),
@@ -59,8 +65,9 @@ def build_graph(
         },
     )
 
+    graph.add_edge("classify", "resolve_context")
     graph.add_conditional_edges(
-        "classify",
+        "resolve_context",
         route_by_intent,
         {
             "advice": "advice",

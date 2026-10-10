@@ -12,6 +12,7 @@ from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
 from stockpilot.application.use_cases.update_order_status import UpdateOrderStatusUseCase
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.application.use_cases.list_customer_orders import ListCustomerOrdersUseCase
+from stockpilot.application.use_cases.resolve_context import ContextResolutionUseCase
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -60,6 +61,7 @@ async def lifespan(app: FastAPI):
             finalize_order_use_case,
             checkpointer=checkpointer,
             get_order_status=get_order_status_use_case,
+            resolve_context=context_resolution_use_case,
         )
         try:
             yield
@@ -116,6 +118,7 @@ get_order_status_use_case = GetOrderStatusUseCase(order_repository)
 update_order_status_use_case = UpdateOrderStatusUseCase(order_repository)
 cancel_order_use_case = CancelOrderUseCase(order_repository)
 list_customer_orders_use_case = ListCustomerOrdersUseCase(order_repository)
+context_resolution_use_case = ContextResolutionUseCase()
 
 recommend_product_use_case = RecommendProductUseCase(
     embedding_adapter,
