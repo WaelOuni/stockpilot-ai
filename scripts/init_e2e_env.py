@@ -19,6 +19,7 @@ from pymongo.errors import PyMongoError
 
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
+from stockpilot.infrastructure.persistence.mongodb.product_indexes import prepare_unique_sku_index
 from stockpilot.infrastructure.persistence.postgres.checkpointer import open_checkpointer
 
 
@@ -111,6 +112,8 @@ def reset_stores(settings: Settings, connection, mongo) -> None:
         {"sku": "E2E-MAKITA-D200", "name": "Makita D200", "category": "DRILL", "price": 169.99, "stock": 0},
         {"sku": "E2E-BOSCH-S500", "name": "Bosch S500", "category": "SAW", "price": 199.99, "stock": 5},
     ])
+    # Explicitly authorized E2E provisioning only, after both active-store guards.
+    prepare_unique_sku_index(mongo.products)
     print("E2E reset: Mongo stockpilot_e2e, PostgreSQL stockpilot_e2e, Bosch X100 stock=10.", flush=True)
 
 

@@ -1,5 +1,7 @@
 import { ApiError } from './http'
 import type { CustomerOrdersResponse, OrderResponse, OrderStatus } from '../types/api'
+import type { ProductResponse as Product, ProductCategory, ProductsResponse } from '../types/api'
+import { productCategoryLabels } from '../utils/products'
 
 export interface AdminSession { username: string; csrf_token: string }
 export interface AdminOrder extends OrderResponse { customer_id: string | null; events: NonNullable<OrderResponse['events']> }
@@ -39,7 +41,14 @@ async function adminRequest<T>(
       429: 'Trop de tentatives. Attendez une minute.',
       503: 'Back-office indisponible. Vérifiez sa configuration serveur.',
     }
-    throw new ApiError(messages[response.status] || 'Erreur du back-office.', response.status)
+    const productMessages: Record<number, string> = {
+      404: 'Produit introuvable.',
+      409: 'Ce SKU existe déjà. Vérifiez le produit avant toute nouvelle opération.',
+      422: 'Informations produit invalides.',
+      503: 'Gestion produits indisponible : vérifiez la configuration et la préparation de l’index SKU.',
+    }
+    throw new ApiError((path.startsWith('/products') && productMessages[response.status])
+      || messages[response.status] || 'Erreur du back-office.', response.status)
   }
   if (response.status === 204) return undefined as T
   let value: T
@@ -100,4 +109,54 @@ export async function cancelAdminOrder(orderId: string, signal?: AbortSignal): P
   return validateOrder(await adminRequest<AdminOrder>(`/orders/${encodeURIComponent(orderId)}/cancel`, {
     method: 'POST', csrf: csrfToken, signal,
   }))
+}
+
+export interface ProductMetadata { name: string; category: ProductCategory; price: number }
+export interface NewProduct extends ProductMetadata { sku: string }
+
+function validateProduct(product: Product): Product {
+  if (!product || typeof product.sku !== 'string' || !product.sku.trim()
+    || typeof product.product_name !== 'string' || !product.product_name.trim()
+    || !Object.hasOwn(productCategoryLabels, product.category)
+    || typeof product.price !== 'number' || !Number.isFinite(product.price) || product.price < 0
+    || !Number.isInteger(product.stock) || product.stock < 0) {
+    throw new ApiError('Réponse produit invalide. Actualisez avant toute opération.', 0)
+  }
+  return product
+}
+
+export async function listAdminProducts(offset: number, signal?: AbortSignal): Promise<ProductsResponse> {
+  const page = await adminRequest<ProductsResponse>(`/products?limit=20&offset=${offset}`, { signal })
+  if (!page || !Array.isArray(page.items) || typeof page.has_more !== 'boolean'
+    || page.limit !== 20 || page.offset !== offset || page.count !== page.items.length) {
+    throw new ApiError('Réponse catalogue invalide.', 0)
+  }
+  page.items.forEach(validateProduct)
+  return page
+}
+
+export async function getAdminProduct(sku: string, signal?: AbortSignal): Promise<Product> {
+  const product = validateProduct(await adminRequest<Product>(`/products/${encodeURIComponent(sku)}`, { signal }))
+  if (product.sku !== sku) throw new ApiError('Réponse produit incohérente.', 0)
+  return product
+}
+
+export async function createAdminProduct(values: NewProduct, signal?: AbortSignal): Promise<Product> {
+  if (!csrfToken) throw new ApiError('Session administrateur absente.', 401)
+  const product = validateProduct(await adminRequest<Product>('/products', {
+    method: 'POST', body: { sku: values.sku, name: values.name, category: values.category, price: values.price },
+    csrf: csrfToken, signal,
+  }))
+  if (product.sku !== values.sku) throw new ApiError('Réponse produit incohérente.', 0)
+  return product
+}
+
+export async function updateAdminProduct(sku: string, values: ProductMetadata, signal?: AbortSignal): Promise<Product> {
+  if (!csrfToken) throw new ApiError('Session administrateur absente.', 401)
+  const product = validateProduct(await adminRequest<Product>(`/products/${encodeURIComponent(sku)}`, {
+    method: 'PATCH', body: { name: values.name, category: values.category, price: values.price },
+    csrf: csrfToken, signal,
+  }))
+  if (product.sku !== sku) throw new ApiError('Réponse produit incohérente.', 0)
+  return product
 }

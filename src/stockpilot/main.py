@@ -19,6 +19,8 @@ from stockpilot.application.use_cases.resolve_context import ContextResolutionUs
 from stockpilot.application.use_cases.get_customer_order import GetCustomerOrderUseCase
 from stockpilot.application.use_cases.catalog_products import GetProductUseCase, ListProductsUseCase
 from stockpilot.presentation.api.routes.products import router as products_router
+from stockpilot.presentation.api.routes.backoffice_products import router as backoffice_products_router
+from stockpilot.application.use_cases.manage_products import CreateProductUseCase, UpdateProductMetadataUseCase
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -147,6 +149,8 @@ app.state.list_customer_orders_use_case = list_customer_orders_use_case
 app.state.get_customer_order_use_case = get_customer_order_use_case
 app.state.get_product_use_case = GetProductUseCase(product_repository)
 app.state.list_products_use_case = ListProductsUseCase(product_repository)
+app.state.create_product_use_case = CreateProductUseCase(product_repository)
+app.state.update_product_metadata_use_case = UpdateProductMetadataUseCase(product_repository)
 app.state.list_backoffice_orders_use_case = ListBackofficeOrdersUseCase(order_repository)
 app.state.get_backoffice_order_use_case = GetBackofficeOrderUseCase(order_repository)
 
@@ -158,6 +162,7 @@ app.include_router(products_router)
 app.state.admin_sessions = AdminSessions()
 app.include_router(admin_session_router)
 app.include_router(backoffice_orders_router)
+app.include_router(backoffice_products_router)
 
 
 @app.middleware("http")

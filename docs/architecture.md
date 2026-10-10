@@ -7,7 +7,7 @@ lookup and explicitly confirmed orders. It separates deterministic business
 rules from model interpretation and infrastructure through application ports.
 It is not a production commerce service.
 
-The V3 demo back-office has a separate operational Vue space and opaque
+The V4.1 demo back-office has a separate operational Vue space and opaque
 server-side V2 admin sessions. It uses the V1 global read use cases/repository port
 and the existing status/cancellation use cases, never LangGraph or duplicated
 transaction code. Customer JWT ownership
@@ -15,6 +15,18 @@ and technical Bearer mutation controls remain separate. Authentication and CSRF
 are enforced in the presentation boundary, not by Vue route guards alone.
 See [admin session architecture/security](order-flow.md#demo-administrator-sessions-v2)
 and [configuration](getting-started.md#demo-administrator).
+
+Product management reuses catalogue read use cases and adds application create/
+metadata-update operations through `ProductRepositoryPort`. The Mongo adapter
+enforces a provisioned exact unique SKU index before writes, inserts stock zero,
+and edits only metadata using atomic `$set` while preserving BSON identity and
+concurrent stock. No product index is created at startup. An explicit guarded
+preflight/opt-in preparation command and authorized isolated E2E provisioning
+are described in [database activation](database.md#product-metadata-administration-and-sku-activation-v41).
+Normal database writes remain blocked until separately authorized provisioning.
+Customer/order workflows, RAG and transaction business rules are unchanged;
+renaming can invalidate a pending confirmation by old name, while referenced
+existing order cancellation remains `_id`-safe.
 
 ## Request path and boundaries
 

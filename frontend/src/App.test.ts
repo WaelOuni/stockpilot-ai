@@ -26,6 +26,7 @@ it('navigates between client pages while preserving the assistant thread and tra
       { path: '/orders', component: OrdersPage },
       { path: '/products', component: { template: '<div />' } },
       { path: '/admin/orders', component: { template: '<div>Admin read-only</div>' } },
+      { path: '/admin/products', component: { template: '<div>Admin products</div>' } },
     ],
   })
   await router.push('/assistant')

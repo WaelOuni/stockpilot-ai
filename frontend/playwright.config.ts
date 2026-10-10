@@ -42,9 +42,12 @@ export default defineConfig({
     video: 'off',
   },
   projects: [
-    { name: 'chromium', testIgnore: 'admin.spec.ts', use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium', testIgnore: ['admin.spec.ts', 'admin-products.spec.ts'], use: { ...devices['Desktop Chrome'] } },
     // Delivery permanently consumes seed stock; run admin operations last.
     { name: 'chromium-admin', testMatch: 'admin.spec.ts', dependencies: ['chromium'],
+      use: { ...devices['Desktop Chrome'] } },
+    // Product creation changes catalogue size; preserve historical seed-dependent scenarios first.
+    { name: 'chromium-products', testMatch: 'admin-products.spec.ts', dependencies: ['chromium-admin'],
       use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: [

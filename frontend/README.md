@@ -5,7 +5,7 @@ The customer endpoints `POST /assistant`, `GET /orders`,
 `GET /orders/{order_id}` and `POST /customer/orders/{order_id}/cancel` are used.
 The catalogue additionally uses public read-only `GET /products` and
 `GET /products/{sku}`; no JWT is sent with these public requests.
-The separate V3 `/admin/login`, `/admin/orders`, `/admin/orders/:orderId` space
+The separate admin `/admin/login`, `/admin/orders`, `/admin/orders/:orderId` space
 uses V2 server-side demo admin sessions, global reads and dedicated operational
 order endpoints. The server's existing business rules remain authoritative.
 
@@ -38,6 +38,32 @@ redirects to login, 404 clears data, 403 requires refresh. Route/logout/expiry
 discard stale responses and abort pending requests. No admin polling is added.
 The customer JWT panel is hidden in this separate space.
 
+### Product metadata administration (V4.1)
+
+The same navigation/guard protects `/admin/products`, `/admin/products/new` and
+`/admin/products/:sku/edit`. List shows metadata/read-only stock, loading,
+errors/empty/refresh and offset pagination driven only by catalogue `has_more`.
+Create accepts SKU/name/category/finite nonnegative price and initializes server
+stock to zero. Edit sends only name/category/price and shows immutable SKU.
+No DELETE, disable, stock input, UI library or global store.
+
+Responses supply persisted values; submit and refresh are guarded against
+overlap/double clicks. A successful creation stays disabled and links to edit.
+Ambiguous/failed creation is **never reposted automatically**: GET the exact
+submitted SKU. Found means creation remains blocked (do not claim ownership of a
+concurrent create); missing after a reliable 404 permits only manual resubmission.
+Failed reconciliation remains blocked until a successful manual reload.
+Edit failures likewise reload persisted metadata before another action.
+401 redirects/clears the session; abort/route/logout/timeouts discard stale work.
+Cookie CSRF transport remains distinct from customer JWT requests.
+
+Renaming preserves existing referenced orders' stock restitution by `_id`, but
+can invalidate pending confirmations prepared by old name; the form warns about
+this unchanged workflow behavior. Normal database activation is deliberately
+blocked until the exact unique SKU index is explicitly provisioned by an
+authorized operator; [preflight/provisioning](../docs/database.md#product-metadata-administration-and-sku-activation-v41).
+No development migration was executed.
+
 The isolated admin browser scenario creates real orders via authenticated
 customer assistant preparation/confirmation, then operates on them through admin
 UI and verifies actual Mongo events/stock with the existing read-only probe:
@@ -47,8 +73,8 @@ UI and verifies actual Mongo events/stock with the existing read-only probe:
 source scripts/dev-env.sh >/dev/null
 cd frontend
 npm run test:e2e -- --project=chromium-admin --no-deps admin.spec.ts
-# All three scenarios: existing chromium customer/catalogue tests run first;
-# chromium-admin depends on them because delivery permanently consumes stock.
+# All four scenarios: customer/catalogue first, then admin orders,
+# then chromium-products (catalogue creation changes seeded size).
 npm run test:e2e
 ```
 
@@ -63,6 +89,11 @@ denial, empty pagination, missing detail, every lifecycle step, cancellation,
 replay/restock once and terminal denial. Stored BACKOFFICE events and final stock
 (one delivered reservation consumed) are asserted. Legacy owners, concurrency,
 expiry/rotation, uncertain outcomes and brute force are covered in backend/Vitest.
+`chromium-products` depends on `chromium-admin`; its real scenario creates/edits
+metadata, checks Mongo identity/stock zero and public reads, refuses stock/SKU/
+deletion/CSRF violations, races duplicate creation against the actual Mongo unique
+constraint, and exercises customer ORDER refusal on the new zero-stock product.
+Only `stockpilot_e2e` gets the SKU index from the guarded initializer.
 
 ## Run locally
 

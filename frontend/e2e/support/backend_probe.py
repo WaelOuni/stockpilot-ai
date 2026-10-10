@@ -16,11 +16,12 @@ from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.persistence.mongodb.product_repository import (
     MongoProductRepository,
 )
+from stockpilot.infrastructure.persistence.mongodb.product_indexes import require_unique_sku_index
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("stock", "order"))
+    parser.add_argument("action", choices=("stock", "order", "product"))
     parser.add_argument("customer_id")
     parser.add_argument("order_id", nargs="?")
     args = parser.parse_args()
@@ -44,6 +45,19 @@ def main() -> int:
                 if database.orders.count_documents({"customer_id": args.customer_id}) != 0:
                     raise ValueError("The generated E2E customer already has orders.")
                 print(json.dumps({"stock": stock}))
+            elif args.action == "product":
+                if not args.order_id:
+                    raise ValueError("A product SKU is required.")
+                require_unique_sku_index(database.products)
+                product = database.products.find_one({"sku": args.order_id})
+                if product is None:
+                    raise ValueError("E2E product not found.")
+                print(json.dumps({
+                    "sku": product["sku"], "name": product["name"], "category": product["category"],
+                    "price": product["price"], "stock": product["stock"], "identity": str(product["_id"]),
+                    "unique_sku_index": True,
+                    "customer_orders": database.orders.count_documents({"customer_id": args.customer_id}),
+                }))
             else:
                 if not args.order_id:
                     raise ValueError("An order identifier is required.")

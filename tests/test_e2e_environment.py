@@ -108,9 +108,12 @@ def test_e2e_reset_only_touches_named_resources(monkeypatch):
     from unittest.mock import AsyncMock
     monkeypatch.setattr(e2e, "setup_checkpoints", AsyncMock())
     monkeypatch.setattr(e2e, "MongoOrderRepository", MagicMock())
+    provision = MagicMock()
+    monkeypatch.setattr(e2e, "prepare_unique_sku_index", provision)
 
     e2e.reset_stores(settings, connection, mongo)
 
+    provision.assert_called_once_with(mongo.products)
     mongo.orders.delete_many.assert_called_once_with({})
     mongo.products.delete_many.assert_called_once_with({})
     assert mongo.products.insert_one.call_args.args[0]["stock"] == 10

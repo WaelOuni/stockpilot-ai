@@ -179,6 +179,8 @@ class SessionResponse(BaseModel):
 
 
 class SafeSessionRoute(APIRoute):
+    validation_message = "Invalid session request."
+
     def get_route_handler(self):
         handler = super().get_route_handler()
 
@@ -187,7 +189,7 @@ class SafeSessionRoute(APIRoute):
                 return await handler(request)
             except RequestValidationError:
                 # FastAPI's default error includes invalid submitted input.
-                return JSONResponse(status_code=422, content={"detail": "Invalid session request."})
+                return JSONResponse(status_code=422, content={"detail": self.validation_message})
         return safe_handler
 
 

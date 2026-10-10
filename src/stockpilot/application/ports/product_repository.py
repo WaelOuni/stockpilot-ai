@@ -9,6 +9,12 @@ from stockpilot.domain.enums.product_category import ProductCategory
 
 
 class ProductRepositoryPort(Protocol):
+    async def create_product(self, product: Product) -> Product:
+        ...
+
+    async def update_metadata(self, sku: str, changes: dict) -> Product | None:
+        ...
+
     async def list_products(
         self, limit: int, offset: int, *, q: str | None = None,
         category: ProductCategory | None = None, available: bool | None = None,

@@ -1,6 +1,8 @@
 import re
 
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
+from pymongo.collation import Collation
 
 from stockpilot.application.dto.product_page import ProductPage
 from stockpilot.application.dto.stock_reservation_result import (
@@ -9,11 +11,43 @@ from stockpilot.application.dto.stock_reservation_result import (
 from stockpilot.application.ports.product_repository import ProductRepositoryPort
 from stockpilot.domain.entities.product import Product
 from stockpilot.domain.enums.product_category import ProductCategory
+from stockpilot.application.use_cases.manage_products import (
+    DuplicateProductSkuError, validate_metadata,
+)
+from stockpilot.infrastructure.persistence.mongodb.product_indexes import require_unique_sku_index
 
 
 class MongoProductRepository(ProductRepositoryPort):
     def __init__(self, database):
         self.collection = database["products"]
+
+    async def create_product(self, product: Product) -> Product:
+        require_unique_sku_index(self.collection)
+        validate_metadata({"name": product.name, "category": product.category, "price": product.price})
+        if not isinstance(product.sku, str) or not product.sku.strip():
+            raise ValueError("SKU must not be blank.")
+        document = {
+            "sku": product.sku, "name": product.name, "category": product.category.value,
+            "price": product.price, "stock": 0,
+        }
+        try:
+            result = self.collection.insert_one(document)
+        except DuplicateKeyError as error:
+            raise DuplicateProductSkuError("Product SKU already exists.") from error
+        persisted = self.collection.find_one({"_id": result.inserted_id})
+        if persisted is None:
+            raise RuntimeError("Persisted product unavailable.")
+        return self._to_product(persisted)
+
+    async def update_metadata(self, sku: str, changes: dict) -> Product | None:
+        require_unique_sku_index(self.collection)
+        validate_metadata(changes)
+        values = {key: value.value if key == "category" else value for key, value in changes.items()}
+        document = self.collection.find_one_and_update(
+            {"sku": sku}, {"$set": values}, return_document=ReturnDocument.AFTER,
+            collation=Collation("simple"),
+        )
+        return self._to_product(document) if document is not None else None
 
     @staticmethod
     def _name_filter(name: str) -> dict:

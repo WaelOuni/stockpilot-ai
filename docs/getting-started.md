@@ -129,12 +129,23 @@ Start the backend normally; open `/admin/login` on Vite, log in and consult
 credentials and are not used by the admin Vue transport. The detail offers the
 next legal status transition and confirmed cancellation for CREATED/PROCESSING.
 These dedicated cookie-only routes require the exact Origin and the existing
-session-bound CSRF token. No arbitrary stock or product mutation is exposed.
+session-bound CSRF token. No arbitrary stock mutation is exposed.
 Uncertain outcomes are reread, never retried automatically.
 Missing/unsafe configuration fails closed
 without preventing the existing customer/public/technical routes from running.
 See [session security and single-process limitations](order-flow.md#demo-administrator-sessions-v2).
 See [V3 operations and isolated E2E](order-flow.md#operational-administrator-orders-v3).
+
+V4.1 adds `/admin/products`, `/admin/products/new` and
+`/admin/products/:sku/edit` to the same guarded admin navigation. Metadata only:
+SKU/name/category/finite nonnegative price on creation, immutable SKU and
+name/category/price on edit, stock always read-only and initially zero.
+No deletion/disable or stock adjustment. Renaming preserves referenced existing
+order restitution, but pending confirmations using the old name can fail.
+See [SKU provisioning and the exact blocked activation](database.md#product-metadata-administration-and-sku-activation-v41).
+The normal `stockpilot` database has not been migrated: missing exact unique
+SKU index intentionally blocks writes with 503. The preparation command is
+read-only unless explicitly authorized with `--apply --confirm-database`.
 
 ## Fresh application RAG database
 

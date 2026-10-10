@@ -37,8 +37,10 @@ and reject multiple matching documents even if only one has sufficient stock.
 The confirmation transaction decrements that document by Mongo `_id` and stores
 its native `_id` as `reserved_product_id` in the order document, atomically with
 order insertion. This persistence-only reference is not part of the domain
-entity, workflow state or public API. SKU is not used as a stock identity because
-there is no unique SKU index.
+entity, workflow state or public API. SKU is not used as a stock identity:
+V4.1 requires a unique SKU index for metadata administration, but does not
+replace the existing reserved BSON identity or change order transactions.
+The normal database's SKU index preparation remains pending.
 
 Cancellation restores stock only through the saved `_id`, including after a
 product rename. A missing referenced document or invalid reference fails without
@@ -46,6 +48,13 @@ falling back to a name or SKU. For legacy orders without this field, cancellatio
 requires exactly one candidate under the old reservation regex in the transaction
 snapshot, and that candidate must also match the complete name. An exact match
 alongside a similar name is not proof of the historical reservation identity.
+
+V4.1 metadata renaming leaves persisted order snapshots and checkpoints untouched.
+An already prepared confirmation still resolves its old product name and may
+fail after rename. No aliases, automatic pending-order rewrites or new rename
+business restriction are introduced. Legacy cancellations retain the stricter
+historical-name proof requirements above. Product stock is read-only in the UI
+and never changed by create/edit (creation starts at zero).
 Missing, nonexact or ambiguous matches fail before any stock, status or event
 mutation. Legacy reads remain unchanged. No migration or new index is required.
 

@@ -292,7 +292,7 @@ No scoring, accent folding, fuzzy matching, synonyms or RAG is involved.
 Read-only explain audit on the local three-product dataset found only `_id_` on
 products. Unfiltered, text, category, availability and combined queries all use
 COLLSCAN plus stable SKU/_id sort, examining 3 documents and 0 index keys.
-No index is added: this dataset gives no measured need, and unanchored
+No performance index was added by that audit: this dataset gives no measured need, and unanchored
 case-insensitive substring queries are not served efficiently by ordinary
 B-tree indexes. Re-evaluate category/sort indexes and pagination at larger scale,
 using representative explain results rather than adding speculative indexes.
@@ -326,8 +326,75 @@ curl --fail-with-body 'http://localhost:8000/products/E2E-BOSCH-X100'
 ```
 
 The E2E SKU example exists only in the isolated E2E database/server, not
-necessarily the normal development API. Product writes, stock reservation,
+necessarily the normal development API. Public reads, stock reservation,
 order confirmation, transactions and RAG remain unchanged.
+
+## Product metadata administration and SKU activation (V4.1)
+
+`GET /backoffice/products` and `GET /backoffice/products/{sku}` reuse catalogue
+reads, filters and authoritative `has_more`. Reads follow existing admin
+session-or-technical-token conventions. `POST /backoffice/products` creates
+only `sku`, `name`, `category`, `price`, with server-owned `stock=0`;
+`PATCH /backoffice/products/{sku}` accepts a nonempty subset of `name`,
+`category`, `price` only. Blank names/SKUs, null metadata, unknown categories,
+nonfinite/negative prices and extra fields are rejected. SKU is immutable:
+even resubmitting the same SKU in PATCH is forbidden. No DELETE, disable or
+stock-management operation exists.
+
+Mutations require a valid admin cookie, exactly the trusted Origin and the
+existing session-bound CSRF token. Any explicit Authorization is refused.
+Creation returns 201; edit 200, missing 404, duplicate SKU 409, technical
+failure sanitized 500, missing required index 503. Responses contain persisted
+public product values, never internal Mongo/order references.
+
+Every metadata update is one `find_one_and_update` with a whitelisted `$set`
+and the post-update document. It does not replace/upsert/delete a product or
+touch stock, SKU, `_id` or unknown fields. Concurrent stock increments/decrements
+are preserved. Existing orders keep their native `reserved_product_id` and
+snapshot product name. Cancellation with that reference remains safe after
+rename. Pending confirmations still resolve their prepared name and can fail
+after a rename; legacy cancellation identity limitations also remain.
+No aliases, name migration, checkpoint rewrite or workflow semantic change.
+
+### Required exact unique SKU index
+
+The core invariant requires a **full unique single ascending `sku` index with
+simple (case-sensitive) collation** (`products_sku_unique` when prepared here).
+A compound, partial, sparse, nonunique or case-insensitive index is insufficient.
+Both create and metadata edit inspect actual indexes before any write and fail
+closed if this prerequisite is absent. Reads remain usable.
+
+The preflight is not the concurrency guarantee: Mongo's unique constraint
+arbitrates inserts, and authoritative index creation rejects duplicates racing
+the preflight. Competing creates yield one persisted product and duplicate
+conflicts, not find-then-insert successes. Administrative removal of the index
+must not race writers; keep it provisioned and restrict index-management privileges.
+No speculative search/category/stock index is added.
+
+There is **no startup product index initialization**. The opt-in command defaults
+to read-only, requires an explicit database target and validates any database in
+the URI against it. It checks every SKU for invalid/missing/nonstring/blank values
+and counts duplicate exact strings without printing product data. Unsafe data
+blocks preparation; no data is deleted, merged, renamed or repaired silently.
+Conflicting existing indexes/build failures are refused, never dropped.
+
+```sh
+# Read-only inspection; does not create an index or mutate documents:
+.venv/bin/python scripts/prepare_product_sku_index.py --database stockpilot
+
+# OPERATOR PROCEDURE ONLY, after separate authorization and backup/data review.
+# NOT executed on the normal database during V4.1 implementation:
+.venv/bin/python scripts/prepare_product_sku_index.py \
+  --database stockpilot --apply --confirm-database stockpilot
+```
+
+**Normal development activation remains blocked.** Read-only preflight on
+10 October 2026 returned `invalid=0, duplicates=0`, but no qualifying unique
+SKU index. The operator procedure above still requires authorization; no normal
+database migration/index creation/write was executed. Code is provisioned and
+verified only on the authorized `stockpilot_e2e` stores. The existing isolated
+initializer prepares just this index after its exact Mongo/PostgreSQL guards and
+seed; production startup never calls it.
 
 ## Persistent LangGraph conversations
 
