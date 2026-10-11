@@ -120,6 +120,29 @@ def validate_jobs(results, sha, expected_sha):
             'All five mandatory CI jobs must succeed; skipped/cancelled are not success.')
 
 
+def verify_origin_tag(repository, tag, sha):
+    """Prove the annotation and exact commit from origin, not only cached local refs."""
+    require(SEMVER.fullmatch(tag) and SHA.fullmatch(sha), 'Invalid tag/SHA for origin verification.')
+    remote = git('remote', 'get-url', 'origin')
+    require(remote in (f'https://github.com/{repository}', f'https://github.com/{repository}.git'),
+            'Origin must be this GitHub repository, without embedded credentials.')
+    reference = f'refs/tags/{tag}'
+    advertised = {}
+    for line in git('ls-remote', '--exit-code', 'origin', reference, f'{reference}^{{}}').splitlines():
+        parts = line.split()
+        require(len(parts) == 2 and SHA.fullmatch(parts[0])
+                and parts[1] in (reference, f'{reference}^{{}}')
+                and parts[1] not in advertised, 'Invalid origin tag advertisement.')
+        advertised[parts[1]] = parts[0]
+    require(set(advertised) == {reference, f'{reference}^{{}}'},
+            'Annotated tag required on origin; missing/lightweight remote tag refused.')
+    require(advertised[f'{reference}^{{}}'] == sha, 'Origin tag commit differs from execution SHA.')
+    require(git('rev-parse', reference) == advertised[reference],
+            'Local tag object differs from origin; verify checkout uses the exact commit SHA.')
+    require(git('cat-file', '-t', reference) == 'tag', 'Annotated tag required.')
+    require(git('rev-parse', f'{reference}^{{commit}}') == sha, 'Tag commit differs from execution SHA.')
+
+
 def gate(environment, *, publishing=False):
     repository = environment.get('GITHUB_REPOSITORY', '')
     require(re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository), 'Invalid repository context.')
@@ -133,8 +156,7 @@ def gate(environment, *, publishing=False):
     sha = git('rev-parse', 'HEAD')
     require(SHA.fullmatch(sha) and sha == environment.get('GITHUB_SHA')
             and sha == environment.get('GITHUB_WORKFLOW_SHA'), 'Workflow, checkout and event SHA must match.')
-    require(git('cat-file', '-t', f'refs/tags/{tag}') == 'tag', 'Annotated tag required.')
-    require(git('rev-parse', f'refs/tags/{tag}^{{commit}}') == sha, 'Tag commit differs from execution SHA.')
+    verify_origin_tag(repository, tag, sha)
     git('merge-base', '--is-ancestor', sha, 'origin/main')
     # Historical main commits may use an obsolete publication policy. Only the
     # currently approved pipeline is eligible; application source stays at the tag SHA.

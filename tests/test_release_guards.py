@@ -14,6 +14,7 @@ from scripts.ci import release_guard as guard
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = 'a' * 40
+TAG_OBJECT = 'c' * 40
 REPO = 'test/repo'
 TAG = 'v0.1.0'
 
@@ -45,10 +46,15 @@ def context(monkeypatch):
         responses['git_calls'].append(args)
         if args == ('rev-parse', 'HEAD'):
             return SHA
+        if args == ('remote', 'get-url', 'origin'):
+            return f'https://github.com/{REPO}.git'
+        if args[0] == 'ls-remote':
+            reference = args[-2]
+            return f'{TAG_OBJECT}\t{reference}\n{SHA}\t{reference}^{{}}'
         if args[0] == 'cat-file':
             return 'tag'
         if args[0] == 'rev-parse':
-            return SHA
+            return SHA if args[1].endswith('^{commit}') else TAG_OBJECT
         return ''
 
     def api(path, **kwargs):
@@ -298,6 +304,10 @@ def test_workflow_permissions_ref_and_ci_contract():
     assert config['on']['workflow_dispatch']['inputs']['publish']['default'] == 'false'
     assert set(config['on']['workflow_dispatch']['inputs']) == {'tag', 'publish', 'confirmation'}
     assert config['permissions'] == {'contents': 'read'}
+    checkout = config['jobs']['gate']['steps'][0]['with']
+    assert checkout['ref'] == '${{ github.sha }}'
+    assert checkout['fetch-depth'] == '0'
+    assert checkout['persist-credentials'] == 'false'
     assert config['concurrency']['group'] == 'stockpilot-release'
     for name, job in config['jobs'].items():
         if name != 'publish':
