@@ -1,3 +1,20 @@
+# Référence DEMO versionnée et workspace persistant
+
+Le générateur et son hash vérifient le seed, pas les valeurs courantes de la base
+métier. Les produits du seed sont modifiables par les API autorisées ; les
+commandes et mouvements peuvent évoluer/être ajoutés. Le manifeste d’origine
+reste immuable. Le lanceur utilise désormais des contrôles structurels et
+l’identité des stores, sans exiger l’égalité de tous les champs métier au seed.
+Une seule base physique `stockpilot_demo` est conservée.
+
+Voir [le runbook courant](demo-runbook.md) et [le rapport de correction](demo-lifecycle-validation.md).
+Le validateur strict de seed reste utilisé lors de l’initialisation et pour les
+anciens audits de référence. Les inventaires et consignes d’audit ci-dessous
+sont des instantanés historiques V6/V7 ; ils ne restreignent pas l’utilisation
+normale actuelle de la DEMO.
+
+---
+
 # Synthetic demo dataset: initialization and measured read verification
 
 **Synthetic demo only — not commercial orders, customers, or inventory.**
