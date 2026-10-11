@@ -220,6 +220,56 @@ reconnecting. Switching/disconnecting the token resets the conversation/thread,
 clears order data and aborts old requests. An invalid token is rejected by the
 backend; the panel does not claim to validate it.
 
+## Optional local DEV auto-login
+
+Disabled by default. In a terminal at the repository root, load the same private
+DEV environment as FastAPI, then launch Vite:
+
+```sh
+source scripts/dev-env.sh
+cd frontend
+VITE_DEV_AUTO_LOGIN=true npm run dev
+```
+
+Vite prints a **private local launch link** whose fragment contains a random,
+per-launch access key. Open that exact link on the same machine. It is not a JWT
+and is never injected in HTML, served JavaScript, build output, or network URLs.
+Treat the fragment and local startup output as credentials: do not share or upload
+them. Browser history may retain the fragment; it expires with the process or
+the one-hour token lifetime. No credential is put in browser storage or cookies.
+The fragment follows customer navigation so refreshing can reconnect.
+
+The backend must run separately on loopback port 8000 with the same
+CUSTOMER_JWT_SECRET. The existing Python generator signs a one-hour JWT for the
+fixed test identity `local-client-a`. No customer is created and no database is
+accessed by token generation. Use this identity only for DEV test data.
+
+The HTML contains **no JWT**. Before mounting Vue, the local browser retrieves
+the already-generated JWT via a POST requiring the per-launch key, exact local
+Origin and same-origin browser Fetch Metadata. The response is no-store, uses
+no cookies, and is kept only in memory. Invalid configuration/key/origin or an
+expired process fails closed; the manual JWT panel remains. Stop and restart
+Vite, then open its new local link to renew. Admin routes skip this retrieval.
+
+Only HTTP origins 127.0.0.1:5173 and localhost:5173 are accepted. Vite must bind
+127.0.0.1 with strict port 5173; peer, Host, Origin and proxy headers are checked.
+LAN binding, HTTPS, external proxy/API URLs, DEMO, E2E, non-development modes and
+builds with the flag are refused. The mode requires a modern browser sending
+Fetch Metadata. Missing authentication headers do not grant credentials.
+
+**Do not expose this dev server through a tunnel or reverse proxy.** Loopback is
+not proof of the original caller: a proxy can rewrite headers. A forwarded caller
+still needs the out-of-band launch key, which the HTML never discloses. A malicious
+local process or extension that knows the key/signing secret is outside this
+protection; origin/forwarded-header checks alone cannot detect a proxy that strips
+or forges everything. This feature is exclusively local DEV, not remote DEMO auth.
+Admin cookie sessions and CSRF, FastAPI signature/expiration and ownership remain
+unchanged. No background renewal or public unauthenticated JWT minting API exists.
+
+To disable, stop Vite and run `VITE_DEV_AUTO_LOGIN=false npm run dev` (or remove the
+flag, keeping the example default false). The normal manual JWT panel remains.
+Do not put signing secrets or JWTs in VITE_* variables or commit private env files.
+
 ## Structure
 
 ```text

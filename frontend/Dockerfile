@@ -2,7 +2,7 @@ FROM node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18
 WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
-COPY frontend/index.html frontend/tsconfig*.json frontend/vite.config.ts ./
+COPY frontend/index.html frontend/tsconfig*.json frontend/vite.config.ts frontend/devAutoLogin.ts ./
 COPY frontend/src ./src
 ENV VITE_API_BASE_URL=/api
 RUN npm exec vue-tsc -- --project tsconfig.production.json && npm exec vite -- build

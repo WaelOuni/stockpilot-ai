@@ -2,6 +2,8 @@
 """Create a short-lived HS256 customer token for local/demo use."""
 
 import argparse
+import os
+from urllib.parse import urlsplit
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -30,13 +32,26 @@ def main() -> int:
         metavar="SECONDS",
         help="Token lifetime in seconds, from 1 to 86400 (default: 3600)",
     )
+    parser.add_argument("--dev-auto-login", action="store_true", help="Require isolated local DEV configuration")
     args = parser.parse_args()
     try:
         validate_customer_id(args.customer_id)
     except ValueError:
         parser.error("customer_id must be a nonblank string")
 
-    configured = Settings().customer_jwt_secret
+    settings = Settings()
+    if args.dev_auto_login:
+        mongo_target = urlsplit(settings.mongo_uri)
+        if (settings.deployment_environment != "development"
+                or settings.mongo_database != "stockpilot"
+                or mongo_target.scheme != "mongodb"
+                or mongo_target.hostname not in {"localhost", "127.0.0.1", "::1"}
+                or os.environ.get("STOCKPILOT_DEMO_ENV_DIR")
+                or os.environ.get("E2E_CUSTOMER_JWT_SECRET")
+                or args.customer_id != "local-client-a"
+                or args.expires_in > 3600):
+            parser.error("Auto-login requires local DEV, stockpilot, local-client-a and TTL <= 3600")
+    configured = settings.customer_jwt_secret
     secret = configured.get_secret_value() if configured is not None else None
     if secret is None or len(secret.encode("utf-8")) < 32:
         parser.error("CUSTOMER_JWT_SECRET must contain at least 32 UTF-8 bytes")
