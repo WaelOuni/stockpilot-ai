@@ -163,6 +163,18 @@ n'est ajouté au workflow pour cette seule lecture.
 
 ### Validations et permissions
 
+Le checkout du gate utilise explicitement `github.sha` avec l'historique complet.
+Le checkout épinglé peut sinon comparer le SHA de l'objet tag annoté au SHA du
+commit, puis remplacer la référence locale par le commit lors d'un second fetch.
+Le guard exige aussi les deux références annoncées par `origin` (objet tag et
+commit résolu), vérifie le dépôt distant, puis compare l'objet et le commit locaux.
+Un tag léger, absent, inaccessible, divergent ou uniquement local est refusé.
+
+Un tag déjà créé conserve son workflow et son guard historiques. Relancer un run
+sur ce tag ne charge pas un correctif ultérieur de main. Après intégration d'un
+correctif du pipeline, un nouveau tag/version approuvé est nécessaire ; ne pas
+déplacer, supprimer ou recréer un tag existant pour appliquer ce correctif.
+
 `gate` est en lecture seule. La CI réutilisable reçoit le SHA exact et tous ses
 checkouts l'utilisent. Un agrégat `release-validation` exige le résultat `success`
 de chacun des cinq jobs : backend-quality, eval-framework, frontend-quality,
