@@ -18,9 +18,9 @@ from pymongo.errors import PyMongoError
 
 from stockpilot.demo_dataset import DEFAULT_SEED, DEMO_DATABASE, generate_demo_dataset
 from stockpilot.demo_persistence import (
-    demo_content_summary, guarded_database, validate_demo_target, validate_existing_schema,
-    verify_content,
+    guarded_database, validate_demo_target, validate_existing_schema,
 )
+from stockpilot.demo_workspace import workspace_summary as demo_content_summary
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
 from stockpilot.infrastructure.persistence.mongodb.product_repository import MongoProductRepository
@@ -337,10 +337,8 @@ def main(argv=None):
             socketTimeoutMS=15000, appname="stockpilot-demo-read-verifier", event_listeners=[audit],
         ) as client:
             database = guarded_database(client, args.database)
-            validate_existing_schema(database, complete=True)
+            validate_existing_schema(database, complete=True, workspace=True)
             before = demo_content_summary(database, dataset)
-            if verify_content(database, dataset) != "complete":
-                raise ValueError("Demo dataset must be initialized before read verification.")
             report = {
                 "measured_at": datetime.now(timezone.utc).isoformat(),
                 "database": database.name, "dataset_id": dataset.dataset_id,
@@ -356,7 +354,7 @@ def main(argv=None):
                 "explain": explain_reads(database, dataset.products[0]["sku"], dataset.orders[0]["customer_id"]),
             }
             after = demo_content_summary(database, dataset)
-            if after["reference"] != before["reference"] or after["test_fixtures"] != before["test_fixtures"]:
+            if after != before:
                 raise ValueError("Dataset changed during read verification.")
             report["content_after"] = after
         forbidden = set(audit.counts) - {

@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 import importlib.util
 import os
 from pathlib import Path
@@ -57,6 +58,7 @@ def launcher(monkeypatch):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("MONGO_URI", "mongodb://localhost/?replicaSet=rs0")
     module = load_script("run_demo")
+    monkeypatch.setattr(module, "managed_demo", lambda settings: nullcontext(module.preflight_demo(settings)))
     monkeypatch.setattr("scripts.prepare_demo_postgres.demo_uri", lambda: "postgresql://localhost/stockpilot_demo")
     return module
 

@@ -12,13 +12,12 @@ from pymongo.errors import PyMongoError
 
 from stockpilot.demo_dataset import DEFAULT_SEED, DEMO_DATABASE, generate_demo_dataset
 from stockpilot.demo_persistence import (
-    demo_content_summary,
     guarded_database,
     validate_demo_target,
     validate_existing_schema,
-    verify_content,
 )
 from stockpilot.infrastructure.config.settings import Settings
+from stockpilot.demo_workspace import workspace_summary, WORKSPACE_STATE_ID
 
 
 CHECKPOINT_TABLES = {
@@ -254,7 +253,7 @@ def _verify_postgres_uri(
 
 
 def preflight_demo(settings: Settings) -> DemoPreflight:
-    """Verify the current Mongo fixture and existing PostgreSQL schemas without writes."""
+    """Verify the mutable Mongo workspace and existing PostgreSQL schemas without writes."""
     checkpoint_uri = validate_demo_targets(settings)
     dataset = generate_demo_dataset(DEFAULT_SEED)
     try:
@@ -277,10 +276,11 @@ def preflight_demo(settings: Settings) -> DemoPreflight:
             if config.get("settings", {}).get("replicaSetId") != expected_mongo_identity:
                 raise ValueError("Unexpected Mongo demo server; details withheld.")
             database = guarded_database(client, DEMO_DATABASE)
-            validate_existing_schema(database, complete=True)
-            summary = demo_content_summary(database, dataset)
-            if verify_content(database, dataset) != "complete":
-                raise ValueError("The immutable Mongo demo fixture is not complete.")
+            validate_existing_schema(database, complete=True, workspace=True)
+            summary = workspace_summary(database, dataset)
+            lifecycle = database['demo_manifests'].find_one({'_id': WORKSPACE_STATE_ID})
+            if lifecycle and lifecycle.get('mongo_identity') != str(expected_mongo_identity):
+                raise ValueError('DEMO lifecycle marker belongs to another Mongo instance.')
     except PyMongoError:
         raise ValueError("Mongo demo preflight failed; connection details are withheld.") from None
 
@@ -290,6 +290,8 @@ def preflight_demo(settings: Settings) -> DemoPreflight:
         expected_postgres_identity = postgres_server_identity(demo_uri())
     except psycopg.Error:
         raise ValueError("PostgreSQL reference identity verification failed; details withheld.") from None
+    if lifecycle and lifecycle.get('postgres_identity') != expected_postgres_identity:
+        raise ValueError('DEMO lifecycle marker belongs to another PostgreSQL instance.')
     postgres_targets = [(settings.postgres_url, checkpoint_uri == settings.postgres_url, True)]
     if checkpoint_uri != settings.postgres_url:
         postgres_targets.append((checkpoint_uri, True, False))

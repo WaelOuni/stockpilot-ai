@@ -19,7 +19,8 @@ from psycopg.conninfo import make_conninfo
 from pymongo import MongoClient
 
 from stockpilot.demo_dataset import DEFAULT_SEED, generate_demo_dataset
-from stockpilot.demo_persistence import demo_content_summary, guarded_database
+from stockpilot.demo_persistence import guarded_database
+from stockpilot.demo_workspace import workspace_summary as demo_content_summary
 from stockpilot.demo_runtime import (
     preflight_demo, resolve_demo_settings, demo_connection_environment,
 )
