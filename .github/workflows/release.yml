@@ -40,6 +40,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          # Fetch full history without checkout's tag/commit comparison fallback,
+          # which can replace an annotated local tag ref with the peeled commit.
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - id: gate
