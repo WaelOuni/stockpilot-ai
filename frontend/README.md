@@ -220,6 +220,40 @@ reconnecting. Switching/disconnecting the token resets the conversation/thread,
 clears order data and aborts old requests. An invalid token is rejected by the
 backend; the panel does not claim to validate it.
 
+## Optional local DEV auto-login
+
+Disabled by default. In a terminal at the repository root, load the same private
+DEV environment as FastAPI, then launch Vite:
+
+```sh
+source scripts/dev-env.sh
+cd frontend
+VITE_DEV_AUTO_LOGIN=true npm run dev
+```
+
+Open **http://127.0.0.1:5173** (or http://localhost:5173). The backend must run
+separately on loopback port 8000 with the same CUSTOMER_JWT_SECRET. The existing
+Python generator signs a one-hour JWT for the fixed test identity `local-client-a`.
+No customer is created and no database is accessed by token generation. Choose
+this mode only when that test identity is appropriate for your DEV data.
+
+The JWT stays in Vite process memory and transient local HTML, then Vue memory.
+Refresh reconnects to the same client; explicit disconnect remains effective until
+refresh. It is not stored in a file, browser storage, cookie, URL or production
+bundle. Once expired, FastAPI rejects it normally: stop and restart Vite to renew.
+There is no background renewal or unauthenticated token-generation API.
+
+Only the two HTTP origins above are accepted; Vite binds 127.0.0.1 with strict
+port 5173 and checks peer, Host, Origin and Fetch Metadata. LAN exposure, external
+proxy/API URLs, DEMO, E2E, non-development modes and builds with this flag are
+refused. Do not expose this dev server through a tunnel or reverse proxy. Trusted
+local processes and browser extensions can read a local bearer token; use only a
+test client. Admin login still requires its normal cookie session and CSRF.
+
+To disable, stop Vite and run `VITE_DEV_AUTO_LOGIN=false npm run dev` (or remove the
+flag, keeping the example default false). The normal manual JWT panel remains.
+Do not put signing secrets or JWTs in VITE_* variables or commit private env files.
+
 ## Structure
 
 ```text
