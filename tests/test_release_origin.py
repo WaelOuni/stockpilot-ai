@@ -48,11 +48,14 @@ def test_origin_proof_refuses_unverifiable_tags(monkeypatch, boundary):
 
 @pytest.mark.parametrize('kind', ['annotated', 'lightweight', 'wrong_commit', 'checkout_flattened'])
 def test_origin_tag_with_real_git_objects(tmp_path, monkeypatch, kind):
-    """Import existing commits; no new commits and no changes to real repository tags."""
+    """All synthetic objects stay in tmp_path; repository commits/tags are untouched."""
     remote = tmp_path / 'origin.git'
     runner = tmp_path / 'runner'
 
     def run(directory, *args, data=None):
+        # CI's source checkout has depth 1. Accept its boundary only in fixtures.
+        if args[0] == 'fetch':
+            args = ('fetch', '--update-shallow', *args[1:])
         return subprocess.run(['git', '-C', str(directory), *args], input=data,
                               check=True, text=True, capture_output=True, timeout=30).stdout.strip()
 
@@ -60,8 +63,21 @@ def test_origin_tag_with_real_git_objects(tmp_path, monkeypatch, kind):
     runner.mkdir()
     run(remote, 'init', '--bare')
     run(remote, 'fetch', '--no-tags', str(ROOT), 'HEAD')
-    sha = run(remote, 'rev-parse', 'FETCH_HEAD')
-    target = run(remote, 'rev-parse', f'{sha}^') if kind == 'wrong_commit' else sha
+    sha = run(ROOT, 'rev-parse', '--verify', 'HEAD^{commit}')
+    assert guard.SHA.fullmatch(sha)
+    assert run(remote, 'cat-file', '-t', sha) == 'commit'
+    target = sha
+    if kind == 'wrong_commit':
+        # ROOT's real parent may not exist in a shallow checkout. Make a distinct
+        # test commit with the imported commit as its available parent instead.
+        tree = run(remote, 'rev-parse', '--verify', f'{sha}^{{tree}}')
+        body = (f'tree {tree}\nparent {sha}\n'
+                'author Test Fixture <test@example.invalid> 1700000000 +0000\n'
+                'committer Test Fixture <test@example.invalid> 1700000000 +0000\n\nWrong commit\n')
+        target = run(remote, 'hash-object', '-w', '-t', 'commit', '--stdin', data=body)
+        assert guard.SHA.fullmatch(target) and target != sha
+        assert run(remote, 'cat-file', '-t', target) == 'commit'
+        assert run(remote, 'rev-parse', '--verify', f'{target}^') == sha
     if kind == 'lightweight':
         tag_object = target
     else:
