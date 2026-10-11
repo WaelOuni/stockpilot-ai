@@ -1,3 +1,6 @@
+import re
+from stockpilot.application.dto.order_page import OrderPage
+from stockpilot.infrastructure.persistence.mongodb.pagination import read_page
 import logging
 from stockpilot.observability import event
 from datetime import datetime, timezone
@@ -59,6 +62,15 @@ class MongoOrderRepository(OrderRepositoryPort):
     async def find_by_order_id(self, order_id: str) -> Order | None:
         document = self.collection.find_one({"order_id": order_id})
         return self._to_order(document) if document is not None else None
+
+    async def list_page(self, limit: int, offset: int, *, customer_id: str | None = None, q: str | None = None) -> OrderPage:
+        query = {"customer_id": customer_id} if customer_id is not None else {}
+        if q and q.strip():
+            literal = {"$regex": re.escape(q.strip()), "$options": "i"}
+            query["$or"] = [{field: literal} for field in ("order_id", "product_name", "customer_id")]
+        documents, total = read_page(self.collection, query,
+            [("created_at", -1), ("order_id", -1), ("_id", -1)], limit, offset)
+        return OrderPage([self._to_order(doc) for doc in documents], total, offset + len(documents) < total)
 
     async def find_all(self, limit: int, offset: int) -> list[Order]:
         cursor = (

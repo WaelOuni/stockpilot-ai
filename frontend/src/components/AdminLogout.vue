@@ -22,6 +22,7 @@ async function logout() {
 </script>
 <template>
   <button
+    class="admin-logout"
     :disabled="loading"
     @click="logout"
   >

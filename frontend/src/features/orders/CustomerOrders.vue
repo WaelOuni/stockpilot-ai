@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Pagination from "../../components/BasePagination.vue"
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { listCustomerOrders } from '../../api/client'
 import ApiErrorNotice from '../../components/ApiErrorNotice.vue'
@@ -29,6 +30,10 @@ async function load(nextOffset = offset.value) {
   try {
     const result = await listCustomerOrders(limit, nextOffset, request.signal)
     if (request.signal.aborted) return
+    if (result.total !== undefined && nextOffset > 0 && nextOffset >= result.total) {
+      void load(Math.max(0, Math.floor((result.total - 1) / limit) * limit))
+      return
+    }
     page.value = result
     offset.value = nextOffset
   } catch (cause) {
@@ -113,27 +118,15 @@ onBeforeUnmount(() => { controller?.abort() })
         </article>
       </div>
     </template>
-    <div
+    <Pagination
       v-if="customerToken"
-      class="pagination"
-    >
-      <button
-        type="button"
-        class="secondary"
-        :disabled="loading || offset === 0"
-        @click="load(Math.max(0, offset - limit))"
-      >
-        Precedent
-      </button>
-      <span>Page {{ Math.floor(offset / limit) + 1 }}<template v-if="page"> · {{ page.count }} commande(s)</template></span>
-      <button
-        type="button"
-        class="secondary"
-        :disabled="loading || !page || page.count < limit"
-        @click="load(offset + limit)"
-      >
-        Suivant
-      </button>
-    </div>
+      :offset="offset"
+      :total="page?.total"
+      :count="page?.count"
+      :has-more="page ? page.has_more ?? page.count >= limit : false"
+      :loading="loading"
+      label="commandes"
+      @change="load"
+    />
   </section>
 </template>

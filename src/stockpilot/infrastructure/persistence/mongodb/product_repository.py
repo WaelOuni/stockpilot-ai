@@ -1,3 +1,5 @@
+from stockpilot.infrastructure.persistence.mongodb.pagination import read_page
+from stockpilot.application.dto.advice_criteria import AdviceCriteria
 import re
 from datetime import datetime, timezone
 
@@ -147,6 +149,7 @@ class MongoProductRepository(ProductRepositoryPort):
     async def list_products(
         self, limit: int, offset: int, *, q: str | None = None,
         category: ProductCategory | None = None, available: bool | None = None,
+        include_total: bool = False,
     ) -> ProductPage:
         query = {}
         if q is not None and q.strip():
@@ -156,12 +159,41 @@ class MongoProductRepository(ProductRepositoryPort):
             query["category"] = category.value
         if available is not None:
             query["stock"] = {"$gt" if available else "$lte": 0}
+        if include_total:
+            documents, total = read_page(self.collection, query, [("sku", 1), ("_id", 1)], limit, offset)
+            return ProductPage([self._to_product(doc) for doc in documents], offset + len(documents) < total, total)
         cursor = self.collection.find(query).sort([("sku", 1), ("_id", 1)]).skip(offset).limit(limit + 1)
         documents = list(cursor)
         return ProductPage(
             items=[self._to_product(document) for document in documents[:limit]],
             has_more=len(documents) > limit,
         )
+
+    async def find_advice_candidates(self, criteria: AdviceCriteria) -> list[Product]:
+        query = {"price": {"$gte": 0}}
+        if criteria.maximum is not None:
+            query["price"]["$lt" if criteria.exclusive_maximum else "$lte"] = criteria.maximum
+        if criteria.minimum is not None:
+            query["price"]["$gte"] = criteria.minimum
+        if criteria.category is not None:
+            query["category"] = criteria.category.value
+        if criteria.available is not None:
+            query["stock"] = {"$gt" if criteria.available else "$lte": 0}
+        documents = self.collection.find(query).sort([
+            ("price", 1), ("sku", 1), ("_id", 1),
+        ]).limit(criteria.limit)
+        products = []
+        for document in documents:
+            if (isinstance(document["price"], bool)
+                    or not isinstance(document["price"], (int, float))
+                    or isinstance(document["stock"], bool)
+                    or not isinstance(document["stock"], int) or document["stock"] < 0):
+                raise ValueError("Malformed catalogue facts; advice refused.")
+            product = self._to_product(document)
+            if not product.sku.strip() or not product.name.strip() or not criteria.matches(product):
+                raise ValueError("Invalid catalogue candidate; advice refused.")
+            products.append(product)
+        return products
 
     async def find_by_sku(self, sku: str) -> Product | None:
         documents = list(self.collection.find({"sku": sku}).limit(2))
@@ -213,8 +245,12 @@ class MongoProductRepository(ProductRepositoryPort):
         return self._to_stock_movement(document) if document is not None else None
 
     async def list_stock_movements(
-        self, sku: str, limit: int, offset: int,
+        self, sku: str, limit: int, offset: int, *, include_total: bool = False,
     ) -> StockMovementPage:
+        if include_total:
+            documents, total = read_page(self.database["stock_movements"], {"product_sku": sku},
+                [("occurred_at", -1), ("movement_id", -1), ("_id", -1)], limit, offset, {"_id": 0, "product_id": 0})
+            return StockMovementPage([self._to_stock_movement(doc) for doc in documents], offset + len(documents) < total, total)
         documents = list(
             self.database["stock_movements"].find(
                 {"product_sku": sku},

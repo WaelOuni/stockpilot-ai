@@ -49,6 +49,7 @@ from stockpilot.presentation.api.routes.chat import router as chat_router
 from stockpilot.presentation.api.routes.health import router as health_router
 from stockpilot.presentation.api.routes.orders import router as orders_router
 
+from stockpilot.application.use_cases.catalogue_advice import CatalogueAdviceUseCase
 from stockpilot.application.use_cases.recommend_product import RecommendProductUseCase
 
 from stockpilot.infrastructure.embeddings.ollama_embedding_adapter import (
@@ -84,6 +85,7 @@ async def lifespan(app: FastAPI):
             checkpointer=checkpointer,
             get_order_status=get_order_status_use_case,
             resolve_context=context_resolution_use_case,
+            catalogue_advice=catalogue_advice_use_case,
         )
         try:
             yield
@@ -143,6 +145,7 @@ list_customer_orders_use_case = ListCustomerOrdersUseCase(order_repository)
 context_resolution_use_case = ContextResolutionUseCase()
 get_customer_order_use_case = GetCustomerOrderUseCase(order_repository)
 
+catalogue_advice_use_case = CatalogueAdviceUseCase(product_repository, ollama)
 recommend_product_use_case = RecommendProductUseCase(
     embedding_adapter,
     knowledge_repository,

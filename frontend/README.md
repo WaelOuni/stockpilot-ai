@@ -28,8 +28,7 @@ are stored in localStorage/sessionStorage or URLs. Only CSRF lives in module
 memory. Logout invalidates the server session, not merely the displayed UI.
 
 Lists show all owners, nullable legacy owner, product/quantity/date/status,
-loading/error/empty states and offset pagination (20). A full last page may lead
-to an empty page because V1 has no total/has_more. Detail uses the existing
+loading/error/empty states and offset pagination (20). The UI requests exact totals and `has_more` with `include_total=true`, while the legacy API shape remains available. Detail uses the existing
 badge/timeline and records only server events. Detail offers the next legal
 transition and explicit cancellation confirmation for CREATED/PROCESSING.
 Pending operations disable mutations/refresh. Success replaces status/events
@@ -61,7 +60,7 @@ different instants; the dashboard is not a transactional snapshot or full audit.
 
 The same navigation/guard protects `/admin/products`, `/admin/products/new` and
 `/admin/products/:sku/edit`. List shows metadata/read-only stock, loading,
-errors/empty/refresh and offset pagination driven only by catalogue `has_more`.
+errors/empty/refresh and offset pagination with exact filtered totals and `has_more`.
 Create accepts SKU/name/category/finite nonnegative price and initializes server
 stock to zero. Edit sends only name/category/price and shows immutable SKU.
 No DELETE, disable, stock input, UI library or global store.
@@ -229,7 +228,7 @@ src/
   components/          Demo JWT panel and shared error notice
   features/assistant/  Session-local transcript, thread and conversation UI
   features/orders/     Customer history and offset pagination
-  pages/               Assistant and My Orders page shells
+  pages/               Assistant and Mes commandes page shells
   router/              /assistant, /orders and /orders/:orderId
   types/               Backend request/response and enum contracts
   utils/               In-memory token and display formatters
@@ -241,9 +240,9 @@ src/
 No Pinia is needed: a small reactive assistant session survives route navigation.
 Orders reload on page entry and through the refresh button. All history states,
 including CANCELLED, are shown. Pagination uses limit 20 and offset increments of
-20; `count` is the page size, not a total. A full last page can lead to an empty
-next page because the customer orders API has no `has_more` field. The product
-catalogue has a separate `has_more` contract and does not use this heuristic.
+20; `count` is the page size, not a total. With `include_total=true`, paginated
+responses additionally expose the exact `total` and `has_more`; existing API
+clients can continue using the unchanged default response.
 
 Each history card and identified assistant summary links to its detail page.
 The page loads the current owned order directly through the customer API, not
@@ -288,9 +287,9 @@ Pydantic response DTO. Types are based on `schemas/chat.py`, `schemas/order.py`,
 needed to start rendering, not a complete generated runtime schema.
 Assistant text is rendered as escaped plain text, not HTML or Markdown.
 Structured response cards supplement that text: pending orders offer Confirm
-and Cancel buttons, confirmed orders show their identifier and a My Orders link,
+and Cancel buttons, confirmed orders show their identifier and a Mes commandes link,
 insufficient stock shows the requested quantity, and FOUND status lookups show a
-badge for the exact supported status. My Orders uses the same status badge.
+badge for the exact supported status. Mes commandes uses the same status badge.
 Cards remain in the local transcript; only the latest eligible preparation can
 be acted on. Buttons send `Oui je confirme` or `Non annule` through `/assistant`
 in the current thread, never a back-office request. Old cards, in-flight requests
@@ -300,7 +299,7 @@ The API does not provide structured available stock or product/quantity in
 ORDER_STATUS; those values are not guessed from prose or stale workflow fields.
 The insufficient-stock card points to the response text for availability.
 The status card shows only the queried ID/status. A creation summary uses its
-confirmed pending-order payload and ID, and links to My Orders for current status
+confirmed pending-order payload and ID, and links to Mes commandes for current status
 instead of inventing a lifecycle field absent from that response.
 ORDER remains conversational: enter the requested product/quantity, then follow
 the backend's explicit confirmation prompt in the same thread.
@@ -315,10 +314,10 @@ history/status before submitting another confirmation.
 `/products` lists Mongo products in stable SKU order with limit 20 and offset
 pagination. `/products/:sku` displays name, SKU, category, price and stock.
 The list response retains `items`, `limit`, `offset` and `count` (page size)
-and includes `has_more`. Mongo reads one extra document after filtering and
-offset in the same query; only `limit` products are exposed. The catalogue
-enables Suivant only when `has_more` is true, including for a full last page.
-Customer order history pagination is unchanged.
+and includes `has_more`. The UI opts into `include_total=true`: a filtered
+Mongo `$facet` returns bounded items and the exact total in one aggregation.
+Legacy requests retain the extra-document approach. Customer order history
+also exposes exact owner-scoped totals when requested.
 The backend exposes only these operational fields; no description, image or
 currency is invented (the current model stores a numeric price without a
 currency field). Availability is derived from stock > 0 and remains a snapshot.
@@ -334,11 +333,11 @@ the draft may appear in browser history and can be edited before sending.
 No cart, payment, catalogue recommendations or new RAG ingestion
 is implemented. Unknown SKU returns 404; malformed catalog data fails explicitly.
 
-The catalogue has explicit-submit filters: literal case-insensitive text in name
+The catalogue supports debounced search and explicit-submit combined filters: literal case-insensitive text in name
 or SKU (`q`, max 100 characters), exact domain category and availability
-(`true`: stock > 0; `false`: stock <= 0). Editing fields makes no request until
-Rechercher is clicked. All fields are applied together and reset offset to zero.
-The URL is the source of applied state (`q`, `category`, `available`, `offset`);
+(`true`: stock > 0; `false`: stock <= 0). Text searches apply after 400 ms;
+Rechercher applies every field immediately. All fields are applied together and reset offset to zero.
+The URL is the source of applied state (`q`, `category`, `available`, `offset`, `limit`);
 refresh/back navigation restores it, and pagination preserves it. Reset clears
 both submitted filters and unsent drafts. Invalid URL criteria show an error,
 not silently broadened results. Filtered empty pages show a criteria-specific
@@ -363,7 +362,7 @@ The isolated browser E2E first checks combined search/category/availability,
 reset and URL restoration with Bosch X100 (DRILL, stock 10), Makita D200
 (DRILL, stock 0) and Bosch S500 (SAW, stock 5). It then opens Bosch X100, clicks
 Commander, sends the prefilled draft and uses the existing confirmation UI before
-checking My Orders, order detail and ORDER_STATUS.
+checking Mes commandes, order detail and ORDER_STATUS.
 
 ```sh
 npm run build
@@ -465,7 +464,7 @@ The order scenario connects through the UI, sends the catalogue draft
 `Commande-moi 1 Bosch X100`,
 checks preparation and explicit confirmation, clicks **Confirmer** (sending
 `Oui je confirme`), checks
-the created order directly in Mongo, opens My Orders and the CREATED detail page,
+the created order directly in Mongo, opens Mes commandes and the CREATED detail page,
 checks its timeline and manual refresh, then returns to Assistant
 and asks `Quel est le statut de ma dernière commande ?`. It checks that all
 assistant requests share the same generated thread, that the listing displays
@@ -502,7 +501,7 @@ The page performs a GET to reconcile the true status; another action is offered
 only after a successful read. Failed reconciliation requires manual Actualiser.
 Changing JWT, changing route or unmounting aborts outstanding requests and ignores
 their stale results, but cannot undo a server-side transaction already committed.
-My Orders reads CANCELLED naturally on its next load. No payment/refund logic,
+Mes commandes reads CANCELLED naturally on its next load. No payment/refund logic,
 new library or back-office client capability is introduced.
 
 ### Reset safety
@@ -543,3 +542,42 @@ An HTTP 500 on the first assistant message can indicate an unreachable Ollama,
 even if `/health` returns 200. On WSL, `localhost:11434` and the Windows host
 address are not necessarily interchangeable; check the existing backend
 `scripts/dev-env.sh` configuration rather than modifying frontend contracts.
+
+
+## V9 UI/UX overhaul
+
+The shared design uses a light surface, indigo navigation/actions, 4 px spacing,
+44 px controls, a responsive header and a dedicated admin sidebar. Existing
+cards, error notices, timelines and confirmation flows reuse the common styles.
+Public/admin products support combined literal name/SKU, category and availability
+filters. Admin orders search literal substrings of order ID, product and customer ID.
+Search is debounced by 400 ms; route changes abort pending reads and discard stale
+responses. Product filters and pagination remain in the URL, including the public
+10/20/50/100 page size. Changed filters reset the offset; invalid/outdated offsets
+are validated or brought back to the last available page.
+
+Pagination requests `include_total=true`; default API responses remain compatible.
+`total` and bounded items share one Mongo `$match`/`$facet`; no frontend full scan,
+index activation, migration or workflow change is introduced. Stable sorts include
+`_id` as a final tie-breaker. Totals refresh with each read after filters/mutations;
+separate pages are live views, not a cross-page database snapshot.
+
+Run the existing browser suite without resetting or seeding retained stores:
+
+```sh
+# Root; preserve the private local environment without printing it.
+source scripts/dev-env.sh >/dev/null
+cd frontend
+E2E_NO_RESET=1 PYTHONDONTWRITEBYTECODE=1 npm run test:e2e
+PYTHONDONTWRITEBYTECODE=1 npx playwright test --config playwright.visual.config.ts
+```
+
+The visual configuration always uses the guarded existing `stockpilot_e2e` stores.
+The interaction scenario appends a uniquely owned 23-product CSV batch through the
+real authenticated UI to test several pages; it never resets existing data. All
+screens are captured at 1440/768/390 px. Credentials/JWTs are never captured filled.
+The existing suite retains its original reset mode when `E2E_NO_RESET` is absent;
+use the explicit no-reset command above for this task. Its no-reset assertions use
+real initial stock and unique product SKUs rather than rewriting retained fixtures.
+Review captures with `artifacts/ui-ux/index.html` and see the delivery report in
+`docs/frontend-ux-overhaul.md`. Screenshots are local review artifacts ignored by Git.

@@ -50,13 +50,19 @@ async def get_customer_order(
     return OrderResponse.model_validate(order)
 
 
-@router.get("/orders", response_model=CustomerOrdersResponse)
+@router.get("/orders", response_model=CustomerOrdersResponse, response_model_exclude_unset=True)
 async def list_customer_orders(
     customer_id: str = Depends(require_customer_identity),
     use_case: ListCustomerOrdersUseCase = Depends(get_list_customer_orders_use_case),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    include_total: bool = Query(False),
+    q: str | None = Query(None, max_length=100),
 ) -> CustomerOrdersResponse:
+    if include_total or q:
+        page = await use_case.execute_page(limit, offset, q=q, customer_id=customer_id)
+        items = [OrderResponse.model_validate(order) for order in page.items]
+        return CustomerOrdersResponse(items=items, limit=limit, offset=offset, count=len(items), total=page.total, has_more=page.has_more)
     orders = await use_case.execute(customer_id, limit=limit, offset=offset)
     items = [OrderResponse.model_validate(order) for order in orders]
     return CustomerOrdersResponse(items=items, limit=limit, offset=offset, count=len(items))

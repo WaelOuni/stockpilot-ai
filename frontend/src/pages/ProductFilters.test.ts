@@ -36,7 +36,7 @@ it('applies combined drafts only on submit and synchronizes URL', async () => {
   expect(fetchMock).toHaveBeenCalledTimes(1)
   await submit()
   expect(router.currentRoute.value.query).toEqual({ q: 'Bosch', category: 'DRILL', available: 'true' })
-  expect(fetchMock.mock.calls[1]![0]).toBe('/api/products?limit=20&offset=0&q=Bosch&category=DRILL&available=true')
+  expect(fetchMock.mock.calls[1]![0]).toBe('/api/products?limit=20&offset=0&include_total=true&q=Bosch&category=DRILL&available=true')
 })
 
 it('restores query fields and pagination on initial router load', async () => {
@@ -46,7 +46,7 @@ it('restores query fields and pagination on initial router load', async () => {
   expect((wrapper!.findAll('select')[0]!.element as HTMLSelectElement).value).toBe('SAW')
   expect((wrapper!.findAll('select')[1]!.element as HTMLSelectElement).value).toBe('false')
   expect(wrapper!.text()).toContain('Page 2')
-  expect(fetchMock.mock.calls[0]![0]).toBe('/api/products?limit=20&offset=20&q=bosch&category=SAW&available=false')
+  expect(fetchMock.mock.calls[0]![0]).toBe('/api/products?limit=20&offset=20&include_total=true&q=bosch&category=SAW&available=false')
 })
 
 it('resets pagination on changed filters and keeps filters while paginating', async () => {
@@ -59,7 +59,7 @@ it('resets pagination on changed filters and keeps filters while paginating', as
   await button('Suivant').trigger('click')
   await flushPromises()
   expect(router.currentRoute.value.query).toEqual({ q: 'bosch', category: 'DRILL', offset: '20' })
-  expect(fetchMock.mock.calls[2]![0]).toBe('/api/products?limit=20&offset=20&q=bosch&category=DRILL')
+  expect(fetchMock.mock.calls[2]![0]).toBe('/api/products?limit=20&offset=20&include_total=true&q=bosch&category=DRILL')
   expect(button('Suivant').attributes('disabled')).toBeDefined()
   expect(button('Précédent').attributes('disabled')).toBeUndefined()
 })
@@ -73,7 +73,7 @@ it('resets every filter and returns to the first page', async () => {
   expect(router.currentRoute.value.fullPath).toBe('/products')
   expect((wrapper!.get('input').element as HTMLInputElement).value).toBe('')
   expect(wrapper!.findAll('select').map((item) => (item.element as HTMLSelectElement).value)).toEqual(['', ''])
-  expect(fetchMock.mock.calls[1]![0]).toBe('/api/products?limit=20&offset=0')
+  expect(fetchMock.mock.calls[1]![0]).toBe('/api/products?limit=20&offset=0&include_total=true')
 })
 
 it('clears unsubmitted drafts even when the URL already has no filters', async () => {
@@ -95,7 +95,7 @@ it('restores filters when router history moves back', async () => {
   router.back()
   await flushPromises()
   expect((wrapper!.get('input').element as HTMLInputElement).value).toBe('bosch')
-  expect(fetchMock.mock.calls.at(-1)![0]).toBe('/api/products?limit=20&offset=0&q=bosch')
+  expect(fetchMock.mock.calls.at(-1)![0]).toBe('/api/products?limit=20&offset=0&include_total=true&q=bosch')
 })
 
 it('shows loading and recoverable error for a filtered request', async () => {
@@ -134,4 +134,22 @@ it('aborts stale reads on URL changes and renders only the latest result', async
   expect(signal?.aborted).toBe(true)
   expect(wrapper!.text()).toContain('Aucun produit ne correspond')
   expect(wrapper!.findAll('article')).toHaveLength(0)
+})
+
+it('renders exact totals, jumps to last page and restores URL with browser back', async () => {
+  fetchMock.mockImplementation(async input => {
+    const offset = Number(new URL(String(input), 'http://local').searchParams.get('offset'))
+    const product = { sku: 'SKU-last', product_name: 'Outil', category: 'DRILL', stock: 1, price: 99 }
+    return new Response(JSON.stringify({ items: offset === 40 ? [product] : Array.from({ length: 20 }, (_, index) => ({ ...product, sku: `SKU-${index}` })), limit: 20, offset, count: offset === 40 ? 1 : 20, total: 41, has_more: offset < 40 }))
+  })
+  const router = await open()
+  expect(wrapper!.text()).toContain('Page 1 sur 3')
+  await button('Dernière page').trigger('click')
+  await flushPromises()
+  expect(router.currentRoute.value.query.offset).toBe('40')
+  expect(wrapper!.text()).toContain('Affichage de 41 à 41 sur 41 produits')
+  router.back()
+  await flushPromises()
+  expect(router.currentRoute.value.query.offset).toBeUndefined()
+  expect(wrapper!.text()).toContain('Page 1 sur 3')
 })

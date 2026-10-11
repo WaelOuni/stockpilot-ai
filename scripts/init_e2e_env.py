@@ -128,6 +128,7 @@ def reset_stores(settings: Settings, connection, mongo) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--serve", action="store_true", help="Hold the isolation lock while serving FastAPI on 8002.")
+    parser.add_argument("--no-reset", action="store_true", help="Serve existing guarded E2E stores without reset or seed.")
     args = parser.parse_args()
     if args.serve:
         def stop(_signum, _frame):
@@ -145,7 +146,14 @@ def main() -> int:
                     raise RuntimeError("Ollama is not ready.")
         with locked_database(settings.postgres_url) as connection:
             with MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=5000) as client:
-                reset_stores(settings, connection, client[DATABASE])
+                if args.no_reset:
+                    if client[DATABASE].name != DATABASE or not client[DATABASE].products.find_one():
+                        raise ValueError("Existing E2E catalogue required; no seed permitted.")
+                    hello = client.admin.command("hello")
+                    if hello.get("setName") != "rs0" or not hello.get("isWritablePrimary"):
+                        raise ValueError("Existing E2E rs0 primary required.")
+                else:
+                    reset_stores(settings, connection, client[DATABASE])
                 if args.serve:
                     process = subprocess.Popen([
                         sys.executable, "-m", "uvicorn", "stockpilot.main:app",

@@ -23,6 +23,8 @@ class StockPilotState(TypedDict, total=False):
     queried_order_id: str | None
     queried_order_status: str | None
     order_status_result: str
+    recommendations: list[dict]
+    advice_status: str | None
     response: str
     last_relevant_intent: Intent | None
     last_product_name: str | None

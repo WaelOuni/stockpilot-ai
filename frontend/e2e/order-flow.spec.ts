@@ -71,7 +71,8 @@ async function send(page: Page, message: string, expectedThread?: string, confir
 test('creates, tracks polling updates and cancels its own order', async ({ page, request }) => {
   const customerId = `e2e-customer-${randomUUID()}`
   const token = generateToken(customerId)
-  expect(probe<{ stock: number }>('stock', customerId).stock).toBe(10)
+  const initialStock = probe<{ stock: number }>('stock', customerId).stock
+  expect(initialStock).toBeGreaterThanOrEqual(1)
   const browserErrors: string[] = []
   // Record only categories, never console text or headers that could contain a JWT.
   page.on('pageerror', () => { browserErrors.push('uncaught browser exception') })
@@ -86,12 +87,13 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   await expect(page.getByLabel('JWT client', { exact: true })).toHaveValue('')
   await page.getByRole('navigation').getByRole('link', { name: 'Assistant', exact: true }).click()
 
+  const catalogueCount = (await (await request.get('/api/products?limit=20')).json()).count
   await page.getByRole('navigation').getByRole('link', { name: 'Catalogue', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Catalogue', exact: true })).toBeVisible()
   await page.getByLabel('Catégorie', { exact: true }).selectOption('DRILL')
-  await page.getByLabel('Recherche', { exact: true }).fill('Bosch')
+  await page.getByLabel('Recherche', { exact: true }).fill('X100')
   await page.getByRole('button', { name: 'Rechercher', exact: true }).click()
-  await expect(page).toHaveURL(/q=Bosch.*category=DRILL/)
+  await expect(page).toHaveURL(/q=X100.*category=DRILL/)
   await expect(page.getByRole('article')).toHaveCount(1)
   await expect(page.getByRole('article').getByRole('heading')).toHaveText('Bosch X100')
   await page.getByLabel('Disponibilité', { exact: true }).selectOption('true')
@@ -99,7 +101,7 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   await expect(page).toHaveURL(/available=true/)
   await expect(page.getByRole('article')).toHaveCount(1)
   await page.getByRole('button', { name: 'Réinitialiser les filtres', exact: true }).click()
-  await expect(page.getByRole('article')).toHaveCount(3)
+  await expect(page.getByRole('article')).toHaveCount(catalogueCount)
   await page.getByLabel('Recherche', { exact: true }).fill('Makita')
   await page.getByRole('button', { name: 'Rechercher', exact: true }).click()
   await expect(page.getByRole('article')).toHaveCount(1)
@@ -115,7 +117,7 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   await page.getByLabel('JWT client', { exact: true }).fill(token)
   await page.getByRole('button', { name: 'Connecter', exact: true }).click()
   await page.getByRole('button', { name: 'Réinitialiser les filtres', exact: true }).click()
-  await expect(page.getByRole('article')).toHaveCount(3)
+  await expect(page.getByRole('article')).toHaveCount(catalogueCount)
   const productCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Bosch X100', exact: true }) })
   await productCard.getByRole('link', { name: 'Voir le produit Bosch X100', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Fiche produit', exact: true })).toBeVisible()
@@ -142,7 +144,7 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
     order_id: orderId, customer_id: customerId, product_name: 'Bosch X100',
     quantity: 1, status: 'CREATED',
     operation_id: preparation.result.pending_order?.operation_id,
-    remaining_stock: 9,
+    remaining_stock: initialStock - 1,
   })
   expect(stored.events).toHaveLength(1)
   expect(stored.events[0]).toMatchObject({ status: 'CREATED', source: 'SYSTEM' })
@@ -158,7 +160,7 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   expect(history.items[0]).toMatchObject({
     order_id: orderId, product_name: stored.product_name, quantity: stored.quantity, status: stored.status,
   })
-  await expect(page.getByRole('heading', { name: 'My Orders', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Mes commandes', exact: true })).toBeVisible()
   const card = page.getByRole('article').filter({ has: page.getByText(orderId, { exact: true }) })
   await expect(card.getByRole('heading', { name: 'Bosch X100', exact: true })).toBeVisible()
   await expect(card.getByText('Creee', { exact: false })).toBeVisible()
@@ -222,7 +224,7 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   expect(timestamps[1]).toBeGreaterThanOrEqual(timestamps[0]!)
   expect(timestamps[2]).toBeGreaterThanOrEqual(timestamps[1]!)
   await expect(page.getByRole('region', { name: 'Détail de la commande' }).getByText('(CANCELLED)', { exact: true })).toBeVisible()
-  expect(probe<MongoOrder>('order', customerId, orderId)).toMatchObject({ status: 'CANCELLED', remaining_stock: 10 })
+  expect(probe<MongoOrder>('order', customerId, orderId)).toMatchObject({ status: 'CANCELLED', remaining_stock: initialStock })
   const timeline = page.getByRole('region', { name: 'Progression de la commande' })
   await expect(timeline.locator('li')).toHaveCount(3)
   expect(await timeline.locator('li small:first-of-type').allTextContents()).toEqual(['CREATED', 'PROCESSING', 'CANCELLED'])
@@ -236,7 +238,7 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   await page.getByRole('button', { name: 'Connecter', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Détail de la commande' }).getByText('(CANCELLED)', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Annuler la commande', exact: true })).toHaveCount(0)
-  expect(probe<MongoOrder>('order', customerId, orderId)).toMatchObject({ status: 'CANCELLED', remaining_stock: 10 })
+  expect(probe<MongoOrder>('order', customerId, orderId)).toMatchObject({ status: 'CANCELLED', remaining_stock: initialStock })
   const persistedEvents = probe<MongoOrder>('order', customerId, orderId).events
   expect(persistedEvents.map((event) => [event.status, event.source])).toEqual([
     ['CREATED', 'SYSTEM'], ['PROCESSING', 'BACKOFFICE'], ['CANCELLED', 'CUSTOMER'],

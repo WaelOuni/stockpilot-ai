@@ -55,7 +55,9 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
   await page.getByLabel('Mot de passe administrateur').fill(password)
   await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Commandes administrateur', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Suivant', exact: true })).toBeDisabled()
+  const listTotal = await page.evaluate(async () => (await (await fetch('/api/backoffice/orders?include_total=true')).json()).total as number)
+  if (listTotal <= 20) await expect(page.getByRole('button', { name: 'Suivant', exact: true })).toBeDisabled()
+  else await expect(page.getByRole('button', { name: 'Suivant', exact: true })).toBeEnabled()
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Commandes administrateur', exact: true })).toBeVisible()
 
@@ -89,17 +91,17 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
   })
   expect(technical.status()).toBe(200)
   const originalOrders = (await technical.json()).items as Array<{ order_id: string }>
-  expect(originalOrders.length).toBeLessThan(20)
+  expect(originalOrders.length).toBeLessThanOrEqual(20)
   if (originalOrders.length === 0) {
     await expect(page.getByText('Aucune commande sur cette page.', { exact: true })).toBeVisible()
   } else {
     for (const order of originalOrders) await expect(page.getByText(order.order_id, { exact: true })).toBeVisible()
   }
-  await page.goto('/admin/orders?offset=20')
-  await expect(page.getByText('Aucune commande sur cette page.', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Précédent', exact: true })).toBeEnabled()
-  await page.getByRole('button', { name: 'Précédent', exact: true }).click()
-  await expect(page).toHaveURL(/\/admin\/orders$/)
+  await page.goto(`/admin/orders?offset=${listTotal + 20}`)
+  const finalOffset = Math.max(0, Math.floor((listTotal - 1) / 20) * 20)
+  await expect(page).toHaveURL(url => Number(url.searchParams.get('offset') || 0) === finalOffset)
+  await page.goto('/admin/orders')
+  // A stale offset is corrected to the final existing page automatically.
   await page.goto('/admin/orders/nonexistent')
   await expect(page.getByRole('alert')).toContainText('Commande introuvable')
   await expect(page.getByRole('button', { name: /Annuler|Confirmer/ })).toHaveCount(0)
@@ -107,10 +109,12 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
 
   const customer = `e2e-admin-customer-${randomUUID()}`
   const jwt = token(customer)
+  const initialStock = (await (await request.get('/api/products/E2E-BOSCH-X100')).json()).stock as number
+  expect(initialStock).toBeGreaterThanOrEqual(1)
   const cancelId = await createOrder(request, customer, jwt)
-  expect(persisted(customer, cancelId).remaining_stock).toBe(9)
+  expect(persisted(customer, cancelId).remaining_stock).toBe(initialStock - 1)
   await page.getByRole('button', { name: 'Actualiser', exact: true }).click()
-  const created = page.getByRole('article').filter({ has: page.getByText(cancelId, { exact: true }) })
+  const created = page.locator('tbody tr').filter({ has: page.getByText(cancelId, { exact: true }) })
   await expect(created).toContainText(customer)
   await created.getByRole('link', { name: cancelId, exact: true }).click()
   await expect(page.getByRole('button', { name: 'Passer à PROCESSING', exact: true })).toBeVisible()
@@ -124,7 +128,7 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
   ])
   await page.getByRole('button', { name: 'Annuler la commande', exact: true }).click()
   await page.getByRole('button', { name: 'Conserver la commande', exact: true }).click()
-  expect(persisted(customer, cancelId)).toMatchObject({ status: 'PROCESSING', remaining_stock: 9 })
+  expect(persisted(customer, cancelId)).toMatchObject({ status: 'PROCESSING', remaining_stock: initialStock - 1 })
   await page.getByRole('button', { name: 'Annuler la commande', exact: true }).click()
   const cancelResponse = page.waitForResponse(response => response.url().endsWith(`/backoffice/orders/${cancelId}/cancel`)
     && response.request().method() === 'POST')
@@ -132,7 +136,7 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
   expect((await cancelResponse).status()).toBe(200)
   await expect(page.getByRole('status').filter({ hasText: 'Commande annulée.' })).toBeVisible()
   const cancelled = persisted(customer, cancelId)
-  expect(cancelled.remaining_stock).toBe(10)
+  expect(cancelled.remaining_stock).toBe(initialStock)
   expect(cancelled.events.map(event => [event.status, event.source])).toEqual([
     ['CREATED', 'SYSTEM'], ['PROCESSING', 'BACKOFFICE'], ['CANCELLED', 'BACKOFFICE'],
   ])
@@ -171,7 +175,7 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
     expect(persisted(customer, deliveredId).status).toBe(status)
   }
   const delivered = persisted(customer, deliveredId)
-  expect(delivered.remaining_stock).toBe(9)
+  expect(delivered.remaining_stock).toBe(initialStock - 1)
   expect(delivered.events.map(event => [event.status, event.source])).toEqual([
     ['CREATED', 'SYSTEM'], ['PROCESSING', 'BACKOFFICE'], ['SHIPPED', 'BACKOFFICE'], ['DELIVERED', 'BACKOFFICE'],
   ])
@@ -196,9 +200,9 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
   // Delivery consumes exactly one real reservation; cancellation restored once.
   const products = await request.get('/api/products')
   const rows = (await products.json()).items as Array<{ sku: string; stock: number }>
-  expect(rows.map(({ sku, stock }) => ({ sku, stock }))).toEqual([
+  expect(rows.filter(row => ['E2E-BOSCH-S500', 'E2E-BOSCH-X100', 'E2E-MAKITA-D200'].includes(row.sku)).map(({ sku, stock }) => ({ sku, stock }))).toEqual([
     { sku: 'E2E-BOSCH-S500', stock: 5 },
-    { sku: 'E2E-BOSCH-X100', stock: 9 },
+    { sku: 'E2E-BOSCH-X100', stock: initialStock - 1 },
     { sku: 'E2E-MAKITA-D200', stock: 0 },
   ])
 })

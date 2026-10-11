@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { adminMe, adjustAdminProductStock, getAdminStockAdjustment, listAdminStockMovements } from './admin'
+import demoHistory from '../../test-fixtures/demo-stock-history.json'
 import type { StockMovement } from '../types/api'
 
 const operationId = '4d22787c-a342-4c9c-b2b6-4fcd03027df4'
@@ -61,4 +62,42 @@ it.each([
     items: [original], count: 1, limit: 20, offset: 20, has_more: false, ...change,
   }))
   await expect(listAdminStockMovements('SKU-1', 20)).rejects.toMatchObject({ status: 0 })
+})
+
+const historicalMovement = demoHistory.items[0]!
+it('accepts the exact DEMO UUID v5 history response with its real pagination', async () => {
+  fetchMock.mockResolvedValueOnce(json(demoHistory))
+  expect(await listAdminStockMovements('DEMO-DRILL-0001', 0)).toEqual(demoHistory)
+  expect(fetchMock.mock.calls.at(-1)?.[1]?.method).toBe('GET')
+})
+it('accepts an empty counted history page without inventing a movement', async () => {
+  const page = { items: [], limit: 20, offset: 0, count: 0, total: 0, has_more: false }
+  fetchMock.mockResolvedValueOnce(json(page))
+  expect(await listAdminStockMovements('SKU-1', 0)).toEqual(page)
+})
+it.each([
+  { operation_id: 'invalid' }, { operation_id: historicalMovement.operation_id.toUpperCase() },
+  { source: 'SYSTEM' }, { product_sku: 'OTHER' }, { delta: 0 },
+  { stock_after: historicalMovement.stock_after + 1 }, { reason: null },
+  { occurred_at: null }, { occurred_at: 'invalid' },
+])('still rejects incompatible historical data %j', async change => {
+  fetchMock.mockResolvedValueOnce(json({ ...demoHistory, items: [{ ...historicalMovement, ...change }], count: 1 }))
+  await expect(listAdminStockMovements('DEMO-DRILL-0001', 0)).rejects.toMatchObject({ status: 0 })
+})
+it('keeps UUID v4 mandatory for committed adjustment and reconciliation responses', async () => {
+  fetchMock.mockResolvedValueOnce(json({ ...original, operation_id: historicalMovement.operation_id }))
+  await expect(adjustAdminProductStock('SKU-1', operationId, 2, 'count')).rejects.toMatchObject({ status: 0 })
+  fetchMock.mockResolvedValueOnce(json({ ...original, operation_id: historicalMovement.operation_id }))
+  await expect(getAdminStockAdjustment(operationId)).rejects.toMatchObject({ status: 0 })
+  expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1)
+})
+it('rejects a UUID v5 new adjustment before sending any request', async () => {
+  await expect(adjustAdminProductStock('SKU-1', historicalMovement.operation_id, 2, 'count')).rejects.toMatchObject({ status: 422 })
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+})
+it('preserves counted history pagination for historical UUIDs', async () => {
+  const page = { ...demoHistory, items: [historicalMovement], offset: 20, count: 1, total: 21 }
+  fetchMock.mockResolvedValueOnce(json(page))
+  expect((await listAdminStockMovements('DEMO-DRILL-0001', 20)).total).toBe(21)
+  expect(fetchMock.mock.calls.at(-1)?.[0]).toContain('offset=20&include_total=true')
 })

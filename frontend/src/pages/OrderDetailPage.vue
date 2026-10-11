@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
 <template>
   <header class="page-heading">
     <RouterLink to="/orders">
-      Retour à My Orders
+      Retour à mes commandes
     </RouterLink>
     <h1>Détail de commande</h1>
   </header>

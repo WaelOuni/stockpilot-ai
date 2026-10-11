@@ -72,7 +72,7 @@ it('paginates and opens product detail', async () => {
   const router = await open()
   await wrapper!.findAll('button').find((button) => button.text() === 'Suivant')!.trigger('click')
   await flushPromises()
-  expect(fetchMock.mock.calls[1]![0]).toBe('/api/products?limit=20&offset=20')
+  expect(fetchMock.mock.calls[1]![0]).toBe('/api/products?limit=20&offset=20&include_total=true')
   await wrapper!.get('a').trigger('click')
   await flushPromises()
   expect(router.currentRoute.value.path).toBe('/products/sku-0')

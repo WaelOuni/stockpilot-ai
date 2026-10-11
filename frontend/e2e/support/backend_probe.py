@@ -1,6 +1,7 @@
 """Read-only Mongo checks for the local browser order-flow test."""
 
 import argparse
+import os
 from datetime import timezone
 import json
 import sys
@@ -88,8 +89,8 @@ def main() -> int:
                 if len(products) != 1:
                     raise ValueError("Expected exactly one Bosch X100 product in Mongo.")
                 stock = products[0].get("stock")
-                if isinstance(stock, bool) or not isinstance(stock, int) or stock != INITIAL_STOCK:
-                    raise ValueError("Bosch X100 must start with exactly 10 E2E stock units.")
+                if isinstance(stock, bool) or not isinstance(stock, int) or (stock < 1 if os.environ.get('E2E_NO_RESET') == '1' else stock != INITIAL_STOCK):
+                    raise ValueError("Bosch X100 must have the required isolated E2E stock.")
                 if database.orders.count_documents({"customer_id": args.customer_id}) != 0:
                     raise ValueError("The generated E2E customer already has orders.")
                 print(json.dumps({"stock": stock}))

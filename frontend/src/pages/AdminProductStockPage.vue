@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Pagination from "../components/BasePagination.vue"
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
@@ -84,6 +85,11 @@ async function loadPage(request: AbortController, generation: number) {
     listAdminStockMovements(sku.value, offset.value, request.signal),
   ])
   if (!current(request, generation)) return
+  if (freshMovements.total !== undefined && offset.value > 0 && offset.value >= freshMovements.total) {
+    offset.value = Math.max(0, Math.floor((freshMovements.total - 1) / 20) * 20)
+    await loadPage(request, generation)
+    return
+  }
   product.value = freshProduct
   movements.value = freshMovements
 }
@@ -93,6 +99,7 @@ async function refresh() {
   if (!storageUnavailable.value) error.value = null
   const { request, generation } = startRequest()
   loading.value = true
+  movements.value = null
   try {
     await loadPage(request, generation)
     if (current(request, generation) && !pendingOperation.value && !storageUnavailable.value) blocked.value = false
@@ -309,15 +316,22 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="page-heading">
-    <span class="eyebrow">Back-office · Ajustement audité</span>
-    <h1>Ajuster le stock</h1>
+  <header class="page-heading page-heading-actions">
+    <div>
+      <span class="eyebrow">Back-office · Ajustement audité</span>
+      <h1>Ajuster le stock</h1>
+    </div>
+    <div class="header-actions">
+      <AdminLogout @pending="logoutPending" />
+    </div>
   </header>
-  <AdminLogout @pending="logoutPending" />
   <RouterLink to="/admin/products">
     Retour aux produits
   </RouterLink>
-  <p v-if="product">
+  <p
+    v-if="product"
+    class="product-stock-summary identifier-value"
+  >
     {{ product.product_name }} · SKU {{ product.sku }} · stock serveur :
     <strong>{{ product.stock }}</strong>
   </p>
@@ -327,7 +341,10 @@ onBeforeUnmount(() => {
   >
     Lecture du produit…
   </p>
-  <form @submit.prevent="preparePreview">
+  <form
+    :aria-describedby="error ? 'form-error' : undefined"
+    @submit.prevent="preparePreview"
+  >
     <fieldset :disabled="loading || submitting || reconciling || blocked || loggingOut || !product || Boolean(preview)">
       <label for="stock-delta">Variation de stock signée</label>
       <input
@@ -352,6 +369,7 @@ onBeforeUnmount(() => {
   <section
     v-if="preview && product"
     aria-label="Prévisualisation de l’ajustement"
+    class="context-card confirmation-panel"
   >
     <h2>Confirmer l’ajustement</h2>
     <p>Variation : {{ preview.delta > 0 ? '+' : '' }}{{ preview.delta }}</p>
@@ -364,27 +382,32 @@ onBeforeUnmount(() => {
       />
       Je confirme cet ajustement de stock.
     </label>
-    <button
-      :disabled="!confirmed || submitting || blocked || loggingOut"
-      @click="confirmAdjustment"
-    >
-      {{ submitting ? 'Enregistrement…' : 'Confirmer l’ajustement' }}
-    </button>
-    <button
-      :disabled="submitting"
-      @click="cancelPreview"
-    >
-      Modifier
-    </button>
+    <div class="context-actions">
+      <button
+        :disabled="!confirmed || submitting || blocked || loggingOut"
+        @click="confirmAdjustment"
+      >
+        {{ submitting ? 'Enregistrement…' : 'Confirmer l’ajustement' }}
+      </button>
+      <button
+        :disabled="submitting"
+        class="secondary"
+        @click="cancelPreview"
+      >
+        Modifier
+      </button>
+    </div>
   </section>
   <p
-    v-if="feedback"
+    v-if="feedback && !loading"
+    :class="error ? 'info-notice' : 'success-notice'"
     role="status"
   >
     {{ feedback }}
   </p>
   <ApiErrorNotice
     v-if="error"
+    id="form-error"
     :error="error"
   />
   <div
@@ -415,7 +438,16 @@ onBeforeUnmount(() => {
     <p>{{ operationResult.reason }}</p>
   </section>
   <section aria-label="Historique des mouvements">
-    <h2>Historique des mouvements</h2>
+    <div class="section-heading">
+      <h2>Historique des mouvements</h2>
+      <button
+        class="secondary"
+        :disabled="loading || submitting || reconciling"
+        @click="pendingOperation ? reconcile() : refresh()"
+      >
+        Actualiser
+      </button>
+    </div>
     <p
       v-if="loading"
       role="status"
@@ -435,29 +467,14 @@ onBeforeUnmount(() => {
       <time :datetime="movement.occurred_at">{{ new Date(movement.occurred_at).toLocaleString('fr-FR') }}</time>
       <p>{{ movement.source }}</p>
     </article>
-    <nav
-      class="pagination"
-      aria-label="Pagination historique du stock"
-    >
-      <button
-        :disabled="loading || submitting || reconciling || offset === 0 || Boolean(pendingOperation)"
-        @click="navigateHistory(Math.max(0, offset - 20))"
-      >
-        Précédent
-      </button>
-      <span>Page {{ Math.floor(offset / 20) + 1 }}</span>
-      <button
-        :disabled="loading || submitting || reconciling || !movements?.has_more || Boolean(pendingOperation)"
-        @click="navigateHistory(offset + 20)"
-      >
-        Suivant
-      </button>
-      <button
-        :disabled="loading || submitting || reconciling"
-        @click="pendingOperation ? reconcile() : refresh()"
-      >
-        Actualiser
-      </button>
-    </nav>
+    <Pagination
+      :offset="offset"
+      :total="movements?.total"
+      :count="movements?.count"
+      :has-more="movements?.has_more ?? false"
+      :loading="loading || submitting || reconciling || Boolean(pendingOperation)"
+      label="mouvements"
+      @change="navigateHistory"
+    />
   </section>
 </template>

@@ -1,3 +1,4 @@
+import { validatePagination } from './pagination'
 import type { AssistantRequest, AssistantResponse, CustomerOrdersResponse, OrderResponse, OrderEvent, ProductResponse, ProductsResponse, ProductCategory } from '../types/api'
 import { ApiError, requestJson } from './http'
 
@@ -6,11 +7,23 @@ export async function sendAssistantMessage(body: AssistantRequest, signal?: Abor
   if (typeof result?.response !== 'string') {
     throw new ApiError('La reponse assistant est incomplete.', 200)
   }
+  if (result.intent === 'PRODUCT_ADVICE' && result.advice_status != null) {
+    const status = result.advice_status
+    if (!['RESULTS', 'NO_RESULTS', 'CLARIFICATION_REQUIRED', 'CATALOGUE_UNAVAILABLE'].includes(status) ||
+        !Array.isArray(result.recommendations) || result.recommendations.length > 5 ||
+        !result.recommendations.every(product => isProduct(product) &&
+          product.sku.trim() && product.product_name.trim() && product.price >= 0 && product.stock >= 0 &&
+          'explanation' in product && typeof product.explanation === 'string' && product.explanation.trim()) ||
+        new Set(result.recommendations.map(product => product.sku)).size !== result.recommendations.length ||
+        (status === 'RESULTS' ? !result.recommendations.length : !!result.recommendations.length)) {
+      throw new ApiError('Les recommandations sont incompletes.', 200)
+    }
+  }
   return { ...result, response: result.response }
 }
 
 export async function listCustomerOrders(limit = 20, offset = 0, signal?: AbortSignal): Promise<CustomerOrdersResponse> {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), include_total: 'true' })
   const result = await requestJson<CustomerOrdersResponse>(`/orders?${params}`, { signal })
   if (!result || !Array.isArray(result.items) ||
       !result.items.every(isOrder) ||
@@ -19,6 +32,7 @@ export async function listCustomerOrders(limit = 20, offset = 0, signal?: AbortS
       !Number.isInteger(result.offset) || result.offset !== offset) {
     throw new ApiError('La reponse des commandes est incomplete.', 200)
   }
+  validatePagination(result)
   return result
 }
 
@@ -72,7 +86,7 @@ export interface ProductFilters {
 }
 
 export async function listProducts(limit = 20, offset = 0, signal?: AbortSignal, filters: ProductFilters = {}): Promise<ProductsResponse> {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), include_total: 'true' })
   if (filters.q) params.set('q', filters.q)
   if (filters.category) params.set('category', filters.category)
   if (filters.available !== undefined) params.set('available', String(filters.available))
@@ -82,6 +96,7 @@ export async function listProducts(limit = 20, offset = 0, signal?: AbortSignal,
       typeof result.has_more !== 'boolean') {
     throw new ApiError('Le catalogue est incomplet.', 200)
   }
+  validatePagination(result)
   return result
 }
 

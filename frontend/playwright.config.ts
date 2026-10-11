@@ -2,6 +2,8 @@ import { defineConfig, devices } from '@playwright/test'
 import { pbkdf2Sync, randomBytes } from 'node:crypto'
 import { resolve } from 'node:path'
 
+process.env.E2E_FIXTURE_SUFFIX ||= String(randomBytes(4).readUInt32BE())
+
 // Override normal development targets for the entire test process and its children.
 const python = process.env.E2E_PYTHON || resolve('../.venv/bin/python')
 // Playwright also evaluates this config in workers; preserve the launcher's key.
@@ -60,7 +62,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `"${python}" ../scripts/init_e2e_env.py --serve`,
+      command: `"${python}" ../scripts/init_e2e_env.py --serve${process.env.E2E_NO_RESET === '1' ? ' --no-reset' : ''}`,
       url: 'http://127.0.0.1:8002/health',
       reuseExistingServer: false,
       timeout: 60_000,
