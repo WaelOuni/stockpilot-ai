@@ -9,6 +9,7 @@
 !frontend/index.html
 !frontend/tsconfig*.json
 !frontend/vite.config.ts
+!frontend/devAutoLogin.ts
 !frontend/src/
 !frontend/src/**
 !frontend/public/
