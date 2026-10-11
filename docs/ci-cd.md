@@ -8,7 +8,8 @@ V10 est une étape interne, pas la version v10.0.0. Le projet reste pré-1.0 :
 
 Feature depuis `dev` → PR vers `dev` → CI → PR `dev` vers `main` → tag annoté
 sur un commit de `main`. Protéger les deux branches contre les push directs,
-force-push et suppressions ; exiger une review et les cinq checks
+force-push et suppressions ; exiger une PR (0 approbation obligatoire en mode
+solo) et les cinq checks
 `Unit Tests` (backend-quality), `AI Eval Framework` (eval-framework),
 `frontend-quality`, `integration-tests`, `containers`.
 Exiger une branche à jour avant merge. Ne pas exiger `e2e`, explicitement désactivé.
@@ -109,125 +110,308 @@ Linux propre, reconstruire les deux lockfiles et relancer les gates. Ne pas fair
 un freeze global contenant le projet editable, des paths locaux ou des credentials.
 Les images ciblent Linux amd64 dans GitHub ; aucune validation multiarchitecture.
 
-## Release et GHCR
+## Release solo : publication exclusivement manuelle
 
-`release.yml` réagit aux tags `v*` mais refuse tout format autre que
-`vMAJOR.MINOR.PATCH` sans zéro initial, tout tag léger, tout commit absent de main
-ou toute publication sans variable repository `RELEASE_PUBLICATION_ENABLED=true`.
-`workflow_dispatch` est toujours dry-run : commit de main requis, validations et
-builds, aucune connexion GHCR, aucune création de release.
+`release.yml` possède uniquement `workflow_dispatch`. Pousser un tag ne déclenche
+ni ce workflow ni une publication. `publish=false` est le défaut : gate, cinq
+validations et builds seulement. Aucun accès aux secrets de publication, login
+GHCR, push d'image ou création de draft dans ce mode.
 
-Le gate exporte le SHA exact ; la CI réutilisable valide le ref déclencheur et le
-build checkout ce SHA explicitement. Aucun transfert d'image via artefact Actions :
-les artefacts d'un dépôt public sont accessibles à ses lecteurs
-([GitHub](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts)).
-Le job build reste sans droits de publication. Après validation et approbation
-`release`, publish checkout le même SHA puis reconstruit les images sur son runner
-éphémère, avant de recevoir les credentials GHCR dans le seul step de publication.
-Il exécute donc les Dockerfiles revus appartenant à main ; ses droits de job sont
-contents:write/packages:write, sans actions:read. Pas d'archive Docker uploadée.
-Les bytes de cette reconstruction peuvent différer du premier build (timestamps) ;
-les digests documentés sont ceux des images réellement poussées, jamais ceux du
-premier build. Le SHA OCI et les deux tags proviennent du même gate et les deux
-tags locaux désignent le même ID d'image. Pas de promesse de builds bit-reproductibles.
-L'environnement doit exister avec au moins un reviewer et prevent_self_review=true :
-le gate vérifie sa configuration avant de permettre un job publish. Le dépôt étant
-public, cette lecture de configuration est possible sans permission write.
-Aucun `latest`. Tags : version sans v et `sha-<SHA complet>`.
-Les coordonnées sont calculées depuis GITHUB_REPOSITORY_OWNER et le label source
-GITHUB_REPOSITORY : pour le dépôt actuel,
-`ghcr.io/waelouni/stockpilot-api` et `ghcr.io/waelouni/stockpilot-web`.
+Trois entrées : `tag` existant, `publish` booléen et `confirmation`. Une publication
+exige `publish=true`, la phrase exacte `PUBLISH vMAJOR.MINOR.PATCH`, ainsi que la
+variable **repository** `RELEASE_PUBLICATION_ENABLED=true`. Un input SHA arbitraire
+n'existe pas. Une confirmation vide/incorrecte, un flag absent ou faux refuse.
+Ne pas utiliser une variable uniquement attachée à l'environnement : le gate
+sans environnement doit pouvoir lire le flag repository. Il reste désactivé
+pendant la préparation et tant que tous les prérequis ne sont pas vérifiés.
 
-Une release **draft** est créée avec notes GitHub générées, SHA et fichier
-`images.md` contenant les deux références par digest. Les images elles-mêmes
-restent dans GHCR ; aucun dump/dataset ni archive du working tree n'est attaché.
-La publication finale de la release draft reste une décision humaine explicite.
-Le job refuse un package existant non privé ou une visibilité invérifiable.
-Les packages nouvellement créés sont privés par défaut :
-[documentation GitHub Container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
-Le YAML ne configure ni n’impose la visibilité du registre : l’opérateur doit
-vérifier et maintenir les packages privés dans leurs Settings et accorder
-l’accès Actions au dépôt. Les contrôles API avant/après push détectent les
-écarts, mais ne peuvent empêcher un administrateur de rendre un package public
-ou une modification concurrente de visibilité. Un 404 API peut masquer un
-package inaccessible : vérifier aussi les droits et l’absence de collision de noms
-avant la première publication. Les tags déjà présents sont refusés. Les deux
-images sont pré-vérifiées avant tout push ; erreur d’accès/réseau registre = refus,
-jamais interprétée comme tag absent. GHCR n'impose pas l'immuabilité de ces tags :
-utiliser les digests pour déploiement et contrôler les droits des autres publishers.
-Les deux pushes et la création de release ne sont pas atomiques : un échec peut
-laisser une image privée sans release. Réconcilier manuellement avant réexécution,
-sans écraser un tag existant. Un second tag de version sur le même SHA est refusé.
+### Ref d'exécution et workflow approuvé
 
-## Configuration GitHub manuelle obligatoire
+Le dispatch doit utiliser **le tag comme ref d'exécution**, pas `main` avec un tag
+en entrée. GitHub accepte une branche ou un tag dans `workflow_dispatch.ref`
+([API officielle](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)).
+La restriction d'environnement s'applique au `GITHUB_REF` du run, pas au ref du
+checkout ni à l'input `tag`
+([environnements GitHub](https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments)).
+Ainsi `--ref v0.1.0`, avec input `tag=v0.1.0`, produit `refs/tags/v0.1.0` et respecte
+la politique **Tag `v*`** existante. Le dispatch sur main/feature/SHA est refusé.
+Aucune ouverture de l'environnement à des branches n'est nécessaire.
 
-État lu le 11/10/2026 : dépôt public, default branch main, permissions Actions
-par défaut read, can_approve_pull_request_reviews=false ; environnement release
-absent (API 404). Aucune configuration distante modifiée.
+Le workflow doit d'abord être intégré par PR dans dev puis main, branche par
+défaut où GitHub exige la présence du workflow manuel. Le tag doit contenir cette
+révision. Le gate vérifie :
 
-Le ruleset actif main exige déjà `Unit Tests` et `AI Eval Framework`, sans
-review obligatoire (0 approbation). Ces deux noms restent présents dans la CI. Les jobs de PR ont exactement ces
-noms ; ne pas utiliser les noms préfixés `validate / ...` du workflow réutilisable
-de release pour les required checks des branches.
-Les protections classiques API retournent 404 mais ce ruleset s’applique bien à main.
-Dev n’a pas de protection identifiée. Aucun réglage n’a été modifié.
+- SemVer strict `vMAJOR.MINOR.PATCH`, sans zéro initial, suffixe/prérelease ni metadata.
+- Tag annoté existant ; son commit égale `GITHUB_SHA`, `GITHUB_WORKFLOW_SHA` et HEAD.
+- `GITHUB_REF` égale exactement l'input tag ; `GITHUB_WORKFLOW_REF` désigne
+  `.github/workflows/release.yml` du même dépôt au même tag.
+- Commit ancêtre de `origin/main`, aucune origine de branche supposée pour un tag.
+- Contenu du workflow release, CI et guard identique au pipeline actuellement
+  approuvé dans `origin/main` au checkout. Un ancien commit main portant une
+  politique de publication obsolète refuse, même s'il appartient à l'historique.
+- Environnement existant, sans règle `required_reviewers`, avec politique custom
+  sélectionnée et **exactement un filtre de type tag `v*`**, aucune branche.
+- Ruleset `release-tags-protection` réellement `active`, target tag, scope
+  `refs/tags/v*` sans exclusion, règles update/deletion/non_fast_forward,
+  aucune restriction de création. Un bypass visible dans la réponse est refusé.
 
-Un workflow de tag est lu depuis le commit tagué : une version malveillante
-pourrait retirer ses propres guards YAML. Les protections serveur sur la création
-des tags et la review indépendante de l’environnement sont donc indispensables ;
-le YAML seul ne permet pas d’affirmer qu’un tag non autorisé ne publiera jamais.
+GitHub masque `bypass_actors` aux tokens qui ne peuvent pas administrer le ruleset
+([API rulesets](https://docs.github.com/en/rest/repos/rules#get-a-repository-ruleset)).
+L'absence du champ n'est **pas** une preuve d'absence de bypass : vérifier ce point
+manuellement avec le compte administrateur avant activation. Aucun token admin
+n'est ajouté au workflow pour cette seule lecture.
 
-1. Configurer les protections dev/main et checks requis ; activer Actions.
-2. Créer l'environnement `release`, required reviewers, empêcher self-review,
-   autoriser uniquement les tags de release. Ajouter également un ruleset sur
-   les tags v* limitant leur création aux release managers et interdisant leur
-   déplacement/suppression. Un tag n’a pas de branche d’origine fiable : le
-   contrôle d’ancestry porte sur le commit ; un tag posé sur un commit absent de
-   main est refusé, quelle que soit la branche du poste qui le pousse. Vérifier que le plan GitHub permet
-   effectivement ces protections ; ne pas activer la variable sinon.
-3. Vérifier politique GITHUB_TOKEN autorisant packages:write et contents:write
-   pour ce seul job ; packages liés au repository et accès Actions du repository.
-4. Maintenir packages privés ; publication publique uniquement après décision
-   explicite et adaptation revue du guard de visibilité. Dans les paramètres
-   du package, changer visibility/access uniquement après cette décision.
-5. Seulement ensuite définir RELEASE_PUBLICATION_ENABLED=true. Par défaut le
-   workflow de tag échoue avant build/publication. Aucun PAT requis pour publier.
-6. Releases d'un dépôt public : un draft reste non publié, mais sa publication
-   devient publique. Vérifier visibilité du dépôt avant toute publication humaine.
-7. Pour un transfert vers une organisation, adapter le lookup de visibilité
-   `/users/{owner}/packages` en `/orgs/{owner}/packages` avant activation.
+### Validations et permissions
 
-## Tags, récupération et rollback
+`gate` est en lecture seule. La CI réutilisable reçoit le SHA exact et tous ses
+checkouts l'utilisent. Un agrégat `release-validation` exige le résultat `success`
+de chacun des cinq jobs : backend-quality, eval-framework, frontend-quality,
+integration-tests, containers. Failure, cancelled et skipped refusent le SHA
+validé. Aucun résultat de PR ancien ou statut homonyme n'est utilisé comme preuve.
+`e2e`, explicitement désactivé pour les raisons ci-dessus, n'est pas obligatoire.
 
-Commandes **pour une future décision de release**, non exécutées pendant V10 :
+`build` est aussi en lecture seule et exige le SHA validé. `publish` ne peut
+commencer qu'après réussite du gate, des cinq validations et du build, en mode
+publication confirmé, avec SHA de validation identique. Lui seul référence
+l'environnement `release` et reçoit `contents: write`, `packages: write`.
+Aucun secret hérité dans la CI ; aucune permission write pour les PR.
+Checkouts sans credentials persistants, timeouts et actions officielles SHA
+conservés. Une concurrence globale sérialise les releases, y compris des tags
+différents pour un même SHA. Aucun déclencheur `push`, PR ou pull_request_target.
+
+Pas de deuxième approbateur : le consentement est le dispatch explicite confirmé,
+exécuté depuis le tag contrôlé, par le développeur ayant les droits Actions.
+Le job protégé revérifie ref, tag, pipeline, flag, environnement et ruleset avant
+les effets externes, puis après chaque publication d'un composant.
+
+### GHCR privé et draft
+
+Les deux packages doivent **déjà exister, être privés et liés au dépôt**.
+404, 403, erreur réseau, package public/interne ou liaison absente refusent
+avant tout push. Un 404 peut masquer un package inaccessible : il n'est jamais
+considéré comme une preuve d'absence ou de confidentialité. Le pipeline ne fait
+pas de bootstrap de package et ne s'appuie pas sur sa visibilité par défaut.
+
+GitHub documente un **PAT classique** pour son API REST Packages
+([API officielle](https://docs.github.com/en/rest/packages/packages)). Configurer
+le secret d'environnement `GHCR_VISIBILITY_TOKEN` avec seulement `read:packages`,
+accès aux deux packages, expiration et rotation ; pas de write:packages ni scope
+repo nécessaire pour ce dépôt public. Il sert uniquement à la lecture de
+visibilité. Les pushes GHCR et la création de draft utilisent `GITHUB_TOKEN`,
+sans PAT de publication. Le secret ne figure dans aucun input, build arg, log,
+artefact ou CI de PR. Les endpoints user/organization sont calculés depuis le
+vrai owner et son type via l'API, sans coordonnées fictives.
+
+Avant une première release, l'administrateur doit préparer les packages privés
+séparément. GHCR n'offre pas ici une création de package vide dans le workflow :
+un éventuel bootstrap par image minimale non sensible est une **publication
+séparée à autoriser explicitement**, puis il faut vérifier visibilité privée,
+liaison au dépôt et accès Actions. Cette préparation n'est pas exécutée par
+cette mission. Tant qu'elle manque ou n'est pas vérifiable, la release refuse.
+
+### Bootstrap initial réalisable, séparé de la release
+
+Procédure **future, soumise à une autorisation explicite distincte**. Aucun de ces
+builds/pushes n'est effectué pour préparer cette PR. Le gate normal reste strict :
+il ne publie jamais dans un package absent ou de confidentialité invérifiable.
+
+1. Garder `RELEASE_PUBLICATION_ENABLED` absent/faux. Avec le compte propriétaire,
+   vérifier dans GitHub Packages que les deux noms attendus sont disponibles ;
+   vérifier aussi l'accès à la liste des packages via un token autorisé. Un 404
+   isolé ne prouve ni absence ni confidentialité. Si un package existe déjà,
+   inspecter ses Settings et son accès ; ne pas le recréer ni l'écraser.
+2. Préparer un PAT classique temporaire `write:packages` (incluant la lecture),
+   sans `delete:packages` ni scope `repo`, avec durée courte. GitHub propose
+   [un lien de création limitant le scope](https://github.com/settings/tokens/new?scopes=write:packages).
+   Le conserver hors Git et le fournir à `docker login ghcr.io --password-stdin`
+   dans un Docker config temporaire privé ; jamais en argument ou dans les logs.
+3. Depuis un **répertoire temporaire vide**, créer une image de réservation
+   sans code, fichier, couche applicative, donnée ni credential. Seul Dockerfile :
+
+```dockerfile
+FROM scratch
+LABEL org.opencontainers.image.source="https://github.com/WaelOuni/stockpilot-ai"
+LABEL org.opencontainers.image.description="Empty private package bootstrap; not a StockPilot release"
+```
+
+   Après autorisation, construire depuis ce seul contexte, puis publier sous
+   `ghcr.io/waelouni/stockpilot-api:bootstrap-private` et
+   `ghcr.io/waelouni/stockpilot-web:bootstrap-private`, **un package à la fois**.
+   Ne pas utiliser un Dockerfile du projet, `latest`, une version SemVer ou un
+   tag SHA de release. Ces pushes créent uniquement une réservation non sensible.
+   GitHub documente la visibilité privée au premier push
+   ([Container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)).
+   Ce comportement documenté permet ce bootstrap séparé ; il ne remplace jamais
+   une vérification de visibilité pour les images applicatives du pipeline.
+   On ne peut pas lire la visibilité d'un package inexistant avant sa création :
+   si cette garantie serveur n'est pas acceptable, ne pas effectuer le bootstrap
+   et laisser la première release bloquée. Aucun contenu confidentiel n'est fourni.
+4. **Après chaque création, avant de passer au package suivant**, vérifier Settings
+   → Visibility **Private**, puis une réponse REST authentifiée **200** avec
+   `visibility=private`, `package_type=container`, nom attendu et
+   `repository.full_name=WaelOuni/stockpilot-ai`. Le label source facilite la liaison,
+   mais la vérifier explicitement. En cas de public/404/403/erreur, arrêter ; ne
+   jamais poursuivre par une release ni interpréter cette erreur comme une preuve.
+5. Dans les Settings de chacun des packages, vérifier les permissions héritées
+   (ce dépôt est public), retirer l'héritage si nécessaire et conserver les accès
+   humains limités au propriétaire. Dans **Manage Actions access**, donner au dépôt
+   `WaelOuni/stockpilot-ai` l'accès write nécessaire à `GITHUB_TOKEN`. Ne pas rendre
+   le package public pour corriger une erreur d'accès.
+6. Créer un autre PAT classique permanent à expiration maîtrisée, limité à
+   `read:packages`, et l'enregistrer uniquement dans le secret d'environnement
+   `release/GHCR_VISIBILITY_TOKEN`. Avec ce token, revérifier les deux endpoints
+   `/users/WaelOuni/packages/container/stockpilot-api` et `stockpilot-web` :
+   réponses 200 privées et liaison au dépôt, comme l'exige le guard. Pour une
+   organisation, employer `/orgs/{owner}/packages/container/{name}`.
+7. Se déconnecter du registre, supprimer seulement le Docker config/contexte
+   temporaires, puis révoquer le PAT de bootstrap. Garder les tags de réservation
+   privés sans les confondre avec des versions livrées ; aucun nettoyage distant
+   automatique. Documenter la création et les contrôles sans conserver de token.
+
+Le bootstrap est une publication administrative minimale, pas un dry-run et pas
+une exception dans `release.yml`. Il ne crée aucun tag Git ni GitHub Release, ne
+change pas les protections main/dev/tags ou la restriction de l'environnement,
+et n'active pas le flag. Une fois les deux packages privés vérifiés, suivre la
+procédure normale : intégration sur main, tag annoté, dry-run sur le tag, puis
+activation/confirmation uniquement après configuration complète. Le flag reste
+absent/faux pendant ces préparatifs.
+
+Les images sont reconstruites depuis le SHA tagué dans le runner de publication,
+avec labels OCI source/revision ; aucun transfert Docker par artefact Actions,
+accessible aux lecteurs de ce dépôt public. Seul le step de publication reçoit
+les credentials registry. La reconstruction peut différer du premier build
+(timestamps) : les digests consignés sont ceux du registre réellement publié.
+
+Tags GHCR : version sans `v` et `sha-<SHA Git complet>`, jamais `latest`. Les quatre
+cibles doivent être absentes avant tout push ; erreurs d'accès ne sont pas
+interprétées comme absence. Les deux tags de chaque composant doivent retourner
+le **même digest distant SHA256**. `images.md` contient tag Git, SHA et références
+image/version/SHA/digest, uniquement des métadonnées non sensibles.
+
+La visibilité des **deux** packages est revérifiée après chaque composant, avant
+création d'une GitHub Release **draft**, jamais publiée automatiquement. La draft
+est ensuite vérifiée (tag, SHA cible et statut draft) et reçoit `images.md` et les
+notes générées depuis l'historique GitHub. Pas de dataset, dump, archive Docker
+ni sauvegarde dans ses attachments. Une draft d'un dépôt public ne doit être
+publiée que sur décision distincte : elle deviendrait publique.
+
+Le YAML ne fixe pas la visibilité des packages. L'administrateur doit la
+maintenir dans Settings. Aucune vérification API ne peut rendre atomiques une
+modification concurrente de visibilité et un push ; contrôler les autres
+publishers/admins et leur accès. Les tags GHCR ne sont pas immuables côté serveur :
+utiliser les digests et limiter les publishers. Les deux images et la draft
+n'ont pas de transaction commune. Tout échec après un push affiche les cibles
+tentées et les pushes confirmés dans le résumé Actions, sans cleanup distant
+ni suppression/écrasement automatique. Une perte réseau après un push peut
+laisser un résultat indéterminé : réconcilier le registre et la draft avant toute
+réexécution. Un tag existant ou une draft existante refuse la relance.
+
+## Configuration GitHub à vérifier avant activation
+
+Lecture seule du dépôt le 11/10/2026, lors de l'adaptation solo :
+
+- Environnement `release` créé, aucun required reviewer, custom policy Tag `v*`
+  uniquement : compatible avec la solution. `can_admins_bypass=true` est présent ;
+  désactiver le bypass d'environnement si l'interface/le plan le permet. Le guard
+  ne s'en sert jamais pour contourner la restriction de ref.
+- Ruleset `release-tags-protection` id 24881288 **active**, trois règles prévues,
+  création autorisée, exclusions vides, bypass_actors vides vérifiés avec l'accès
+  administrateur. Le workflow revérifie activation/scope/règles à chaque run.
+- Dev protégé par PR et cinq checks, sans bypass explicite et 0 approbation.
+  Main protégé par PR mais exige actuellement seulement `Unit Tests` et
+  `AI Eval Framework`. Ajouter aussi les trois checks restants pour la politique
+  recommandée, sans imposer un deuxième reviewer au développeur solo.
+- Les noms de checks de PR restent exactement `Unit Tests`, `AI Eval Framework`,
+  `frontend-quality`, `integration-tests`, `containers` ; ne pas configurer les
+  noms préfixés `validate / ...` de la release comme checks de branches.
+- `RELEASE_PUBLICATION_ENABLED` absent (404). Les lectures des deux packages
+  retournent 404 : existence/confidentialité non prouvées, publication bloquée.
+
+Aucun réglage distant, protection de branche, secret, variable ou package n'a été
+modifié. Avant activation : intégrer le pipeline dans main via PR ; conserver
+l'environnement tag-only sans reviewers ; vérifier les règles tags avec le
+compte admin ; préparer/vérifier les deux packages privés ; donner au dépôt
+l'accès Actions aux packages (write pour GITHUB_TOKEN), configurer le secret
+read:packages ; vérifier la politique Actions permettant le seul job publish
+contents:write/packages:write. Définir seulement ensuite la variable repository
+RELEASE_PUBLICATION_ENABLED=true. Ne pas ajouter de bypass pour simplifier.
+
+En mode solo, l'administrateur ayant les droits d'écriture reste dans le périmètre
+de confiance : un YAML modifié peut supprimer ses propres guards. Les checks
+ci-dessus protègent le pipeline livré et les erreurs de déclenchement ; ils ne
+remplacent pas les protections serveur ni une restriction des droits Actions/
+write des autres utilisateurs. Ne pas considérer n'importe quel tag v* comme
+une révision approuvée, même si l'environnement accepte son nom.
+
+## Procédure solo : actions futures, non exécutées pendant cette mission
+
+1. **GitHub / intégration** : PR dev → main, vérifier tous les checks, fusionner
+   selon les protections ; attendre également le workflow CI du push main.
+2. **GitHub / préparation** : vérifier les réglages ci-dessus et la confidentialité
+   des deux packages ; activer le flag seulement une fois la configuration complète.
+3. **Local / création du tag** : partir du main à jour, vérifier le SHA approuvé,
+   créer puis pousser un tag annoté. Ces commandes ne publient aucune image avec
+   le nouveau workflow, qui ne possède aucun déclencheur push :
 
 ```sh
 git switch main
 git pull --ff-only origin main
+git rev-parse HEAD
 git tag -a v0.1.0 -m 'StockPilot AI 0.1.0'
 git push origin v0.1.0
 ```
 
-Après approbation environnement, inspecter la draft release, les digests et les
-notes ; publier la draft seulement après décision explicite. Jamais retagger
-une version déjà publiée, ni déduire SemVer du numéro d'étape V9/V10.
+4. **GitHub / validation sans publication** : lancer manuellement sur le tag.
+   Le workflow doit être présent sur main et au tag ; le CLI évite une sélection
+   accidentelle de main dans le sélecteur UI de ref :
 
-Pour un package privé : token classic read:packages (ou accès Actions accordé),
-connexion `docker login ghcr.io` avec password-stdin. Ne pas copier le token dans
-les commandes/historique. Références et récupération :
+```sh
+gh workflow run release.yml --ref v0.1.0 -f tag=v0.1.0 -F publish=false
+```
+
+Inspecter le run : gate, `validate / ...`, agrégat et build réussis ; publish
+skipped. Le dry-run ne nécessite ni flag activé ni secret de visibilité.
+Il vérifie néanmoins l'environnement et le ruleset ; il ne prouve pas encore
+l'accès registry/secret. Aucun nouveau tag ne doit être créé pour le relancer.
+
+5. **GitHub / publication réelle et explicite** : après inspection et consentement,
+   lancer un nouveau run. Il relance ses propres validations avant de pousser :
+
+```sh
+gh workflow run release.yml --ref v0.1.0 -f tag=v0.1.0 -F publish=true -f 'confirmation=PUBLISH v0.1.0'
+```
+
+6. **GitHub / vérification** : vérifier les quatre tags, les digests identiques
+   version/SHA par composant, les labels OCI, la visibilité **Private** des deux
+   packages et la draft non publiée avec `images.md`. La publication publique de
+   cette draft est une autre décision ; aucune deuxième approbation n'est requise
+   pour le workflow solo, et aucune publication de draft n'est automatisée.
+
+Les étapes V9/V10 ne sont jamais traduites en v9.0.0/v10.0.0. Ne pas déplacer ni
+supprimer un tag release. Un correctif reçoit une nouvelle version SemVer.
+Ne jamais réactiver un ancien workflow de tag automatique.
+
+### Récupération et rollback
+
+Pour les images privées, se connecter avec un token read:packages via
+`docker login ghcr.io --password-stdin`, sans token dans l'historique. Exemple de
+coordonnées actuelles, calculées par le workflow depuis le vrai owner :
 
 ```sh
 docker pull ghcr.io/waelouni/stockpilot-api:0.1.0
 docker pull ghcr.io/waelouni/stockpilot-web:0.1.0
 docker image inspect --format '{{json .RepoDigests}}' ghcr.io/waelouni/stockpilot-api:0.1.0
-# Comparer avec images.md puis utiliser la référence image@sha256:<digest>.
+# Comparer avec images.md, puis utiliser image@sha256:<digest>.
 ```
 
-Rollback : sélectionner les deux digests d'une release précédente validée,
-remettre ces références dans le déploiement privé existant, vérifier healthchecks
-et parcours applicatifs. Ne pas modifier main ou déplacer un tag. Les données
-ne sont pas restaurées automatiquement ; vérifier la compatibilité des schémas
-avant rollback. Cette mission n'ajoute aucune migration ni déploiement.
+Rollback d'un déploiement privé existant : sélectionner les deux digests d'une
+version précédente validée, rétablir ces références dans sa configuration,
+vérifier healthchecks et parcours applicatifs. Ne pas déplacer un tag, ne pas
+réécrire main, ne pas supprimer une image automatiquement. Les données ne sont
+pas restaurées automatiquement : vérifier la compatibilité des schémas. En cas
+de publication partielle, réconcilier d'abord les pushes tentés/confirmés et la
+draft, puis décider d'une nouvelle version ou d'une réparation explicite.
+Aucun déploiement ni migration n'est effectué par ce workflow.
 
 ## Validation locale sans toucher les services dev/demo
 
@@ -256,3 +440,25 @@ projet Compose local, puis `python scripts/ci/smoke_images.py`. Nettoyer uniquem
 les conteneurs créés pour cette validation. Ne jamais employer docker system prune.
 Valider les workflows avec actionlint 1.7.7 (label self-hosted configuré).
 Aucun workflow GitHub n'a été exécuté lors de la validation locale V10.
+
+Pour cette adaptation solo :
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_release_guards.py tests/test_eval_ci.py
+actionlint .github/workflows/ci.yml .github/workflows/release.yml
+git diff --check
+```
+
+Les tests exercent les guards réels et le shell de publication avec les frontières
+Git/REST/registry remplacées par des doubles contrôlés. Aucun tag réel, push
+Docker, release ou mutation GitHub n'est exécuté. Une validation locale ne prouve
+pas une exécution GitHub : le premier dry-run sur un tag autorisé reste à faire
+après intégration/configuration, sur décision distincte.
+
+Validation locale de cette adaptation : **100 tests ciblés réussis** (89 guards /
+contrats / shell release et 11 tests eval CI), actionlint officiel **1.7.7** sur
+l'ensemble des workflows, `git diff --check`. L'archive actionlint est vérifiée
+avec les checksums de sa release officielle. Les nouveaux vérificateurs ont
+également validé en lecture seule l'environnement solo et le ruleset de tags
+actuels sur GitHub. Aucun workflow GitHub n'a été déclenché pour cette adaptation,
+aucun build/push distant, tag, release, déploiement ou changement de base de données.
