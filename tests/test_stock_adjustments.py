@@ -705,3 +705,27 @@ def test_expired_or_revoked_cookie_cannot_adjust(stock_api, api, mode):
         json={"operation_id": str(uuid4()), "delta": 1, "reason": "count"},
     ).status_code == 401
     assert database["stock_movements"].documents == []
+
+
+def test_demo_uuid5_history_is_readable_but_not_a_new_adjustment_or_reconciliation(stock_api):
+    from uuid import UUID
+    from stockpilot.demo_dataset import generate_demo_dataset
+    client, database, headers = stock_api
+    document = deepcopy(generate_demo_dataset().stock_movements[0])
+    document["product_sku"] = "SKU-1"
+    document["product_id"] = database["products"].documents[0]["_id"]
+    database["stock_movements"].documents.append(document)
+    before = deepcopy(database["stock_movements"].documents)
+    assert UUID(document["operation_id"]).version == 5
+    response = client.get("/backoffice/products/SKU-1/stock-movements")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["count"] == 1 and body["has_more"] is False
+    assert body["items"][0]["operation_id"] == document["operation_id"]
+    assert body["items"][0]["source"] == "BACKOFFICE"
+    assert isinstance(body["items"][0]["occurred_at"], str)
+    assert client.get("/backoffice/stock-adjustments/" + document["operation_id"]).status_code == 422
+    response = client.post("/backoffice/products/SKU-1/stock-adjustments", headers=headers,
+                           json={"operation_id": document["operation_id"], "delta": 1, "reason": "count"})
+    assert response.status_code == 422
+    assert database["stock_movements"].documents == before

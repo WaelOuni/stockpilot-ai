@@ -250,12 +250,17 @@ export async function updateAdminProduct(sku: string, values: ProductMetadata, s
 
 const operationUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
+// Reference/demo history uses deterministic UUID v5. New adjustments and
+// reconciliation keep the UUID v4 contract; only history accepts both versions.
+const historicalOperationUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[45][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
 function validateStockMovement(
   movement: StockMovement,
   expected?: { sku: string; operationId: string; delta?: number; reason?: string },
+  history = false,
 ): StockMovement {
   if (!movement || typeof movement.movement_id !== 'string' || !movement.movement_id
-    || typeof movement.operation_id !== 'string' || !operationUuid.test(movement.operation_id)
+    || typeof movement.operation_id !== 'string' || !(history ? historicalOperationUuid : operationUuid).test(movement.operation_id)
     || typeof movement.product_sku !== 'string' || !movement.product_sku.trim()
     || !Number.isSafeInteger(movement.delta) || movement.delta === 0 || Math.abs(movement.delta) > 1_000_000
     || !Number.isSafeInteger(movement.stock_before) || movement.stock_before < 0
@@ -320,7 +325,7 @@ export async function listAdminStockMovements(
     throw new ApiError('Réponse de mouvements invalide.', 0)
   }
   validatePagination(page)
-  page.items.forEach(movement => validateStockMovement(movement, { sku, operationId: movement.operation_id }))
+  page.items.forEach(movement => validateStockMovement(movement, { sku, operationId: movement.operation_id }, true))
   return page
 }
 
