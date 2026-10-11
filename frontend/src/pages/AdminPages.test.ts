@@ -76,7 +76,7 @@ it('login clears password immediately, submits once and navigates after server v
   await flushPromises()
   expect(router.currentRoute.value.path).toBe('/admin/orders')
   expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
-    '/api/backoffice/session/login', '/api/backoffice/session/me', '/api/backoffice/orders?limit=20&offset=0',
+    '/api/backoffice/session/login', '/api/backoffice/session/me', '/api/backoffice/orders?limit=20&offset=0&include_total=true',
   ])
 })
 
@@ -95,12 +95,12 @@ it.each([401, 429, 503])('login errors %i keep credentials out of UI', async (st
 it('list renders customer, date and badge with read-only navigation', async () => {
   const router = await open('/admin/orders')
   expect(wrapper!.text()).toContain('other-customer')
-  expect(wrapper!.text()).toContain('Quantité : 2')
+  expect(wrapper!.get('td[data-label=Quantité]').text()).toBe('2')
   expect(wrapper!.get('time').attributes('datetime')).toBe(order.created_at)
   expect(wrapper!.text()).toContain('PROCESSING')
   expect(button('Suivant').attributes('disabled')).toBeDefined()
   expect(button('Précédent').attributes('disabled')).toBeDefined()
-  await wrapper!.get('article a').trigger('click')
+  await wrapper!.get('tbody a').trigger('click')
   await flushPromises()
   expect(router.currentRoute.value.path).toBe('/admin/orders/admin-order')
   expect(wrapper!.text()).toContain('BACKOFFICE')
@@ -213,7 +213,7 @@ it('list errors discard stale data and manual refresh can recover', async () => 
   fetchMock.mockResolvedValue(json(page()))
   await button('Actualiser').trigger('click')
   await flushPromises()
-  expect(wrapper!.find('article').exists()).toBe(true)
+  expect(wrapper!.find('tbody tr').exists()).toBe(true)
   expect(wrapper!.find('[role="alert"]').exists()).toBe(false)
 })
 

@@ -9,18 +9,19 @@ from stockpilot.domain.enums.product_category import ProductCategory
 router = APIRouter()
 
 
-@router.get("/products", response_model=ProductsResponse)
+@router.get("/products", response_model=ProductsResponse, response_model_exclude_none=True)
 async def list_products(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     q: str | None = Query(default=None, max_length=100),
     category: ProductCategory | None = Query(default=None),
     available: bool | None = Query(default=None),
+    include_total: bool = Query(False),
     use_case: ListProductsUseCase = Depends(get_list_products_use_case),
 ) -> ProductsResponse:
-    page = await use_case.execute(limit=limit, offset=offset, q=q, category=category, available=available)
+    page = await use_case.execute(limit=limit, offset=offset, q=q, category=category, available=available, **({"include_total": True} if include_total else {}))
     items = [ProductResponse.from_product(product) for product in page.items]
-    return ProductsResponse(items=items, limit=limit, offset=offset, count=len(items), has_more=page.has_more)
+    return ProductsResponse(items=items, limit=limit, offset=offset, count=len(items), has_more=page.has_more, total=page.total if include_total else None)
 
 
 @router.get("/products/{sku}", response_model=ProductResponse)

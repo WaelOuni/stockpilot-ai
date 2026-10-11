@@ -36,6 +36,7 @@ class ProductRepositoryPort(Protocol):
     async def list_products(
         self, limit: int, offset: int, *, q: str | None = None,
         category: ProductCategory | None = None, available: bool | None = None,
+        include_total: bool = False,
     ) -> ProductPage:
         ...
 
@@ -56,7 +57,7 @@ class ProductRepositoryPort(Protocol):
         ...
 
     async def list_stock_movements(
-        self, sku: str, limit: int, offset: int,
+        self, sku: str, limit: int, offset: int, *, include_total: bool = False,
     ) -> StockMovementPage:
         ...
 

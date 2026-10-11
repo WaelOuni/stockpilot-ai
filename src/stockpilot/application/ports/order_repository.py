@@ -1,3 +1,4 @@
+from stockpilot.application.dto.order_page import OrderPage
 from typing import Protocol
 
 from stockpilot.application.dto.backoffice_dashboard import (
@@ -9,6 +10,10 @@ from stockpilot.domain.enums.order_status import OrderStatus
 
 
 class OrderRepositoryPort(Protocol):
+    async def list_page(self, limit: int, offset: int, *, customer_id: str | None = None, q: str | None = None) -> OrderPage:
+        """Count and page the same owner-scoped, literal filtered stream."""
+        ...
+
     async def get_dashboard_order_stats(self) -> OrderDashboardStats:
         """Count all stored orders by known status without loading the documents."""
         ...

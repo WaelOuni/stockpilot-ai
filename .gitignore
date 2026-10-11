@@ -40,3 +40,5 @@ Thumbs.db
 *.pfx
 stockpilot-before-rs.archive
 /docs/PROJECT_CONTEXT.md
+# Local UI/UX screenshots and visual comparison (delivered as review artifacts).
+/artifacts/ui-ux/

@@ -38,8 +38,8 @@ it('navigates between client pages while preserving the assistant thread and tra
   const threadId = useAssistant().state.threadId
   await wrapper.get('nav a[href="/orders"]').trigger('click')
   await flushPromises()
-  expect(wrapper.get('h1').text()).toBe('My Orders')
-  expect(fetchMock.mock.calls[1]![0]).toBe('/api/orders?limit=20&offset=0')
+  expect(wrapper.get('h1').text()).toBe('Mes commandes')
+  expect(fetchMock.mock.calls[1]![0]).toBe('/api/orders?limit=20&offset=0&include_total=true')
   await wrapper.get('nav a[href="/assistant"]').trigger('click')
   await flushPromises()
   expect(wrapper.get('h1').text()).toBe('Assistant')

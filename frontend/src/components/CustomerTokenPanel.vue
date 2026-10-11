@@ -18,8 +18,10 @@ function disconnect() {
     class="token-panel"
     :open="!customerToken"
   >
-    <summary>{{ customerToken ? 'Session demo connectee' : 'Connecter un JWT client' }}</summary>
-    <p>Collez un token genere localement. Il reste uniquement en memoire et disparait au rechargement.</p>
+    <summary>{{ customerToken ? 'Session client connectée' : 'Connecter un JWT client' }}</summary>
+    <p id="customer-token-help">
+      Collez un token généré localement. Il reste uniquement en mémoire et disparait au rechargement.
+    </p>
     <form
       class="token-form"
       @submit.prevent="connect"
@@ -29,6 +31,7 @@ function disconnect() {
         <input
           id="customer-token"
           v-model="draft"
+          aria-describedby="customer-token-help"
           type="password"
           autocomplete="off"
           spellcheck="false"
@@ -46,10 +49,10 @@ function disconnect() {
           class="secondary"
           @click="disconnect"
         >
-          Deconnecter
+          Déconnecter
         </button>
       </div>
     </form>
-    <small>La signature et l'expiration sont validees par le backend, pas par ce panneau.</small>
+    <small>La signature et l'expiration sont validées par le backend, pas par ce panneau.</small>
   </details>
 </template>

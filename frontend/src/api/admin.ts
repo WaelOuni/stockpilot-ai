@@ -1,3 +1,5 @@
+import { validatePagination } from './pagination'
+import type { ProductFilters } from './client'
 import { ApiError } from './http'
 import type { CustomerOrdersResponse, OrderResponse, OrderStatus } from '../types/api'
 import type {
@@ -104,8 +106,10 @@ export async function adminLogout(): Promise<void> {
   await adminRequest<void>('/session/logout', { method: 'POST', csrf: csrfToken })
   csrfToken = ''
 }
-export function listAdminOrders(offset: number, signal?: AbortSignal): Promise<AdminOrders> {
-  return adminRequest(`/orders?limit=20&offset=${offset}`, { signal })
+export function listAdminOrders(offset: number, signal?: AbortSignal, q = ''): Promise<AdminOrders> {
+  const params = new URLSearchParams({ limit: '20', offset: String(offset), include_total: 'true' })
+  if (q.trim()) params.set('q', q.trim())
+  return adminRequest<AdminOrders>(`/orders?${params}`, { signal }).then(page => { validatePagination(page); return page })
 }
 
 function exactKeys(value: object, expected: string[]): boolean {
@@ -203,12 +207,17 @@ function validateProduct(product: Product): Product {
   return product
 }
 
-export async function listAdminProducts(offset: number, signal?: AbortSignal): Promise<ProductsResponse> {
-  const page = await adminRequest<ProductsResponse>(`/products?limit=20&offset=${offset}`, { signal })
+export async function listAdminProducts(offset: number, signal?: AbortSignal, filters: ProductFilters = {}): Promise<ProductsResponse> {
+  const params = new URLSearchParams({ limit: '20', offset: String(offset), include_total: 'true' })
+  if (filters.q) params.set('q', filters.q)
+  if (filters.category) params.set('category', filters.category)
+  if (filters.available !== undefined) params.set('available', String(filters.available))
+  const page = await adminRequest<ProductsResponse>(`/products?${params}`, { signal })
   if (!page || !Array.isArray(page.items) || typeof page.has_more !== 'boolean'
     || page.limit !== 20 || page.offset !== offset || page.count !== page.items.length) {
     throw new ApiError('Réponse catalogue invalide.', 0)
   }
+  validatePagination(page)
   page.items.forEach(validateProduct)
   return page
 }
@@ -304,12 +313,13 @@ export async function listAdminStockMovements(
   signal?: AbortSignal,
 ): Promise<StockMovementsResponse> {
   const page = await adminRequest<StockMovementsResponse>(
-    `/products/${encodeURIComponent(sku)}/stock-movements?limit=20&offset=${offset}`, { signal },
+    `/products/${encodeURIComponent(sku)}/stock-movements?limit=20&offset=${offset}&include_total=true`, { signal },
   )
   if (!page || !Array.isArray(page.items) || page.items.length > 20 || typeof page.has_more !== 'boolean'
     || page.limit !== 20 || page.offset !== offset || page.count !== page.items.length) {
     throw new ApiError('Réponse de mouvements invalide.', 0)
   }
+  validatePagination(page)
   page.items.forEach(movement => validateStockMovement(movement, { sku, operationId: movement.operation_id }))
   return page
 }

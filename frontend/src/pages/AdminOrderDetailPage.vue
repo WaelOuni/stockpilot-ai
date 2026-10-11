@@ -118,19 +118,27 @@ watch(orderId, () => { mutating.value = false; void load() }, { immediate: true 
 onBeforeUnmount(() => { active = false; abortPending() })
 </script>
 <template>
-  <header class="page-heading">
-    <span class="eyebrow">Back-office · Opérations</span><h1>Détail administratif</h1>
+  <header class="page-heading page-heading-actions">
+    <div><span class="eyebrow">Back-office · Opérations</span><h1>Détail administratif</h1></div>
+    <div class="header-actions">
+      <AdminLogout @pending="logoutPending" />
+      <button
+        class="secondary"
+        :disabled="loading || mutating || loggingOut"
+        @click="load()"
+      >
+        Actualiser
+      </button>
+    </div>
   </header>
-  <RouterLink to="/admin/orders">
-    Retour aux commandes administrateur
-  </RouterLink>
-  <AdminLogout @pending="logoutPending" />
-  <button
-    :disabled="loading || mutating || loggingOut"
-    @click="load()"
+  <nav
+    class="page-actions"
+    aria-label="Actions de navigation"
   >
-    Actualiser
-  </button>
+    <RouterLink to="/admin/orders">
+      Retour aux commandes administrateur
+    </RouterLink>
+  </nav>
   <p
     v-if="loading"
     role="status"
@@ -142,7 +150,8 @@ onBeforeUnmount(() => { active = false; abortPending() })
     :error="error"
   />
   <p
-    v-if="feedback"
+    v-if="feedback && !loading"
+    :class="error ? 'info-notice' : 'success-notice'"
     role="status"
   >
     {{ feedback }}
@@ -157,53 +166,89 @@ onBeforeUnmount(() => { active = false; abortPending() })
     v-if="order"
     class="context-card"
   >
-    <h2>{{ order.order_id }}</h2>
-    <p>Client : {{ order.customer_id ?? 'Non renseigné (legacy)' }}</p>
-    <p>{{ order.product_name }} · Quantité : {{ order.quantity }}</p>
-    <time :datetime="order.created_at">{{ formatDate(order.created_at) }}</time>
-    <OrderStatusBadge :status="order.status" />
-    <button
-      v-if="nextStatus"
-      :disabled="disabled"
-      @click="mutate()"
-    >
-      Passer à {{ nextStatus }}
-    </button>
-    <button
-      v-if="cancellable && !confirming"
-      :disabled="disabled"
-      @click="confirming = true"
-    >
-      Annuler la commande
-    </button>
+    <h2>Informations de la commande</h2>
+    <dl class="detail-facts">
+      <div>
+        <dt>Identifiant</dt><dd class="identifier-value">
+          {{ order.order_id }}
+        </dd>
+      </div>
+      <div>
+        <dt>Client</dt><dd class="identifier-value">
+          {{ order.customer_id ?? 'Non renseigné (legacy)' }}
+        </dd>
+      </div>
+      <div><dt>Produit</dt><dd>{{ order.product_name }}</dd></div>
+      <div><dt>Quantité</dt><dd>{{ order.quantity }}</dd></div>
+      <div><dt>Date de création</dt><dd><time :datetime="order.created_at">{{ formatDate(order.created_at) }}</time></dd></div>
+      <div><dt>Statut actuel</dt><dd><OrderStatusBadge :status="order.status" /></dd></div>
+    </dl>
     <section
-      v-if="confirming"
-      role="group"
-      aria-label="Confirmation d’annulation"
+      class="order-action-section"
+      aria-labelledby="order-actions-title"
     >
-      <p>Confirmer l’annulation de cette commande ? Le stock réservé sera restitué.</p>
-      <button
-        :disabled="disabled"
-        @click="mutate(true)"
+      <h2 id="order-actions-title">
+        Actions sur la commande
+      </h2>
+      <div class="order-actions">
+        <button
+          v-if="nextStatus"
+          :disabled="disabled"
+          @click="mutate()"
+        >
+          Passer à {{ nextStatus }}
+        </button>
+        <button
+          v-if="cancellable && !confirming"
+          class="danger"
+          :disabled="disabled"
+          @click="confirming = true"
+        >
+          Annuler la commande
+        </button>
+      </div>
+      <section
+        v-if="confirming"
+        class="confirmation-panel"
+        role="group"
+        aria-label="Confirmation d’annulation"
       >
-        Confirmer l’annulation
-      </button>
-      <button
-        :disabled="disabled"
-        @click="confirming = false"
+        <p>Confirmer l’annulation de cette commande ? Le stock réservé sera restitué.</p>
+        <div class="order-actions">
+          <button
+            class="danger"
+            :disabled="disabled"
+            @click="mutate(true)"
+          >
+            Confirmer l’annulation
+          </button>
+          <button
+            :disabled="disabled"
+            class="secondary"
+            @click="confirming = false"
+          >
+            Conserver la commande
+          </button>
+        </div>
+      </section>
+      <p
+        v-if="mutating"
+        role="status"
       >
-        Conserver la commande
-      </button>
+        Opération en cours…
+      </p>
     </section>
-    <p
-      v-if="mutating"
-      role="status"
+    <section
+      class="order-history"
+      aria-labelledby="order-history-title"
     >
-      Opération en cours…
-    </p>
-    <OrderTimeline
-      :status="order.status"
-      :events="order.events"
-    />
+      <h2 id="order-history-title">
+        Historique des événements
+      </h2>
+      <OrderTimeline
+        :status="order.status"
+        :events="order.events"
+      />
+    </section>
   </article>
 </template>

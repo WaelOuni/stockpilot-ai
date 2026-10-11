@@ -20,5 +20,6 @@ export function catalogueQuery(query: LocationQuery): Record<string, string> {
       Number.isSafeInteger(Number(query.offset))) {
     result.offset = query.offset
   }
+  if (typeof query.limit === 'string' && [10, 20, 50, 100].includes(Number(query.limit))) result.limit = query.limit
   return result
 }

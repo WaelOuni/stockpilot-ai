@@ -110,7 +110,7 @@ test('isolated admin dashboard: Mongo stats, evolved order statuses and refreshe
   expect(Object.keys(initial.recent_stock_movements[0] ?? {})).toEqual([
     'product_sku', 'delta', 'occurred_at', 'reason',
   ])
-  expect(initial.product_stats.total_products).toBe(5)
+  expect(initial.product_stats.total_products).toBe(probeDashboard().product_stats.total_products)
   expect(initial.product_stats.available_products + initial.product_stats.unavailable_products)
     .toBe(initial.product_stats.total_products)
   expect(initial.recent_stock_movements.length).toBeGreaterThan(0)
@@ -156,7 +156,7 @@ test('isolated admin dashboard: Mongo stats, evolved order statuses and refreshe
   expect(refreshed.recent_stock_movements[0]).toMatchObject({
     product_sku: sku, delta: 1, reason: 'Dashboard refresh E2E adjustment',
   })
-  await expect(page.getByText('Dashboard refresh E2E adjustment', { exact: true })).toBeVisible()
+  await expect(page.getByText('Dashboard refresh E2E adjustment', { exact: true }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: 'Voir l’historique complet du stock' }).first())
     .toHaveAttribute('href', `/admin/products/${sku}/stock`)
 

@@ -12,3 +12,5 @@ class BackofficeOrdersResponse(BaseModel):
     limit: int
     offset: int
     count: int
+    total: int | None = None
+    has_more: bool | None = None

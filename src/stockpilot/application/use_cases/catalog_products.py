@@ -11,6 +11,7 @@ class ListProductsUseCase:
     async def execute(
         self, limit: int = 20, offset: int = 0, *, q: str | None = None,
         category: ProductCategory | None = None, available: bool | None = None,
+        include_total: bool = False,
     ) -> ProductPage:
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("limit must be between 1 and 100.")
@@ -23,6 +24,8 @@ class ListProductsUseCase:
         if available is not None and type(available) is not bool:
             raise ValueError("available must be a boolean.")
         q = (q.strip() or None) if q is not None else None
+        if include_total:
+            return await self.repository.list_products(limit, offset, q=q, category=category, available=available, include_total=True)
         if q is None and category is None and available is None:
             return await self.repository.list_products(limit, offset)
         return await self.repository.list_products(limit, offset, q=q, category=category, available=available)

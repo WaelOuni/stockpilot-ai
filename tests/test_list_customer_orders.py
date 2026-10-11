@@ -393,7 +393,7 @@ def test_openapi_history_uses_customer_bearer_and_documents_pagination():
         {"BackofficeBearer": []},
     ]
     parameters = {parameter["name"]: parameter for parameter in operation["parameters"]}
-    assert set(parameters) == {"limit", "offset"}
+    assert set(parameters) == {"limit", "offset", "include_total", "q"}
     assert parameters["limit"]["schema"]["default"] == 20
     assert parameters["limit"]["schema"]["minimum"] == 1
     assert parameters["limit"]["schema"]["maximum"] == 100
@@ -401,7 +401,7 @@ def test_openapi_history_uses_customer_bearer_and_documents_pagination():
     assert parameters["offset"]["schema"]["minimum"] == 0
     response_ref = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
     response = schema["components"]["schemas"][response_ref.rsplit("/", 1)[-1]]
-    assert set(response["properties"]) == {"items", "limit", "offset", "count"}
+    assert set(response["properties"]) == {"items", "limit", "offset", "count", "total", "has_more"}
 
 
 def test_composition_root_wires_existing_order_repository():

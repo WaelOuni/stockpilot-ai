@@ -30,17 +30,18 @@ def failure(error: Exception) -> HTTPException:
     return HTTPException(500, "Opération produit impossible.")
 
 
-@router.get("", response_model=ProductsResponse, dependencies=[Depends(require_backoffice_read)])
+@router.get("", response_model=ProductsResponse, response_model_exclude_none=True, dependencies=[Depends(require_backoffice_read)])
 async def list_products(
     limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
     q: str | None = Query(None, max_length=100),
     category: ProductCategory | None = Query(None), available: bool | None = Query(None),
+    include_total: bool = Query(False),
     use_case: ListProductsUseCase = Depends(get_list_products_use_case),
 ):
     try:
-        page = await use_case.execute(limit, offset, q=q, category=category, available=available)
+        page = await use_case.execute(limit, offset, q=q, category=category, available=available, **({"include_total": True} if include_total else {}))
         items = [ProductResponse.from_product(product) for product in page.items]
-        return ProductsResponse(items=items, limit=limit, offset=offset, count=len(items), has_more=page.has_more)
+        return ProductsResponse(items=items, limit=limit, offset=offset, count=len(items), has_more=page.has_more, total=page.total if include_total else None)
     except Exception as error:
         raise failure(error) from error
 

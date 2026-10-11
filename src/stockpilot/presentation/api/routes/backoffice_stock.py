@@ -80,20 +80,21 @@ async def adjust_stock(
 
 @products_router.get(
     "/{sku}/stock-movements",
-    response_model=StockMovementsResponse,
+    response_model=StockMovementsResponse, response_model_exclude_none=True,
     dependencies=[Depends(require_backoffice_read)],
 )
 async def list_stock_movements(
     sku: str,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    include_total: bool = Query(False),
     use_case: ListStockMovementsUseCase = Depends(get_list_stock_movements_use_case),
 ):
     try:
-        page = await use_case.execute(sku, limit, offset)
+        page = await use_case.execute(sku, limit, offset, **({"include_total": True} if include_total else {}))
         items = [StockMovementResponse.from_movement(item) for item in page.items]
         return StockMovementsResponse(
-            items=items, limit=limit, offset=offset, count=len(items), has_more=page.has_more,
+            items=items, limit=limit, offset=offset, count=len(items), has_more=page.has_more, total=page.total if include_total else None,
         )
     except Exception as error:
         raise failure(error) from error

@@ -62,7 +62,7 @@ describe('HTTP client', () => {
     fetchMock.mockResolvedValue(json({ items: [], limit: 20, offset: 40, count: 0 }))
     await listCustomerOrders(20, 40)
     const [url, options] = fetchMock.mock.calls[0]!
-    expect(url).toBe('https://example.test/api/orders?limit=20&offset=40')
+    expect(url).toBe('https://example.test/api/orders?limit=20&offset=40&include_total=true')
     expect(new Headers(options?.headers).get('Authorization')).toBe('Bearer replacement-token')
   })
 

@@ -20,5 +20,5 @@ defineProps<{ product: ProductRecommendation }>()
 </template>
 
 <style scoped>
-.recommendation { min-width: 0; overflow-wrap: anywhere; margin-block: 0.75rem; }
+.recommendation { min-width: 0; padding: 16px; overflow-wrap: anywhere; margin-block: 0.75rem; }
 </style>
