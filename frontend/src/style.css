@@ -135,9 +135,9 @@ dd { max-width: 65%; text-align: right; margin: 0; min-width: 0; overflow-wrap: 
 .dashboard-section-heading a { font-size: .8125rem; font-weight: 600; }
 .dashboard-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; }
 .dashboard-product-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.dashboard-metric { display: grid; align-content: space-between; gap: 12px; min-height: 120px; padding: 20px; background: white; border: 1px solid var(--border); border-radius: var(--radius); }
+.dashboard-metric { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; min-width: 0; align-content: space-between; gap: 12px; min-height: 120px; padding: 20px; background: white; border: 1px solid var(--border); border-radius: var(--radius); }
 .dashboard-metric dt { font-size: .8125rem; }
-.dashboard-metric dd { text-align: left; font-size: 1.875rem; line-height: 1.2; font-weight: 750; }
+.dashboard-metric dd { max-width: none; white-space: nowrap; overflow-wrap: normal; word-break: normal; text-align: left; font-size: 1.875rem; line-height: 1.2; font-weight: 750; }
 .dashboard-metric-primary { background: var(--accent-soft); border-color: #d7dcfb; }
 .dashboard-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .dashboard-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
@@ -194,7 +194,7 @@ tbody tr:last-child td { border-bottom: 0; }
   .pagination-controls .page-number { width: 44px; }
   .pagination-controls button { flex: 1 1 40%; }
   .pagination-controls .page-number { flex: 0 0 44px; }
-  .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .dashboard-metrics { grid-template-columns: 1fr; gap: 12px; }
   .dashboard-metric { padding: 16px; }
   .dashboard-toolbar, .dashboard-section-heading { align-items: flex-start; flex-wrap: wrap; }
   fieldset { padding: 16px; }
