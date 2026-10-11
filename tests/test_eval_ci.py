@@ -13,16 +13,19 @@ def test_workflows_have_separate_deterministic_and_manual_gates():
     workflows = eval_ci.ROOT / ".github" / "workflows"
     ci = yaml.load((workflows / "ci.yml").read_text(), Loader=yaml.BaseLoader)
     real = yaml.load((workflows / "ai-evals.yml").read_text(), Loader=yaml.BaseLoader)
-    assert set(ci["on"]) == {"pull_request", "push"}
-    assert ci["on"]["push"]["branches"] == ["main", "dev"]
+    assert set(ci["on"]) == {"pull_request", "push", "workflow_call"}
+    assert set(ci["on"]["push"]["branches"]) == {"main", "dev"}
+    assert set(ci["on"]["pull_request"]["branches"]) == {"main", "dev"}
     assert ci["permissions"] == {"contents": "read"}
-    tests = ci["jobs"]["tests"]["steps"][-1]["run"]
-    assert "--ignore=tests/test_evals.py" in tests
-    assert "--ignore=tests/test_eval_ci.py" in tests
+    backend = ci["jobs"]["backend-quality"]
+    commands = [step.get("run", "") for step in backend["steps"]]
+    assert "python -m pytest -q" in commands  # Includes offline eval framework tests.
+    assert backend["name"] == "Unit Tests"
     framework = ci["jobs"]["eval-framework"]
-    assert framework["runs-on"] == "ubuntu-latest"
-    assert "tests/test_evals.py tests/test_eval_ci.py" in framework["steps"][-2]["run"]
+    assert framework["name"] == "AI Eval Framework"
     assert "--mode deterministic --suite enriched" in framework["steps"][-1]["run"]
+    assert not any("--mode local" in cmd for cmd in commands)
+    assert ci["jobs"]["e2e"]["if"] == "${{ false }}"
     assert set(real["on"]) == {"workflow_dispatch"}
     job = real["jobs"]["real-evals"]
     assert job["if"] == "${{ github.repository == 'WaelOuni/stockpilot-ai' && github.ref == 'refs/heads/dev' }}"
