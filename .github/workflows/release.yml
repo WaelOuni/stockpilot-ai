@@ -1,20 +1,42 @@
 name: StockPilot Release
 on:
-  push:
-    tags: ['v*']
+  # Tag pushes never trigger this workflow. Dispatch on the tag, NOT on main.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing annotated SemVer tag (must match the execution ref)
+        required: true
+        type: string
+      publish:
+        description: Publish private images and create a draft release
+        required: true
+        type: boolean
+        default: false
+      confirmation:
+        description: For publication only, type PUBLISH followed by the exact tag
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
-  group: release-${{ github.ref }}
+  # Serialize all release attempts, including different tags sharing a SHA.
+  group: stockpilot-release
   cancel-in-progress: false
+env:
+  RELEASE_TAG: ${{ inputs.tag }}
+  RELEASE_PUBLISH: ${{ inputs.publish }}
+  RELEASE_CONFIRMATION: ${{ inputs.confirmation }}
+  PUBLICATION_ENABLED: ${{ vars.RELEASE_PUBLICATION_ENABLED }}
 jobs:
   gate:
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.gate.outputs.sha }}
       version: ${{ steps.gate.outputs.version }}
+      tag: ${{ steps.gate.outputs.tag }}
+      publish: ${{ steps.gate.outputs.publish }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -22,30 +44,13 @@ jobs:
           persist-credentials: false
       - id: gate
         env:
-          REF_NAME: ${{ github.ref_name }}
-          EVENT: ${{ github.event_name }}
-          PUBLICATION_ENABLED: ${{ vars.RELEASE_PUBLICATION_ENABLED }}
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          sha=$(git rev-parse HEAD)
-          git merge-base --is-ancestor "$sha" origin/main
-          if [ "$EVENT" = push ]; then
-            test "$PUBLICATION_ENABLED" = true
-            # Fail if the environment is missing or its reviewer gate is ineffective.
-            gh api "repos/$GITHUB_REPOSITORY/environments/release" > "$RUNNER_TEMP/release-environment.json"
-            jq -e 'any(.protection_rules[]; .type == "required_reviewers" and .prevent_self_review == true and (.reviewers | length > 0))' "$RUNNER_TEMP/release-environment.json" >/dev/null
-            [[ "$REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-            test "$(git cat-file -t "refs/tags/$REF_NAME")" = tag
-            test "$(git rev-parse "refs/tags/$REF_NAME^{commit}")" = "$sha"
-            echo "version=${REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          else
-            echo 'version=dry-run' >> "$GITHUB_OUTPUT"
-          fi
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+        run: python3 scripts/ci/release_guard.py
   validate:
     needs: gate
     uses: ./.github/workflows/ci.yml
+    with:
+      release_sha: ${{ needs.gate.outputs.sha }}
     permissions:
       contents: read
   build:
@@ -59,26 +64,43 @@ jobs:
           persist-credentials: false
       - env:
           SHA: ${{ needs.gate.outputs.sha }}
+          VALIDATED_SHA: ${{ needs.validate.outputs.validated_sha }}
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SHA"
+          test "$VALIDATED_SHA" = "$SHA"
           docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -t stockpilot-api:release .
           docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -f frontend/Dockerfile -t stockpilot-web:release .
   publish:
-    if: github.event_name == 'push'
+    if: >-
+      github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' &&
+      inputs.publish == true && needs.gate.outputs.publish == 'true' &&
+      needs.validate.result == 'success' && needs.build.result == 'success' &&
+      needs.validate.outputs.validated_sha == needs.gate.outputs.sha
     needs: [gate, validate, build]
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Configure required reviewers before enabling publication.
+    # GITHUB_REF is refs/tags/<input tag>; retain the environment's tag-only policy.
     environment: release
     permissions:
       contents: write
       packages: write
+    env:
+      VALIDATED_SHA: ${{ needs.validate.outputs.validated_sha }}
+      VALIDATE_RESULT: ${{ needs.validate.result }}
+      BUILD_RESULT: ${{ needs.build.result }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ needs.gate.outputs.sha }}
+          fetch-depth: 0
           persist-credentials: false
-      - name: Build private images from the validated commit
+      - name: Recheck policy and both existing private packages before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GHCR_VISIBILITY_TOKEN: ${{ secrets.GHCR_VISIBILITY_TOKEN }}
+        run: python3 scripts/ci/release_guard.py --publication
+      - name: Build images from the validated commit
         env:
           SHA: ${{ needs.gate.outputs.sha }}
         run: |
@@ -86,27 +108,36 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SHA"
           docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -t stockpilot-api:release .
           docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -f frontend/Dockerfile -t stockpilot-web:release .
-      - name: Publish images from the validated commit and draft release
+      - name: Publish private images and draft release
         env:
           GH_TOKEN: ${{ github.token }}
+          GHCR_VISIBILITY_TOKEN: ${{ secrets.GHCR_VISIBILITY_TOKEN }}
           SHA: ${{ needs.gate.outputs.sha }}
           VERSION: ${{ needs.gate.outputs.version }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.gate.outputs.tag }}
         run: |
           set -euo pipefail
+          # Recheck after builds, before registry login/push; no missing-package exception.
+          python3 scripts/ci/release_guard.py --publication
           export DOCKER_CONFIG="$RUNNER_TEMP/registry-auth"
-          trap 'docker logout ghcr.io >/dev/null 2>&1; rm -rf "$DOCKER_CONFIG"' EXIT
+          published=''
+          attempted=''
+          finished=false
+          cleanup() {
+            result=$?
+            if [ "$finished" != true ]; then
+              printf 'Release incomplete (exit %s). Attempted: %s. Confirmed pushes: %s. Verify GHCR and any draft manually; no rollback or overwrite was attempted.\n' "$result" "$attempted" "$published" >> "$GITHUB_STEP_SUMMARY"
+              echo 'Release incomplete; inspect the job summary before retrying.' >&2
+            fi
+            docker logout ghcr.io >/dev/null 2>&1 || true
+            rm -rf "$DOCKER_CONFIG"
+          }
+          trap cleanup EXIT
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
           printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           owner="${GITHUB_REPOSITORY_OWNER,,}"
-          for component in api web; do
-            status=$(curl -sS -o "$RUNNER_TEMP/package.json" -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/users/$owner/packages/container/stockpilot-$component")
-            case "$status" in
-              404) ;; # First publication is private by default.
-              200) jq -e '.visibility == "private"' "$RUNNER_TEMP/package.json" >/dev/null ;;
-              *) echo 'Cannot verify package visibility; refusing publication' >&2; exit 1 ;;
-            esac
-          done
-          # Preflight both packages before any push. A registry error is not absence.
+          # Check all target tags before any push. Access/network failures are not absence.
           for component in api web; do
             image="ghcr.io/$owner/stockpilot-$component"
             for target in "$VERSION" "sha-$SHA"; do
@@ -119,17 +150,30 @@ jobs:
               fi
             done
           done
-          printf 'Commit: %s\n\n' "$SHA" > images.md
+          printf 'Tag: %s\nCommit: %s\n\n' "$TAG" "$SHA" > "$RUNNER_TEMP/images.md"
           for component in api web; do
             image="ghcr.io/$owner/stockpilot-$component"
             docker tag "stockpilot-$component:release" "$image:$VERSION"
             docker tag "stockpilot-$component:release" "$image:sha-$SHA"
-            docker push "$image:$VERSION"
-            docker push "$image:sha-$SHA"
-            digest=$(docker inspect --format '{{index .RepoDigests 0}}' "$image:$VERSION")
-            test "$(docker image inspect --format '{{.Id}}' "$image:$VERSION")" = "$(docker image inspect --format '{{.Id}}' "$image:sha-$SHA")"
-            # Verify visibility again after first publication, before creating the draft.
-            gh api "users/$owner/packages/container/stockpilot-$component" --jq '.visibility' | grep -qx private
-            printf '%s\n' "$digest" >> images.md
+            for target in "$VERSION" "sha-$SHA"; do
+              attempted="$attempted $image:$target"
+              printf 'Push requested: %s:%s. Verify registry if this run is interrupted.\n' "$image" "$target" >> "$GITHUB_STEP_SUMMARY"
+              docker push "$image:$target"
+              published="$published $image:$target"
+              printf 'Push confirmed: %s:%s\n' "$image" "$target" >> "$GITHUB_STEP_SUMMARY"
+            done
+            digest=$(docker buildx imagetools inspect "$image:$VERSION" --format '{{.Manifest.Digest}}')
+            immutable_digest=$(docker buildx imagetools inspect "$image:sha-$SHA" --format '{{.Manifest.Digest}}')
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+            test "$digest" = "$immutable_digest"
+            printf '%s:%s = %s:sha-%s = %s@%s\n' "$image" "$VERSION" "$image" "$SHA" "$image" "$digest" >> "$RUNNER_TEMP/images.md"
+            # Recheck both packages after every component, before proceeding further.
+            python3 scripts/ci/release_guard.py --publication
           done
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --target "$SHA" --draft --generate-notes --notes-file images.md images.md
+          printf 'Draft creation requested for %s at %s; verify GitHub if interrupted.\n' "$TAG" "$SHA" >> "$GITHUB_STEP_SUMMARY"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --target "$SHA" --draft --generate-notes --notes-file "$RUNNER_TEMP/images.md" "$RUNNER_TEMP/images.md"
+          # Verify the created draft targets the intended tag and remains unpublished.
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,tagName,targetCommitish > "$RUNNER_TEMP/release.json"
+          jq -e --arg tag "$TAG" --arg sha "$SHA" '.isDraft == true and .tagName == $tag and .targetCommitish == $sha' "$RUNNER_TEMP/release.json" >/dev/null
+          cat "$RUNNER_TEMP/images.md" >> "$GITHUB_STEP_SUMMARY"
+          finished=true
