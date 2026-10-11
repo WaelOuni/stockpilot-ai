@@ -1,0 +1,25 @@
+name: stockpilot-demo-lifecycle-test
+services:
+  mongo:
+    image: mongo:8
+    command: [mongod, --replSet, rs0, --bind_ip_all]
+    ports: ['127.0.0.1:28027:27017']
+    tmpfs: [/data/db, /data/configdb]
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "try { rs.status() } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }; if (!db.hello().isWritablePrimary) quit(1)"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports: ['127.0.0.1:56432:5432']
+    environment:
+      POSTGRES_USER: lifecycle
+      POSTGRES_PASSWORD: lifecycle
+      POSTGRES_DB: postgres
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U lifecycle -d postgres']
+      interval: 2s
+      timeout: 5s
+      retries: 30

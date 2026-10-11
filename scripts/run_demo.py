@@ -21,6 +21,7 @@ import psycopg
 from stockpilot.demo_runtime import (
     preflight_demo, resolve_demo_settings, demo_connection_environment,
 )
+from stockpilot.demo_lifecycle import managed_demo
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.presentation.api.admin_auth import password_verifier
 
@@ -177,17 +178,17 @@ def main() -> int:
     signal.signal(signal.SIGINT, stop)
     try:
         settings = demo_settings()
-        preflight = preflight_demo(settings)
-        print(
-            "Read-only preflight passed: immutable Mongo reference "
-            f"{preflight.mongo_summary['reference']['sha256']} "
-            f"({preflight.mongo_summary['reference']['products']} products, "
-            f"{preflight.mongo_summary['reference']['orders']} orders, "
-            f"{preflight.mongo_summary['reference']['stock_movements']} movements); "
-            f"RAG rows={preflight.rag_document_count}."
-        )
-        checkpoint_uri = settings.langgraph_checkpoint_db_uri or settings.postgres_url
-        return serve(settings, checkpoint_uri)
+        with managed_demo(settings) as preflight:
+            print(
+                "DEMO workspace verified; immutable seed reference "
+                f"{preflight.mongo_summary['reference']['sha256']} "
+                f"({preflight.mongo_summary['reference']['products']} products, "
+                f"{preflight.mongo_summary['reference']['orders']} orders, "
+                f"{preflight.mongo_summary['reference']['stock_movements']} movements); "
+                f"RAG rows={preflight.rag_document_count}."
+            )
+            checkpoint_uri = settings.langgraph_checkpoint_db_uri or settings.postgres_url
+            return serve(settings, checkpoint_uri)
     except KeyboardInterrupt:
         print("Demo stopped.")
         return 130

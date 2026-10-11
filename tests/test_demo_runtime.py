@@ -77,7 +77,7 @@ def fake_preflight(monkeypatch):
 
     state = SimpleNamespace(mongo_identity="local-rs", reference_identity="local-rs",
                             database="stockpilot_demo", postgres_identity="local-pg",
-                            schema="public", queries=[], collections=[])
+                            schema="public", lifecycle=None, queries=[], collections=[])
 
     class Mongo:
         def __init__(self, uri, **kwargs):
@@ -111,10 +111,9 @@ def fake_preflight(monkeypatch):
             return SimpleNamespace(fetchone=lambda: (values[query],))
 
     monkeypatch.setattr(runtime, "MongoClient", Mongo)
-    monkeypatch.setattr(runtime, "guarded_database", lambda *args: SimpleNamespace(name="stockpilot_demo"))
+    monkeypatch.setattr(runtime, "guarded_database", lambda *args: type("Database", (), {"name": "stockpilot_demo", "__getitem__": lambda self, name: SimpleNamespace(find_one=lambda *args: state.lifecycle)})())
     monkeypatch.setattr(runtime, "validate_existing_schema", lambda *args, **kwargs: state.collections.append("schema"))
-    monkeypatch.setattr(runtime, "demo_content_summary", lambda *args: {})
-    monkeypatch.setattr(runtime, "verify_content", lambda *args: "complete")
+    monkeypatch.setattr(runtime, "workspace_summary", lambda *args: {})
     monkeypatch.setattr(runtime, "postgres_server_identity", lambda uri: "local-pg")
     monkeypatch.setattr("scripts.prepare_demo_postgres.demo_uri", lambda: "postgresql://local/stockpilot_demo")
     monkeypatch.setattr(runtime.psycopg, "connect", lambda *args, **kwargs: Connection())
@@ -189,3 +188,14 @@ def test_postgres_uri_options_are_preserved_and_wrong_actual_namespace_refused(f
         runtime.preflight_demo(settings)
     assert checked
     assert "SELECT count(*) FROM knowledge_chunks" not in state.queries
+
+
+@pytest.mark.parametrize("marker", [
+    {"mongo_identity": "other", "postgres_identity": "local-pg"},
+    {"mongo_identity": "local-rs", "postgres_identity": "other"},
+])
+def test_lifecycle_marker_cannot_move_to_other_instances(fake_preflight, marker):
+    runtime, state = fake_preflight
+    state.lifecycle = marker
+    with pytest.raises(ValueError, match="lifecycle marker belongs to another"):
+        runtime.preflight_demo(demo_settings())

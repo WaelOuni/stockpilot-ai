@@ -52,6 +52,24 @@ See [architecture](docs/architecture.md) for layers, workflow and boundaries.
 Dependencies: [pyproject.toml](pyproject.toml).
 Local services: [docker-compose.yml](docker-compose.yml).
 
+## Démo locale persistante
+
+```sh
+bash scripts/run-demo.sh
+# Ctrl+C pour arrêter ; la même commande reprend les données.
+.venv/bin/python -m scripts.check_demo  # Diagnostic en lecture seule.
+# Seulement pour un reset volontaire, après arrêt et sauvegarde :
+bash scripts/reset-demo.sh
+```
+
+La première initialisation exige `INITIALIZE stockpilot_demo` ; les reprises
+conservent produits, stocks, commandes et checkpoints. Le reset exige
+`RESET stockpilot_demo`, vérifie les identités Mongo/PostgreSQL et exclut DEV/E2E.
+Voir [le runbook DEMO](docs/demo-runbook.md) pour sauvegardes, configuration privée
+et diagnostic. Aucune réinitialisation automatique après une opération métier.
+Le quickstart historique ci-dessous concerne le backend de développement ;
+ce n’est pas la procédure de reset de la DEMO persistante.
+
 ## Quickstart: fresh demo environment
 
 Run shell commands from the **project root in WSL/Linux**. Prerequisites:
