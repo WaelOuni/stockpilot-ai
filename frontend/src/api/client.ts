@@ -1,3 +1,4 @@
+import { validatePagination } from './pagination'
 import type { AssistantRequest, AssistantResponse, CustomerOrdersResponse, OrderResponse, OrderEvent, ProductResponse, ProductsResponse, ProductCategory } from '../types/api'
 import { ApiError, requestJson } from './http'
 
@@ -22,7 +23,7 @@ export async function sendAssistantMessage(body: AssistantRequest, signal?: Abor
 }
 
 export async function listCustomerOrders(limit = 20, offset = 0, signal?: AbortSignal): Promise<CustomerOrdersResponse> {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), include_total: 'true' })
   const result = await requestJson<CustomerOrdersResponse>(`/orders?${params}`, { signal })
   if (!result || !Array.isArray(result.items) ||
       !result.items.every(isOrder) ||
@@ -31,6 +32,7 @@ export async function listCustomerOrders(limit = 20, offset = 0, signal?: AbortS
       !Number.isInteger(result.offset) || result.offset !== offset) {
     throw new ApiError('La reponse des commandes est incomplete.', 200)
   }
+  validatePagination(result)
   return result
 }
 
@@ -84,7 +86,7 @@ export interface ProductFilters {
 }
 
 export async function listProducts(limit = 20, offset = 0, signal?: AbortSignal, filters: ProductFilters = {}): Promise<ProductsResponse> {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), include_total: 'true' })
   if (filters.q) params.set('q', filters.q)
   if (filters.category) params.set('category', filters.category)
   if (filters.available !== undefined) params.set('available', String(filters.available))
@@ -94,6 +96,7 @@ export async function listProducts(limit = 20, offset = 0, signal?: AbortSignal,
       typeof result.has_more !== 'boolean') {
     throw new ApiError('Le catalogue est incomplet.', 200)
   }
+  validatePagination(result)
   return result
 }
 

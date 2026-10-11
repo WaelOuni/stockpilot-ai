@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DataTable from '../components/DataTable.vue'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { executeAdminProductCsv, getAdminProductCsvBatch, previewAdminProductCsv } from '../api/admin'
@@ -126,24 +127,38 @@ const example = 'data:text/csv;charset=utf-8,' + encodeURIComponent(
 onBeforeUnmount(() => { epoch++; controller?.abort(); clearTimeout(timer) })
 </script>
 <template>
-  <header class="page-heading">
-    <span class="eyebrow">Back-office</span>
-    <h1>Importer des produits CSV</h1>
+  <header class="page-heading page-heading-actions">
+    <div>
+      <span class="eyebrow">Back-office</span>
+      <h1>Importer des produits CSV</h1>
+    </div>
+    <div class="header-actions">
+      <AdminLogout />
+    </div>
   </header>
-  <AdminLogout />
   <RouterLink to="/admin/products">
     Retour au catalogue administrateur
   </RouterLink>
-  <p class="hint">
-    CREATE_ONLY : nouveaux SKU uniquement, stock initial zéro. Aucun produit existant ne sera modifié.
-    UTF-8 (BOM accepté), virgule ou point-virgule, colonnes sku, name, category, price exactement une fois.
-    Catégories : DRILL, SAW, SANDER, SCREWDRIVER, OTHER. Maximum 2 MiB et 500 produits.
-    L’aperçu ne réserve pas les SKU : un conflit concurrent refuse tout le lot.
-  </p>
-  <a
-    :href="example"
-    download="products-example.csv"
-  >Télécharger un exemple CSV</a>
+  <aside
+    class="info-notice"
+    role="note"
+    aria-label="Conditions d’import CSV"
+  >
+    <div>
+      <h2>Avant d’importer</h2><p class="hint">
+        CREATE_ONLY : nouveaux SKU uniquement, stock initial zéro. Aucun produit existant ne sera modifié.
+        UTF-8 (BOM accepté), virgule ou point-virgule, colonnes sku, name, category, price exactement une fois.
+        Catégories : DRILL, SAW, SANDER, SCREWDRIVER, OTHER. Maximum 2 MiB et 500 produits.
+        L’aperçu ne réserve pas les SKU : un conflit concurrent refuse tout le lot.
+      </p>
+    </div>
+  </aside>
+  <div class="page-actions">
+    <a
+      :href="example"
+      download="products-example.csv"
+    >Télécharger un exemple CSV</a>
+  </div>
   <label>
     Fichier CSV
     <input
@@ -183,18 +198,30 @@ onBeforeUnmount(() => { epoch++; controller?.abort(); clearTimeout(timer) })
     <p v-if="preview.issues_truncated">
       Liste d’erreurs limitée à 100 ; corrigez puis prévisualisez à nouveau.
     </p>
-    <table>
-      <caption>Produits valides à créer (stock zéro)</caption>
+    <DataTable
+      class="import-preview-table"
+      label="Produits valides à créer (stock zéro)"
+    >
       <thead><tr><th>Ligne</th><th>SKU</th><th>Nom</th><th>Catégorie</th><th>Prix</th></tr></thead>
       <tbody>
         <tr
           v-for="(product, index) in preview.products"
           :key="product.sku"
         >
-          <td>{{ preview.product_lines[index] }}</td><td>{{ product.sku }}</td><td>{{ product.name }}</td><td>{{ product.category }}</td><td>{{ product.price }}</td>
+          <td data-label="Ligne">
+            {{ preview.product_lines[index] }}
+          </td><td data-label="SKU">
+            {{ product.sku }}
+          </td><td data-label="Nom">
+            {{ product.name }}
+          </td><td data-label="Catégorie">
+            {{ product.category }}
+          </td><td data-label="Prix">
+            {{ product.price.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) }}
+          </td>
         </tr>
       </tbody>
-    </table>
+    </DataTable>
     <label>
       <input
         v-model="confirmed"

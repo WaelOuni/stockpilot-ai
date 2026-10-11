@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import ProductFilters from '../components/ProductFilters.vue'
+import Pagination from "../components/BasePagination.vue"
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { listProducts, type ProductFilters } from '../api/client'
+import { listProducts, type ProductFilters as ProductFilterCriteria } from '../api/client'
 import ApiErrorNotice from '../components/ApiErrorNotice.vue'
 import ProductInfo from '../components/ProductInfo.vue'
 import type { ProductsResponse, ProductCategory } from '../types/api'
@@ -12,6 +14,7 @@ const router = useRouter()
 const catalogueContext = computed(() => catalogueQuery(route.query))
 const page = ref<ProductsResponse | null>(null)
 const offset = computed(() => Number(route.query.offset || 0))
+const limit = computed(() => Number(route.query.limit || 20))
 const search = ref('')
 const category = ref('')
 const availability = ref('')
@@ -19,7 +22,9 @@ const filtered = computed(() => Boolean(route.query.q || route.query.category ||
 const loading = ref(false)
 const error = ref<Error | null>(null)
 let controller: AbortController | null = null
-function filters(): ProductFilters {
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+watch(search, () => { clearTimeout(searchTimer); if (search.value !== (route.query.q || '')) searchTimer = setTimeout(applyFilters, 400) })
+function filters(): ProductFilterCriteria {
   const categoryValue = route.query.category
   return {
     q: typeof route.query.q === 'string' ? route.query.q : undefined,
@@ -29,15 +34,18 @@ function filters(): ProductFilters {
   }
 }
 function applyFilters() {
+  clearTimeout(searchTimer)
   const query: Record<string, string> = {}
   if (search.value.trim()) query.q = search.value.trim()
   if (category.value) query.category = category.value
   if (availability.value) query.available = availability.value
+  if (limit.value !== 20) query.limit = String(limit.value)
   void router.push({ path: '/products', query })
 }
 function paginate(next: number) {
   void router.push({ path: '/products', query: { ...route.query, offset: next ? String(next) : undefined } })
 }
+function changeSize(size: number) { void router.push({ path: '/products', query: { ...route.query, offset: undefined, limit: size === 20 ? undefined : String(size) } }) }
 function resetFilters() {
   search.value = ''
   category.value = ''
@@ -52,9 +60,10 @@ async function load() {
   error.value = null
   page.value = null
   try {
-    if (['q', 'category', 'available', 'offset'].some((key) => Array.isArray(route.query[key]))) {
+    if (['q', 'category', 'available', 'offset', 'limit'].some((key) => Array.isArray(route.query[key]))) {
       throw new Error('Filtres répétés invalides dans l’URL.')
     }
+    if (![10, 20, 50, 100].includes(limit.value)) throw new Error('Taille de page invalide dans l’URL.')
     if (!Number.isSafeInteger(offset.value) || offset.value < 0) throw new Error('Pagination invalide dans l’URL.')
     if (route.query.category && !Object.hasOwn(productCategoryLabels, String(route.query.category))) {
       throw new Error('Catégorie invalide dans l’URL.')
@@ -62,8 +71,12 @@ async function load() {
     if (route.query.available && !['true', 'false'].includes(String(route.query.available))) {
       throw new Error('Disponibilité invalide dans l’URL.')
     }
-    const result = await listProducts(20, offset.value, request.signal, filters())
+    const result = await listProducts(limit.value, offset.value, request.signal, filters())
     if (request.signal.aborted) return
+    if (result.total !== undefined && offset.value > 0 && offset.value >= result.total) {
+      paginate(Math.max(0, Math.floor((result.total - 1) / limit.value) * limit.value))
+      return
+    }
     page.value = result
   } catch (cause) {
     if (!request.signal.aborted) error.value = cause instanceof Error ? cause : new Error('Erreur inattendue.')
@@ -79,7 +92,7 @@ watch(() => route.fullPath, () => {
   availability.value = typeof route.query.available === 'string' ? route.query.available : ''
   void load()
 }, { immediate: true })
-onBeforeUnmount(() => { controller?.abort() })
+onBeforeUnmount(() => { controller?.abort(); clearTimeout(searchTimer) })
 </script>
 
 <template>
@@ -101,56 +114,14 @@ onBeforeUnmount(() => { controller?.abort() })
         Actualiser
       </button>
     </div>
-    <form
-      class="catalogue-filters"
-      @submit.prevent="applyFilters"
-    >
-      <label>Recherche
-        <input
-          v-model="search"
-          type="search"
-          maxlength="100"
-          placeholder="Nom ou SKU"
-        />
-      </label>
-      <label>Catégorie
-        <select
-          v-model="category"
-          aria-label="Catégorie"
-        >
-          <option value="">Toutes</option>
-          <option
-            v-for="(label, value) in productCategoryLabels"
-            :key="value"
-            :value="value"
-          >{{ label }}</option>
-        </select>
-      </label>
-      <label>Disponibilité
-        <select
-          v-model="availability"
-          aria-label="Disponibilité"
-        >
-          <option value="">Tous</option>
-          <option value="true">Disponibles</option>
-          <option value="false">Indisponibles</option>
-        </select>
-      </label>
-      <button
-        type="submit"
-        :disabled="loading"
-      >
-        Rechercher
-      </button>
-      <button
-        type="button"
-        class="secondary"
-        :disabled="loading"
-        @click="resetFilters"
-      >
-        Réinitialiser les filtres
-      </button>
-    </form>
+    <ProductFilters
+      v-model:search="search"
+      v-model:category="category"
+      v-model:availability="availability"
+      :loading="loading"
+      @apply="applyFilters"
+      @reset="resetFilters"
+    />
     <ApiErrorNotice :error="error" />
     <p
       v-if="loading"
@@ -185,24 +156,17 @@ onBeforeUnmount(() => { controller?.abort() })
         </article>
       </div>
     </template>
-    <div class="pagination">
-      <button
-        type="button"
-        class="secondary"
-        :disabled="loading || offset === 0"
-        @click="paginate(Math.max(0, offset - 20))"
-      >
-        Précédent
-      </button>
-      <span>Page {{ Math.floor(offset / 20) + 1 }}</span>
-      <button
-        type="button"
-        class="secondary"
-        :disabled="loading || !page || !page.has_more"
-        @click="paginate(offset + 20)"
-      >
-        Suivant
-      </button>
-    </div>
+    <Pagination
+      :offset="offset"
+      :limit="limit"
+      allow-page-size
+      :total="page?.total"
+      :count="page?.count"
+      :has-more="page?.has_more ?? false"
+      :loading="loading"
+      label="produits"
+      @size="changeSize"
+      @change="paginate"
+    />
   </section>
 </template>

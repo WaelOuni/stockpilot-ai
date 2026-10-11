@@ -50,6 +50,7 @@ async function load() {
   const request = new AbortController()
   controller = request
   loading.value = true
+  feedback.value = ''
   error.value = null
   try {
     const value = await getAdminProduct(target, request.signal)
@@ -134,27 +135,66 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <header class="page-heading">
-    <span class="eyebrow">Back-office · Métadonnées uniquement</span>
-    <h1>{{ editing ? 'Modifier un produit' : 'Créer un produit' }}</h1>
+  <header class="page-heading page-heading-actions">
+    <div>
+      <span class="eyebrow">Back-office · Métadonnées uniquement</span>
+      <h1>{{ editing ? 'Modifier un produit' : 'Créer un produit' }}</h1>
+    </div>
+    <div class="header-actions">
+      <button
+        v-if="editing || blocked"
+        class="secondary"
+        :disabled="loading || saving || loggingOut"
+        @click="load"
+      >
+        Actualiser le produit
+      </button>
+      <AdminLogout @pending="logoutPending" />
+    </div>
   </header>
-  <AdminLogout @pending="logoutPending" />
-  <RouterLink to="/admin/products">
-    Retour aux produits
-  </RouterLink>
-  <RouterLink
-    v-if="editing"
-    :to="`/admin/products/${encodeURIComponent(routeSku)}/stock`"
+  <nav
+    class="page-actions"
+    aria-label="Actions produit"
   >
-    Ajuster le stock
-  </RouterLink>
-  <p
+    <RouterLink to="/admin/products">
+      Retour aux produits
+    </RouterLink>
+    <RouterLink
+      v-if="editing"
+      :to="`/admin/products/${encodeURIComponent(routeSku)}/stock`"
+    >
+      Ajuster le stock
+    </RouterLink>
+  </nav>
+  <aside
     v-if="editing"
-    class="hint"
+    class="info-notice"
+    role="note"
+    aria-labelledby="rename-title"
   >
-    Renommer ne modifie pas les commandes existantes ; leur restitution utilise l’identifiant interne.
-    Une confirmation déjà préparée par ancien nom peut échouer après renommage.
-  </p>
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.8"
+    ><circle
+      cx="12"
+      cy="12"
+      r="9"
+    /><path d="M12 11v6 M12 7v1" /></svg>
+    <div>
+      <h2 id="rename-title">
+        Attention au renommage
+      </h2><p>
+        Renommer ne modifie pas les commandes existantes ; leur restitution utilise l’identifiant interne.
+        Une confirmation déjà préparée par ancien nom peut échouer après renommage.
+      </p>
+    </div>
+  </aside>
   <p
     v-if="loading"
     role="status"
@@ -163,24 +203,40 @@ onBeforeUnmount(() => {
   </p>
   <ApiErrorNotice
     v-if="error"
+    id="form-error"
     :error="error"
   />
   <p
-    v-if="feedback"
+    v-if="feedback && !loading"
+    :class="error ? 'info-notice' : 'success-notice'"
     role="status"
   >
     {{ feedback }}
   </p>
-  <p>Stock : {{ product ? product.stock : editing ? 'indisponible' : '0 à la création' }} (lecture seule)</p>
-  <form @submit.prevent="submit">
+  <dl class="product-stock-summary">
+    <div><dt>Stock (lecture seule)</dt><dd>{{ product ? product.stock : editing ? 'indisponible' : '0 à la création' }}</dd></div>
+  </dl>
+  <form
+    :aria-describedby="error ? 'form-error' : undefined"
+    @submit.prevent="submit"
+  >
     <fieldset :disabled="saving || loading || blocked || loggingOut">
       <label for="product-sku">SKU (immuable après création)</label>
       <input
         id="product-sku"
         v-model="sku"
         :readonly="editing"
+        :title="sku"
+        :aria-describedby="editing ? 'product-sku-value' : undefined"
         required
       />
+      <p
+        v-if="editing"
+        id="product-sku-value"
+        class="identifier-value hint"
+      >
+        {{ sku }}
+      </p>
       <label for="product-name">Nom</label>
       <input
         id="product-name"
@@ -215,13 +271,6 @@ onBeforeUnmount(() => {
       </button>
     </fieldset>
   </form>
-  <button
-    v-if="editing || blocked"
-    :disabled="loading || saving || loggingOut"
-    @click="load"
-  >
-    Actualiser le produit
-  </button>
   <RouterLink
     v-if="!editing && product"
     :to="`/admin/products/${encodeURIComponent(product.sku)}/edit`"

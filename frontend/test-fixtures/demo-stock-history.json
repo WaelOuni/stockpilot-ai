@@ -1,0 +1,75 @@
+{
+  "items": [
+    {
+      "movement_id": "9671c4b5-c6da-5c08-b466-7e32ca3b0cf1",
+      "operation_id": "33a09f28-0d1c-5304-85b8-2998a6c34f57",
+      "product_sku": "DEMO-DRILL-0001",
+      "delta": 1,
+      "stock_before": 91,
+      "stock_after": 92,
+      "reason": "Synthetic demo inventory adjustment",
+      "occurred_at": "2026-11-06T13:00:00Z",
+      "source": "BACKOFFICE"
+    },
+    {
+      "movement_id": "af913661-28e7-5cb9-8eb3-cba7af2d15f7",
+      "operation_id": "3eb9cbd5-fb7c-5f94-8000-41a31952d23a",
+      "product_sku": "DEMO-DRILL-0001",
+      "delta": 1,
+      "stock_before": 90,
+      "stock_after": 91,
+      "reason": "Synthetic demo inventory adjustment",
+      "occurred_at": "2026-11-01T08:00:00Z",
+      "source": "BACKOFFICE"
+    },
+    {
+      "movement_id": "4e6f81ff-4f78-5cc6-9481-a1d23e621abf",
+      "operation_id": "36960fca-93c2-54e6-98e9-11c5743d8e83",
+      "product_sku": "DEMO-DRILL-0001",
+      "delta": 1,
+      "stock_before": 89,
+      "stock_after": 90,
+      "reason": "Synthetic demo inventory adjustment",
+      "occurred_at": "2026-10-27T03:00:00Z",
+      "source": "BACKOFFICE"
+    },
+    {
+      "movement_id": "eed9077a-130a-54bb-b12c-2853055f66f6",
+      "operation_id": "f99e6b3b-7549-565a-b04e-9571e835532d",
+      "product_sku": "DEMO-DRILL-0001",
+      "delta": 1,
+      "stock_before": 88,
+      "stock_after": 89,
+      "reason": "Synthetic demo inventory adjustment",
+      "occurred_at": "2026-10-21T22:00:00Z",
+      "source": "BACKOFFICE"
+    },
+    {
+      "movement_id": "56325b44-6214-5ef5-a5a0-4c350cd0adeb",
+      "operation_id": "bee02d22-46da-56eb-b89c-6f6b7e4199cc",
+      "product_sku": "DEMO-DRILL-0001",
+      "delta": 1,
+      "stock_before": 87,
+      "stock_after": 88,
+      "reason": "Synthetic demo inventory adjustment",
+      "occurred_at": "2026-10-16T17:00:00Z",
+      "source": "BACKOFFICE"
+    },
+    {
+      "movement_id": "4e904021-492e-59f3-baa0-b5cd7dad7245",
+      "operation_id": "e3a6547c-35ca-5289-ba83-00b4a6b2a430",
+      "product_sku": "DEMO-DRILL-0001",
+      "delta": 1,
+      "stock_before": 86,
+      "stock_after": 87,
+      "reason": "Synthetic demo inventory adjustment",
+      "occurred_at": "2026-10-11T12:00:00Z",
+      "source": "BACKOFFICE"
+    }
+  ],
+  "limit": 20,
+  "offset": 0,
+  "count": 6,
+  "total": 6,
+  "has_more": false
+}

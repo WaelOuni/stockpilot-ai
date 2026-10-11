@@ -20,7 +20,9 @@ test('isolated CREATE_ONLY CSV import preview confirm Mongo zero stock catalogue
   await page.goto('/admin/products')
   await page.getByRole('link', { name: 'Importer des produits CSV', exact: true }).click()
   const baseline = await page.evaluate(async () => (await (await fetch('/api/backoffice/dashboard')).json()).product_stats)
-  const csv = 'sku;name;category;price\nE2E-IMPORT-A;"Import perceuse; test";DRILL;10.5\nE2E-IMPORT-B;Import scie;SAW;20\n'
+  const skuA = `E2E-IMPORT-A-${process.env.E2E_FIXTURE_SUFFIX}`
+  const skuB = `E2E-IMPORT-B-${process.env.E2E_FIXTURE_SUFFIX}`
+  const csv = `sku;name;category;price\n${skuA};"Import perceuse; test";DRILL;10.5\n${skuB};Import scie;SAW;20\n`
   await page.getByLabel('Fichier CSV').setInputFiles({ name: 'import.csv', mimeType: 'text/plain', buffer: Buffer.from(csv) })
   const previewResponse = page.waitForResponse(response =>
     response.url().endsWith('/api/backoffice/products/import/preview') && response.request().method() === 'POST')
@@ -39,8 +41,8 @@ test('isolated CREATE_ONLY CSV import preview confirm Mongo zero stock catalogue
   expect(executed.status()).toBe(200)
   const receipt = await executed.json()
   await expect(page.getByRole('heading', { name: 'Import confirmé par le serveur' })).toBeVisible()
-  expect(product('E2E-IMPORT-A')).toMatchObject({ sku: 'E2E-IMPORT-A', stock: 0, name: 'Import perceuse; test', price: 10.5 })
-  expect(product('E2E-IMPORT-B')).toMatchObject({ sku: 'E2E-IMPORT-B', stock: 0, category: 'SAW' })
+  expect(product(skuA)).toMatchObject({ sku: skuA, stock: 0, name: 'Import perceuse; test', price: 10.5 })
+  expect(product(skuB)).toMatchObject({ sku: skuB, stock: 0, category: 'SAW' })
   const reconciled = await page.evaluate(async (operation) =>
     (await fetch(`/api/backoffice/products/import/batches/${operation}`, { credentials: 'include' })).json(),
   receipt.operation_id)
@@ -59,7 +61,9 @@ test('isolated CREATE_ONLY CSV import preview confirm Mongo zero stock catalogue
   expect(after.total_products).toBe(baseline.total_products + 2)
   expect(after.total_stock_units).toBe(baseline.total_stock_units)
   await page.getByRole('link', { name: 'Consulter le catalogue', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Import perceuse; test', exact: true })).toBeVisible()
+  await page.getByLabel('Recherche', { exact: true }).fill(skuA)
+  await page.getByRole('button', { name: 'Rechercher', exact: true }).click()
+  await expect(page.getByText('Import perceuse; test', { exact: true }).first()).toBeVisible()
   await page.goto('/products?q=E2E-IMPORT')
   await expect(page.getByRole('link', { name: /Import perceuse; test/ }).first()).toBeVisible()
   await page.goto('/admin/products/import')

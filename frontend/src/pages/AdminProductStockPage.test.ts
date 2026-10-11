@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, RouterView } from 'vue-router'
 import AdminProductStockPage from './AdminProductStockPage.vue'
 import AdminLoginPage from './AdminLoginPage.vue'
 import { protectAdminRoutes } from '../router/adminGuard'
+import demoHistory from '../../test-fixtures/demo-stock-history.json'
 import type { StockMovement } from '../types/api'
 import { readPendingStockAdjustment, savePendingStockAdjustment } from '../utils/pendingStockAdjustment'
 
@@ -422,4 +423,29 @@ it('a 20-second timeout reconciles without a second POST and remains blocked if 
   expect(wrapper!.get('fieldset').attributes('disabled')).toBeDefined()
   expect(posts()).toHaveLength(1)
   expect(readPendingStockAdjustment()?.operationId).toBe(operationId)
+})
+
+it('loads exact DEMO historical UUID v5 movements with empty drafts and no POST', async () => {
+  product.sku = 'DEMO-DRILL-0001'
+  history = demoHistory.items as StockMovement[]
+  await open('/admin/products/DEMO-DRILL-0001/stock')
+  expect(wrapper!.find('.error-notice').exists()).toBe(false)
+  expect(wrapper!.text()).toContain('Synthetic demo inventory adjustment')
+  expect((wrapper!.get('#stock-delta').element as HTMLInputElement).value).toBe('')
+  expect((wrapper!.get('#stock-reason').element as HTMLTextAreaElement).value).toBe('')
+  expect(wrapper!.get('fieldset').attributes('disabled')).toBeUndefined()
+  expect(posts()).toHaveLength(0)
+  expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/backoffice/stock-adjustments/'))).toBe(false)
+})
+it('reconciles a UUID v4 ambiguous adjustment despite existing DEMO UUID v5 history', async () => {
+  product.sku = 'DEMO-DRILL-0001'
+  history = demoHistory.items as StockMovement[]
+  postMode = 'uncertain-commit'
+  await open('/admin/products/DEMO-DRILL-0001/stock')
+  await preview('1')
+  await confirm()
+  expect(posts()).toHaveLength(1)
+  expect(wrapper!.text()).toContain('Ajustement retrouvé dans l’historique')
+  expect(wrapper!.find('.error-notice').exists()).toBe(false)
+  expect(readPendingStockAdjustment()).toBeNull()
 })

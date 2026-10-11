@@ -1,3 +1,4 @@
+from stockpilot.infrastructure.persistence.mongodb.pagination import read_page
 from stockpilot.application.dto.advice_criteria import AdviceCriteria
 import re
 from datetime import datetime, timezone
@@ -148,6 +149,7 @@ class MongoProductRepository(ProductRepositoryPort):
     async def list_products(
         self, limit: int, offset: int, *, q: str | None = None,
         category: ProductCategory | None = None, available: bool | None = None,
+        include_total: bool = False,
     ) -> ProductPage:
         query = {}
         if q is not None and q.strip():
@@ -157,6 +159,9 @@ class MongoProductRepository(ProductRepositoryPort):
             query["category"] = category.value
         if available is not None:
             query["stock"] = {"$gt" if available else "$lte": 0}
+        if include_total:
+            documents, total = read_page(self.collection, query, [("sku", 1), ("_id", 1)], limit, offset)
+            return ProductPage([self._to_product(doc) for doc in documents], offset + len(documents) < total, total)
         cursor = self.collection.find(query).sort([("sku", 1), ("_id", 1)]).skip(offset).limit(limit + 1)
         documents = list(cursor)
         return ProductPage(
@@ -240,8 +245,12 @@ class MongoProductRepository(ProductRepositoryPort):
         return self._to_stock_movement(document) if document is not None else None
 
     async def list_stock_movements(
-        self, sku: str, limit: int, offset: int,
+        self, sku: str, limit: int, offset: int, *, include_total: bool = False,
     ) -> StockMovementPage:
+        if include_total:
+            documents, total = read_page(self.database["stock_movements"], {"product_sku": sku},
+                [("occurred_at", -1), ("movement_id", -1), ("_id", -1)], limit, offset, {"_id": 0, "product_id": 0})
+            return StockMovementPage([self._to_stock_movement(doc) for doc in documents], offset + len(documents) < total, total)
         documents = list(
             self.database["stock_movements"].find(
                 {"product_sku": sku},

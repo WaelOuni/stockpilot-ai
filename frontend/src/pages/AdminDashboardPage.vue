@@ -8,6 +8,7 @@ import AdminLogout from '../components/AdminLogout.vue'
 import ApiErrorNotice from '../components/ApiErrorNotice.vue'
 import { formatDate, orderStatusLabel } from '../utils/format'
 
+const metricNumber = new Intl.NumberFormat('fr-FR')
 const router = useRouter()
 const dashboard = ref<BackofficeDashboard | null>(null)
 const loading = ref(false)
@@ -102,7 +103,7 @@ onBeforeUnmount(() => {
       <dl class="dashboard-metrics">
         <div class="dashboard-metric dashboard-metric-primary">
           <dt>Total des commandes</dt>
-          <dd>{{ dashboard.order_stats.total_orders }}</dd>
+          <dd>{{ metricNumber.format(dashboard.order_stats.total_orders) }}</dd>
         </div>
         <div
           v-for="status in ['CREATED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as const"
@@ -110,7 +111,7 @@ onBeforeUnmount(() => {
           class="dashboard-metric"
         >
           <dt>{{ orderStatusLabel(status) }}</dt>
-          <dd>{{ dashboard.order_stats.by_status[status] }}</dd>
+          <dd>{{ metricNumber.format(dashboard.order_stats.by_status[status]) }}</dd>
         </div>
       </dl>
     </section>
@@ -130,19 +131,19 @@ onBeforeUnmount(() => {
       <dl class="dashboard-metrics dashboard-product-metrics">
         <div class="dashboard-metric dashboard-metric-primary">
           <dt>Total des produits</dt>
-          <dd>{{ dashboard.product_stats.total_products }}</dd>
+          <dd>{{ metricNumber.format(dashboard.product_stats.total_products) }}</dd>
         </div>
         <div class="dashboard-metric">
           <dt>Disponibles (stock supérieur à 0)</dt>
-          <dd>{{ dashboard.product_stats.available_products }}</dd>
+          <dd>{{ metricNumber.format(dashboard.product_stats.available_products) }}</dd>
         </div>
         <div class="dashboard-metric">
           <dt>Indisponibles (stock inférieur ou égal à 0)</dt>
-          <dd>{{ dashboard.product_stats.unavailable_products }}</dd>
+          <dd>{{ metricNumber.format(dashboard.product_stats.unavailable_products) }}</dd>
         </div>
         <div class="dashboard-metric">
           <dt>Unités de stock au total</dt>
-          <dd>{{ dashboard.product_stats.total_stock_units }}</dd>
+          <dd>{{ metricNumber.format(dashboard.product_stats.total_stock_units) }}</dd>
         </div>
       </dl>
       <p class="hint">

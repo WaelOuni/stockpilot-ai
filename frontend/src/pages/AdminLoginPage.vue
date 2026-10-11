@@ -27,9 +27,9 @@ async function login() {
 
 <template>
   <header class="page-heading">
-    <span class="eyebrow">Back-office · Lecture seule</span>
+    <span class="eyebrow">Accès sécurisé</span>
     <h1>Connexion administrateur</h1>
-    <p>Session distincte du JWT client. Aucun changement de commande n’est autorisé.</p>
+    <p>Connectez-vous pour gérer les commandes, le catalogue et les stocks.</p>
   </header>
   <p
     v-if="route.query.reason === 'session'"
@@ -45,10 +45,12 @@ async function login() {
   </p>
   <ApiErrorNotice
     v-if="error"
+    id="form-error"
     :error="error"
   />
   <form
     class="context-card admin-login"
+    :aria-describedby="error ? 'form-error' : undefined"
     @submit.prevent="login"
   >
     <label for="admin-username">Identifiant administrateur</label>
@@ -65,7 +67,7 @@ async function login() {
       id="admin-password"
       v-model="password"
       type="password"
-      autocomplete="off"
+      autocomplete="current-password"
       minlength="16"
       maxlength="256"
       required

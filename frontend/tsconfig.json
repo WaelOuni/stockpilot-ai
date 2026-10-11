@@ -13,5 +13,5 @@
     "resolveJsonModule": true,
     "types": ["vite/client", "vitest/globals", "node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "e2e/**/*.ts", "*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "e2e/**/*.ts", "visual-e2e/**/*.ts", "kpi-e2e/**/*.ts", "advice-e2e/**/*.ts", "*.ts"]
 }

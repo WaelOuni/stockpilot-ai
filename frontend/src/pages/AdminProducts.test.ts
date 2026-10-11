@@ -70,11 +70,12 @@ it.each(['/admin/products', '/admin/products/new', '/admin/products/SKU-1/edit']
 
 it('lists metadata with stock read-only, edit links and authoritative has_more', async () => {
   await open('/admin/products')
-  expect(wrapper!.text()).toContain('Stock : 7 (lecture seule)')
+  expect(wrapper!.get('td[data-label=Stock]').text()).toContain('7 lecture seule')
   expect(wrapper!.find('a[href="/admin/products/SKU-1/edit"]').text()).toContain('Drill')
   expect(wrapper!.find('a[href="/admin/products/SKU-1/stock"]').text()).toContain('Ajuster le stock de Drill')
   expect(button('Suivant').attributes('disabled')).toBeDefined()
-  expect(wrapper!.findAll('input')).toHaveLength(0)
+  expect(wrapper!.findAll('input[type=search]')).toHaveLength(1)
+  expect(wrapper!.find('input[type=number]').exists()).toBe(false)
   expect(writes()).toHaveLength(0)
 })
 
@@ -154,7 +155,9 @@ it('edits only metadata, displays immutable SKU and rename warning, trusts persi
   expect(options?.method).toBe('PATCH')
   expect(JSON.parse(String(options?.body))).toEqual({ name: 'Draft name', category: 'DRILL', price: 12.5 })
   expect((wrapper!.get('#product-name').element as HTMLInputElement).value).toBe('Persisted name')
-  expect(wrapper!.text()).toContain('Stock : 6')
+  expect(wrapper!.get('.product-stock-summary dd').text()).toBe('6')
+  expect(wrapper!.get('[role=note]').attributes('aria-labelledby')).toBe('rename-title')
+  expect(wrapper!.get('#rename-title').text()).toBe('Attention au renommage')
   expect(wrapper!.text()).toContain('Métadonnées enregistrées')
 })
 

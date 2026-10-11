@@ -99,7 +99,7 @@ class ListStockMovementsUseCase:
     def __init__(self, repository: ProductRepositoryPort):
         self.repository = repository
 
-    async def execute(self, sku: str, limit: int, offset: int) -> StockMovementPage:
+    async def execute(self, sku: str, limit: int, offset: int, *, include_total: bool = False) -> StockMovementPage:
         if type(limit) is not int or not 1 <= limit <= 100 or type(offset) is not int or offset < 0:
             raise ValueError("Invalid stock history pagination.")
         try:
@@ -108,4 +108,6 @@ class ListStockMovementsUseCase:
             raise StockAdjustmentAmbiguousProductError("Product SKU is ambiguous.") from error
         if product is None:
             raise ProductStockNotFoundError("Product not found.")
+        if include_total:
+            return await self.repository.list_stock_movements(sku, limit, offset, include_total=True)
         return await self.repository.list_stock_movements(sku, limit, offset)

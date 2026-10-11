@@ -7,3 +7,4 @@ from stockpilot.domain.entities.product import Product
 class ProductPage:
     items: list[Product]
     has_more: bool
+    total: int | None = None

@@ -18,7 +18,7 @@ it('uses only same-origin cookies and never customer Authorization or VITE base'
   const controller = new AbortController()
   await listAdminOrders(20, controller.signal)
   const [url, options] = fetchMock.mock.calls[0]!
-  expect(url).toBe('/api/backoffice/orders?limit=20&offset=20')
+  expect(url).toBe('/api/backoffice/orders?limit=20&offset=20&include_total=true')
   expect(options).toMatchObject({ credentials: 'include', cache: 'no-store', redirect: 'error', signal: controller.signal })
   expect(new Headers(options?.headers).has('Authorization')).toBe(false)
   vi.unstubAllEnvs()

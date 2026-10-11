@@ -176,3 +176,17 @@ it('refuses extra/internal dashboard fields and malformed recent values in the A
   expect(wrapper!.get('[role="alert"]').text()).toContain('Réponse du tableau de bord invalide.')
   expect(wrapper!.text()).not.toContain('private')
 })
+
+it.each([1200, 12500, 100000, 1000000])('formats KPI value %s in French without changing the metric', async value => {
+  fetchMock.mockImplementation(async input => String(input).includes('/session/')
+    ? json({ username: 'admin', csrf_token: 'csrf' })
+    : json(response({
+      order_stats: { total_orders: value, by_status: { ...zeroCounts, DELIVERED: value } },
+      product_stats: { total_products: value, available_products: value, unavailable_products: 0, total_stock_units: value },
+    })))
+  await open()
+  const formatted = new Intl.NumberFormat('fr-FR').format(value)
+  const metrics = wrapper!.findAll('.dashboard-metric dd')
+  for (const index of [0, 4, 6, 7, 9]) expect(metrics[index]!.text()).toBe(formatted)
+  expect(metrics[8]!.text()).toBe('0')
+})

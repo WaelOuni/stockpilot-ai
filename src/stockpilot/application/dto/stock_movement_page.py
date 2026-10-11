@@ -7,3 +7,4 @@ from stockpilot.domain.entities.stock_movement import StockMovement
 class StockMovementPage:
     items: list[StockMovement]
     has_more: bool
+    total: int | None = None

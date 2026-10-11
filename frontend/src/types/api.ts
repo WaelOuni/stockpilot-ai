@@ -66,10 +66,12 @@ export interface OrderResponse {
 }
 
 export interface CustomerOrdersResponse {
+  has_more?: boolean
   items: OrderResponse[]
   limit: number
   offset: number
   count: number
+  total?: number
 }
 
 export interface ProductResponse {
@@ -85,6 +87,7 @@ export interface ProductsResponse {
   limit: number
   offset: number
   count: number
+  total?: number
   has_more: boolean
 }
 
@@ -105,6 +108,7 @@ export interface StockMovementsResponse {
   limit: number
   offset: number
   count: number
+  total?: number
   has_more: boolean
 }
 
