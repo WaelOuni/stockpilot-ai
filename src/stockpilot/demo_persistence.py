@@ -55,16 +55,21 @@ def guarded_database(client: MongoClient, database_name: str):
 
 def _expected_indexes(collection: str) -> dict[str, dict[str, Any]]:
     expected = {"_id_": {"key": [("_id", 1)], "unique": False, "partial": None}}
+    if collection == "product_imports":
+        expected["product_imports_operation_id_unique"] = {
+            "key": [("operation_id", 1)], "unique": True, "partial": None,
+        }
     for name, keys, unique, partial in PLANNED_INDEXES:
         if name.startswith(f"{collection}_"):
             expected[name] = {"key": list(keys), "unique": unique, "partial": partial}
     return expected
 
 
-def validate_existing_schema(database, *, complete: bool = False) -> None:
+def validate_existing_schema(database, *, complete: bool = False, workspace: bool = False) -> None:
+    allowed = set(COLLECTIONS) | ({"product_imports"} if workspace else set())
     for info in database.list_collections():
         name = info["name"]
-        if name not in COLLECTIONS or info.get("type") != "collection" or info.get("options"):
+        if name not in allowed or info.get("type") != "collection" or info.get("options"):
             raise ValueError("Existing demo collections/options are incompatible; no cleanup allowed.")
         expected = _expected_indexes(name)
         actual = list(database[name].list_indexes())
@@ -81,7 +86,8 @@ def validate_existing_schema(database, *, complete: bool = False) -> None:
                 raise ValueError("Existing demo indexes are incompatible; no index changes allowed.")
         if complete and {index["name"] for index in actual} != set(expected):
             raise ValueError("Completed demo dataset is missing approved indexes.")
-    if complete and set(database.list_collection_names()) != set(COLLECTIONS):
+    names = set(database.list_collection_names())
+    if complete and (not set(COLLECTIONS) <= names or not names <= allowed):
         raise ValueError("Completed demo dataset is missing approved collections.")
 
 
