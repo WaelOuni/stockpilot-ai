@@ -5,6 +5,13 @@ La DEMO utilise exclusivement MongoDB `stockpilot_demo` et PostgreSQL
 Les anciennes mesures V6/V7 sont des instantanés historiques, pas une contrainte
 interdisant de modifier les produits de la démo.
 
+Pour préparer l'isolation réseau et une passerelle locale sans accès distant,
+voir [le lot V11.2 et son retour arrière](demo-network-isolation.md).
+Son application aux conteneurs partagés nécessite une fenêtre d'interruption
+explicitement approuvée ; le lancement local décrit ici reste inchangé.
+Le [plan de sauvegarde et restauration isolée](demo-backup-recovery.md) couvre
+les instances partagées avant maintenance, sans restauration sur les bases actives.
+
 ## Démarrer, arrêter, reprendre
 
 Avec les dépendances Python/Vue et les services Mongo rs0/PostgreSQL pgvector déjà
