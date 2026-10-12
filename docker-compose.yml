@@ -4,7 +4,7 @@ services:
     container_name: stockpilot-mongodb
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_DATABASE: stockpilot
     volumes:
@@ -21,7 +21,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: stockpilot-postgres
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: stockpilot
       POSTGRES_USER: stockpilot
