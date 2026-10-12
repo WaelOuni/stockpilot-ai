@@ -1,3 +1,4 @@
+from stockpilot.application.stock_identity import StockIdentityRequiredError
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from stockpilot.application.use_cases.update_order_status import (
@@ -31,6 +32,8 @@ async def cancel_customer_order(
 ) -> OrderResponse:
     try:
         order = await use_case.execute(order_id, customer_id=customer_id)
+    except StockIdentityRequiredError as error:
+        raise HTTPException(status_code=409, detail=f"{error.code}: {error}") from error
     except (InvalidOrderStatusTransitionError, OrderStatusConflictError) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     if order is None:
@@ -80,6 +83,8 @@ async def update_order_status(
 ) -> OrderResponse:
     try:
         order = await use_case.execute(order_id, request.status)
+    except StockIdentityRequiredError as error:
+        raise HTTPException(status_code=409, detail=f"{error.code}: {error}") from error
     except (InvalidOrderStatusTransitionError, OrderStatusConflictError) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     if order is None:
@@ -98,6 +103,8 @@ async def cancel_order(
 ) -> OrderResponse:
     try:
         order = await use_case.execute(order_id)
+    except StockIdentityRequiredError as error:
+        raise HTTPException(status_code=409, detail=f"{error.code}: {error}") from error
     except (InvalidOrderStatusTransitionError, OrderStatusConflictError) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     if order is None:

@@ -127,6 +127,7 @@ def test_order_workflow_returns_pending_confirmation_without_creating_order() ->
                 category=ProductCategory.DRILL,
                 price=129.99,
                 stock=12,
+                document_id="fixture-document-BOSCH-X100",
             )
 
     classify_intent = SimpleNamespace(
@@ -157,6 +158,8 @@ def test_order_workflow_returns_pending_confirmation_without_creating_order() ->
     assert result["pending_order"] == {
         "operation_id": result["pending_order"]["operation_id"],
         "product_name": "Bosch X100",
+        "product_sku": "BOSCH-X100",
+        "product_document_id": "fixture-document-BOSCH-X100",
         "quantity": 1,
         "status": "PENDING_CONFIRMATION",
     }

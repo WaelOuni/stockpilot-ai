@@ -1,3 +1,4 @@
+from stockpilot.application.stock_identity import StockIdentityRequiredError
 import re
 from stockpilot.application.dto.order_page import OrderPage
 from stockpilot.infrastructure.persistence.mongodb.pagination import read_page
@@ -22,7 +23,6 @@ from stockpilot.domain.entities.order import Order
 from stockpilot.domain.entities.order_event import OrderEvent, OrderEventSource
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.domain.services.order_lifecycle import validate_order_cancellation
-from stockpilot.infrastructure.persistence.mongodb.product_repository import MongoProductRepository
 
 
 logger = logging.getLogger(__name__)
@@ -191,21 +191,19 @@ class MongoOrderRepository(OrderRepositoryPort):
             if "reserved_product_id" in document:
                 product_id = document["reserved_product_id"]
                 if product_id is None or isinstance(product_id, (dict, list)):
-                    raise RuntimeError("Identité du produit réservé invalide ; restitution refusée.")
+                    raise StockIdentityRequiredError()
             else:
-                product = MongoProductRepository(self._database).resolve_stock_product(
-                    order.product_name, session, legacy=True,
-                )
-                if product is None:
-                    raise RuntimeError("Identité produit legacy introuvable ; restitution refusée.")
-                product_id = product["_id"]
+                # A current name or SKU cannot prove a historical reservation.
+                raise StockIdentityRequiredError()
+            if order.product_document_id is not None and str(product_id) != order.product_document_id:
+                raise StockIdentityRequiredError()
             stock_result = self._database["products"].update_one(
                 {"_id": product_id},
                 {"$inc": {"stock": order.quantity}},
                 session=session,
             )
             if stock_result.matched_count != 1:
-                raise RuntimeError("Le document produit réservé est introuvable pour la restitution.")
+                raise StockIdentityRequiredError()
             updated = self.collection.find_one_and_update(
                 {**order_filter, "status": expected_status.value},
                 {
@@ -252,6 +250,8 @@ class MongoOrderRepository(OrderRepositoryPort):
             status=OrderStatus(document["status"]),
             created_at=datetime.fromisoformat(document["created_at"]),
             customer_id=document.get("customer_id"),
+            product_sku=document.get("product_sku"),
+            product_document_id=document.get("product_document_id"),
             events=tuple(OrderEvent(
                 status=OrderStatus(item["status"]),
                 occurred_at=datetime.fromisoformat(item["occurred_at"]),
@@ -277,6 +277,8 @@ class MongoOrderRepository(OrderRepositoryPort):
                 "order_id": order.order_id,
                 "operation_id": order.operation_id,
                 "product_name": order.product_name,
+                **({"product_sku": order.product_sku} if order.product_sku is not None else {}),
+                **({"product_document_id": order.product_document_id} if order.product_document_id is not None else {}),
                 "quantity": order.quantity,
                 "status": order.status.value,
                 "created_at": order.created_at.isoformat(),
@@ -296,7 +298,7 @@ class MongoOrderRepository(OrderRepositoryPort):
             existing = await self.find_by_operation_id(order.operation_id)
             if existing is None:
                 raise
-            validate_order_payload(existing, order.product_name, order.quantity, order.customer_id)
+            validate_order_payload(existing, order.product_name, order.quantity, order.customer_id, order.product_sku, order.product_document_id)
             event(logger, "order_replay_detected", operation_id=order.operation_id,
                   order_id=existing.order_id)
             return existing

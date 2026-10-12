@@ -1,6 +1,8 @@
+from stockpilot.application.stock_identity import StockIdentityRequiredError
 from stockpilot.infrastructure.persistence.mongodb.pagination import read_page
 from stockpilot.application.dto.advice_criteria import AdviceCriteria
 import re
+from bson import ObjectId
 from datetime import datetime, timezone
 
 from pymongo import ReadPreference, ReturnDocument
@@ -123,18 +125,42 @@ class MongoProductRepository(ProductRepositoryPort):
     def _name_filter(name: str) -> dict:
         return {
             "name": {
-                "$regex": name,
+                "$regex": re.escape(name).replace(r"\ ", " "),
                 "$options": "i",
             }
         }
 
     async def find_by_name(self, name: str) -> Product | None:
-        document = self.collection.find_one(self._name_filter(name))
+        from stockpilot.application.use_cases.resolve_product import ResolveProductUseCase
+        return (await ResolveProductUseCase(self).execute(name)).product
 
-        if document is None:
-            return None
+    async def find_resolution_skus(self, sku: str) -> list[Product]:
+        query = {"sku": {"$regex": r"\A" + re.escape(sku) + r"\z", "$options": "i"}}
+        return [self._to_product(doc) for doc in self.collection.find(query).limit(2)]
 
-        return self._to_product(document)
+    async def find_resolution_candidates(self, name: str, *, exact: bool, limit: int) -> list[Product]:
+        from stockpilot.application.use_cases.resolve_product import normalize_name, CANDIDATE_LIMIT
+        if not 1 <= limit <= CANDIDATE_LIMIT:
+            raise ValueError("Invalid candidate limit.")
+        accents = {
+            "a": "[aàáâãäå]", "c": "[cç]", "e": "[eèéêë]",
+            "i": "[iìíîï]", "n": "[nñ]", "o": "[oòóôõö]", "u": "[uùúûü]", "y": "[yýÿ]",
+        }
+        def literal(value):
+            return "".join(accents.get(c, re.escape(c)) for c in value)
+        normalized = normalize_name(name)
+        if not normalized:
+            return []
+        if exact:
+            pattern = r"\A\s*" + r"\s+".join(literal(word) for word in normalized.split()) + r"\s*\z"
+            query = {"name": {"$regex": pattern, "$options": "i"}}
+        else:
+            tokens = normalized.split()
+            if not tokens:
+                return []
+            query = {"$and": [{"name": {"$regex": r"(?<!\w)" + literal(token) + r"(?!\w)",
+                                      "$options": "i"}} for token in dict.fromkeys(tokens)]}
+        return [self._to_product(doc) for doc in self.collection.find(query).limit(limit)]
 
     @staticmethod
     def _to_product(document) -> Product:
@@ -144,6 +170,7 @@ class MongoProductRepository(ProductRepositoryPort):
             category=ProductCategory(document["category"]),
             price=float(document["price"]),
             stock=int(document["stock"]),
+            document_id=str(document["_id"]) if isinstance(document.get("_id"), ObjectId) else None,
         )
 
     async def list_products(
@@ -276,6 +303,8 @@ class MongoProductRepository(ProductRepositoryPort):
         session_options = {"session": session} if session is not None else {}
         # Legacy reservations used an unanchored, unescaped regex. Any of its
         # candidates may have been decremented; an exact match alone is unsafe.
+        if legacy and re.search(r"[.^$*+?{}\[\]\\|()]", product_name):
+            raise RuntimeError("Identité produit legacy ambiguë avec métacaractères ; restitution refusée.")
         query = self._name_filter(product_name) if legacy else {
             "name": {"$regex": r"\A" + re.escape(product_name) + r"\z", "$options": "i"},
         }
@@ -293,6 +322,24 @@ class MongoProductRepository(ProductRepositoryPort):
         if documents[0].get("_id") is None:
             raise RuntimeError("Identité du document produit indisponible.")
         return documents[0]
+
+    def reserve_stock_sku(
+        self, sku: str, quantity: int, session, *, document_id: str | None = None,
+    ) -> dict | None:
+        if not isinstance(document_id, str) or not ObjectId.is_valid(document_id):
+            return None
+        prepared_id = ObjectId(document_id)
+        # Detect corrupt duplicate identities before any write in this snapshot.
+        documents = list(self.collection.find({"sku": sku}, {"_id": 1}, session=session).limit(2))
+        if len(documents) > 1:
+            raise ValueError("Duplicate product SKU; reservation refused.")
+        if not documents or documents[0]["_id"] != prepared_id:
+            return None
+        return self.collection.find_one_and_update(
+            {"_id": prepared_id, "sku": sku, "stock": {"$gte": quantity}},
+            {"$inc": {"stock": -quantity}}, projection={"_id": 1, "stock": 1},
+            return_document=ReturnDocument.AFTER, session=session,
+        )
 
     def reserve_stock_document(
         self, product_name: str, quantity: int, session=None,
@@ -330,11 +377,6 @@ class MongoProductRepository(ProductRepositoryPort):
         product_name: str,
         quantity: int,
     ) -> bool:
-        product = self.resolve_stock_product(product_name)
-        if product is None:
-            return False
-        result = self.collection.update_one(
-            {"_id": product["_id"]},
-            {"$inc": {"stock": quantity}},
-        )
-        return result.matched_count == 1
+        # A standalone name-based increment cannot prove reservation identity
+        # or prevent a second credit. Use atomic persisted-order cancellation.
+        raise StockIdentityRequiredError()

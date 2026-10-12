@@ -13,6 +13,7 @@ from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCa
 from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
 from stockpilot.application.use_cases.get_order_status import GetOrderStatusUseCase
 from stockpilot.application.use_cases.generate_response import GenerateResponseUseCase
+from stockpilot.application.use_cases.resolve_product import ResolveProductUseCase
 from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
 from stockpilot.application.use_cases.update_order_status import UpdateOrderStatusUseCase
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
@@ -136,7 +137,9 @@ check_stock_use_case = CheckStockUseCase(
     product_repository
 )
 
-prepare_order_use_case = PrepareOrderUseCase(check_stock_use_case)
+prepare_order_use_case = PrepareOrderUseCase(
+    check_stock_use_case, ResolveProductUseCase(check_stock_use_case.product_repository),
+)
 finalize_order_use_case = FinalizeOrderUseCase(MongoOrderTransaction(mongo_database))
 get_order_status_use_case = GetOrderStatusUseCase(order_repository)
 update_order_status_use_case = UpdateOrderStatusUseCase(order_repository)

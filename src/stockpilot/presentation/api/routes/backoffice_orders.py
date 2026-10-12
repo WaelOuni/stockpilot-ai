@@ -1,3 +1,4 @@
+from stockpilot.application.stock_identity import StockIdentityRequiredError
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from stockpilot.application.use_cases.backoffice_orders import (
@@ -59,6 +60,8 @@ async def update_backoffice_order_status(
 ) -> BackofficeOrderResponse:
     try:
         order = await use_case.execute(order_id, request.status)
+    except StockIdentityRequiredError as error:
+        raise HTTPException(status_code=409, detail=f"{error.code}: {error}") from error
     except (InvalidOrderStatusTransitionError, OrderStatusConflictError) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     if order is None:
@@ -74,6 +77,8 @@ async def cancel_backoffice_order(
 ) -> BackofficeOrderResponse:
     try:
         order = await use_case.execute(order_id)
+    except StockIdentityRequiredError as error:
+        raise HTTPException(status_code=409, detail=f"{error.code}: {error}") from error
     except (InvalidOrderStatusTransitionError, OrderStatusConflictError) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     if order is None:

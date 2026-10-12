@@ -62,6 +62,7 @@ def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
                 PreparedOrderStatus.ORDER_OUTCOME_UNKNOWN.value,
                 PreparedOrderStatus.ORDER_CREATION_FAILED.value,
                 PreparedOrderStatus.RESERVATION_FAILED.value,
+                PreparedOrderStatus.PRODUCT_IDENTITY_REQUIRED.value,
             }
         )
         if owner_matches and not order_finished:
@@ -78,6 +79,23 @@ def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
         )
         return {
             **result.classification.model_dump(),
+            "product_from_context": result.product_from_context,
+            "product_resolution_reference": (
+                state.get("last_product_sku") if result.product_from_context and previous.intent == Intent.ORDER
+                else None
+            ),
+            "product_resolution_document_id": (
+                state.get("last_product_document_id") if result.product_from_context and previous.intent == Intent.ORDER
+                else None
+            ),
+            "last_product_document_id": (
+                state.get("last_product_document_id") if result.product_from_context and previous.intent == Intent.ORDER
+                else None
+            ),
+            "last_product_sku": (
+                state.get("last_product_sku") if result.product_from_context and previous.intent == Intent.ORDER
+                else None
+            ),
             "last_relevant_intent": result.context.intent,
             "last_product_name": result.context.product_name,
             "last_quantity": result.context.quantity,
@@ -131,6 +149,9 @@ def create_order_confirmation_node(
                 created_order = await finalize_order.execute(
                     product_name, quantity, operation_id=operation_id,
                     customer_id=state.get("customer_id"),
+                    **({"product_sku": updated_order["product_sku"]} if updated_order.get("product_sku") else {}),
+                    **({"product_document_id": updated_order["product_document_id"]} if updated_order.get("product_document_id") else {}),
+                    **({"replay_only": True} if not (updated_order.get("product_sku") and updated_order.get("product_document_id")) else {}),
                 )
             except OrderOutcomeUnknownError:
                 event(logger, "order_outcome_unknown", level=logging.CRITICAL,
@@ -163,6 +184,14 @@ def create_order_confirmation_node(
                     ),
                 }
             if created_order is None:
+                if not updated_order.get("product_sku") or not updated_order.get("product_document_id"):
+                    status = PreparedOrderStatus.PRODUCT_IDENTITY_REQUIRED
+                    updated_order["status"] = status.value
+                    return {
+                        "pending_order": updated_order, "order_status": status.value,
+                        "confirmation_handled": True, "created_order_id": None,
+                        "response": "Cette ancienne commande doit être préparée à nouveau. Précisez le SKU du produit pour confirmer son identité.",
+                    }
                 status = PreparedOrderStatus.RESERVATION_FAILED
                 updated_order["status"] = status.value
                 return {
@@ -171,8 +200,8 @@ def create_order_confirmation_node(
                     "confirmation_handled": True,
                     "created_order_id": None,
                     "response": (
-                        f"Le stock de {product_name} n'est plus suffisant "
-                        "pour finaliser la commande."
+                        f"La réservation de {product_name} ne peut plus être confirmée "
+                        "avec cette identité et cette quantité. Préparez à nouveau la commande."
                     ),
                 }
             order_status = (
@@ -317,7 +346,10 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
         quantity = state.get("quantity")
         result = await prepare_order.execute(
             product_name=state.get("product_name"),
+            product_sku=state.get("product_resolution_reference"),
+            product_document_id=state.get("product_resolution_document_id"),
             quantity=1 if quantity is None else quantity,
+            message=None if state.get("product_from_context") else state.get("message"),
         )
         product_name = result.product_name
         status = result.status
@@ -327,6 +359,8 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
             pending_order = {
                 "operation_id": result.operation_id,
                 "product_name": product_name or "",
+                **({"product_sku": result.product_sku} if result.product_sku else {}),
+                **({"product_document_id": result.product_document_id} if result.product_document_id else {}),
                 "quantity": result.quantity,
                 "status": status.value,
                 **({"customer_id": state["customer_id"]} if state.get("customer_id") is not None else {}),
@@ -344,6 +378,10 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
                     f"Confirmez-vous la commande de {result.quantity} "
                     f"{product_name} ?"
                 )
+        elif status == PreparedOrderStatus.AMBIGUOUS:
+            response = "Plusieurs produits correspondent. Précisez le SKU ou le nom complet du produit."
+        elif status == PreparedOrderStatus.PRODUCT_IDENTITY_REQUIRED:
+            response = "Le produit préparé a changé. Précisez à nouveau le SKU pour préparer une nouvelle commande."
         elif status == PreparedOrderStatus.OUT_OF_STOCK:
             response = f"La {product_name} est actuellement indisponible."
         elif status == PreparedOrderStatus.INSUFFICIENT_STOCK:
@@ -359,6 +397,9 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
         return {
             "pending_order": pending_order,
             "order_status": status.value,
+            "last_product_name": result.product_name,
+            "last_product_sku": result.product_sku,
+            "last_product_document_id": result.product_document_id,
             "quantity": result.quantity,
             "response": response,
         }

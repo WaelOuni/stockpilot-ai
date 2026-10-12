@@ -1,3 +1,4 @@
+from stockpilot.application.stock_identity import StockIdentityRequiredError
 from stockpilot.application.ports.product_repository import ProductRepositoryPort
 
 
@@ -12,7 +13,6 @@ class ReleaseStockUseCase:
         if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity < 1:
             raise ValueError("La quantité doit être un entier strictement positif.")
 
-        return await self._product_repository.release_stock(
-            product_name=normalized_name,
-            quantity=quantity,
-        )
+        # Restitution belongs to the idempotent order-cancellation transaction,
+        # where the persisted reservation document identity can be verified.
+        raise StockIdentityRequiredError()

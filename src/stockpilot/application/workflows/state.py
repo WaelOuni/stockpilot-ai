@@ -9,6 +9,11 @@ class StockPilotState(TypedDict, total=False):
     customer_id: str | None
     intent: Intent
     raw_product: str | None
+    last_product_sku: str | None
+    last_product_document_id: str | None
+    product_resolution_document_id: str | None
+    product_resolution_reference: str | None
+    product_from_context: bool
     product_name: str | None
     category: ProductCategory | None
     budget: float | None
