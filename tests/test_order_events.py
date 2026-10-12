@@ -40,7 +40,7 @@ def test_insert_normalizes_exactly_one_created_system_event(supplied_events):
         OrderEvent(OrderStatus.CREATED, original.created_at, OrderEventSource.SYSTEM),
     ))
     assert created == expected
-    assert database.state["order"] == document(expected)
+    assert database.state["order"] == document(expected, reserved_product_id=None)
     assert original.events == supplied_events
     assert asyncio.run(repository.find_by_order_id(original.order_id)) == expected
 
@@ -58,7 +58,7 @@ def test_reserved_product_identity_is_internal_to_the_stored_order():
     assert created == expected
     assert not hasattr(created, "reserved_product_id")
     assert database.state["order"] == {
-        **document(expected), "reserved_product_id": "product-private",
+        **document(expected, reserved_product_id=None), "reserved_product_id": "product-private",
     }
     assert asyncio.run(repository.find_by_order_id(original.order_id)) == expected
 
@@ -71,7 +71,7 @@ def test_create_use_case_returns_repository_enriched_order():
     assert order.events == (
         OrderEvent(OrderStatus.CREATED, order.created_at, OrderEventSource.SYSTEM),
     )
-    assert database.state["order"] == document(order)
+    assert database.state["order"] == document(order, reserved_product_id=None)
 
 
 def test_created_processing_shipped_events_are_chronological_and_atomic():
@@ -90,7 +90,7 @@ def test_created_processing_shipped_events_are_chronological_and_atomic():
         assert before <= appended.occurred_at <= after
         assert appended.occurred_at.tzinfo == timezone.utc
         assert updated == replace(previous, status=target, events=(*previous.events, appended))
-        assert database.state["order"] == document(updated)
+        assert database.state["order"] == document(updated, reserved_product_id=None)
         assert database.writes[-1] == (
             "order", {"order_id": created.order_id, "status": previous.status.value},
             {"$set": {"status": target.value}, "$push": {"events": {
@@ -149,7 +149,7 @@ def test_legacy_order_has_empty_history_and_transition_does_not_invent_creation(
 def test_cancellation_preserves_prior_history_and_records_actor(customer_id, source):
     database = FakeDatabase()
     repository = MongoOrderRepository(database)
-    created = asyncio.run(repository.create(make_order(customer_id="customer-a")))
+    created = repository.insert(make_order(customer_id="customer-a"), reserved_product_id="product-bosch")
     before = datetime.now(timezone.utc)
     cancelled = asyncio.run(repository.cancel(
         created.order_id, expected_status=created.status, customer_id=customer_id,

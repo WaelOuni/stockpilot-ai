@@ -38,6 +38,7 @@ def make_product(name: str, stock: int = 12) -> Product:
         category=ProductCategory.DRILL,
         price=129.99,
         stock=stock,
+        document_id="fixture-document-" + name.upper().replace(" ", "-"),
     )
 
 
@@ -378,6 +379,8 @@ def test_order_confirmation_uses_pending_order_from_same_thread() -> None:
     assert confirmed["pending_order"] == {
         "operation_id": prepared["pending_order"]["operation_id"],
         "product_name": "Bosch X100",
+        "product_sku": "BOSCH-X100",
+        "product_document_id": "fixture-document-BOSCH-X100",
         "quantity": 1,
         "status": "CONFIRMED",
         "customer_id": "customer-a",
@@ -406,6 +409,8 @@ def test_explicit_quantity_is_preserved_from_request_through_confirmation() -> N
     assert prepared["pending_order"] == {
         "operation_id": prepared["pending_order"]["operation_id"],
         "product_name": "Bosch X100",
+        "product_sku": "BOSCH-X100",
+        "product_document_id": "fixture-document-BOSCH-X100",
         "quantity": 3,
         "status": "PENDING_CONFIRMATION",
         "customer_id": "customer-a",
@@ -480,8 +485,8 @@ def test_confirmation_rejects_stock_depleted_after_preparation() -> None:
     assert result["order_status"] == "RESERVATION_FAILED"
     assert result["pending_order"]["status"] == "RESERVATION_FAILED"
     assert result["response"] == (
-        "Le stock de Bosch X100 n'est plus suffisant "
-        "pour finaliser la commande."
+        "La réservation de Bosch X100 ne peut plus être confirmée "
+        "avec cette identité et cette quantité. Préparez à nouveau la commande."
     )
     assert products["Bosch X100"].stock == 0
     assert order_repository.orders == []
@@ -651,7 +656,7 @@ def test_confirmation_passes_exact_operation_to_transactional_use_case() -> None
         },
     }))
     finalize.execute.assert_awaited_once_with(
-        "Bosch X100", 3, operation_id="saved-operation", customer_id=None
+        "Bosch X100", 3, operation_id="saved-operation", customer_id=None, replay_only=True
     )
     assert result["created_order_id"] == order.order_id
 

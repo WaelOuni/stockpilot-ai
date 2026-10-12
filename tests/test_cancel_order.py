@@ -37,10 +37,11 @@ def make_order(status=OrderStatus.CREATED, **changes):
     ), **changes)
 
 
-def document(order):
+def document(order, *, reserved_product_id="product-bosch"):
     return {
         "order_id": order.order_id, "operation_id": order.operation_id,
-        "product_name": order.product_name, "quantity": order.quantity,
+        "product_name": order.product_name,
+        **({"reserved_product_id": reserved_product_id} if reserved_product_id is not None else {}), "quantity": order.quantity,
         "status": order.status.value, "created_at": order.created_at.isoformat(),
         "events": [
             {"status": item.status.value, "occurred_at": item.occurred_at.isoformat(),
@@ -172,7 +173,7 @@ class FakeCollection:
         assert self.name == "products"
         session = options["session"]
         self.database.writes.append(("stock", query, update, options))
-        if not any(
+        if not self.database.product_exists or not any(
             product["_id"] == query["_id"]
             for product in self.database.product_documents
         ):
@@ -312,13 +313,7 @@ def test_transaction_restores_stock_and_serializes_cancelled_once(status):
         "read_preference": ReadPreference.PRIMARY,
     }
     assert database.reads == [({"order_id": order.order_id}, {"session": session})]
-    assert database.product_lookups == [
-        (
-            {"name": {"$regex": "Bosch X100", "$options": "i"}},
-            {"_id": 1, "name": 1},
-            {"session": session},
-        ),
-    ]
+    assert database.product_lookups == []
     assert database.writes == [
         ("stock", {"_id": "product-bosch"},
          {"$inc": {"stock": 3}}, {"session": session}),
@@ -368,7 +363,7 @@ def test_cancellation_rejects_invalid_reserved_product_identity(reserved_product
     database.state["order"]["reserved_product_id"] = reserved_product_id
     before = deepcopy(database.state)
 
-    with pytest.raises(RuntimeError, match="Identité du produit réservé invalide"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(database)
 
     assert database.state == before
@@ -378,10 +373,11 @@ def test_cancellation_rejects_invalid_reserved_product_identity(reserved_product
 
 def test_cancellation_refuses_ambiguous_legacy_product_name():
     database = FakeDatabase()
+    database.state["order"].pop("reserved_product_id")
     database.product_documents.append({"_id": "product-duplicate", "name": "bosch x100"})
     before = deepcopy(database.state)
 
-    with pytest.raises(RuntimeError, match="Identité produit ambiguë"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(database)
 
     assert database.state == before
@@ -390,31 +386,27 @@ def test_cancellation_refuses_ambiguous_legacy_product_name():
 
 def test_cancellation_refuses_exact_name_when_legacy_regex_also_matches_longer_name():
     database = FakeDatabase()
+    database.state["order"].pop("reserved_product_id")
     database.product_documents.append({"_id": "product-pro", "name": "Bosch X100 Pro"})
     before = deepcopy(database.state)
 
-    with pytest.raises(RuntimeError, match="Identité produit ambiguë"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(database)
 
     assert database.state == before
     assert database.writes == []
-    assert database.product_lookups == [
-        (
-            {"name": {"$regex": "Bosch X100", "$options": "i"}},
-            {"_id": 1, "name": 1},
-            {"session": database.sessions[0]},
-        ),
-    ]
+    assert database.product_lookups == []
 
 
 def test_cancellation_refuses_a_legacy_regex_candidate_with_a_different_full_name():
     database = FakeDatabase()
+    database.state["order"].pop("reserved_product_id")
     database.product_documents = [
         {"_id": "product-similar", "name": "Bosch X100 Pro"},
     ]
     before = deepcopy(database.state)
 
-    with pytest.raises(RuntimeError, match="Identité produit legacy non fiable"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(database)
 
     assert database.state == before
@@ -516,8 +508,7 @@ def test_transaction_fault_rolls_back_both_writes(fault):
     assert session.commits == 0
     assert session.exited
     assert [write[0] for write in database.writes] == (
-        [] if fault == "missing-product" else
-        ["stock"] if fault == "stock-error" else ["stock", "order"]
+        ["stock"] if fault in ("missing-product", "stock-error") else ["stock", "order"]
     )
 
 

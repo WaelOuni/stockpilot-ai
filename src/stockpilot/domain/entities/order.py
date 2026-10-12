@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from stockpilot.domain.enums.order_status import OrderStatus
@@ -15,3 +15,5 @@ class Order:
     created_at: datetime
     customer_id: str | None = None
     events: tuple[OrderEvent, ...] = ()
+    product_sku: str | None = None
+    product_document_id: str | None = field(default=None, repr=False)

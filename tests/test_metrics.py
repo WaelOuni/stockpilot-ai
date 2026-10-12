@@ -106,7 +106,7 @@ def test_rag_failure_metrics(reader):
 
 def test_stock_unavailable_and_preparation_invalid(reader):
     stock = CheckStockUseCase(SimpleNamespace(find_by_name=AsyncMock(return_value=
-        SimpleNamespace(sku="sku", name="private", stock=0, available=False)
+        SimpleNamespace(sku="sku", name="private", stock=0, available=False, document_id=None)
     )))
     asyncio.run(stock.execute("private"))
     assert points(reader)["stockpilot.stock.checks"][0].attributes["outcome"] == "unavailable"
