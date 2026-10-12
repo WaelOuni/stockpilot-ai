@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from stockpilot.telemetry import traced
 from stockpilot.metrics import record
 
@@ -11,6 +11,7 @@ class StockResult:
     name: str
     stock: int
     available: bool
+    document_id: str | None = field(default=None, repr=False)
 
 
 class CheckStockUseCase:
@@ -31,4 +32,5 @@ class CheckStockUseCase:
             name=product.name,
             stock=product.stock,
             available=product.available,
+            document_id=product.document_id,
         )

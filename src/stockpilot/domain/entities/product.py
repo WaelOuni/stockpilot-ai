@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from stockpilot.domain.enums.product_category import ProductCategory
 
@@ -10,6 +10,7 @@ class Product:
     category: ProductCategory
     price: float
     stock: int
+    document_id: str | None = field(default=None, repr=False)
 
     @property
     def available(self) -> bool:

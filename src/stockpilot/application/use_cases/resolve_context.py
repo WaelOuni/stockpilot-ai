@@ -23,6 +23,7 @@ class ContextResolution:
     classification: IntentResult
     context: ConversationContext
     advice_query: str | None = None
+    product_from_context: bool = False
 
 
 def _normalize(message: str) -> str:
@@ -132,4 +133,7 @@ class ContextResolutionUseCase:
                 message if result.intent == Intent.PRODUCT_ADVICE else None
             ),
         )
-        return ContextResolution(result, context, advice_query)
+        return ContextResolution(result, context, advice_query, bool(
+            compatible and not product and result.product_name == previous.product_name
+            and result.product_name is not None
+        ))

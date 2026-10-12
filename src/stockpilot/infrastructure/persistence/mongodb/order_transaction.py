@@ -42,7 +42,7 @@ class MongoOrderTransaction(OrderTransactionPort):
         )
         if existing is not None:
             order_replay.set(True)
-            validate_order_payload(existing, order.product_name, order.quantity, order.customer_id)
+            validate_order_payload(existing, order.product_name, order.quantity, order.customer_id, order.product_sku, order.product_document_id)
             event(logger, "order_replay_detected", operation_id=order.operation_id,
                   order_id=existing.order_id, message="Order replay recovered")
         return existing
@@ -59,7 +59,7 @@ class MongoOrderTransaction(OrderTransactionPort):
 
     @traced("stockpilot.mongo.order_transaction")
     @observe_transaction
-    async def execute(self, order: Order) -> Order | None:
+    async def execute(self, order: Order, *, replay_only: bool = False) -> Order | None:
         enrich_span(**{
             "stockpilot.operation_id": order.operation_id,
             "stockpilot.product_name": order.product_name,
@@ -70,14 +70,23 @@ class MongoOrderTransaction(OrderTransactionPort):
         existing = self._reconcile(order)
         if existing is not None:
             return existing
+        if replay_only or (order.product_sku is not None and not order.product_document_id):
+            # A name-only checkpoint cannot prove the originally selected identity.
+            return None
 
         def transaction(session):
             existing = self._existing(order, session)
             if existing is not None:
                 return existing
-            reservation = self.products.reserve_stock_document(
-                order.product_name, order.quantity, session=session
-            )
+            if order.product_sku is not None:
+                reservation = self.products.reserve_stock_sku(
+                    order.product_sku, order.quantity, session, document_id=order.product_document_id,
+                )
+            else:
+                # Old checkpoints: exact unique name only, never partial resolution.
+                reservation = self.products.reserve_stock_document(
+                    order.product_name, order.quantity, session=session
+                )
             if reservation is None:
                 # Raising, rather than returning, makes with_transaction abort.
                 raise _InsufficientStock

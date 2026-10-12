@@ -146,3 +146,14 @@ def test_blank_scoping_identity_rejected(customer):
             "order-cancel", expected_status=OrderStatus.CREATED, customer_id=customer,
         ))
     assert database.reads == []
+
+
+def test_missing_historical_document_identity_returns_manual_conflict_without_writes(setup):
+    client, database = setup()
+    database.state['order'].pop('reserved_product_id')
+    before = deepcopy(database.state)
+    response = request(client)
+    assert response.status_code == 409
+    assert 'MANUAL_INTERVENTION_REQUIRED' in response.json()['detail']
+    assert database.state == before
+    assert database.writes == []

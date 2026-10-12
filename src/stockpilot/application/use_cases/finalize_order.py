@@ -21,6 +21,8 @@ class FinalizeOrderUseCase:
     async def execute(
         self, product_name: str, quantity: int, operation_id: str,
         customer_id: str | None = None,
+        *, product_sku: str | None = None, product_document_id: str | None = None,
+        replay_only: bool = False,
     ) -> Order | None:
         validate_customer_id(customer_id)
         normalized_name = product_name.strip()
@@ -43,10 +45,12 @@ class FinalizeOrderUseCase:
             status=OrderStatus.CREATED,
             created_at=datetime.now(timezone.utc),
             customer_id=customer_id,
+            product_sku=product_sku,
+            product_document_id=product_document_id,
         )
         token = order_replay.set(False)
         try:
-            result = await self._transaction.execute(order)
+            result = await self._transaction.execute(order, **({"replay_only": True} if replay_only else {}))
             if result is None:
                 record("orders.failed", reason="reservation_failed")
             else:
