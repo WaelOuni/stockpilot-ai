@@ -59,12 +59,12 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
             )
         ))
         check_stock = SimpleNamespace(execute=AsyncMock(return_value=StockResult(
-            sku="BOSCH-X100", name="Bosch X100", stock=11, available=True
+            sku="BOSCH-X100", name="Bosch X100", stock=11, available=True, document_id="507f1f77bcf86cd799439011"
         )))
         recommendation = SimpleNamespace(execute=AsyncMock())
 
         orders = {}
-        async def finalize(product_name, quantity, operation_id, customer_id=None):
+        async def finalize(product_name, quantity, operation_id, customer_id=None, *, product_sku=None, product_document_id=None):
             order = Order(
                 order_id="created-order",
                 operation_id=operation_id,
@@ -73,6 +73,8 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
                 status=OrderStatus.CREATED,
                 created_at=datetime.now(timezone.utc),
                 customer_id=customer_id,
+                product_sku=product_sku,
+                product_document_id=product_document_id,
             )
             orders[order.order_id] = order
             return order
@@ -109,6 +111,7 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
             ):
                 assert restored[key] == prepared[key]
             assert restored["created_order_id"] is None
+            assert restored["pending_order"]["product_sku"] == "BOSCH-X100"
             isolated = await graph_b.ainvoke(
                 {"message": "Oui, je confirme"},
                 config={"configurable": {"thread_id": "unrelated-thread"}},
@@ -122,6 +125,8 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
                 "Bosch X100", 2,
                 operation_id=prepared["pending_order"]["operation_id"],
                 customer_id="customer-a",
+                product_sku="BOSCH-X100",
+                product_document_id="507f1f77bcf86cd799439011",
             )
             assert confirmed["order_status"] == "CONFIRMED"
             assert confirmed["created_order_id"] == "created-order"
@@ -140,4 +145,32 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
             finalizer.execute.assert_awaited_once()
         assert third.conn.closed
 
+    asyncio.run(scenario())
+
+
+def test_old_name_only_checkpoint_survives_reconnect_without_stock_mutation(checkpoint_uri):
+    from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
+
+    async def scenario():
+        transaction = SimpleNamespace(execute=AsyncMock(return_value=None))
+        def graph(saver):
+            dependency = SimpleNamespace(execute=AsyncMock())
+            return build_graph(dependency, dependency, dependency, dependency,
+                               FinalizeOrderUseCase(transaction), checkpointer=saver,
+                               get_order_status=dependency)
+        config = {"configurable": {"thread_id": "legacy-pending"}}
+        pending = {"operation_id": "old-operation", "product_name": "Bosch X100",
+                   "quantity": 1, "status": "PENDING_CONFIRMATION", "customer_id": "alice"}
+        async with open_checkpointer(checkpoint_uri) as first:
+            await graph(first).aupdate_state(config, {
+                "message": "Commander Bosch X100", "customer_id": "alice",
+                "pending_order": pending, "order_status": "PENDING_CONFIRMATION",
+            })
+        async with open_checkpointer(checkpoint_uri) as second:
+            restored = graph(second)
+            assert (await restored.aget_state(config)).values["pending_order"] == pending
+            result = await restored.ainvoke({"message": "oui"}, config)
+            assert result["order_status"] == "PRODUCT_IDENTITY_REQUIRED"
+            assert transaction.execute.await_args.kwargs == {"replay_only": True}
+            assert transaction.execute.await_args.args[0].product_sku is None
     asyncio.run(scenario())

@@ -61,6 +61,16 @@ class ProductRepositoryPort(Protocol):
     ) -> StockMovementPage:
         ...
 
+    async def find_resolution_skus(self, sku: str) -> list[Product]:
+        """At most two literal case-insensitive SKU matches."""
+        ...
+
+    async def find_resolution_candidates(
+        self, name: str, *, exact: bool, limit: int,
+    ) -> list[Product]:
+        """Literal normalized name/token matches, bounded; never select a candidate."""
+        ...
+
     async def find_by_name(self, name: str) -> Product | None:
         ...
 

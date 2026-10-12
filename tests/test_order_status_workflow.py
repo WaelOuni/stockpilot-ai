@@ -130,7 +130,7 @@ def test_failed_new_confirmation_preserves_previous_successful_order(outcome, ex
     state = {
         "message": "Oui, je confirme", "order_status": "PENDING_CONFIRMATION",
         "pending_order": {
-            "operation_id": "new-operation", "product_name": "Bosch X100",
+            "operation_id": "new-operation", "product_name": "Bosch X100", "product_sku": "BOSCH-X100", "product_document_id": "507f1f77bcf86cd799439011",
             "quantity": 1, "status": "PENDING_CONFIRMATION",
         },
         "created_order_id": "old-order", "last_created_order_id": "old-order",

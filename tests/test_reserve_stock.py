@@ -120,36 +120,14 @@ def test_mongo_reservation_requires_one_product_with_an_id(products, error) -> N
     collection.find_one_and_update.assert_not_called()
 
 
-def test_mongo_release_increments_stock_for_matching_product() -> None:
+@pytest.mark.parametrize("name", ["Bosch X100", "Unknown"])
+def test_mongo_release_requires_verified_reservation_identity(name) -> None:
+    from stockpilot.application.stock_identity import StockIdentityRequiredError
     collection = MagicMock()
-    collection.find.return_value.limit.return_value = [{"_id": "product-1"}]
-    collection.update_one.return_value.matched_count = 1
     database = MagicMock()
     database.__getitem__.return_value = collection
     repository = product_repository.MongoProductRepository(database)
-
-    result = asyncio.run(repository.release_stock("Bosch X100", quantity=3))
-
-    assert result is True
-    collection.find.assert_called_once_with(
-        {"name": {"$regex": r"\ABosch\ X100\z", "$options": "i"}},
-        {"_id": 1, "name": 1},
-    )
-    collection.find.return_value.limit.assert_called_once_with(2)
-    collection.update_one.assert_called_once_with(
-        {"_id": "product-1"},
-        {"$inc": {"stock": 3}},
-    )
-
-
-def test_mongo_release_reports_missing_product() -> None:
-    collection = MagicMock()
-    collection.find.return_value.limit.return_value = []
-    database = MagicMock()
-    database.__getitem__.return_value = collection
-    repository = product_repository.MongoProductRepository(database)
-
-    result = asyncio.run(repository.release_stock("Unknown", quantity=3))
-
-    assert result is False
+    with pytest.raises(StockIdentityRequiredError):
+        asyncio.run(repository.release_stock(name, quantity=3))
+    collection.find.assert_not_called()
     collection.update_one.assert_not_called()

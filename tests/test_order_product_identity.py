@@ -222,7 +222,7 @@ def test_deleted_reserved_document_never_falls_back_to_replacement():
     replacement = product("Bosch X100", 4)
     db.state["products"] = [replacement]
     before = deepcopy(db.state)
-    with pytest.raises(RuntimeError, match="introuvable"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(db)
     assert db.state == before
 
@@ -238,15 +238,17 @@ def test_restock_or_status_failure_rolls_back_each_product(failure):
     assert db.state == before
 
 
-def test_legacy_unique_exact_name_can_cancel():
+def test_legacy_unique_name_without_document_identity_requires_manual_intervention():
     target = product("Bosch X100", 10)
     db = Database([target])
     confirm(db)
     del db.state["orders"][0]["reserved_product_id"]
-    assert cancel(db).status == OrderStatus.CANCELLED
-    assert db.stocks() == {target["_id"]: 10}
-    product_reads = [session for collection, _, session in db.reads if collection == "products"]
-    assert all(session is not None for session in product_reads)
+    before = deepcopy(db.state)
+    db.writes.clear()
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
+        cancel(db)
+    assert db.state == before
+    assert db.writes == []
 
 
 @pytest.mark.parametrize("extra", ["Bosch X100", "bosch x100", "Bosch X100 Pro"])
@@ -257,7 +259,7 @@ def test_legacy_ambiguous_name_is_rejected_without_writes(extra):
     db.state["products"].append(product(extra, 0))
     before = deepcopy(db.state)
     db.writes.clear()
-    with pytest.raises(RuntimeError, match="ambigu"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(db)
     assert db.state == before
     assert db.writes == []
@@ -271,7 +273,7 @@ def test_legacy_without_exact_match_does_not_choose_similar_name():
     db.state["products"][0]["name"] = "Bosch X100 Pro"
     before = deepcopy(db.state)
     db.writes.clear()
-    with pytest.raises(RuntimeError, match="legacy non fiable"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(db)
     assert db.state == before
     assert db.writes == []
@@ -284,7 +286,7 @@ def test_invalid_saved_reference_never_uses_legacy_fallback(bad_id):
     db.state["orders"][0]["reserved_product_id"] = bad_id
     before = deepcopy(db.state)
     db.writes.clear()
-    with pytest.raises(RuntimeError, match="invalide"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(db)
     assert db.state == before
     assert db.writes == []
@@ -332,7 +334,7 @@ def test_legacy_missing_product_fails_before_any_write():
     db.state["products"] = []
     before = deepcopy(db.state)
     db.writes.clear()
-    with pytest.raises(RuntimeError, match="legacy introuvable"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(db)
     assert db.state == before
     assert db.writes == []
@@ -346,7 +348,7 @@ def test_legacy_regex_metacharacters_cannot_hide_historical_ambiguity():
     db.state["products"].append(product("Bosch XZ100", 4))
     before = deepcopy(db.state)
     db.writes.clear()
-    with pytest.raises(RuntimeError, match="ambigu"):
+    with pytest.raises(RuntimeError, match="intervention manuelle"):
         cancel(db)
     assert db.state == before
     assert db.writes == []

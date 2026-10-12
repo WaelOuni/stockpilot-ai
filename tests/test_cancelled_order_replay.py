@@ -31,6 +31,8 @@ def prepare():
     node = create_order_node(PrepareOrderUseCase(stock))
     prepared = run(node({"product_name": "Bosch X100", "quantity": 2, "customer_id": "owner"}))
     assert prepared["order_status"] == "PENDING_CONFIRMATION"
+    # Recreate a pre-hotfix checkpoint; SKU-backed replays are covered in Mongo tests.
+    prepared["pending_order"].pop("product_sku")
     return {**prepared, "customer_id": "owner", "message": "Oui, je confirme"}
 
 
@@ -41,6 +43,9 @@ def test_confirmation_replay_preserves_persisted_order_and_workflow_contract(sta
     database = Database([similar, target])
     node = create_order_confirmation_node(FinalizeOrderUseCase(MongoOrderTransaction(database)))
     pending = prepare()
+    run(FinalizeOrderUseCase(MongoOrderTransaction(database)).execute(
+        "Bosch X100", 2, pending["pending_order"]["operation_id"], "owner",
+    ))
 
     initial = run(node(pending))
     order_id = initial["created_order_id"]
