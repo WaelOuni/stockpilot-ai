@@ -18,10 +18,35 @@ def normalize_name(value: str) -> str:
 
 
 def explicit_skus(message: str) -> list[str]:
+    prefix = _ORDER_PREFIX.match(message)
+    product_start = prefix.end() if prefix else 0
     references = list(dict.fromkeys(m.group() for m in SKU_PATTERN.finditer(message)
-                              if any(c.isdigit() for c in m.group()) or m.group().isupper()))
+                              if m.start() >= product_start
+                              and (any(c.isdigit() for c in m.group()) or m.group().isupper())))
     labeled = re.findall(r"\bsku\s*[:=]?\s*([A-Za-z0-9][A-Za-z0-9_-]*)", message, re.I)
     return list(dict.fromkeys(labeled + references))
+
+
+# Parse request grammar only at the beginning. Product evidence is never
+# reconstructed from a classifier hint or stripped by global replacements.
+_ORDER_ACTION = r"(?:commander|acheter|r[eé]server)"
+_ORDER_PREFIX = re.compile(
+    r"^\s*(?:"
+    r"(?:(?:je\s+(?:veux|voudrais|souhaite)|j['’]aimerais)\s+)?" + _ORDER_ACTION
+    + r"|(?:peux|pourrais|pouvez|pourriez)[- ](?:tu|vous)\s+(?:(?:me|nous)\s+)?" + _ORDER_ACTION
+    + r"|(?:tu|vous)\s+(?:peux|pourrais|pouvez|pourriez)\s+(?:(?:me|nous)\s+)?" + _ORDER_ACTION
+    + r"|(?:serait[- ]il|est[- ]il)\s+possible\s+de\s+" + _ORDER_ACTION
+    + r"|(?:commande|ach[eè]te|r[eé]serve)(?:[- ]moi)?"
+    + r")\s+(?:(?:\d+|un|une)\s+)?(?:(?:la|le)\s+)?",
+    re.I,
+)
+
+
+def order_product_phrase(value: str) -> str:
+    """Remove a bounded request prefix; retain every product discriminant."""
+    raw = _ORDER_PREFIX.sub("", value, count=1).strip().rstrip("?.!").strip()
+    # Sentence punctuation is outside a quoted name; punctuation inside it is evidence.
+    return raw[1:-1].strip() if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"') else raw
 
 
 class ResolutionStatus(str, Enum):
@@ -55,10 +80,7 @@ class ResolveProductUseCase:
                                      products[0] if products else None)
         if not reference and not message:
             return ProductResolution(ResolutionStatus.NOT_FOUND)
-        raw = re.sub(
-            r"^\s*(?:(?:je veux|je voudrais|je souhaite|j'aimerais)\s+)?(?:commander|commande(?:-moi)?)\s+(?:(?:\d+|un|une)\s+)?(?:la\s+|le\s+)?",
-            "", message or reference or "", flags=re.I,
-        ).strip().strip('"').rstrip("?.!").strip()
+        raw = order_product_phrase(message or reference or "")
         # Direct SKU references also come from the user phrase, never a shorter
         # classifier hint. Unknown compact alphanumeric codes are not names.
         products = await self.repository.find_resolution_skus(raw) if raw else []

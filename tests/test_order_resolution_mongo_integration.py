@@ -265,3 +265,88 @@ def test_distinct_customers_have_distinct_orders(catalogue):
     assert orders[0].operation_id != orders[1].operation_id
     assert orders[0].customer_id == "alice" and orders[1].customer_id == "bob"
     assert catalogue.products.find_one({"sku": "DEMO-DRILL-0476"})["stock"] == 72
+
+
+NATURAL_ORDER_MESSAGES = [
+    'PEUX-TU ME COMMANDER Scie Ambigue V012 ?',
+    'Pourriez-vous me réserver "Scie Ambigue V012" ?',
+    'Peux-tu me commander Scie Ambigue V012 ?',
+    'Tu peux me commander Scie Ambigue V012 ?',
+    'Commande-moi Scie Ambigue V012.',
+    'Je voudrais commander Scie Ambigue V012.',
+    'Je souhaite acheter Scie Ambigue V012.',
+    'Je veux commander 1 Scie Ambigue V012.',
+]
+
+
+@pytest.mark.parametrize('message', NATURAL_ORDER_MESSAGES)
+@pytest.mark.parametrize('duplicate', [False, True])
+def test_natural_order_identity_and_no_early_reservation(catalogue, message, duplicate):
+    from stockpilot.application.workflows.nodes import create_order_node
+    target = catalogue.products.insert_one({'sku': 'DEMO-SAW-0001', 'name': 'Scie Ambigue V012',
+        'category': 'SAW', 'price': 25., 'stock': 10}).inserted_id
+    if duplicate:
+        catalogue.products.insert_one({'sku': 'DEMO-SAW-0002', 'name': 'Scie Ambigue V012',
+            'category': 'SAW', 'price': 29., 'stock': 10})
+    before = list(catalogue.products.find({}))
+    _, prepare, finalize = services(catalogue)
+    state = run(create_order_node(prepare)({'message': message, 'product_name': 'Scie Ambigue V012', 'quantity': 1}))
+    assert list(catalogue.products.find({})) == before
+    assert catalogue.orders.count_documents({}) == 0
+    if duplicate:
+        assert state['order_status'] == 'AMBIGUOUS'
+        assert state['pending_order'] is None
+        return
+    pending = state['pending_order']
+    assert pending['product_document_id'] == str(target)
+    assert pending['product_sku'] == 'DEMO-SAW-0001'
+    args = (pending['product_name'], 1, pending['operation_id'], 'alice')
+    kwargs = {'product_sku': pending['product_sku'], 'product_document_id': pending['product_document_id']}
+    first = run(finalize.execute(*args, **kwargs))
+    assert run(finalize.execute(*args, **kwargs)) == first
+    assert catalogue.products.find_one({'_id': target})['stock'] == 9
+    assert catalogue.orders.count_documents({}) == 1
+    assert catalogue.orders.find_one({})['reserved_product_id'] == target
+    assert [p for p in catalogue.products.find({}) if p['_id'] != target] == [p for p in before if p['_id'] != target]
+
+
+def test_real_advice_then_natural_order_requires_disambiguation(catalogue):
+    from stockpilot.application.use_cases.catalogue_advice import CatalogueAdviceUseCase
+    catalogue.products.insert_many([
+        {'sku': sku, 'name': 'Scie Ambigue V012', 'category': 'SAW', 'price': price, 'stock': 10}
+        for sku, price in [('DEMO-SAW-0001', 25.), ('DEMO-SAW-0002', 29.)]
+    ])
+    before = list(catalogue.products.find({}))
+    repo = MongoProductRepository(catalogue)
+    _, prepare, finalize = services(catalogue)
+    classifier = SimpleNamespace(execute=AsyncMock(return_value=IntentResult(intent=Intent.PRODUCT_ADVICE)))
+    llm = SimpleNamespace(generate=AsyncMock(return_value='{"raisons":["categorie","prix","stock"]}'))
+    graph = build_graph(classifier, CheckStockUseCase(repo), SimpleNamespace(), prepare, finalize,
+                        MemorySaver(), get_order_status=GetOrderStatusUseCase(MongoOrderRepository(catalogue)),
+                        catalogue_advice=CatalogueAdviceUseCase(repo, llm))
+    config = {'configurable': {'thread_id': str(uuid4())}}
+    advice = run(graph.ainvoke({'message': 'je cherche un scie disponible moins de 100', 'customer_id': 'alice'}, config))
+    assert advice['recommendations'][0]['sku'] == 'DEMO-SAW-0001'
+    classifier.execute.return_value = IntentResult(intent=Intent.ORDER, raw_product='Scie Ambigue V012',
+                                                  product_name='Scie Ambigue V012', quantity=1)
+    result = run(graph.ainvoke({'message': 'Peux-tu me commander Scie Ambigue V012 ?', 'customer_id': 'alice'}, config))
+    assert result['order_status'] == 'AMBIGUOUS' and result['pending_order'] is None
+    assert result.get('last_product_sku') is None
+    assert catalogue.orders.count_documents({}) == 0
+    assert list(catalogue.products.find({})) == before
+    classifier.execute.return_value = IntentResult(intent=Intent.ORDER, product_name='Invented name', quantity=1)
+    result = run(graph.ainvoke({'message': 'Peux-tu me commander DEMO-SAW-0001 ?', 'customer_id': 'alice'}, config))
+    assert result['pending_order']['product_sku'] == 'DEMO-SAW-0001'
+    assert catalogue.orders.count_documents({}) == 0
+    assert list(catalogue.products.find({})) == before
+
+
+def test_natural_missing_product_has_no_mutation(catalogue):
+    from stockpilot.application.workflows.nodes import create_order_node
+    before = list(catalogue.products.find({}))
+    _, prepare, _ = services(catalogue)
+    state = run(create_order_node(prepare)({'message': 'Peux-tu me commander Scie Absente V999 ?',
+                                          'product_name': 'Bosch DEMO06406657', 'quantity': 1}))
+    assert state['order_status'] == 'PRODUCT_NOT_FOUND' and state['pending_order'] is None
+    assert list(catalogue.products.find({})) == before
+    assert catalogue.orders.count_documents({}) == 0
