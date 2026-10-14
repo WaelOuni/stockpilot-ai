@@ -380,6 +380,7 @@ def test_order_confirmation_uses_pending_order_from_same_thread() -> None:
     assert confirmed["created_order_id"] == order_repository.orders[0].order_id
     assert confirmed["pending_order"] == {
         "operation_id": prepared["pending_order"]["operation_id"],
+        "quantity_evidence": prepared["pending_order"]["quantity_evidence"],
         "product_name": "Bosch X100",
         "product_sku": "BOSCH-X100",
         "product_document_id": "fixture-document-BOSCH-X100",
@@ -410,6 +411,7 @@ def test_explicit_quantity_is_preserved_from_request_through_confirmation() -> N
     assert prepared["order_status"] == "PENDING_CONFIRMATION"
     assert prepared["pending_order"] == {
         "operation_id": prepared["pending_order"]["operation_id"],
+        "quantity_evidence": prepared["pending_order"]["quantity_evidence"],
         "product_name": "Bosch X100",
         "product_sku": "BOSCH-X100",
         "product_document_id": "fixture-document-BOSCH-X100",

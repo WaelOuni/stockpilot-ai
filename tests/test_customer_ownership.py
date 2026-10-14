@@ -286,6 +286,14 @@ def test_http_same_thread_customers_have_isolated_pending_orders_and_status(monk
     assert no_order["order_status_result"] == "NO_ORDER_ASSOCIATED"
     assert post("customer-a", "Où en est ma commande ?", thread="fresh")["order_status_result"] == "NO_ORDER_ASSOCIATED"
     assert post("customer-a", f"Statut commande {own_id}", thread="fresh")["order_status_result"] == "FOUND"
+    # A status query retires eligibility even though the pending dossier stays
+    # visible. Verify no obsolete authorization, then prepare a fresh operation.
+    stale_b = post("customer-b", "Oui, je confirme")
+    assert stale_b["order_status"] == "PRODUCT_IDENTITY_REQUIRED"
+    assert len(repository.orders) == 1
+    assert reservations == [("Bosch X100", 3)]
+    fresh_b = post("customer-b", "Commande-moi Makita D200")
+    assert fresh_b["pending_order"]["operation_id"] != other_pending["pending_order"]["operation_id"]
     confirmed_b = post("customer-b", "Oui, je confirme")
     assert confirmed_b["created_order_id"] != own_id
     assert repository.orders[1].customer_id == "customer-b"

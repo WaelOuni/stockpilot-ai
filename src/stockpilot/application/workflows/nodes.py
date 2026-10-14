@@ -13,6 +13,10 @@ from stockpilot.application.order_transaction_errors import (
     OrderTransactionFailedError,
 )
 from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
+from stockpilot.application.order_quantity_evidence import (
+    concordant_quantity, strict_quantity, validate_evidence,
+    quantitative_continuation, explicit_order_request, inspect_quantity,
+)
 from stockpilot.application.workflows.state import StockPilotState
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
@@ -20,7 +24,7 @@ from stockpilot.application.use_cases.get_order_status import GetOrderStatusUseC
 from stockpilot.application.use_cases.prepare_order import PrepareOrderUseCase
 from stockpilot.application.use_cases.recommend_product import RecommendProductUseCase
 from stockpilot.application.workflows.order_confirmation import (
-    normalize_order_confirmation,
+    normalize_order_confirmation, confirmation_proposal, has_active_confirmation,
 )
 from stockpilot.domain.enums.order_status import OrderStatus, PreparedOrderStatus
 
@@ -33,10 +37,23 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase):
         with timed_event(logger, "classification_started", "classification_completed",
                          "classification_failed"):
             result = await classify_intent.execute(state["message"])
+        # A literal supported ORDER request cannot leave an older preparation
+        # confirmable just because the model labels its invalid quantity UNKNOWN.
+        if explicit_order_request(state["message"]):
+            try:
+                inspect_quantity(state["message"])
+            except InvalidOrderQuantityError:
+                result.intent = Intent.ORDER
+            else:
+                if result.intent == Intent.UNKNOWN:
+                    result.intent = Intent.ORDER
         bind_context(intent=result.intent.value)
         event(logger, "intent_detected", intent=result.intent.value)
 
         return {
+            # Every non-confirmation turn retires the previous proposal. Only
+            # successful preparation below can arm a new exact operation.
+            "active_order_confirmation": None,
             "recommendations": [],
             "advice_status": None,
             "intent": result.intent,
@@ -54,6 +71,34 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase):
 
 def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
     async def context_node(state: StockPilotState) -> StockPilotState:
+        pending = state.get("pending_order") or {}
+        armed = (
+            pending.get("status") == PreparedOrderStatus.PENDING_CONFIRMATION.value
+            and state.get("order_status") == PreparedOrderStatus.PENDING_CONFIRMATION.value
+            and pending.get("customer_id") == state.get("customer_id")
+        )
+        complete_request = explicit_order_request(state["message"])
+        if armed and (complete_request or quantitative_continuation(state["message"])):
+            try:
+                inspect_quantity(state["message"])
+                if state.get("intent") not in (Intent.ORDER, Intent.UNKNOWN):
+                    raise InvalidOrderQuantityError(
+                        "La demande de commande est incertaine. Précisez le SKU et la quantité "
+                        "pour préparer à nouveau la commande."
+                    )
+                if not complete_request and (state.get("last_relevant_intent") != Intent.ORDER
+                        or state.get("context_customer_id") != state.get("customer_id")
+                        or not state.get("last_product_name")):
+                    raise InvalidOrderQuantityError(
+                        "La quantité a changé, mais le contexte produit n'est plus fiable. "
+                        "Précisez le SKU et la quantité pour préparer à nouveau la commande."
+                    )
+            except InvalidOrderQuantityError as error:
+                return {
+                    **_invalid_quantity(error), "quantity_validation_failed": True,
+                    "last_relevant_intent": None,
+                    "context_customer_id": state.get("customer_id"),
+                }
         previous = ConversationContext()
         owner_matches = state.get("context_customer_id") == state.get("customer_id")
         order_finished = (
@@ -78,8 +123,24 @@ def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
             IntentResult(**{key: state.get(key) for key in IntentResult.model_fields}),
             previous,
         )
+        if result.quantity_error is not None:
+            return {
+                **result.classification.model_dump(),
+                **_invalid_quantity(InvalidOrderQuantityError(result.quantity_error)),
+                "quantity_validation_failed": True,
+                "last_relevant_intent": None,
+                "context_customer_id": state.get("customer_id"),
+            }
+        inherited_evidence = None
+        if result.quantity_from_context:
+            inherited_evidence = state.get("last_order_quantity_evidence")
         return {
             **result.classification.model_dump(),
+            **({"pending_order": None, "order_status": None}
+               if pending.get("status") == PreparedOrderStatus.PENDING_CONFIRMATION.value
+               and result.classification.intent not in (Intent.ORDER, Intent.ORDER_STATUS) else {}),
+            "quantity_validation_failed": False,
+            "inherited_quantity_evidence": inherited_evidence,
             "product_from_context": result.product_from_context,
             "product_resolution_reference": (
                 state.get("last_product_sku") if result.product_from_context and previous.intent == Intent.ORDER
@@ -137,7 +198,13 @@ def create_order_confirmation_node(
         )
 
         if decision is None or (is_confirmed and decision != "confirmed"):
-            return {"confirmation_handled": False}
+            # Persist retirement before classification/provider calls. A failed
+            # provider must not leave an old proposal armed in the checkpoint.
+            return {
+                "confirmation_handled": False,
+                **({"active_order_confirmation": None}
+                   if state.get("active_order_confirmation") is not None else {}),
+            }
 
         if pending_order.get("customer_id") != state.get("customer_id"):
             raise ValueError("La commande en attente appartient à un autre client.")
@@ -162,6 +229,7 @@ def create_order_confirmation_node(
                 existing = None
             if existing is None:
                 return {
+                    "active_order_confirmation": None,
                     "intent": Intent.ORDER,
                     "queried_order_id": None, "queried_order_status": None,
                     "order_status_result": None,
@@ -176,6 +244,7 @@ def create_order_confirmation_node(
             status = (PreparedOrderStatus.CANCELLED if existing.status == OrderStatus.CANCELLED
                       else PreparedOrderStatus.CONFIRMED)
             return {
+                "active_order_confirmation": None,
                 "intent": Intent.ORDER,
                 "queried_order_id": None, "queried_order_status": None,
                 "order_status_result": None,
@@ -192,8 +261,15 @@ def create_order_confirmation_node(
         updated_order = dict(pending_order)
         if decision == "confirmed":
             product_name = str(updated_order["product_name"])
-            quantity = int(updated_order["quantity"])
+            try:
+                quantity = strict_quantity(updated_order.get("quantity"))
+                if updated_order.get("quantity_evidence") is not None:
+                    if validate_evidence(updated_order["quantity_evidence"]).quantity != quantity:
+                        raise InvalidOrderQuantityError("La quantité du checkpoint a changé.")
+            except InvalidOrderQuantityError as error:
+                return {**_invalid_quantity(error), "confirmation_handled": True}
             operation_id = str(updated_order["operation_id"])
+            eligible = has_active_confirmation(state, updated_order)
             bind_context(operation_id=operation_id, intent="ORDER")
             event(logger, "order_confirmation_received",
                   product_name=product_name, quantity=quantity)
@@ -204,7 +280,7 @@ def create_order_confirmation_node(
                     customer_id=state.get("customer_id"),
                     **({"product_sku": updated_order["product_sku"]} if updated_order.get("product_sku") else {}),
                     **({"product_document_id": updated_order["product_document_id"]} if updated_order.get("product_document_id") else {}),
-                    **({"replay_only": True} if not (updated_order.get("product_sku") and updated_order.get("product_document_id")) else {}),
+                    **({"replay_only": True} if not (eligible and updated_order.get("product_sku") and updated_order.get("product_document_id") and updated_order.get("quantity_evidence")) else {}),
                 )
             except OrderOutcomeUnknownError:
                 event(logger, "order_outcome_unknown", level=logging.CRITICAL,
@@ -212,6 +288,7 @@ def create_order_confirmation_node(
                 status = PreparedOrderStatus.ORDER_OUTCOME_UNKNOWN
                 updated_order["status"] = status.value
                 return {
+                    "active_order_confirmation": None,
                     "pending_order": updated_order,
                     "order_status": status.value,
                     "confirmation_handled": True,
@@ -227,6 +304,7 @@ def create_order_confirmation_node(
                 status = PreparedOrderStatus.ORDER_CREATION_FAILED
                 updated_order["status"] = status.value
                 return {
+                    "active_order_confirmation": None,
                     "pending_order": updated_order,
                     "order_status": status.value,
                     "confirmation_handled": True,
@@ -237,17 +315,19 @@ def create_order_confirmation_node(
                     ),
                 }
             if created_order is None:
-                if not updated_order.get("product_sku") or not updated_order.get("product_document_id"):
+                if not eligible or not updated_order.get("product_sku") or not updated_order.get("product_document_id") or not updated_order.get("quantity_evidence"):
                     status = PreparedOrderStatus.PRODUCT_IDENTITY_REQUIRED
                     updated_order["status"] = status.value
                     return {
+                        "active_order_confirmation": None,
                         "pending_order": updated_order, "order_status": status.value,
                         "confirmation_handled": True, "created_order_id": None,
-                        "response": "Cette ancienne commande doit être préparée à nouveau. Précisez le SKU du produit pour confirmer son identité.",
+                        "response": "Cette proposition n'est plus active ou vérifiable. Précisez le SKU et la quantité pour préparer à nouveau la commande. Aucune nouvelle réservation n'a été effectuée.",
                     }
                 status = PreparedOrderStatus.RESERVATION_FAILED
                 updated_order["status"] = status.value
                 return {
+                    "active_order_confirmation": None,
                     "pending_order": updated_order,
                     "order_status": status.value,
                     "confirmation_handled": True,
@@ -286,6 +366,7 @@ def create_order_confirmation_node(
             created_order_id = None
 
         result: StockPilotState = {
+            "active_order_confirmation": None,
             "pending_order": updated_order,
             "order_status": order_status.value,
             "confirmation_handled": True,
@@ -394,26 +475,36 @@ def create_stock_node(check_stock: CheckStockUseCase):
     return stock_node
 
 
+def _invalid_quantity(error: InvalidOrderQuantityError) -> StockPilotState:
+    return {
+        "active_order_confirmation": None,
+        "order_status": PreparedOrderStatus.INVALID_QUANTITY.value,
+        "pending_order": None, "created_order_id": None,
+        "queried_order_id": None, "queried_order_status": None, "order_status_result": None,
+        "last_product_sku": None, "last_product_document_id": None,
+        "product_resolution_reference": None, "product_resolution_document_id": None,
+        "last_product_name": None, "last_quantity": None,
+        "last_order_quantity_evidence": None, "inherited_quantity_evidence": None,
+        "response": str(error),
+    }
+
+
 def create_order_node(prepare_order: PrepareOrderUseCase):
     async def order_node(state: StockPilotState) -> StockPilotState:
         quantity = state.get("quantity")
         try:
+            evidence = concordant_quantity(
+                state["message"], quantity, state.get("inherited_quantity_evidence"),
+            )
             result = await prepare_order.execute(
                 product_name=state.get("product_name"),
                 product_sku=state.get("product_resolution_reference"),
                 product_document_id=state.get("product_resolution_document_id"),
-                quantity=1 if quantity is None else quantity,
+                quantity=evidence.quantity,
                 message=None if state.get("product_from_context") else state.get("message"),
             )
-        except InvalidOrderQuantityError:
-            return {
-                "order_status": PreparedOrderStatus.INVALID_QUANTITY.value,
-                "pending_order": None, "created_order_id": None,
-                "last_product_sku": None, "last_product_document_id": None,
-                "product_resolution_reference": None, "product_resolution_document_id": None,
-                "last_product_name": None, "last_quantity": None,
-                "response": "La quantité doit être un entier strictement positif. Indiquez la quantité souhaitée.",
-            }
+        except InvalidOrderQuantityError as error:
+            return _invalid_quantity(error)
         product_name = result.product_name
         status = result.status
         pending_order = None
@@ -425,6 +516,7 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
                 **({"product_sku": result.product_sku} if result.product_sku else {}),
                 **({"product_document_id": result.product_document_id} if result.product_document_id else {}),
                 "quantity": result.quantity,
+                "quantity_evidence": evidence.to_dict(),
                 "status": status.value,
                 **({"customer_id": state["customer_id"]} if state.get("customer_id") is not None else {}),
             }
@@ -458,8 +550,16 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
             response = "Je n'ai pas identifié le produit à commander."
 
         return {
+            "intent": Intent.ORDER,
+            "last_relevant_intent": Intent.ORDER,
+            "context_customer_id": state.get("customer_id"),
+            "active_order_confirmation": (
+                confirmation_proposal(pending_order) if pending_order is not None else None
+            ),
             "pending_order": pending_order,
             "order_status": status.value,
+            "last_quantity": result.quantity,
+            "last_order_quantity_evidence": evidence.to_dict(),
             "last_product_name": result.product_name,
             "last_product_sku": result.product_sku,
             "last_product_document_id": result.product_document_id,

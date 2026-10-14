@@ -1,4 +1,5 @@
 import asyncio
+from stockpilot.application.order_quantity_evidence import inspect_quantity
 import inspect
 from copy import deepcopy
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from stockpilot.application.order_transaction_errors import (
     OrderOutcomeUnknownError, OrderTransactionFailedError,
 )
 from stockpilot.application.workflows.router import route_by_intent
+from stockpilot.application.workflows.order_confirmation import confirmation_proposal
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
 from stockpilot.domain.enums.intent import Intent
 from stockpilot.domain.enums.order_status import OrderStatus
@@ -132,9 +134,15 @@ def test_failed_new_confirmation_preserves_previous_successful_order(outcome, ex
         "pending_order": {
             "operation_id": "new-operation", "product_name": "Bosch X100", "product_sku": "BOSCH-X100", "product_document_id": "507f1f77bcf86cd799439011",
             "quantity": 1, "status": "PENDING_CONFIRMATION",
+            "quantity_evidence": inspect_quantity('Commande-moi 1 Bosch X100').to_dict(),
         },
         "created_order_id": "old-order", "last_created_order_id": "old-order",
     }
+    # Exercise a currently active proposal, rather than a legacy checkpoint
+    # which is now restricted to recovery-only reads.
+    state.update(intent=Intent.ORDER, last_relevant_intent=Intent.ORDER,
+                 context_customer_id=None,
+                 active_order_confirmation=confirmation_proposal(state['pending_order']))
     update = asyncio.run(create_order_confirmation_node(finalizer)(state))
     assert update["order_status"] == expected_status
     assert update["created_order_id"] is None

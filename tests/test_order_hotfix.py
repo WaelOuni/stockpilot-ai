@@ -81,7 +81,8 @@ def test_absent_valid_and_excessive_quantity_preserve_contract(quantity, status)
     before = deepcopy(products)
     classifier.execute.side_effect = None
     classifier.execute.return_value = IntentResult(intent=Intent.ORDER, product_name='Bosch X100', quantity=quantity)
-    state = invoke(workflow, 'Commande-moi Bosch X100', 'quantity')
+    message = 'Commande-moi Bosch X100' if quantity is None else f'Commande-moi {quantity} Bosch X100'
+    state = invoke(workflow, message, 'quantity')
     assert state['order_status'] == status
     if status == 'PENDING_CONFIRMATION':
         assert state['pending_order']['quantity'] == (1 if quantity is None else quantity)
