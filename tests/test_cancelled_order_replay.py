@@ -100,7 +100,15 @@ def test_confirmation_replay_preserves_persisted_order_and_workflow_contract(sta
     else:
         assert replay["response"] == initial["response"]
 
-    # The completed state cannot trigger a second confirmation.
-    assert run(node({**pending, **replay})) == {"confirmation_handled": False}
+    # A completed confirmation now returns an explicit replay response, but
+    # still performs only the validated existing-order read, never a reserve.
+    terminal = run(node({**pending, **replay}))
+    if status == OrderStatus.CANCELLED:
+        assert terminal == {"confirmation_handled": False}
+    else:
+        assert terminal["confirmation_handled"] is True
+        assert terminal["created_order_id"] == order_id
+        assert terminal["pending_order"]["operation_id"] == pending["pending_order"]["operation_id"]
+        assert "déjà confirmée" in terminal["response"]
     assert database.state == before
     assert database.writes == writes

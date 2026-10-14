@@ -1,4 +1,5 @@
 from uuid import uuid4
+from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
 from stockpilot.telemetry import traced
 from stockpilot.metrics import record
 
@@ -23,7 +24,7 @@ class PrepareOrderUseCase:
     ) -> PreparedOrder:
         if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity < 1:
             record("orders.prepared", outcome="invalid")
-            raise ValueError("La quantité doit être un entier strictement positif.")
+            raise InvalidOrderQuantityError("La quantité doit être un entier strictement positif.")
 
         if not product_name and not (self._resolver and message):
             record("orders.prepared", outcome="invalid")

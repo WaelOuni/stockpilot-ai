@@ -11,7 +11,7 @@ from stockpilot.domain.enums.product_category import ProductCategory
 class ConversationContext:
     intent: Intent | None = None
     product_name: str | None = None
-    quantity: int | None = None
+    quantity: int | float | bool | None = None
     category: ProductCategory | None = None
     budget: float | None = None
     usage: str | None = None

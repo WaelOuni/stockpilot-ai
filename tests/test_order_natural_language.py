@@ -88,6 +88,25 @@ def test_arbitrary_unknown_prefix_is_not_erased_by_correct_hint():
     assert result.status == ResolutionStatus.NOT_FOUND
 
 
+@pytest.mark.parametrize('duplicate', [False, True])
+def test_v1210_partial_classification_name_keeps_literal_identity(duplicate):
+    # V12.10: the classifier may strip "Scie". Only the user's complete
+    # evidence and the resolved Mongo identity (not this hint) are authoritative.
+    products = [TARGET] + ([replace(TARGET, sku='DEMO-SAW-0002', document_id='other')] if duplicate else [])
+    prepare = PrepareOrderUseCase(SimpleNamespace(), ResolveProductUseCase(repo(products)))
+    result = asyncio.run(create_order_node(prepare)({'message': 'Je veux commander 1 Scie Ambigue V012',
+        'raw_product': TARGET.name, 'product_name': 'Ambigue V012', 'quantity': 1}))
+    if duplicate:
+        assert result['order_status'] == 'AMBIGUOUS'
+        assert result['pending_order'] is None
+        assert result['last_product_sku'] is None and result['last_product_document_id'] is None
+    else:
+        assert result['pending_order']['product_sku'] == TARGET.sku
+        assert result['pending_order']['product_document_id'] == TARGET.document_id
+        assert result['pending_order']['product_name'] == TARGET.name
+    assert all(product.stock == 10 for product in products)
+
+
 def test_request_words_inside_product_are_literal():
     target = replace(TARGET, name='Kit Acheter Reserve A 12V')
     result = asyncio.run(ResolveProductUseCase(repo([target])).execute(

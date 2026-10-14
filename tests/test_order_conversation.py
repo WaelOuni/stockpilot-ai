@@ -157,11 +157,13 @@ def make_workflow(
 
     order_repository = FakeOrderRepository()
     class FakeOrderTransaction:
-        async def execute(self, order: Order) -> Order | None:
+        async def execute(self, order: Order, *, replay_only: bool = False) -> Order | None:
             existing = await order_repository.find_by_operation_id(order.operation_id)
             if existing is not None:
                 validate_order_payload(existing, order.product_name, order.quantity, order.customer_id)
                 return existing
+            if replay_only:
+                return None
             if unknown_outcome:
                 raise OrderOutcomeUnknownError("simulated commit outcome unknown")
             original = products.copy()
@@ -705,7 +707,7 @@ def test_confirmed_order_cannot_be_confirmed_again() -> None:
     assert repeated["response"] != "Commande confirmée pour 1 Bosch X100."
     assert repeated["pending_order"]["status"] == "CONFIRMED"
     assert repeated["order_status"] == "CONFIRMED"
-    assert classifier.execute.await_count == 2
+    assert classifier.execute.await_count == 1
     assert len(order_repository.orders) == 1
     assert reservations == [("Bosch X100", 1)]
     assert releases == []
