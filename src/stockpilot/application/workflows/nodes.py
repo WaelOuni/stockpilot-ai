@@ -12,6 +12,7 @@ from stockpilot.application.order_transaction_errors import (
     OrderOutcomeUnknownError,
     OrderTransactionFailedError,
 )
+from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
 from stockpilot.application.workflows.state import StockPilotState
 from stockpilot.application.use_cases.check_stock import CheckStockUseCase
 from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
@@ -124,17 +125,69 @@ def create_order_confirmation_node(
             and state.get("order_status")
             == PreparedOrderStatus.PENDING_CONFIRMATION.value
         )
+        is_confirmed = (
+            pending_order is not None
+            and pending_order.get("status") == PreparedOrderStatus.CONFIRMED.value
+            and state.get("order_status") == PreparedOrderStatus.CONFIRMED.value
+        )
         decision = (
             normalize_order_confirmation(state["message"])
-            if is_pending
+            if is_pending or is_confirmed
             else None
         )
 
-        if decision is None:
+        if decision is None or (is_confirmed and decision != "confirmed"):
             return {"confirmation_handled": False}
 
         if pending_order.get("customer_id") != state.get("customer_id"):
             raise ValueError("La commande en attente appartient à un autre client.")
+
+        if is_confirmed:
+            # A finished operation can only be recovered, never reserved again.
+            quantity = pending_order.get("quantity")
+            order_id = state.get("created_order_id")
+            if (isinstance(quantity, bool) or not isinstance(quantity, int) or quantity < 1
+                    or not isinstance(order_id, str) or not order_id.strip()):
+                raise ValueError("Le checkpoint de confirmation est incohérent.")
+            try:
+                existing = await finalize_order.execute(
+                    pending_order["product_name"], quantity,
+                    operation_id=pending_order["operation_id"],
+                    customer_id=state.get("customer_id"),
+                    product_sku=pending_order.get("product_sku"),
+                    product_document_id=pending_order.get("product_document_id"),
+                    replay_only=True,
+                )
+            except OrderOutcomeUnknownError:
+                existing = None
+            if existing is None:
+                return {
+                    "intent": Intent.ORDER,
+                    "queried_order_id": None, "queried_order_status": None,
+                    "order_status_result": None,
+                    "pending_order": {**pending_order, "status": PreparedOrderStatus.ORDER_OUTCOME_UNKNOWN.value},
+                    "order_status": PreparedOrderStatus.ORDER_OUTCOME_UNKNOWN.value,
+                    "confirmation_handled": True, "created_order_id": None,
+                    "response": "Impossible de vérifier cette confirmation. Aucune nouvelle réservation n'a été effectuée.",
+                }
+            if (existing.order_id != order_id
+                    or existing.operation_id != pending_order["operation_id"]):
+                raise ValueError("L'identité de la commande confirmée ne correspond pas au checkpoint.")
+            status = (PreparedOrderStatus.CANCELLED if existing.status == OrderStatus.CANCELLED
+                      else PreparedOrderStatus.CONFIRMED)
+            return {
+                "intent": Intent.ORDER,
+                "queried_order_id": None, "queried_order_status": None,
+                "order_status_result": None,
+                "pending_order": {**pending_order, "status": status.value},
+                "order_status": status.value, "confirmation_handled": True,
+                "created_order_id": existing.order_id, "last_created_order_id": existing.order_id,
+                "response": (
+                    f"La commande {existing.order_id} est déjà annulée. Aucune nouvelle réservation n'a été effectuée."
+                    if status == PreparedOrderStatus.CANCELLED else
+                    f"La commande {existing.order_id} est déjà confirmée. Aucune nouvelle réservation n'a été effectuée."
+                ),
+            }
 
         updated_order = dict(pending_order)
         if decision == "confirmed":
@@ -344,13 +397,23 @@ def create_stock_node(check_stock: CheckStockUseCase):
 def create_order_node(prepare_order: PrepareOrderUseCase):
     async def order_node(state: StockPilotState) -> StockPilotState:
         quantity = state.get("quantity")
-        result = await prepare_order.execute(
-            product_name=state.get("product_name"),
-            product_sku=state.get("product_resolution_reference"),
-            product_document_id=state.get("product_resolution_document_id"),
-            quantity=1 if quantity is None else quantity,
-            message=None if state.get("product_from_context") else state.get("message"),
-        )
+        try:
+            result = await prepare_order.execute(
+                product_name=state.get("product_name"),
+                product_sku=state.get("product_resolution_reference"),
+                product_document_id=state.get("product_resolution_document_id"),
+                quantity=1 if quantity is None else quantity,
+                message=None if state.get("product_from_context") else state.get("message"),
+            )
+        except InvalidOrderQuantityError:
+            return {
+                "order_status": PreparedOrderStatus.INVALID_QUANTITY.value,
+                "pending_order": None, "created_order_id": None,
+                "last_product_sku": None, "last_product_document_id": None,
+                "product_resolution_reference": None, "product_resolution_document_id": None,
+                "last_product_name": None, "last_quantity": None,
+                "response": "La quantité doit être un entier strictement positif. Indiquez la quantité souhaitée.",
+            }
         product_name = result.product_name
         status = result.status
         pending_order = None

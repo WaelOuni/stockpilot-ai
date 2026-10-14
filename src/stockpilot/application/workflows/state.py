@@ -18,7 +18,7 @@ class StockPilotState(TypedDict, total=False):
     category: ProductCategory | None
     budget: float | None
     usage: str | None
-    quantity: int | None
+    quantity: int | float | bool | None
     pending_order: dict[str, str | int | None] | None
     order_status: str
     confirmation_handled: bool

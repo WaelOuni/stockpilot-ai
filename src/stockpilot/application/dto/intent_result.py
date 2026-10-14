@@ -11,7 +11,9 @@ class IntentResult(BaseModel):
     category: ProductCategory | None = None
     budget: float | None = None
     usage: str | None = None
-    quantity: int | None = None
+    # Preserve invalid numeric values for business validation, without rounding
+    # fractions or coercing a boolean to the valid integer 1.
+    quantity: int | float | bool | None = None
     order_id: str | None = None
 
     @field_validator("product_name", "raw_product", "usage", "order_id", mode="before")

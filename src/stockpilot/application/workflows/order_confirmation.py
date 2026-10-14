@@ -9,6 +9,7 @@ def normalize_order_confirmation(message: str) -> str | None:
     confirmations = {
         "oui",
         "oui je confirme",
+        "oui confirme",
         "je confirme",
         "confirme",
         "c'est bon",

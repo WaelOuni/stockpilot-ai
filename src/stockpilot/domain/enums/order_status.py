@@ -10,6 +10,7 @@ class OrderStatus(str, Enum):
 
 
 class PreparedOrderStatus(str, Enum):
+    INVALID_QUANTITY = "INVALID_QUANTITY"
     PENDING_CONFIRMATION = "PENDING_CONFIRMATION"
     CONFIRMED = "CONFIRMED"
     CANCELLED = "CANCELLED"

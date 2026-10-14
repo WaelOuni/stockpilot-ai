@@ -64,7 +64,9 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
         recommendation = SimpleNamespace(execute=AsyncMock())
 
         orders = {}
-        async def finalize(product_name, quantity, operation_id, customer_id=None, *, product_sku=None, product_document_id=None):
+        async def finalize(product_name, quantity, operation_id, customer_id=None, *, product_sku=None, product_document_id=None, replay_only=False):
+            if replay_only:
+                return next((order for order in orders.values() if order.operation_id == operation_id), None)
             order = Order(
                 order_id="created-order",
                 operation_id=operation_id,
@@ -133,6 +135,17 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
             assert confirmed["last_created_order_id"] == "created-order"
             assert confirmed["pending_order"]["operation_id"] == prepared["pending_order"]["operation_id"]
         assert second.conn.closed
+        # A fresh graph/connection must acknowledge the persisted terminal
+        # checkpoint with recovery_only semantics, never invoke a new reserve.
+        async with open_checkpointer(checkpoint_uri) as third:
+            replay = await graph(third).ainvoke(
+                {"message": "oui, confirme", "customer_id": "customer-a"}, config=config,
+            )
+            assert replay["created_order_id"] == confirmed["created_order_id"]
+            assert replay["pending_order"]["operation_id"] == prepared["pending_order"]["operation_id"]
+            assert "déjà confirmée" in replay["response"]
+            assert finalizer.execute.await_args.kwargs["replay_only"] is True
+            assert len(orders) == 1
 
         async with open_checkpointer(checkpoint_uri) as third:
             graph_c = graph(third)
@@ -142,7 +155,10 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
             assert queried["queried_order_status"] == "CREATED"
             assert queried["order_status"] == "CONFIRMED"
             repository.find_by_order_id.assert_awaited_once_with("created-order")
-            finalizer.execute.assert_awaited_once()
+            # One creation and one recovery-only replay; the status query adds neither.
+            assert finalizer.execute.await_count == 2
+            assert not finalizer.execute.await_args_list[0].kwargs.get("replay_only", False)
+            assert finalizer.execute.await_args_list[1].kwargs["replay_only"] is True
         assert third.conn.closed
 
     asyncio.run(scenario())
