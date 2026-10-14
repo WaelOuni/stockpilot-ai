@@ -76,6 +76,7 @@ def build_graph(
             "order": "order",
             "order_status": "order_status",
             "unknown": "unknown",
+            "end": END,
         },
     )
 

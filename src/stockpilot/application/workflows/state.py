@@ -19,8 +19,12 @@ class StockPilotState(TypedDict, total=False):
     budget: float | None
     usage: str | None
     quantity: int | float | bool | None
-    pending_order: dict[str, str | int | None] | None
-    order_status: str
+    pending_order: dict[str, str | int | dict | None] | None
+    active_order_confirmation: dict | None
+    last_order_quantity_evidence: dict | None
+    inherited_quantity_evidence: dict | None
+    quantity_validation_failed: bool
+    order_status: str | None
     confirmation_handled: bool
     created_order_id: str | None
     last_created_order_id: str

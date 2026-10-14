@@ -3,6 +3,8 @@ import unicodedata
 from dataclasses import dataclass
 
 from stockpilot.application.dto.intent_result import IntentResult
+from stockpilot.application.order_quantity_evidence import quantitative_continuation, inspect_quantity
+from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
 from stockpilot.domain.enums.intent import Intent
 from stockpilot.domain.enums.product_category import ProductCategory
 
@@ -24,6 +26,8 @@ class ContextResolution:
     context: ConversationContext
     advice_query: str | None = None
     product_from_context: bool = False
+    quantity_from_context: bool = False
+    quantity_error: str | None = None
 
 
 def _normalize(message: str) -> str:
@@ -34,12 +38,6 @@ def _normalize(message: str) -> str:
     return re.sub(r"\s+", " ", value).strip().rstrip("?.!").strip()
 
 
-_QUANTITY = re.compile(
-    r"(?:et si j'en (?:demande|commande)|"
-    r"(?:est ce que|est-ce que) je peux (?:demander|commander)|"
-    r"(?:et )?(?:je voudrais|je veux|j'en veux|plutot|finalement)) (\d+)"
-    r"(?: (?:unites?|exemplaires?))?"
-)
 _PRODUCT = re.compile(
     r"(?:et (?:la|le)|(?:de|du)|(?:plutot|finalement)) "
     r"(?P<product>(?:[A-Za-z][A-Za-z-]* )?[A-Za-z]+\d+[A-Za-z0-9-]*)",
@@ -67,13 +65,22 @@ class ContextResolutionUseCase:
         self, message: str, current: IntentResult, previous: ConversationContext,
     ) -> ContextResolution:
         result = current.model_copy()
+        quantity_from_context = False
         normalized = _normalize(message)
-        quantity = _QUANTITY.fullmatch(normalized)
+        quantity = quantitative_continuation(message)
         product = _PRODUCT.fullmatch(message.strip().rstrip("?.!").strip())
         stock = _STOCK.fullmatch(normalized)
         usage = _ADVICE_USAGE.fullmatch(normalized)
         budget = _ADVICE_BUDGET.fullmatch(normalized)
         repeat_advice = _ADVICE_REPEAT.fullmatch(normalized)
+
+        if previous.intent == Intent.ORDER and quantity:
+            try:
+                inspect_quantity(message)
+            except InvalidOrderQuantityError as error:
+                # Refuse before any product/context inheritance. Keep UNKNOWN
+                # as classified, but never keep an older pending confirmable.
+                return ContextResolution(result, ConversationContext(), quantity_error=str(error))
 
         continuation = bool(
             (previous.intent == Intent.ORDER and (quantity or product))
@@ -97,7 +104,16 @@ class ContextResolutionUseCase:
                 result.product_name = previous.product_name
             if result.intent == Intent.ORDER:
                 if result.quantity is None:
-                    result.quantity = int(quantity.group(1)) if quantity else previous.quantity
+                    if quantity:
+                        try:
+                            result.quantity = inspect_quantity(message).quantity
+                        except InvalidOrderQuantityError:
+                            # Preserve the original message for the ORDER guard;
+                            # never inherit the old quantity on an invalid follow-up.
+                            result.quantity = None
+                    else:
+                        result.quantity = previous.quantity
+                        quantity_from_context = True
                 if result.product_name is None:
                     # A quantity alone is not enough to recover an unknown order.
                     if current.intent == Intent.UNKNOWN:
@@ -136,4 +152,4 @@ class ContextResolutionUseCase:
         return ContextResolution(result, context, advice_query, bool(
             compatible and not product and result.product_name == previous.product_name
             and result.product_name is not None
-        ))
+        ), quantity_from_context)

@@ -29,10 +29,11 @@ def prepare():
         price=99, stock=10,
     )
     node = create_order_node(PrepareOrderUseCase(stock))
-    prepared = run(node({"product_name": "Bosch X100", "quantity": 2, "customer_id": "owner"}))
+    prepared = run(node({"message": "Commande-moi 2 Bosch X100", "product_name": "Bosch X100", "quantity": 2, "customer_id": "owner"}))
     assert prepared["order_status"] == "PENDING_CONFIRMATION"
     # Recreate a pre-hotfix checkpoint; SKU-backed replays are covered in Mongo tests.
     prepared["pending_order"].pop("product_sku")
+    prepared["pending_order"].pop("quantity_evidence")
     return {**prepared, "customer_id": "owner", "message": "Oui, je confirme"}
 
 

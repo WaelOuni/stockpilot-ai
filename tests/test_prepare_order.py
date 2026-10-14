@@ -157,6 +157,7 @@ def test_order_workflow_returns_pending_confirmation_without_creating_order() ->
     assert result["order_status"] == PreparedOrderStatus.PENDING_CONFIRMATION.value
     assert result["pending_order"] == {
         "operation_id": result["pending_order"]["operation_id"],
+        "quantity_evidence": result["pending_order"]["quantity_evidence"],
         "product_name": "Bosch X100",
         "product_sku": "BOSCH-X100",
         "product_document_id": "fixture-document-BOSCH-X100",

@@ -164,6 +164,50 @@ def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize('branch', [Intent.PRODUCT_ADVICE, Intent.STOCK_CHECK, Intent.UNKNOWN])
+def test_v1226_branch_retirement_survives_new_graph_connection(checkpoint_uri, branch):
+    from stockpilot.application.use_cases.catalogue_advice import CatalogueAdviceUseCase
+
+    async def scenario():
+        classifier = SimpleNamespace(execute=AsyncMock(side_effect=lambda message:
+            IntentResult(intent=Intent.ORDER, product_name='Bosch X100', quantity=3)
+            if message.startswith('Commande') else IntentResult(
+                intent=branch if message != 'oui confirme' else Intent.UNKNOWN,
+                product_name='Bosch X100' if branch == Intent.STOCK_CHECK else None)))
+        stock = SimpleNamespace(execute=AsyncMock(return_value=StockResult(
+            sku='BOSCH-X100', name='Bosch X100', stock=20, available=True,
+            document_id='507f1f77bcf86cd799439011')))
+        finalizer = SimpleNamespace(execute=AsyncMock())
+        advice = CatalogueAdviceUseCase(SimpleNamespace(find_advice_candidates=AsyncMock()),
+                                       SimpleNamespace(generate=AsyncMock()))
+        def graph(saver):
+            return build_graph(classifier, stock, SimpleNamespace(execute=AsyncMock()),
+                PrepareOrderUseCase(stock), finalizer, checkpointer=saver,
+                get_order_status=SimpleNamespace(execute=AsyncMock()), catalogue_advice=advice)
+        config = {'configurable': {'thread_id': 'v1226-retired'}}
+        async with open_checkpointer(checkpoint_uri) as first:
+            workflow = graph(first)
+            prepared = await workflow.ainvoke({'message': 'Commande-moi 3 Bosch X100',
+                'customer_id': 'owner'}, config)
+            assert prepared['active_order_confirmation'] is not None
+            retired = await workflow.ainvoke({'message': 'Conseille-moi une perceuse dans mon budget',
+                'customer_id': 'owner'}, config)
+            assert retired['pending_order'] is None and retired['active_order_confirmation'] is None
+            if branch == Intent.PRODUCT_ADVICE:
+                assert retired['advice_status'] == 'CLARIFICATION_REQUIRED'
+                assert 'budget maximum' in retired['response']
+        assert first.conn.closed
+        async with open_checkpointer(checkpoint_uri) as second:
+            workflow = graph(second)
+            restored = (await workflow.aget_state(config)).values
+            assert restored['pending_order'] is None and restored['active_order_confirmation'] is None
+            after = await workflow.ainvoke({'message': 'oui confirme', 'customer_id': 'owner'}, config)
+            assert after['confirmation_handled'] is False and after['pending_order'] is None
+            assert after['active_order_confirmation'] is None
+        finalizer.execute.assert_not_awaited()
+    asyncio.run(scenario())
+
+
 def test_old_name_only_checkpoint_survives_reconnect_without_stock_mutation(checkpoint_uri):
     from stockpilot.application.use_cases.finalize_order import FinalizeOrderUseCase
 
@@ -189,4 +233,74 @@ def test_old_name_only_checkpoint_survives_reconnect_without_stock_mutation(chec
             assert result["order_status"] == "PRODUCT_IDENTITY_REQUIRED"
             assert transaction.execute.await_args.kwargs == {"replay_only": True}
             assert transaction.execute.await_args.args[0].product_sku is None
+    asyncio.run(scenario())
+
+
+def test_invalid_fraction_checkpoint_stays_disarmed_after_reopening(checkpoint_uri):
+    """Restore the actual graph checkpoint, not merely a copied Python dict."""
+    async def scenario():
+        classifier = SimpleNamespace(execute=AsyncMock(return_value=IntentResult(
+            intent=Intent.ORDER, product_name='Bosch X100', quantity=1)))
+        stock = SimpleNamespace(execute=AsyncMock(return_value=StockResult(
+            sku='BOSCH-X100', name='Bosch X100', stock=11, available=True,
+            document_id='507f1f77bcf86cd799439011')))
+        finalizer = SimpleNamespace(execute=AsyncMock())
+        def graph(saver):
+            return build_graph(classifier, stock, SimpleNamespace(execute=AsyncMock()),
+                PrepareOrderUseCase(stock), finalizer, checkpointer=saver,
+                get_order_status=SimpleNamespace(execute=AsyncMock()))
+        config = {'configurable': {'thread_id': 'fraction-restore'}}
+        async with open_checkpointer(checkpoint_uri) as saver:
+            workflow = graph(saver)
+            pending = await workflow.ainvoke({'message': 'Commande-moi 1 Bosch X100',
+                'customer_id': 'owner'}, config=config)
+            assert pending['pending_order'] is not None
+            rejected = await workflow.ainvoke({'message': 'Commande-moi 1.5 Bosch X100',
+                'customer_id': 'owner'}, config=config)
+            assert rejected['pending_order'] is None
+        classifier.execute.return_value = IntentResult(intent=Intent.UNKNOWN)
+        async with open_checkpointer(checkpoint_uri) as saver:
+            workflow = graph(saver)
+            state = await workflow.aget_state(config)
+            assert state.values['order_status'] == 'INVALID_QUANTITY'
+            assert state.values['pending_order'] is None
+            after = await workflow.ainvoke({'message': 'oui confirme', 'customer_id': 'owner'}, config=config)
+            assert after['pending_order'] is None and after['confirmation_handled'] is False
+        finalizer.execute.assert_not_awaited()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('message',['plutôt 1.5 ou 2','plutôt 2','plutôt douze'])
+def test_v1224_restored_interrupted_checkpoint_disarms_pending(checkpoint_uri,message):
+    async def scenario():
+        classifier=SimpleNamespace(execute=AsyncMock(return_value=IntentResult(
+            intent=Intent.ORDER,product_name='Bosch X100',quantity=3)))
+        stock=SimpleNamespace(execute=AsyncMock(return_value=StockResult(
+            sku='BOSCH-X100',name='Bosch X100',stock=20,available=True,
+            document_id='507f1f77bcf86cd799439011')))
+        finalizer=SimpleNamespace(execute=AsyncMock())
+        def graph(saver):
+            return build_graph(classifier,stock,SimpleNamespace(execute=AsyncMock()),
+                PrepareOrderUseCase(stock),finalizer,checkpointer=saver,
+                get_order_status=SimpleNamespace(execute=AsyncMock()))
+        config={'configurable':{'thread_id':'interrupted-proof'}}
+        async with open_checkpointer(checkpoint_uri) as saver:
+            workflow=graph(saver)
+            initial=await workflow.ainvoke({'message':'Commande-moi 3 Bosch X100','customer_id':'owner'},config=config)
+            old_operation=initial['pending_order']['operation_id']
+            await workflow.aupdate_state(config,{'last_relevant_intent':Intent.STOCK_CHECK})
+        classifier.execute.return_value=IntentResult(intent=Intent.UNKNOWN)
+        async with open_checkpointer(checkpoint_uri) as saver:
+            workflow=graph(saver)
+            rejected=await workflow.ainvoke({'message':message,'customer_id':'owner'},config=config)
+            assert rejected['pending_order'] is None and rejected['quantity_validation_failed'] is True
+        async with open_checkpointer(checkpoint_uri) as saver:
+            workflow=graph(saver)
+            after=await workflow.ainvoke({'message':'oui confirme','customer_id':'owner'},config=config)
+            assert after['pending_order'] is None
+            finalizer.execute.assert_not_awaited()
+            classifier.execute.return_value=IntentResult(intent=Intent.ORDER,product_name='Bosch X100',quantity=2)
+            fresh=await workflow.ainvoke({'message':'Commande-moi 2 Bosch X100','customer_id':'owner'},config=config)
+            assert fresh['pending_order']['operation_id']!=old_operation
+            assert fresh['pending_order']['quantity']==2 and fresh['quantity_validation_failed'] is False
     asyncio.run(scenario())

@@ -3,6 +3,8 @@ from stockpilot.domain.enums.intent import Intent
 
 
 def route_by_intent(state: StockPilotState) -> str:
+    if state.get("quantity_validation_failed"):
+        return "end"
     intent = state.get("intent")
 
     if intent == Intent.PRODUCT_ADVICE:
