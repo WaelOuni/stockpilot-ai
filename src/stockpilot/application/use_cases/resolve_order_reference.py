@@ -1,4 +1,4 @@
-"""Disambiguate only the complete bare ``Commande <reference>`` form.
+"""Disambiguate complete ``Commande [integer quantity] <reference>`` forms.
 
 Identifiers have no reserved prefixes. Evidence is a literal catalogue match
 and an owner-scoped order lookup, never the model's suggested identifier.
@@ -14,6 +14,9 @@ from stockpilot.application.order_quantity_errors import InvalidOrderQuantityErr
 from stockpilot.domain.enums.intent import Intent
 
 _BARE_REFERENCE = re.compile(r'\s*commande\s+(?P<reference>\S+)\s*', re.I)
+_COUNTED_REFERENCE = re.compile(
+    r'\s*commande\s+(?P<count>\+?[0-9]{1,18})\s+(?P<reference>\S+)\s*', re.I,
+)
 
 
 @dataclass(frozen=True)
@@ -33,8 +36,12 @@ class ResolveOrderReferenceUseCase:
         if len(message) > 4096:
             return None
         match = _BARE_REFERENCE.fullmatch(message)
+        counted = False
         if match is None:
-            return None
+            match = _COUNTED_REFERENCE.fullmatch(message)
+            if match is None:
+                return None
+            counted = True
         reference = match['reference']
         unclear = OrderReferenceResolution(Intent.UNKNOWN)
         if not customer_id or not customer_id.strip() or len(reference) > 256:
@@ -46,7 +53,12 @@ class ResolveOrderReferenceUseCase:
         except InvalidOrderQuantityError:
             # Malformed quantities must still reach the existing refusal path.
             return None
-        if evidence.kind == 'explicit':
+        if counted:
+            # Reuse the full quantity grammar, including protection against
+            # extra numbers/units. Never infer a count from the reference.
+            if evidence.kind != 'explicit' or (evidence.start, evidence.end) != match.span('count'):
+                return unclear
+        elif evidence.kind == 'explicit':
             return unclear
         products = await self.products.find_resolution_skus(reference)
         order = await self.orders.find_by_order_id_and_customer_id(reference, customer_id)
@@ -57,7 +69,7 @@ class ResolveOrderReferenceUseCase:
             raise ValueError('Non-owned order reference returned by repository')
         if len(products) == 1 and order is None:
             return OrderReferenceResolution(Intent.ORDER, products[0].sku)
-        if not products and order is not None:
+        if not products and order is not None and not counted:
             return OrderReferenceResolution(Intent.ORDER_STATUS, reference)
         # Unknown reference, duplicate SKU or overlapping namespaces. No model
         # fallback, and no disclosure of another customer's order existence.
