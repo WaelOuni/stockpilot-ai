@@ -34,6 +34,7 @@ def build_graph(
     get_order_status: GetOrderStatusUseCase,
     resolve_context: ContextResolutionUseCase | None = None,
     catalogue_advice=None,
+    resolve_order_reference=None,
 ):
     graph = StateGraph(StockPilotState)
 
@@ -43,7 +44,7 @@ def build_graph(
             finalize_order,
         ),
     )
-    graph.add_node("classify", create_classify_node(classify_intent))
+    graph.add_node("classify", create_classify_node(classify_intent, resolve_order_reference))
     graph.add_node(
         "resolve_context", create_context_resolution_node(resolve_context or ContextResolutionUseCase()),
     )

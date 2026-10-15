@@ -5,6 +5,7 @@ from stockpilot.domain.enums.product_category import ProductCategory
 
 
 class StockPilotState(TypedDict, total=False):
+    reference_clarification: bool
     message: str
     customer_id: str | None
     intent: Intent

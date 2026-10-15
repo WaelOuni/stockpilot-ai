@@ -36,6 +36,7 @@ from stockpilot.application.use_cases.manage_products import CreateProductUseCas
 from stockpilot.application.use_cases.adjust_product_stock import (
     AdjustProductStockUseCase, GetStockAdjustmentUseCase, ListStockMovementsUseCase,
 )
+from stockpilot.application.use_cases.resolve_order_reference import ResolveOrderReferenceUseCase
 from stockpilot.application.workflows.stockpilot_workflow import build_graph
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -87,6 +88,7 @@ async def lifespan(app: FastAPI):
             get_order_status=get_order_status_use_case,
             resolve_context=context_resolution_use_case,
             catalogue_advice=catalogue_advice_use_case,
+            resolve_order_reference=ResolveOrderReferenceUseCase(product_repository, order_repository),
         )
         try:
             yield
