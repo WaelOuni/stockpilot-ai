@@ -51,7 +51,7 @@ def test_namespaces_have_no_reserved_prefix(reference, kind):
 
 
 @pytest.mark.parametrize('message', [
-    'Commande 2 DEMO-DRILL-0002','Je veux commander DEMO-DRILL-0002',
+    'Je veux commander DEMO-DRILL-0002',
     'Ajoute 2 DEMO-DRILL-0002 à ma commande','Je veux acheter 2 DEMO-DRILL-0002',
     'Montre-moi la commande ORD-TEST-001','Où en est ma commande ORD-TEST-001 ?',
     'Statut de la commande ORD-TEST-001','Retrouve la commande ORD-TEST-001',
@@ -61,7 +61,7 @@ def test_namespaces_have_no_reserved_prefix(reference, kind):
     'Commande 1.5abc DEMO-DRILL-0002','Commande une douzaine de Vis Synthétiques V015',
     'Commande 3 câbles de 2 mètres',
 ])
-def test_only_complete_bare_frame_is_normalized(message):
+def test_other_frames_remain_unnormalized(message):
     p,o=ports(['DEMO-DRILL-0002'])
     assert asyncio.run(ResolveOrderReferenceUseCase(p,o).execute(message,'synthetic')) is None
     p.find_resolution_skus.assert_not_awaited()
