@@ -32,7 +32,7 @@ from stockpilot.domain.enums.order_status import OrderStatus, PreparedOrderStatu
 logger = logging.getLogger(__name__)
 
 
-def create_classify_node(classify_intent: ClassifyIntentUseCase):
+def create_classify_node(classify_intent: ClassifyIntentUseCase, resolve_order_reference=None):
     async def classify_node(state: StockPilotState) -> StockPilotState:
         with timed_event(logger, "classification_started", "classification_completed",
                          "classification_failed"):
@@ -47,6 +47,26 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase):
             else:
                 if result.intent == Intent.UNKNOWN:
                     result.intent = Intent.ORDER
+        reference_update = {"reference_clarification": False}
+        if resolve_order_reference is not None:
+            reference = await resolve_order_reference.execute(state["message"], state.get("customer_id"))
+            if reference is not None:
+                result.intent = reference.intent
+                result.order_id = reference.reference if reference.intent == Intent.ORDER_STATUS else None
+                result.raw_product = reference.reference if reference.intent == Intent.ORDER else None
+                result.product_name = result.raw_product
+                reference_update.update(queried_order_id=None, queried_order_status=None,
+                                        order_status_result=None)
+                if reference.intent == Intent.UNKNOWN:
+                    reference_update.update(
+                        reference_clarification=True, last_relevant_intent=None,
+                        last_product_name=None, last_quantity=None,
+                        last_order_quantity_evidence=None, inherited_quantity_evidence=None,
+                        last_product_sku=None, last_product_document_id=None,
+                    )
+                    result.quantity = None
+                    if (state.get("pending_order") or {}).get("status") == PreparedOrderStatus.PENDING_CONFIRMATION.value:
+                        reference_update.update(pending_order=None, order_status=None)
         bind_context(intent=result.intent.value)
         event(logger, "intent_detected", intent=result.intent.value)
 
@@ -54,6 +74,7 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase):
             # Every non-confirmation turn retires the previous proposal. Only
             # successful preparation below can arm a new exact operation.
             "active_order_confirmation": None,
+            **reference_update,
             "recommendations": [],
             "advice_status": None,
             "intent": result.intent,
@@ -590,5 +611,10 @@ def create_order_status_node(get_order_status: GetOrderStatusUseCase):
 
 async def unknown_node(state: StockPilotState) -> StockPilotState:
     return {
-        "response": "I could not determine the requested action."
+        "response": (
+            "Précisez si vous souhaitez acheter un produit (avec son SKU et la quantité) "
+            "ou consulter le statut d’une commande (avec son identifiant)."
+            if state.get("reference_clarification") else
+            "I could not determine the requested action."
+        )
     }

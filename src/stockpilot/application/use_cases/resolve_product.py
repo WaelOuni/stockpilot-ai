@@ -44,7 +44,26 @@ _ORDER_PREFIX = re.compile(
 
 def order_product_phrase(value: str) -> str:
     """Remove a bounded request prefix; retain every product discriminant."""
-    raw = _ORDER_PREFIX.sub("", value, count=1).strip().rstrip("?.!").strip()
+    raw = _ORDER_PREFIX.sub("", value, count=1).strip()
+    if _ORDER_PREFIX.match(value):
+        # Reuse the validated quantity span rather than teaching a second
+        # parser to remove number words. Import locally: quantity evidence
+        # also uses this module's literal SKU pattern.
+        from stockpilot.application.order_quantity_evidence import inspect_quantity
+        from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
+
+        try:
+            evidence = inspect_quantity(value)
+        except InvalidOrderQuantityError:
+            evidence = None
+        if evidence is not None and evidence.start is not None:
+            token = value[evidence.start:evidence.end].casefold()
+            if token not in {"un", "une"} and not re.fullmatch(r"[+\-−]?\d+", token):
+                raw = value[evidence.end:].lstrip()
+                if token.endswith("douzaine"):
+                    # The existing quantity grammar requires this connector.
+                    raw = re.sub(r"^de\s+", "", raw, count=1, flags=re.I)
+    raw = raw.rstrip("?.!").strip()
     # Sentence punctuation is outside a quoted name; punctuation inside it is evidence.
     return raw[1:-1].strip() if len(raw) >= 2 and raw.startswith('"') and raw.endswith('"') else raw
 
