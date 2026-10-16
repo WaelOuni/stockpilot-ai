@@ -30,7 +30,7 @@ def api(monkeypatch):
     workflow = SimpleNamespace(ainvoke=AsyncMock(side_effect=AssertionError("No workflow")))
     monkeypatch.setattr(app.state, "stockpilot_workflow", workflow)
     doubles.append(workflow.ainvoke)
-    yield TestClient(app), doubles
+    yield TestClient(app, base_url="https://127.0.0.1"), doubles
     for double in doubles:
         double.assert_not_called()
 
