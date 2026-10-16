@@ -29,3 +29,11 @@ Independent PRs target main: API boundary/configuration (draft, SaaS blocked), i
 ## Sources
 
 Use the existing PyJWT validator; pin accepted algorithms and check issuer/audience when an identity contract exists ([PyJWT](https://pyjwt.readthedocs.io/en/2.10.1/usage.html)). Server-side opaque sessions retain revocation on logout ([OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)).
+
+## Implemented local API boundary
+
+`/products`, `/products/{sku}`, `/chat` and `/classify` now require the existing signed customer JWT, as `/assistant` already did. Exact SKU and customer ORDER behavior are unchanged. Duplicate Authorization fields are refused. Optional `CUSTOMER_JWT_ISSUER` and `CUSTOMER_JWT_AUDIENCE` must be paired; when configured both values are validated by PyJWT. They do not enable SaaS. Local credentials have no refresh/revocation lifecycle and must not be used as production identity.
+
+The Vue catalogue now sends the in-memory customer JWT and clears/reloads its data when that identity changes. Existing 401/403 error handling is retained; no new login form or browser credential storage was introduced. The verifier tooling authenticates its catalogue reads with the synthetic identity it already creates. These scripts were edited only in the isolated worktree; no demo verification or mutation command was executed against v017.
+
+Production container images intentionally return 503 on sensitive APIs, including docs/login, even with configured local credentials. `/health` reports process liveness, not SaaS readiness. Do not route public traffic to a development/test/local_demo installation. There is no anonymous demo bypass. The current Docker default `production` is closed; operators must explicitly choose a controlled nonproduction mode for future isolated local runs.
