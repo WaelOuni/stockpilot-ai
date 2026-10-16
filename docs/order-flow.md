@@ -461,13 +461,20 @@ configuration is rejected if the verifier matches `BACKOFFICE_API_TOKEN` or
 `CUSTOMER_JWT_SECRET`. These technical secrets are never admin login credentials.
 See [setup](getting-started.md#demo-administrator).
 
-Cookies contain 256-bit opaque random tokens, never JWTs/roles/passwords. Sessions
-and their independent random CSRF tokens exist only in a locked process-local
-store. Default TTL is 1,800 seconds (fixed expiry, no read-based renewal), maximum
+Cookies contain 256-bit opaque random tokens, never JWTs/roles/passwords.
+`ADMIN_SESSION_STORE=memory` keeps sessions and independent random CSRF tokens in
+a locked process-local store for development/test only. Explicitly selecting
+`mongo` stores hashed cookie identifiers with shared expiry, logout, rotation,
+capacity and throttling on the existing Mongo replica set. See the
+[durable local operator session contract](security/admin-sessions.md), including
+configuration rollback and mixed-worker limitations. Default TTL is 1,800 seconds
+(fixed expiry, no read-based renewal), maximum
 100 active sessions; settings cap TTL at 86,400 and capacity at 1,000. Successful
 login replaces the supplied session and its CSRF token; failed login leaves it
 intact. Expired entries are pruned on access. Capacity exhaustion returns 503
-without evicting another administrator. Configuration changes invalidate sessions.
+without evicting another administrator. Memory configuration changes clear
+sessions; Mongo fingerprint mismatches deny access under the current fleet
+configuration and do not constitute permanent revocation.
 
 Default cookie is `__Host-stockpilot_admin`, HttpOnly, Secure, SameSite=Strict,
 Path=/, no Domain. HTTPS is required for admin session operations. An explicit
@@ -504,11 +511,12 @@ old entries expire, successful login does not clear counters. Configure trusted
 proxy forwarding narrowly; never trust arbitrary forwarded addresses.
 
 **Demo/production limits:** one configured administrator, global orders, no
-tenant/RBAC/MFA/recovery/audit trail. Restarts invalidate sessions and reset
-throttling. Multiple workers/replicas have independent sessions/counters, so this
-mechanism is **single-process demo only**, even when HTTPS/production transport
-settings are used. Before exposure, replace it with managed identity and a shared
-session/rate-limit store, enforce TLS and trusted proxy settings, body/request
+tenant/RBAC/MFA/recovery/audit trail. With `memory`, restarts invalidate sessions
+and reset throttling, and each worker has independent sessions/counters. Mongo
+shares those controls and preserves sessions across restarts, but does not define
+SaaS permissions. Its import preview signatures remain process-local. SaaS
+activation requires managed identity and tenant authorization. Enforce TLS and
+trusted proxy settings, body/request
 limits, CSP/XSS controls, durable audit and tenant authorization. XSS on the
 same origin can still use a session; HttpOnly is not an XSS solution.
 
