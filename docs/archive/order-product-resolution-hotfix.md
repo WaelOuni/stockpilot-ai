@@ -190,7 +190,7 @@ creation generation or tombstone; that is outside the normal ObjectId recreation
 
 ## Files changed
 
-- `docs/order-product-resolution-hotfix.md`
+- `docs/archive/order-product-resolution-hotfix.md`
 - `src/stockpilot/application/dto/prepared_order.py`
 - `src/stockpilot/application/order_idempotency.py`
 - `src/stockpilot/application/ports/order_transaction.py`

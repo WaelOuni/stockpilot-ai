@@ -67,6 +67,6 @@ Captures : artifacts/ui-ux/stock-contract/history-1440.png, history-768.png et h
 - frontend/test-fixtures/demo-stock-history.json (nouveau)
 - frontend/visual-e2e/stock-history-contract.spec.ts (nouveau)
 - tests/test_stock_adjustments.py
-- docs/stock-history-contract-fix.md (nouveau)
+- docs/archive/stock-history-contract-fix.md (nouveau)
 
 Branche feat/frontend-ux-overhaul ; HEAD inchangé 1d601c90c22a177a02b46cc32210b5d304655b77. Modifications V9 préexistantes préservées, index vide ; aucun commit/push/reset. Aucune écriture sur stockpilot, aucune modification de référence DEMO, aucun seed ni migration. Le navigateur utilise le lancement E2E sans reset ; aucun POST d’ajustement réel n’a été envoyé.

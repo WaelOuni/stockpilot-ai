@@ -23,7 +23,7 @@ Les classes dashboard-metric/dashboard-metrics ne sont utilisées que par AdminD
 - frontend/playwright.kpi.config.ts (nouveau, lance Vite uniquement)
 - frontend/kpi-e2e/dashboard-kpi.spec.ts (nouveau parcours isolé)
 - frontend/tsconfig.json (inclut les tests KPI dans le typecheck)
-- docs/dashboard-kpi-fix.md (ce rapport)
+- docs/archive/dashboard-kpi-fix.md (ce rapport)
 
 ## Validation
 
@@ -33,7 +33,7 @@ Les classes dashboard-metric/dashboard-metrics ne sont utilisées que par AdminD
 - 12 captures après : référence plus trois cas longs aux trois largeurs ; trois captures avant et mesures des styles/rectangles également conservées. Revue visuelle desktop/tablette/mobile et vérification géométrique automatisée.
 - git diff --check et whitespace des nouveaux fichiers : propres.
 
-[Comparateur et captures](../artifacts/ui-ux/kpi/index.html). Fichiers PNG dans artifacts/ui-ux/kpi/after, mesures dans measurements.json. Les artefacts restent ignorés par Git.
+[Comparateur et captures](../../artifacts/ui-ux/kpi/index.html). Fichiers PNG dans artifacts/ui-ux/kpi/after, mesures dans measurements.json. Les artefacts restent ignorés par Git.
 
 Le navigateur teste le vrai composant Vue/CSS, avec toutes les réponses API simulées. La configuration dédiée lance seulement Vite, jamais FastAPI ou un initialiseur. Aucun accès ni écriture MongoDB/PostgreSQL, aucune mutation de métrique, aucun changement backend. Les jeux numériques sont uniquement des fixtures frontend de validation.
 

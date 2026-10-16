@@ -75,9 +75,9 @@ Aucun workflow GitHub exécuté ; aucune revendication de validation CI distante
   `frontend/Dockerfile`, `.dockerignore`, `frontend/tsconfig.production.json`,
   `requirements.lock`, `requirements-dev.lock`, `docker/compose.ci.yml`,
   `docker/web.conf.template`, `scripts/ci/check_targets.py`,
-  `scripts/ci/smoke_images.py`, `tests/test_release_guards.py`, `docs/ci-cd.md`, `docs/v10-pr.md`, ce rapport.
+  `scripts/ci/smoke_images.py`, `tests/test_release_guards.py`, `docs/ci-cd.md`, `docs/archive/v10-pr.md`, ce rapport.
 
-Première phase : PR locale préparée dans docs/v10-pr.md, sans commit ni push.
+Première phase : PR locale préparée dans docs/archive/v10-pr.md, sans commit ni push.
 La livraison par commits et PR vers dev est autorisée dans la revue finale.
 Aucun tag, release, publication GHCR ou déploiement.
 

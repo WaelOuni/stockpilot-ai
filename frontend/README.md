@@ -580,4 +580,4 @@ The existing suite retains its original reset mode when `E2E_NO_RESET` is absent
 use the explicit no-reset command above for this task. Its no-reset assertions use
 real initial stock and unique product SKUs rather than rewriting retained fixtures.
 Review captures with `artifacts/ui-ux/index.html` and see the delivery report in
-`docs/frontend-ux-overhaul.md`. Screenshots are local review artifacts ignored by Git.
+`docs/archive/frontend-ux-overhaul.md`. Screenshots are local review artifacts ignored by Git.
