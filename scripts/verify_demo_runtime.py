@@ -49,6 +49,10 @@ def business(client, database, dataset, username, password, secret):
     headers = {"X-Admin-CSRF": session["csrf_token"], "Origin": ORIGIN}
     run_id = str(uuid4())
     sku = f"DEMO-TEST-{run_id.replace('-', '')}-RUNTIME"
+    customer = f"demo-runtime-{run_id}"
+    token = jwt.encode({"customer_id": customer, "exp": int(time.time()) + 1800},
+                       secret, algorithm="HS256")
+    auth = {"Authorization": f"Bearer {token}"}
     manifest_id = f"stockpilot-demo-test-run-{run_id.replace('-', '')}"
     manifest = {
         "_id": manifest_id, "demo_test_kind": "run_manifest", "demo_test_run_id": run_id,
@@ -76,14 +80,10 @@ def business(client, database, dataset, username, password, secret):
                           headers=headers, json=body)
             assert movement == replay
             assert database.stock_movements.count_documents({"operation_id": operation}) == 1
-        assert call(client, "GET", f"/api/products/{sku}")["stock"] == 4
+        assert call(client, "GET", f"/api/products/{sku}", headers=auth)["stock"] == 4
         unauthorized = client.post(f"/api/backoffice/products/{sku}/stock-adjustments",
                                    json={"operation_id": str(uuid4()), "delta": 1, "reason": "rejected"})
         assert unauthorized.status_code == 403
-        customer = f"demo-runtime-{run_id}"
-        token = jwt.encode({"customer_id": customer, "exp": int(time.time()) + 1800},
-                           secret, algorithm="HS256")
-        auth = {"Authorization": f"Bearer {token}"}
         thread = str(uuid4())
         prepared = call(client, "POST", "/api/assistant", headers=auth,
                         json={"thread_id": thread, "message": f"Commande-moi 1 {created['product_name']}"})
@@ -96,7 +96,7 @@ def business(client, database, dataset, username, password, secret):
         database.demo_manifests.update_one({"_id": manifest_id}, {"$push": {
             "order_ids": order_id, "operation_ids": order["operation_id"],
         }})
-        assert call(client, "GET", f"/api/products/{sku}")["stock"] == 3
+        assert call(client, "GET", f"/api/products/{sku}", headers=auth)["stock"] == 3
         assert call(client, "GET", f"/api/orders/{order_id}", headers=auth)["status"] == "CREATED"
         assert call(client, "GET", "/api/orders", headers=auth)["count"] == 1
         call(client, "PATCH", f"/api/backoffice/orders/{order_id}/status",
@@ -104,7 +104,7 @@ def business(client, database, dataset, username, password, secret):
         for _ in range(2):
             cancelled = call(client, "POST", f"/api/customer/orders/{order_id}/cancel", headers=auth)
             assert cancelled["status"] == "CANCELLED"
-        assert call(client, "GET", f"/api/products/{sku}")["stock"] == 4
+        assert call(client, "GET", f"/api/products/{sku}", headers=auth)["stock"] == 4
         stored = database.orders.find_one({"order_id": order_id})
         assert sum(event["status"] == "CANCELLED" for event in stored["events"]) == 1
         assert database.orders.count_documents({"customer_id": customer}) == 1
@@ -129,17 +129,17 @@ def business(client, database, dataset, username, password, secret):
         raise
 
 
-def benchmark(client):
+def benchmark(client, auth):
     results = {}
     paths = ["/api/products?limit=20", "/api/products?q=DEMO&category=DRILL&available=true",
              "/api/products?available=false", "/api/backoffice/dashboard",
              "/api/backoffice/orders?limit=20"]
     for path in paths:
-        call(client, "GET", path)
+        call(client, "GET", path, headers=auth if path.startswith("/api/products") else None)
         samples = []
         for _ in range(10):
             start = time.perf_counter()
-            call(client, "GET", path)
+            call(client, "GET", path, headers=auth if path.startswith("/api/products") else None)
             samples.append((time.perf_counter() - start) * 1000)
         samples.sort()
         results[path] = {"requests": 10, "errors": 0,
@@ -228,6 +228,10 @@ def main():
                 raise RuntimeError("Demo did not become ready.")
             with MongoClient(settings.mongo_uri) as mongo:
                 database = guarded_database(mongo, "stockpilot_demo")
+                auth = {"Authorization": "Bearer " + jwt.encode(
+                    {"customer_id": "demo-runtime-read-verifier", "exp": int(time.time()) + 1800},
+                    secret, algorithm="HS256",
+                )}
                 if args.read_only:
                     session = call(client, "POST", "/api/backoffice/session/login",
                                    headers={"X-Admin-CSRF": "login"},
@@ -238,7 +242,7 @@ def main():
                     if not manifest:
                         raise RuntimeError("No completed retained runtime fixture is available.")
                     sku, order_id = manifest["product_skus"][0], manifest["order_ids"][0]
-                    assert call(client, "GET", f"/api/products/{sku}")["stock"] == 4
+                    assert call(client, "GET", f"/api/products/{sku}", headers=auth)["stock"] == 4
                     stored = database.orders.find_one({"order_id": order_id})
                     assert stored["status"] == "CANCELLED"
                     assert [event["status"] for event in stored["events"]] == [
@@ -255,7 +259,7 @@ def main():
                                           "cancel_exactly_once": "persisted_verified"}
                 else:
                     report["business"] = business(client, database, dataset, username, password, secret)
-                report["benchmark"] = benchmark(client)
+                report["benchmark"] = benchmark(client, auth)
                 report["baseline_after"] = demo_content_summary(database, dataset)
                 dashboard = call(client, "GET", "/api/backoffice/dashboard")
                 actual = asyncio.run(GetBackofficeDashboardUseCase(
