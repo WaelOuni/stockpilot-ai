@@ -652,12 +652,15 @@ all conversation fields, checks thread isolation and confirms using a fake
 finalizer without Mongo/Ollama:
 
 ```sh
-# Optional: export POSTGRES_TEST_URI='postgresql://...'
+# Required: POSTGRES_TEST_URI must name a dedicated test database such as the
+# docker/compose.ci.yml service (database stockpilot_ci); there is no default.
 .venv/bin/python -m pytest -q -m integration tests/test_postgres_checkpoint_integration.py
 ```
 
 The test creates/drops only its own unique schema; the test role needs CREATE
-permission on the database. Application startup needs official saver migration
+permission on the database. The fixture refuses application endpoints, databases
+not named `stockpilot_ci`/`stockpilot_test*`, and any database carrying a DEMO
+`demo_instance` marker, before issuing CREATE or DROP. Application startup needs official saver migration
 permissions. Coordinate concurrent first-start migrations operationally.
 The saver owns one async connection per process; pooling, history retention/
 cleanup, backups and access controls are separate work. Persistence alone does

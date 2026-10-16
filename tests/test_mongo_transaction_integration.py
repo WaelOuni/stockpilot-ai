@@ -1,5 +1,4 @@
 import asyncio
-import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
@@ -9,9 +8,9 @@ from uuid import uuid4
 
 import pytest
 from bson import ObjectId
-from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
+from integration_targets import UnsafeTestTarget, mongo_test_client
 from stockpilot.application.order_transaction_errors import OrderTransactionFailedError
 from stockpilot.application.use_cases.cancel_order import CancelOrderUseCase
 from stockpilot.domain.entities.order import Order
@@ -196,11 +195,10 @@ def test_real_same_operation_different_products_rolls_back_losing_delta(database
 
 @pytest.fixture
 def database():
-    uri = os.environ.get(
-        "MONGO_TEST_URI",
-        "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true",
-    )
-    client = MongoClient(uri, serverSelectionTimeoutMS=5000)
+    try:
+        client = mongo_test_client()
+    except UnsafeTestTarget as error:
+        pytest.fail(f"Refusing unsafe MongoDB integration target: {error}", pytrace=False)
     name = "stockpilot_transaction_test_" + uuid4().hex
     database = client[name]
     initialized = False

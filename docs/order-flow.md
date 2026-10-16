@@ -794,13 +794,16 @@ Lifecycle and cancellation tests also verify owner-preserving status updates.
 .venv/bin/python -m pytest -q
 ```
 
-After manually starting a healthy demo replica set, opt-in integration tests:
+Opt-in integration tests require a dedicated disposable test service, never the
+development or DEMO stores. Start `docker/compose.ci.yml` under its own project name
+(see [ci-cd.md](ci-cd.md#validation-locale-sans-toucher-les-services-devdemo)), export
+`MONGO_TEST_URI` and `POSTGRES_TEST_URI` for it, then:
 
 ```sh
-export MONGO_TEST_URI='mongodb://localhost:27017/?replicaSet=rs0&directConnection=true'
-.venv/bin/python -m pytest -q -m integration tests/test_mongo_transaction_integration.py
+.venv/bin/python -m pytest -q -m "integration and not integration_optional" tests
 ```
 
+Without those variables, or with an application endpoint, the fixtures refuse to run.
 They require a writable `rs0` replica set with sessions and use a validated,
 previously absent `stockpilot_transaction_test_<UUID>` database per test.
 They check commit, rollback, concurrent confirmations/cancellations, native

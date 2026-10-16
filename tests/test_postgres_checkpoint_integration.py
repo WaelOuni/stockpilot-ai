@@ -1,14 +1,10 @@
 import asyncio
-import os
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from uuid import UUID, uuid4
+from uuid import UUID
 
-import psycopg
 import pytest
-from psycopg import sql
-from psycopg.conninfo import make_conninfo
 
 from stockpilot.application.dto.intent_result import IntentResult
 from stockpilot.application.use_cases.check_stock import StockResult
@@ -19,8 +15,8 @@ from stockpilot.domain.entities.order import Order
 from stockpilot.domain.enums.intent import Intent
 from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.domain.enums.product_category import ProductCategory
-from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.persistence.postgres.checkpointer import open_checkpointer
+from integration_targets import UnsafeTestTarget, postgres_test_schema
 
 
 pytestmark = pytest.mark.integration
@@ -28,16 +24,11 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture
 def checkpoint_uri():
-    uri = os.environ.get("POSTGRES_TEST_URI", Settings().postgres_url)
-    schema = "stockpilot_checkpoint_test_" + uuid4().hex
-    with psycopg.connect(uri, autocommit=True) as connection:
-        connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
-        try:
-            yield make_conninfo(uri, options=f"-c search_path={schema}")
-        finally:
-            connection.execute(
-                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema))
-            )
+    try:
+        with postgres_test_schema() as conninfo:
+            yield conninfo
+    except UnsafeTestTarget as error:
+        pytest.fail(f"Refusing unsafe PostgreSQL integration target: {error}", pytrace=False)
 
 
 def test_order_state_survives_new_graph_and_connection(checkpoint_uri):
