@@ -7,7 +7,7 @@ reste immuable. Le lanceur utilise désormais des contrôles structurels et
 l’identité des stores, sans exiger l’égalité de tous les champs métier au seed.
 Une seule base physique `stockpilot_demo` est conservée.
 
-Voir [le runbook courant](demo-runbook.md) et [le rapport de correction](demo-lifecycle-validation.md).
+Voir [le runbook courant](demo-runbook.md) et [le rapport de correction](archive/demo-lifecycle-validation.md).
 Le validateur strict de seed reste utilisé lors de l’initialisation et pour les
 anciens audits de référence. Les inventaires et consignes d’audit ci-dessous
 sont des instantanés historiques V6/V7 ; ils ne restreignent pas l’utilisation

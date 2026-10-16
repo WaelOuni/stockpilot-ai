@@ -5,6 +5,14 @@ La DEMO utilise exclusivement MongoDB `stockpilot_demo` et PostgreSQL
 Les anciennes mesures V6/V7 sont des instantanés historiques, pas une contrainte
 interdisant de modifier les produits de la démo.
 
+## DEMO conservée
+
+Seule la DEMO isolée **v0.1.7** (`stockpilot-demo-v017`, https://localhost:5191,
+déployée hors de ce dépôt depuis les images GHCR publiées) est conservée. Les DEMO
+v012 à v016 ont été retirées le 2026-10-16 ; leurs images GHCR, tags Git et Releases
+restent disponibles pour un retour arrière. Les consignes ci-dessous décrivent le
+lanceur local du dépôt, qui n'agit jamais sur cette instance.
+
 ## Démarrer, arrêter, reprendre
 
 Avec les dépendances Python/Vue et les services Mongo rs0/PostgreSQL pgvector déjà

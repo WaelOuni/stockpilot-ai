@@ -22,7 +22,7 @@ Les changements de comportement se limitent à la présentation conditionnelle d
 - frontend/src/style.css
 - frontend/src/pages/AdminProducts.test.ts (assertions adaptées aux faits accessibles)
 - frontend/visual-e2e/admin-finish.spec.ts (nouveau parcours ciblé)
-- docs/frontend-v9-finishing.md (ce rapport)
+- docs/archive/frontend-v9-finishing.md (ce rapport)
 
 Règles répétées centralisées : page-heading-actions, header-actions, info-notice, detail-facts, order-actions, confirmation-panel, product-stock-summary, identifier-value et success-notice. Aucun composant ou framework supplémentaire.
 
@@ -36,7 +36,7 @@ Le second parcours navigue réellement les quatorze écrans existants aux trois 
 
 ## Captures et revue
 
-[Comparateur ciblé](../artifacts/ui-ux/finish/index.html) : 15 captures avant, 24 après (15 écrans, six confirmations, trois états de formulaire). Revue visuelle des cinq pages sur des largeurs représentatives et contrôles automatisés sur toutes les largeurs. Les captures réelles sont aussi actualisées dans artifacts/ui-ux/after et checks.json.
+[Comparateur ciblé](../../artifacts/ui-ux/finish/index.html) : 15 captures avant, 24 après (15 écrans, six confirmations, trois états de formulaire). Revue visuelle des cinq pages sur des largeurs représentatives et contrôles automatisés sur toutes les largeurs. Les captures réelles sont aussi actualisées dans artifacts/ui-ux/after et checks.json.
 
 Les fixtures extrêmes de stock initiales manquaient limit/offset et montraient une erreur de réponse ; ce problème du test est corrigé. Ces captures avant ne prouvent pas un défaut de la page stock. Les fixtures d’historique de commande ont été rendues cohérentes avec PROCESSING ; comparer les zones et espacements, pas les valeurs avant/après.
 

@@ -16,11 +16,13 @@ Concurrency cancels superseded runs for the same workflow/ref.
 
 | Check | Commands |
 |---|---|
-| Unit Tests | `python -m pytest -q --ignore=tests/test_evals.py --ignore=tests/test_eval_ci.py` |
+| Unit Tests | `python -m pytest -q` (default selection, integration excluded) |
 | AI Eval Framework | `python -m pytest -q tests/test_evals.py tests/test_eval_ci.py`, then enriched deterministic smoke |
 
-Both install `python -m pip install -e '.[dev]'`. No pytest case is duplicated
-between jobs. Neither job needs Ollama/PostgreSQL/Mongo. The deterministic smoke
+Both install `requirements-dev.lock` then `python -m pip install --no-deps -e .`.
+The 36 eval-framework test cases run in both jobs by design (the second job is the
+named AI Eval Framework check). Neither job needs Ollama/PostgreSQL/Mongo. The
+frontend, integration and container jobs are documented in [CI/CD](ci-cd.md). The deterministic smoke
 validates the framework, **not AI quality**. Branch protection must explicitly
 require these checks if merges should be blocked.
 

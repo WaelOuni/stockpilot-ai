@@ -42,7 +42,7 @@ connectivity must be configured separately from an interactive shell.
 ## Environment and Compose
 
 ```sh
-cp .env.local.example .env.local
+cp .env.example .env.local
 # Review .env.local before exporting:
 set -a
 source .env.local

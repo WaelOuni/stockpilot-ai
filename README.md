@@ -93,7 +93,7 @@ Review/export the example environment; Settings does **not** load `.env.local`
 automatically:
 
 ```sh
-cp .env.local.example .env.local
+cp .env.example .env.local
 set -a
 source .env.local
 set +a
@@ -259,9 +259,12 @@ retention/rotation caveats, PromQL/LogQL/TraceQL and diagnostic commands.
 
 ## Repository / CI strategy
 
-`main` is stable/demo; `dev` is development.
-PRs and pushes to **main/dev** run **Unit Tests** and **AI Eval Framework**.
-Branch protection must explicitly require these checks to block merges.
+`main` is stable; `dev` is development.
+PRs and pushes to **main/dev** run the CI jobs in
+[ci.yml](.github/workflows/ci.yml): **Unit Tests**, **AI Eval Framework**, frontend
+quality, integration tests on disposable MongoDB/PostgreSQL services, and container
+smoke tests. Branch protection must explicitly require these checks to block merges.
+See [CI/CD](docs/ci-cd.md) and [testing](docs/testing.md).
 
 Real AI evals are **manual only**, on a Linux x64 self-hosted runner labelled
 `stockpilot-evals`, guarded to `WaelOuni/stockpilot-ai` **dev only**.
@@ -285,10 +288,12 @@ must be verified, not assumed configured. See
 | [GitHub Actions](docs/github-actions.md) | Triggers, guards, approval, reports and checks |
 | [Self-hosted runner](docs/self-hosted-runner.md) | Linux x64 registration, WSL networking and security |
 | [Eval scoring reference](evals/README.md) | Datasets, formulas, reports and correction history |
+| [Testing](docs/testing.md) | Unit, integration (disposable services), frontend and eval commands |
+| [Documentation index](docs/README.md) | Task-oriented map; historical reports live in [docs/archive](docs/archive/README.md) |
 
 ## Current limitations
 
-No user directory/token-issuance service, payment or frontend. `/assistant`
+No user directory/token-issuance service or payment flow. `/assistant`
 validates signed customer JWTs; a trusted issuer must mint them. Technical order
 routes use a separate shared `BACKOFFICE_API_TOKEN`; unset configuration
 disables those routes (503).
@@ -301,7 +306,7 @@ three-document corpus limit quality conclusions. Product lookup assumes
 unambiguous canonical names. PyMongo is synchronous in an async flow.
 Durable checkpoints do not serialize concurrent same-thread requests, and
 Mongo orders/PostgreSQL checkpoints have no shared distributed transaction.
-Single-node databases have no redundancy; dependencies are not fully locked.
+Single-node databases have no redundancy. Python and npm dependencies are pinned by `requirements*.lock` and `frontend/package-lock.json`.
 This stack is not hardened for production/public access.
 
 Keep generated results, logs, `.env.local`, IDE state, runner files and Mongo backups
