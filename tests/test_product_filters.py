@@ -1,3 +1,4 @@
+from customer_auth import configure_customer_auth, customer_headers
 import asyncio
 import re
 from types import SimpleNamespace
@@ -62,7 +63,8 @@ def catalogue(monkeypatch):
     database.__getitem__.return_value = collection
     repository = MongoProductRepository(database)
     monkeypatch.setattr(app.state, "list_products_use_case", ListProductsUseCase(repository))
-    return TestClient(app), collection
+    configure_customer_auth(monkeypatch, app)
+    return TestClient(app, headers=customer_headers()), collection
 
 
 @pytest.mark.parametrize("query,names", [

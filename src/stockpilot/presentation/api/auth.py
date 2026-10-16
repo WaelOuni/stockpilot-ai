@@ -20,7 +20,8 @@ def require_customer_identity(
     settings: Settings = request.app.state.settings
     configured = settings.customer_jwt_secret
     secret = configured.get_secret_value() if configured is not None else None
-    if secret is None or len(secret.encode("utf-8")) < 32:
+    if (secret is None or len(secret.encode("utf-8")) < 32
+            or bool(settings.customer_jwt_issuer) != bool(settings.customer_jwt_audience)):
         raise HTTPException(
             status_code=503,
             detail="Customer authentication is not configured.",
@@ -29,7 +30,8 @@ def require_customer_identity(
     authorization = request.headers.get("authorization", "")
     scheme, separator, raw_token = authorization.partition(" ")
     if (
-        credentials is None
+        len(request.headers.getlist("authorization")) != 1
+        or credentials is None
         or not separator
         or not raw_token
         or any(character.isspace() for character in raw_token)
@@ -44,6 +46,8 @@ def require_customer_identity(
             raw_token,
             secret,
             algorithms=["HS256"],
+            issuer=settings.customer_jwt_issuer,
+            audience=settings.customer_jwt_audience,
             options={"require": ["exp", "customer_id"]},
         )
     except (jwt.InvalidTokenError, OverflowError, TypeError, ValueError):
