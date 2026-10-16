@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { customerToken } from '../utils/customerSession'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { getProduct } from '../api/client'
@@ -32,7 +33,7 @@ async function load() {
     if (controller === request) loading.value = false
   }
 }
-watch(sku, () => {
+watch([sku, customerToken], () => {
   controller?.abort()
   loading.value = false
   product.value = null

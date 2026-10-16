@@ -1,3 +1,4 @@
+import { setCustomerToken } from '../utils/customerSession'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, RouterView, type LocationQuery } from 'vue-router'
@@ -12,6 +13,7 @@ const fetchMock = vi.fn<typeof fetch>()
 let wrapper: VueWrapper | undefined
 
 beforeEach(() => {
+  setCustomerToken('test-navigation-customer')
   fetchMock.mockReset()
   fetchMock.mockImplementation(async (input) => {
     const url = new URL(String(input), 'http://localhost')
@@ -21,7 +23,7 @@ beforeEach(() => {
   })
   vi.stubGlobal('fetch', fetchMock)
 })
-afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.unstubAllGlobals() })
+afterEach(() => { setCustomerToken(''); wrapper?.unmount(); wrapper = undefined; vi.unstubAllGlobals() })
 
 async function open(path: string) {
   const router = createRouter({
