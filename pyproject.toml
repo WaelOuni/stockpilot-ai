@@ -33,4 +33,5 @@ dev = [
 addopts = "-m 'not integration'"
 markers = [
     "integration: opt-in tests requiring a real MongoDB replica set or PostgreSQL",
+    "integration_optional: integration tests that need extra dedicated services and skip when absent; excluded from the required CI selection",
 ]

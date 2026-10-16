@@ -99,7 +99,7 @@ jobs:
       - run: python -m pip install -r requirements-dev.lock && python -m pip install --no-deps -e .
       - run: docker compose -f docker/compose.ci.yml up -d --wait
       - run: python scripts/ci/check_targets.py
-      - run: python -m pytest -q -m integration tests/test_mongo_transaction_integration.py tests/test_mongo_product_import_integration.py tests/test_postgres_checkpoint_integration.py tests/test_order_resolution_mongo_integration.py tests/test_order_resolution_safety_integration.py
+      - run: python -m pytest -q -m "integration and not integration_optional" tests
       - if: always()
         run: docker compose -f docker/compose.ci.yml down -v
   containers:

@@ -157,6 +157,9 @@ def run_checks(environment):
         (["npm", "run", "lint"], ROOT / "frontend"),
         (["npx", "playwright", "test"], ROOT / "frontend"),
     ]
+    if "MONGO_TEST_URI" not in environment:
+        # Integration fixtures need an explicit dedicated target and never fall back to the demo store.
+        commands = [command for command in commands if "integration" not in command]
     environment = environment.copy()
     environment.pop("DEMO_ADMIN_PASSWORD", None)
     environment["E2E_POSTGRES_URL"] = make_conninfo(environment["POSTGRES_URL"], dbname="stockpilot_e2e")

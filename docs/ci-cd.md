@@ -22,9 +22,11 @@ l'intégration ; la release relance également les contrôles sur le commit tagu
   `--no-deps`. `pip check`, Pytest déterministe (`not integration` du manifeste),
   framework eval offline et suite enriched déterministe. Aucun nouveau linter Python.
 - Node 22 supporté par engines ; `npm ci`, Vitest, typecheck, ESLint, build Vue.
-- Intégration : uniquement les trois fichiers `test_mongo_transaction_integration.py`,
-  `test_mongo_product_import_integration.py`, `test_postgres_checkpoint_integration.py`,
-  avec marqueur `integration`. Mongo 8 rs0 primaire avec transactions,
+- Intégration : tous les tests marqués `integration`, sélectionnés par marqueur et non par
+  nom de fichier (`-m "integration and not integration_optional" tests`). Seul le test
+  de lifecycle, qui exige ses propres services dédiés, porte `integration_optional`.
+  `tests/test_ci_integration_contract.py` échoue si un test d'intégration n'est pas
+  sélectionné sans être explicitement optionnel. Mongo 8 rs0 primaire avec transactions,
   PostgreSQL 16 image pgvector (le test checkpoint ne nécessite pas CREATE EXTENSION).
 - `docker/compose.ci.yml` est indépendant de la stack dev/demo. Stockage tmpfs,
   ports loopback 27027/55432, credentials publics jetables `ci/ci`, aucun volume
@@ -32,7 +34,10 @@ l'intégration ; la release relance également les contrôles sur le commit tagu
   et `current_database()` avant toute fixture. Les fixtures Mongo créent leurs
   bases UUID `stockpilot_transaction_test_*`, les fixtures PostgreSQL leurs
   schémas UUID dans `stockpilot_ci`. Elles initialisent leurs propres index et
-  checkpoints. Aucune seed, reset ou migration DEV/DEMO.
+  checkpoints. Aucune seed, reset ou migration DEV/DEMO. Sans `MONGO_TEST_URI` /
+  `POSTGRES_TEST_URI`, ou avec une cible applicative (ports 27017/5432, endpoints de
+  `Settings`, bases `stockpilot*` hors tests), les fixtures échouent avant toute
+  écriture (`tests/integration_targets.py`) ; aucune valeur par défaut n'est utilisée.
 - Images : builds et lancement sur ces mêmes services éphémères, base runtime
   Mongo `stockpilot_ci_runtime`, Ollama inaccessible volontairement. Smoke HTTP
   santé API/web, fallback SPA et `/api/products` vide via reverse proxy.
@@ -441,7 +446,7 @@ docker compose -f docker/compose.ci.yml -p stockpilot-v10-validation up -d --wai
 export MONGO_TEST_URI='mongodb://127.0.0.1:27027/?replicaSet=rs0&directConnection=true'
 export POSTGRES_TEST_URI='postgresql://ci:ci@127.0.0.1:55432/stockpilot_ci'
 .venv/bin/python scripts/ci/check_targets.py
-.venv/bin/python -m pytest -q -m integration tests/test_mongo_transaction_integration.py tests/test_mongo_product_import_integration.py tests/test_postgres_checkpoint_integration.py
+.venv/bin/python -m pytest -q -m "integration and not integration_optional" tests
 docker compose -f docker/compose.ci.yml -p stockpilot-v10-validation down -v
 git diff --check
 ```

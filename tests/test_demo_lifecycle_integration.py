@@ -38,7 +38,7 @@ from stockpilot.domain.enums.order_status import OrderStatus
 from stockpilot.domain.enums.product_category import ProductCategory
 from stockpilot.presentation.api.admin_auth import password_verifier
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.integration_optional]
 ROOT = Path(__file__).resolve().parents[1]
 MONGO = 'mongodb://127.0.0.1:28027/?replicaSet=rs0&directConnection=true'
 POSTGRES = 'postgresql://lifecycle:lifecycle@127.0.0.1:56432/stockpilot_demo'
