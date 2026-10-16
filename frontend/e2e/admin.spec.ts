@@ -109,7 +109,9 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
 
   const customer = `e2e-admin-customer-${randomUUID()}`
   const jwt = token(customer)
-  const initialStock = (await (await request.get('/api/products/E2E-BOSCH-X100')).json()).stock as number
+  const initialStock = (await (await request.get('/api/products/E2E-BOSCH-X100', {
+    headers: { Authorization: `Bearer ${jwt}` },
+  })).json()).stock as number
   expect(initialStock).toBeGreaterThanOrEqual(1)
   const cancelId = await createOrder(request, customer, jwt)
   expect(persisted(customer, cancelId).remaining_stock).toBe(initialStock - 1)
@@ -198,7 +200,7 @@ test('isolated admin lifecycle: session guards, real transitions, cancellation a
   await page.goto('/admin/orders')
   await expect(page.getByRole('heading', { name: 'Connexion administrateur' })).toBeVisible()
   // Delivery consumes exactly one real reservation; cancellation restored once.
-  const products = await request.get('/api/products')
+  const products = await request.get('/api/products', { headers: { Authorization: `Bearer ${jwt}` } })
   const rows = (await products.json()).items as Array<{ sku: string; stock: number }>
   expect(rows.filter(row => ['E2E-BOSCH-S500', 'E2E-BOSCH-X100', 'E2E-MAKITA-D200'].includes(row.sku)).map(({ sku, stock }) => ({ sku, stock }))).toEqual([
     { sku: 'E2E-BOSCH-S500', stock: 5 },
