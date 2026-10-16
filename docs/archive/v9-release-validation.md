@@ -103,8 +103,8 @@ Les trois commits ci-dessus sont prêts pour la Pull Request. Aucun merge/push n
 ### Commit 1 — 78 fichiers
 
 - `.gitignore`
-- `docs/frontend-ux-overhaul.md`
-- `docs/frontend-v9-finishing.md`
+- `docs/archive/frontend-ux-overhaul.md`
+- `docs/archive/frontend-v9-finishing.md`
 - `frontend/README.md`
 - `frontend/e2e/admin-dashboard.spec.ts`
 - `frontend/e2e/admin-import.spec.ts`
@@ -182,7 +182,7 @@ Les trois commits ci-dessus sont prêts pour la Pull Request. Aucun merge/push n
 
 ### Commit 2 — 7 fichiers
 
-- `docs/stock-history-contract-fix.md`
+- `docs/archive/stock-history-contract-fix.md`
 - `frontend/src/api/admin.ts`
 - `frontend/src/api/adminStock.test.ts`
 - `frontend/src/pages/AdminProductStockPage.test.ts`
@@ -192,8 +192,8 @@ Les trois commits ci-dessus sont prêts pour la Pull Request. Aucun merge/push n
 
 ### Commit 3 — 8 fichiers
 
-- `docs/dashboard-kpi-fix.md`
-- `docs/v9-release-validation.md`
+- `docs/archive/dashboard-kpi-fix.md`
+- `docs/archive/v9-release-validation.md`
 - `frontend/kpi-e2e/dashboard-kpi.spec.ts`
 - `frontend/playwright.kpi.config.ts`
 - `frontend/src/pages/AdminDashboardPage.test.ts`

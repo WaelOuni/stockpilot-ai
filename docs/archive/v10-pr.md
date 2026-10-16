@@ -12,7 +12,7 @@ gates sur son commit. La publication est désactivée par défaut, soumise à un
 environnement protégé ; les images privées GHCR ont des tags version/SHA,
 leurs digests sont joints à une GitHub Release draft. Un dry-run ne publie rien.
 
-Voir docs/ci-cd.md et docs/v10-validation.md pour preuves, prérequis et limites.
+Voir docs/ci-cd.md et docs/archive/v10-validation.md pour preuves, prérequis et limites.
 Playwright reste explicitement désactivé : son harness dépend de vrai Ollama.
 
 La revue finale retire tout transfert d’images via artefact Actions du dépôt public,

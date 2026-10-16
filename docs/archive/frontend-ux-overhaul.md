@@ -51,7 +51,7 @@ Navigation clavier, focus visible, labels, aria du menu/pagination, région tabl
 
 ## Captures et revue
 
-Comparateur local : [artifacts/ui-ux/index.html](../artifacts/ui-ux/index.html).
+Comparateur local : [artifacts/ui-ux/index.html](../../artifacts/ui-ux/index.html).
 
 42 captures AVANT et 50 APRÈS : 42 écrans de base, 3 recommandations, 3 aperçus CSV, état chargement et erreur mobile. Les fichiers sont dans `artifacts/ui-ux/before` et `artifacts/ui-ux/after`, avec `checks.json`. Captures inspectées visuellement sur des largeurs représentatives pour les quatorze écrans, complétées par les contrôles automatisés sur toutes les largeurs. Les données E2E ont évolué pendant les parcours : les compteurs avant/après ne représentent pas un dataset figé. Les artefacts sont ignorés par Git, disponibles localement pour la revue.
 
@@ -78,7 +78,7 @@ Aucun défaut bloquant observé. Validation humaine graphique encore attendue ; 
 ## Fichiers modifiés et nouveaux
 
 - `.gitignore` — modifié
-- `docs/frontend-ux-overhaul.md` — nouveau
+- `docs/archive/frontend-ux-overhaul.md` — nouveau
 - `frontend/README.md` — modifié
 - `frontend/e2e/admin-dashboard.spec.ts` — modifié
 - `frontend/e2e/admin-import.spec.ts` — modifié
