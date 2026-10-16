@@ -1,9 +1,7 @@
-import httpx
-
 from stockpilot.application.dto.intent_result import IntentResult
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.observability import observe_llm
-from stockpilot.telemetry import instrument_httpx
+from stockpilot.infrastructure.llm.resource_limits import post_ollama
 
 
 class OllamaAdapter:
@@ -24,16 +22,8 @@ class OllamaAdapter:
         if response_format is not None:
             payload["format"] = response_format
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            instrument_httpx(client)
-            response = await client.post(
-                f"{self._settings.ollama_base_url}/api/generate",
-                json=payload,
-            )
-
-            response.raise_for_status()
-
-            return response.json()["response"]
+        response = await post_ollama(self._settings, "/api/generate", payload, prompt)
+        return response["response"]
 
     @observe_llm("classification")
     async def classify_intent(self, message: str) -> IntentResult:
@@ -206,22 +196,17 @@ User message:
 {message}
 """
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            instrument_httpx(client)
-            response = await client.post(
-                f"{self._settings.ollama_base_url}/api/generate",
-                json={
-                    "model": self._settings.ollama_model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "format": IntentResult.model_json_schema(),
-                    "options": {
-                        "temperature": 0,
-                    },
+        response = await post_ollama(
+            self._settings, "/api/generate",
+            {
+                "model": self._settings.ollama_model,
+                "prompt": prompt,
+                "stream": False,
+                "format": IntentResult.model_json_schema(),
+                "options": {
+                    "temperature": 0,
                 },
-            )
-
-            response.raise_for_status()
-
-            raw_response = response.json()["response"]
-            return IntentResult.model_validate_json(raw_response)
+            }, prompt,
+        )
+        return IntentResult.model_validate_json(response["response"])
+import httpx  # Preserve the established adapter transport injection boundary.

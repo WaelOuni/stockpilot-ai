@@ -39,6 +39,13 @@ class Settings(BaseSettings):
                 raise ValueError("HTTP allowed origins must use a valid port.")
         return origins
 
+    http_body_max_bytes: int = Field(default=128 * 1024, ge=128, le=1024 * 1024)
+    api_message_max_chars: int = Field(default=8000, ge=1, le=32000)
+    api_thread_max_chars: int = Field(default=128, ge=1, le=256)
+    api_identifier_max_chars: int = Field(default=256, ge=1, le=256)
+    conversation_max_inflight: int = Field(default=4, ge=1, le=32)
+    ollama_max_prompt_bytes: int = Field(default=64 * 1024, ge=1024, le=1024 * 1024)
+    ollama_timeout_seconds: float = Field(default=60.0, gt=0, le=120, allow_inf_nan=False)
     product_import_max_bytes: int = Field(default=2 * 1024 * 1024, ge=1, le=16 * 1024 * 1024)
     product_import_max_products: int = Field(default=500, ge=1, le=500)
     admin_username: str | None = Field(default=None, repr=False)
