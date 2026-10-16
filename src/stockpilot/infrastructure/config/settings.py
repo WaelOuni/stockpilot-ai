@@ -14,14 +14,17 @@ class Settings(BaseSettings):
     @field_validator("http_trusted_hosts")
     @classmethod
     def exact_http_hosts(cls, hosts: list[str]) -> list[str]:
+        normalized = []
         for host in hosts:
             try:
-                ipaddress.ip_address(host)
+                address = ipaddress.ip_address(host.removeprefix("[").removesuffix("]"))
+                host = f"[{address}]" if address.version == 6 else str(address)
             except ValueError:
                 if (not re.fullmatch(r"[a-zA-Z0-9.-]+", host)
                         or host.startswith(".") or host.endswith(".") or ".." in host):
                     raise ValueError("HTTP trusted hosts must be exact hostnames or IP addresses.") from None
-        return hosts
+            normalized.append(host)
+        return normalized
 
     @field_validator("http_allowed_origins")
     @classmethod
