@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 from stockpilot.domain.enums.product_category import ProductCategory
 
 
-Nonblank = Annotated[str, StringConstraints(strict=True, min_length=1)]
+Nonblank = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=256)]
 Price = Annotated[float, Field(ge=0, allow_inf_nan=False, strict=True)]
 
 

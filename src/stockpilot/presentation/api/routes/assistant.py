@@ -2,7 +2,7 @@ from typing import Annotated
 from hashlib import sha256
 import json
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import StringConstraints
 import logging
 
@@ -12,6 +12,7 @@ from stockpilot.telemetry import enrich_span
 from stockpilot.presentation.api.auth import require_customer_identity
 from stockpilot.presentation.api.dependencies import get_stockpilot_workflow
 from stockpilot.presentation.api.schemas.chat import AssistantRequest
+from stockpilot.presentation.api.input_protection import validate_conversation_input
 
 
 router = APIRouter()
@@ -26,9 +27,11 @@ def customer_thread_key(customer_id: str, thread_id: str) -> str:
 @router.post("/assistant")
 async def assistant(
     request: AssistantRequest,
+    http_request: Request,
     customer_id: Annotated[str, Depends(require_customer_identity)],
     workflow=Depends(get_stockpilot_workflow),
 ) -> dict:
+    validate_conversation_input(http_request, request)
     timer = Timer()
     with log_context(thread_id=request.thread_id):
         enrich_span(**{"stockpilot.thread_id": request.thread_id})
