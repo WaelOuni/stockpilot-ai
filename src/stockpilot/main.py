@@ -63,7 +63,7 @@ from stockpilot.infrastructure.persistence.postgres.pgvector_knowledge_repositor
 from stockpilot.infrastructure.persistence.postgres.checkpointer import open_checkpointer
 from stockpilot.observability import configure_logging
 from stockpilot.presentation.api.observability import RequestLoggingMiddleware
-from stockpilot.presentation.api.security_http import install_http_security
+from stockpilot.presentation.api.security_http import HttpResponseHeaders, install_http_security
 from stockpilot.telemetry import initialize_telemetry, instrument_app
 
 
@@ -111,6 +111,7 @@ settings = Settings()
 app.state.settings = settings
 install_http_security(app)
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(HttpResponseHeaders)
 telemetry_provider = initialize_telemetry(settings)
 instrument_app(app, telemetry_provider)
 

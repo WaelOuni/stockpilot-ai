@@ -1,13 +1,16 @@
 from pathlib import Path
 from unittest.mock import AsyncMock
+from types import SimpleNamespace
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 import pytest
 
+from customer_auth import CUSTOMER_JWT_SECRET, customer_headers
+
 from stockpilot.infrastructure.config.settings import Settings
-from stockpilot.presentation.api.security_http import install_http_security
+from stockpilot.presentation.api.security_http import HttpResponseHeaders, install_http_security
 
 
 def client_for(*, environment="production", hosts=None, origins=None, base_url="https://saas.example.test"):
@@ -31,6 +34,7 @@ def client_for(*, environment="production", hosts=None, origins=None, base_url="
         raise HTTPException(401, "Authentication required.")
 
     install_http_security(app)
+    app.add_middleware(HttpResponseHeaders)
     return TestClient(app, base_url=base_url), business
 
 
@@ -92,6 +96,20 @@ def test_default_https_port_has_the_same_serialized_origin():
     client, business = client_for(hosts=["saas.example.test"], base_url="https://saas.example.test:443")
     assert client.post("/business", headers={"Origin": "https://saas.example.test", "Host": "saas.example.test:443"}).status_code == 200
     business.assert_awaited_once()
+
+
+@pytest.mark.parametrize("configured_host", ["::1", "[::1]"])
+def test_ipv6_host_configuration_matches_ipv6_authorities(configured_host):
+    client, business = client_for(hosts=[configured_host], base_url="https://[::1]")
+    assert client.post("/business", headers={"Origin": "https://[::1]"}).status_code == 200
+    business.assert_awaited_once()
+
+
+def test_missing_production_configuration_preserves_ipv6_loopback_probe():
+    client, business = client_for(base_url="http://[::1]")
+    assert client.get("/health").status_code == 200
+    assert client.get("/business").status_code == 503
+    business.assert_not_awaited()
 
 
 def test_duplicate_origins_are_rejected():
@@ -163,10 +181,29 @@ def test_composed_application_retains_request_ids_for_early_denials(monkeypatch)
     monkeypatch.setattr(app.state, "settings", Settings(
         deployment_environment="production", http_trusted_hosts=["saas.example.test"], _env_file=None,
     ))
+    execute = AsyncMock(side_effect=AssertionError("Host rejection must precede repository work"))
+    monkeypatch.setattr(app.state, "list_products_use_case", SimpleNamespace(execute=execute))
     response = TestClient(app, base_url="https://evil.test").get("/products")
     assert response.status_code == 400
     assert response.headers["x-request-id"]
     assert response.headers["cache-control"] == "no-store"
+    execute.assert_not_awaited()
+
+
+def test_unexpected_repository_failure_has_safe_response_and_security_headers(monkeypatch):
+    from stockpilot.main import app
+
+    monkeypatch.setattr(app.state, "settings", Settings(customer_jwt_secret=CUSTOMER_JWT_SECRET, _env_file=None))
+    monkeypatch.setattr(app.state.list_products_use_case, "execute", AsyncMock(
+        side_effect=RuntimeError("synthetic credential must never be disclosed"),
+    ))
+    response = TestClient(app).get("/products", headers=customer_headers())
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error"}
+    assert response.headers["x-request-id"]
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["referrer-policy"] == "no-referrer"
 
 
 def test_development_keeps_local_http_and_existing_host_compatibility():

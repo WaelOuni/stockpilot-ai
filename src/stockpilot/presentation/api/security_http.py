@@ -13,7 +13,7 @@ from stockpilot.infrastructure.config.settings import Settings
 
 
 PRODUCTION_ENVIRONMENTS = frozenset({"production", "production_saas"})
-PROBE_HOSTS = ("localhost", "127.0.0.1", "::1")
+PROBE_HOSTS = ("localhost", "127.0.0.1", "[::1]")
 RESPONSE_HEADERS = {
     b"cache-control": b"no-store",
     b"x-content-type-options": b"nosniff",
@@ -25,10 +25,11 @@ CORS_HEADERS = (
 )
 
 
-class HttpSecurityBoundary:
-    def __init__(self, app: ASGIApp, settings_provider: Callable[[], Settings]):
+class HttpResponseHeaders:
+    """Wrap logging/error handling so generated error responses are protected too."""
+
+    def __init__(self, app: ASGIApp):
         self.app = app
-        self.settings_provider = settings_provider
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -43,6 +44,18 @@ class HttpSecurityBoundary:
                 ] + list(RESPONSE_HEADERS.items())
             await send(message)
 
+        await self.app(scope, receive, protected_send)
+
+
+class HttpSecurityBoundary:
+    def __init__(self, app: ASGIApp, settings_provider: Callable[[], Settings]):
+        self.app = app
+        self.settings_provider = settings_provider
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
         settings = self.settings_provider()
         production = settings.deployment_environment in PRODUCTION_ENVIRONMENTS
         headers = Headers(scope=scope)
@@ -93,15 +106,15 @@ class HttpSecurityBoundary:
             # Duplicate Host fields have no unambiguous security meaning.
             if len(headers.getlist("host")) != 1:
                 await JSONResponse({"detail": "Invalid host header."}, status_code=400)(
-                    scope, receive, protected_send,
+                    scope, receive, send,
                 )
                 return
             await TrustedHostMiddleware(
                 guarded_app, allowed_hosts=settings.http_trusted_hosts or PROBE_HOSTS,
                 www_redirect=False,
-            )(scope, receive, protected_send)
+            )(scope, receive, send)
         else:
-            await guarded_app(scope, receive, protected_send)
+            await guarded_app(scope, receive, send)
 
 
 def install_http_security(app: FastAPI) -> None:
