@@ -90,7 +90,7 @@ export async function listProducts(limit = 20, offset = 0, signal?: AbortSignal,
   if (filters.q) params.set('q', filters.q)
   if (filters.category) params.set('category', filters.category)
   if (filters.available !== undefined) params.set('available', String(filters.available))
-  const result = await requestJson<ProductsResponse>(`/products?${params}`, { public: true, signal })
+  const result = await requestJson<ProductsResponse>(`/products?${params}`, { signal })
   if (!result || !Array.isArray(result.items) || !result.items.every(isProduct) ||
       result.count !== result.items.length || result.limit !== limit || result.offset !== offset ||
       typeof result.has_more !== 'boolean') {
@@ -101,7 +101,7 @@ export async function listProducts(limit = 20, offset = 0, signal?: AbortSignal,
 }
 
 export async function getProduct(sku: string, signal?: AbortSignal): Promise<ProductResponse> {
-  const result = await requestJson<unknown>(`/products/${encodeURIComponent(sku)}`, { public: true, signal })
+  const result = await requestJson<unknown>(`/products/${encodeURIComponent(sku)}`, { signal })
   if (!isProduct(result)) throw new ApiError('La fiche produit est incomplete.', 200)
   return result
 }
