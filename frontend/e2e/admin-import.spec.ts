@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
+import { connectCustomer, syntheticCustomerToken } from './support/customer_auth'
 
 const root = resolve('..')
 const python = process.env.E2E_PYTHON || resolve(root, '.venv/bin/python')
@@ -65,6 +66,7 @@ test('isolated CREATE_ONLY CSV import preview confirm Mongo zero stock catalogue
   await page.getByRole('button', { name: 'Rechercher', exact: true }).click()
   await expect(page.getByText('Import perceuse; test', { exact: true }).first()).toBeVisible()
   await page.goto('/products?q=E2E-IMPORT')
+  await connectCustomer(page, syntheticCustomerToken(`e2e-import-${process.env.E2E_FIXTURE_SUFFIX}`))
   await expect(page.getByRole('link', { name: /Import perceuse; test/ }).first()).toBeVisible()
   await page.goto('/admin/products/import')
   await page.getByLabel('Fichier CSV').setInputFiles({ name: 'again.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })

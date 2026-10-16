@@ -1,11 +1,15 @@
 import { test, expect } from '@playwright/test'
 import type { ProductsResponse, ProductResponse } from '../src/types/api'
+import { connectCustomer, customerHeaders, syntheticCustomerToken } from './support/customer_auth'
 
 test('preserves catalogue context through detail, reload and browser back', async ({ page, request }) => {
+  const token = syntheticCustomerToken(`e2e-catalogue-${process.env.E2E_FIXTURE_SUFFIX}`)
+  const headers = customerHeaders(token)
+  expect((await request.get('/api/products')).status()).toBe(401)
   const cases = ['limit=3', 'limit=2', 'limit=2&offset=2', 'limit=1&category=DRILL', 'limit=1&category=DRILL&available=true', 'limit=1&category=DRILL&available=false']
   for (const query of cases) {
-    const legacy = await request.get(`/api/products?${query}`)
-    const counted = await request.get(`/api/products?${query}&include_total=true`)
+    const legacy = await request.get(`/api/products?${query}`, { headers })
+    const counted = await request.get(`/api/products?${query}&include_total=true`, { headers })
     expect(legacy.status()).toBe(200)
     const result = await legacy.json() as ProductsResponse
     const exact = await counted.json() as ProductsResponse
@@ -15,8 +19,8 @@ test('preserves catalogue context through detail, reload and browser back', asyn
     expect(result.items.length).toBeLessThanOrEqual(result.limit)
     expect(result.has_more).toBe(result.offset + result.count < exact.total!)
   }
-  const baseline = await (await request.get('/api/products?limit=20&include_total=true')).json() as ProductsResponse
-  const detailResponse = await request.get('/api/products/E2E-BOSCH-X100')
+  const baseline = await (await request.get('/api/products?limit=20&include_total=true', { headers })).json() as ProductsResponse
+  const detailResponse = await request.get('/api/products/E2E-BOSCH-X100', { headers })
   expect(detailResponse.status()).toBe(200)
   const detail = await detailResponse.json() as ProductResponse
   const initialStock = detail.stock
@@ -31,6 +35,7 @@ test('preserves catalogue context through detail, reload and browser back', asyn
     if (message.type() === 'error') browserErrors.push('console error')
   })
   await page.goto('/products')
+  await connectCustomer(page, token)
   await expect(page.getByRole('article')).toHaveCount(baseline.count)
   if (baseline.has_more) await expect(page.getByRole('button', { name: 'Suivant', exact: true })).toBeEnabled()
   else await expect(page.getByRole('button', { name: 'Suivant', exact: true })).toBeDisabled()
@@ -49,6 +54,7 @@ test('preserves catalogue context through detail, reload and browser back', asyn
     url.searchParams.get('category') === 'DRILL' && url.searchParams.get('available') === 'true')
   await expect(page.getByRole('heading', { name: 'Bosch X100', exact: true })).toBeVisible()
   await page.reload()
+  await connectCustomer(page, token)
   await expect(page.getByRole('heading', { name: 'Bosch X100', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Retour au catalogue', exact: true }).click()
   await expect(page).toHaveURL(catalogueUrl)
@@ -66,6 +72,7 @@ test('preserves catalogue context through detail, reload and browser back', asyn
 
   await page.goto('/products/E2E-BOSCH-X100?q=Bosch&category=DRILL&available=true&offset=20')
   await page.reload()
+  await connectCustomer(page, token)
   await expect(page.getByRole('heading', { name: 'Bosch X100', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Retour au catalogue', exact: true }).click()
   await expect(page).toHaveURL((url) =>
@@ -77,6 +84,7 @@ test('preserves catalogue context through detail, reload and browser back', asyn
   await expect(page.getByRole('article')).toHaveCount(1)
 
   await page.goto('/products/E2E-BOSCH-X100')
+  await connectCustomer(page, token)
   await expect(page.getByRole('heading', { name: 'Bosch X100', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Retour au catalogue', exact: true }).click()
   await expect(page).toHaveURL((url) => url.pathname === '/products' && url.search === '')

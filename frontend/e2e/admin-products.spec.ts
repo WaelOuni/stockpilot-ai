@@ -22,10 +22,12 @@ function persisted(customer: string, sku: string): {
   } catch { throw new Error('Isolated read-only product Mongo verification failed.') }
 }
 
-test('isolated products: create, metadata edit, exact uniqueness, public compatibility and out-of-stock order', async ({ page, request }) => {
+test('isolated products: create, metadata edit, exact uniqueness, authenticated catalogue and out-of-stock order', async ({ page, request }) => {
   if (!process.env.E2E_ADMIN_USERNAME || !process.env.E2E_ADMIN_PASSWORD
     || process.env.MONGO_DATABASE !== 'stockpilot_e2e') throw new Error('Isolated product launcher configuration missing.')
   const customer = `e2e-products-${randomUUID()}`
+  const jwt = token(customer)
+  const customerHeaders = { Authorization: `Bearer ${jwt}` }
   const sku = `E2E-V41-DRILL-${process.env.E2E_FIXTURE_SUFFIX}`
   const originalName = `Bosch V410${process.env.E2E_FIXTURE_SUFFIX}`
   const editedName = `Bosch V411${process.env.E2E_FIXTURE_SUFFIX}`
@@ -48,7 +50,8 @@ test('isolated products: create, metadata edit, exact uniqueness, public compati
   await expect(page.getByRole('button', { name: 'Créer', exact: true })).toBeDisabled()
   const original = persisted(customer, sku)
   expect(original).toMatchObject({ name: originalName, price: 40.25, stock: 0, unique_sku_index: true, customer_orders: 0 })
-  const publicCreated = await request.get(`/api/products/${sku}`)
+  expect((await request.get(`/api/products/${sku}`)).status()).toBe(401)
+  const publicCreated = await request.get(`/api/products/${sku}`, { headers: customerHeaders })
   expect(publicCreated.status()).toBe(200)
   expect(await publicCreated.json()).toEqual({
     sku, product_name: originalName, category: 'DRILL', price: 40.25, stock: 0,
@@ -64,7 +67,7 @@ test('isolated products: create, metadata edit, exact uniqueness, public compati
   expect(edited).toMatchObject({ identity: original.identity, name: editedName, price: 41.5, stock: 0 })
   await page.reload()
   await expect(page.getByLabel('Nom', { exact: true })).toHaveValue(editedName)
-  const publicEdited = await request.get(`/api/products/${sku}`)
+  const publicEdited = await request.get(`/api/products/${sku}`, { headers: customerHeaders })
   expect(await publicEdited.json()).toEqual({
     sku, product_name: editedName, category: 'DRILL', price: 41.5, stock: 0,
   })
@@ -96,7 +99,7 @@ test('isolated products: create, metadata edit, exact uniqueness, public compati
   }, sku)
   expect(guarded).toEqual({ stock: 422, changeSku: 422, remove: 405, noCsrf: 403, duplicate: 409, race: [201, 409] })
   expect(persisted(customer, sku)).toEqual(edited)
-  const publicPage = await request.get(`/api/products?limit=2&q=${process.env.E2E_FIXTURE_SUFFIX}`)
+  const publicPage = await request.get(`/api/products?limit=2&q=${process.env.E2E_FIXTURE_SUFFIX}`, { headers: customerHeaders })
   const catalogue = await publicPage.json() as { items: ProductResponse[]; has_more: boolean }
   expect(publicPage.status()).toBe(200)
   expect(catalogue.items.map(item => item.sku)).toContain(sku)
@@ -104,7 +107,6 @@ test('isolated products: create, metadata edit, exact uniqueness, public compati
 
   // New metadata-only products cannot be stocked here. Exercise the unchanged
   // customer ORDER path: zero stock must refuse preparation and create no order.
-  const jwt = token(customer)
   const response = await request.post('/api/assistant', {
     headers: { Authorization: `Bearer ${jwt}` },
     data: { thread_id: randomUUID(), message: `Commande-moi 1 ${editedName}` }, timeout: 120_000,
