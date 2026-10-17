@@ -307,16 +307,20 @@ def test_openapi_separates_customer_technical_and_admin_session_security():
         ("get", "/backoffice/products/import/batches/{operation_id}"),
     }
     actual = set()
+    public = set()
     for path, operations in schema["paths"].items():
         for method, operation in operations.items():
             if method not in {"get", "post", "patch", "put", "delete", "head", "options"}:
                 continue
             security = operation.get("security", schema.get("security", []))
+            if not security:
+                public.add((method, path))
             if security:
                 actual.add((method, path))
                 assert any(set(requirement) & (bearer_names | {"AdminSessionCookie"}) for requirement in security)
                 assert {} not in security
     assert actual == protected
+    assert public == {("get", "/health"), ("post", "/backoffice/session/login")}
     assert schema["paths"]["/assistant"]["post"]["security"] == [
         {"CustomerBearer": []},
     ]

@@ -56,10 +56,15 @@ def test_formerly_public_apis_reject_unverified_identity(api, method, path, head
 @pytest.mark.parametrize("mode", ["production", "production_saas"])
 def test_all_sensitive_routes_closed_even_with_configured_credentials(api, monkeypatch, mode):
     client, _ = api
-    monkeypatch.setattr(app.state, "settings", Settings(
+    settings = Settings(
         deployment_environment=mode, customer_jwt_secret=CUSTOMER_JWT_SECRET,
         backoffice_api_token="test-technical-token",
-    ))
+    )
+    # When composed with the independent HTTP PR, transport checks succeed;
+    # the SaaS boundary must still refuse the shared data installation.
+    if "http_trusted_hosts" in Settings.model_fields:
+        settings.http_trusted_hosts = ["127.0.0.1"]
+    monkeypatch.setattr(app.state, "settings", settings)
     operations = [(method.upper(), path) for path, methods in app.openapi()["paths"].items()
                   for method in methods if method in {"get", "post", "patch", "put", "delete"} and path != "/health"]
     operations.extend(("GET", path) for path in ("/docs", "/openapi.json", "/redoc", "/docs/oauth2-redirect"))
