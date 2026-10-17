@@ -110,7 +110,11 @@ Le diagnostic complémentaire desktop a réussi **17 assertions sur 16 états**,
 aperçus CSV. Aucun nouvel appel ORDER/Ollama, aucun import exécuté ; empreinte
 produits inchangée. Aucun pageerror ni débordement horizontal ; 404 produit absent
 et 401 session absente attendus. Ni mobile ni audit assistif complet exécutés.
-Une amélioration P2 de texte de préparation est traitée séparément ; les autres
+La PR #34 ajoute une phrase de non-réservation dans la carte de préparation, sans
+modifier ORDER. Validation locale : **408 tests frontend PASS**, typecheck/lint/build
+PASS, transition préparation → confirmation vérifiée en composant et navigateur
+avec API simulée ; **1 Playwright Advice synthétique PASS**, 3,0 s, sans DB/LLM.
+Cette phrase n’est pas redéployée dans la candidate b503af9. Les autres
 observations (unité monétaire, saisie JWT technique) restent documentées.
 
 Une proposition de commande est distincte de la confirmation et de la réservation.
@@ -162,7 +166,7 @@ clean, prune, suppression de branche ou suppression de dossier ordinaire.
 |---|---|
 | `stockpilot-ai` | Conservé, dépôt principal propre ; branche locale main historique non déplacée |
 | `stockpilot-v133-validation` | Conservé obligatoirement : candidate active et scripts bind-mountés |
-| `stockpilot-e2e-safety`, `stockpilot-v14-design`, `stockpilot-product-readiness` | Conservés : travaux de cette mission / revue / publication |
+| `stockpilot-e2e-safety`, `stockpilot-order-confirmation-ux`, `stockpilot-v14-design`, `stockpilot-product-readiness` | Conservés : travaux de cette mission / revue / publication |
 | `stockpilot-order-quantity-guard`, `stockpilot-v014-hotfix`, `stockpilot-v1232-conversation-audit`, `stockpilot-v1238-conversation-fix` | Conservés : dossiers reports non suivis, aucun effacement ni archivage supposé |
 | `stockpilot-v132-auth-callers`, `stockpilot-v132-io-measurement` | Conservés : chacun un commit non publié détecté |
 | `stockpilot-v1321-integration` | Conservé : 20 commits non présents sur les remotes |
@@ -194,5 +198,5 @@ reconnus comme worktrees et restent intacts. Aucun nettoyage de volumes Docker.
    ciblés avant d'engager V14 ou une offre tarifaire. Valider séparément le modèle
    d'isolation, les rôles et le contrat d'authentification.
 
-Les publications et fusions techniques de ce programme ne changent ni v017 ni le
-statut stable de la candidate. Aucune promotion ou mise en production effectuée.
+Les publications et fusions techniques de ce programme ne changent pas v017 et
+ne constituent pas une promotion de la candidate en version stable. Aucune promotion ou mise en production effectuée.

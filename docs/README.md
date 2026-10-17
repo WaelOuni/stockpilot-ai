@@ -10,6 +10,7 @@ kept in [archive/](archive/README.md) and are not current procedures.
 | Understand layers, flows and boundaries | [architecture](architecture.md), [order-flow](order-flow.md), [rag](rag.md) |
 | Install and run locally | [getting-started](getting-started.md) (uses [.env.example](../.env.example)) |
 | Run the persistent local demo | [demo-runbook](demo-runbook.md), [demo-dataset](demo-dataset.md) |
+| Review autonomous delivery evidence | [Consolidated report](reports/stockpilot-autonomous-delivery-report.md), [V13.3 candidate](validation/v13.3-integrated-candidate.md) |
 | Run tests | [testing](testing.md), [ai-evals](ai-evals.md), [evals/README](../evals/README.md), [frontend/README](../frontend/README.md) |
 | Build, release, restore | [ci-cd](ci-cd.md), [github-actions](github-actions.md), [database](database.md) (migrations, recovery, checkpoints) |
 | Operate and observe | [observability](observability.md), [self-hosted-runner](self-hosted-runner.md) |
