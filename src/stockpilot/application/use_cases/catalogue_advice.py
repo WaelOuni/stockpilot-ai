@@ -15,6 +15,20 @@ from stockpilot.domain.enums.product_category import ProductCategory
 
 # One bounded request prefix, shared by routing and identity extraction.
 _ASK_ADVICE_PREFIX = re.compile(r'^demander\s+conseil\s+sur\b\s*')
+# Bounded lexical grammar shared by routing and reference extraction. An unknown
+# model/name suffix must survive; these are request words, not fuzzy identity rules.
+_SEARCH_ACTION = r'(?:(?:re)?cherche(?:r)?|trouve(?:r)?)'
+_REQUEST_ACTION = rf'(?:{_SEARCH_ACTION}|propose|affiche|montre|donne|recommand\w*|conseill\w*)'
+_REQUEST_CUE = re.compile(rf'\b(?:{_REQUEST_ACTION}|voudrais)\b')
+_ADVICE_CUE = re.compile(rf'\b(?:{_REQUEST_ACTION}|voudrais|quelles?|quels?)\b')
+_REQUEST_PREFIX = re.compile(
+    r'^(?:(?:peux|pourrais|pouvez)[- ](?:tu|vous) (?:me )?)?'
+    rf'(?:(?:je (?:{_SEARCH_ACTION}|voudrais|veux|souhaite))|{_REQUEST_ACTION}(?:[- ]moi)?)\b\s*'
+    r'(?:(?:sur|pour|de)\s+)?')
+# 'tous les stocks' removes an Advice availability filter; it is not a stock lookup.
+_NON_ADVICE = re.compile(r'\b(command\w*|achet\w*|reserve\w*|annul\w*)\b|\b(?:le|(?<!tous )les) stocks?\b')
+_STRICT_BUDGET = r'(?:moins de|inferieur a|sous|en dessous de)'
+_BUDGET_TERM = rf'(?:{_STRICT_BUDGET}|budget|maximum|maxi|plafond|descends|monte)'
 
 
 def normalize(text: str) -> str:
@@ -24,7 +38,7 @@ def normalize(text: str) -> str:
 
 def is_advice_followup(text: str) -> bool:
     value = normalize(text).strip()
-    if re.search(r'\b(command\w*|achet\w*|reserve\w*|annul\w*)\b|\b(?:le|quel est le) stock\b', value):
+    if _NON_ADVICE.search(value):
         return False
     return bool(re.search(
         r"^(?:et (?:si .*\b(?:budget|monte|descends|perceuse|visseuse|scie|ponceuse)|"
@@ -38,16 +52,16 @@ def is_advice_followup(text: str) -> bool:
 
 def is_catalogue_advice(text: str) -> bool:
     value = normalize(text)
-    if re.search(r'\b(command\w*|achet\w*|reserve\w*|annul\w*)\b', value):
+    if _NON_ADVICE.search(value):
         return False
     targeted = bool(_ASK_ADVICE_PREFIX.match(value.lstrip()) or re.search(
         r'^(?:(?:peux|pourrais)[- ]tu (?:me )?)?conseill\w*(?:[- ]moi)? sur\b', value))
     if (not targeted and re.search(r'\b[a-z]+\d+[a-z0-9-]*\b', value)
             and re.search(r'\b(disponibles?|stocks?)\b', value)
-            and not re.search(r'\b(cherche|voudrais|propose|montre|affiche|donne|compare|alternatives?|recommand\w*|conseill\w*)\b', value)):
+            and not (_REQUEST_CUE.search(value) or re.search(r'\b(compare|alternatives?)\b', value))):
         return False
     return bool(targeted or is_advice_followup(text) or re.search(r'\bcompare\b|\balternatives?\b', value)
-                or (re.search(r'\b(cherche|voudrais|propose|affiche|montre|donne|recommande|conseill\w*|quelles?|quels?|recommander)\b', value)
+                or (_ADVICE_CUE.search(value)
                     and re.search(r'\b(perceuses?|visseuses?|scies?|ponceuses?|produits?|outils?|sku|[a-z]+\d+[a-z0-9-]*)\b', value)))
 
 
@@ -79,8 +93,14 @@ def extract_criteria(question: str, previous: AdviceCriteria | None = None) -> A
     if re.search(r'-\s*\d', text):
         raise ClarificationRequired('Indiquez un budget positif et précis.')
     amounts = re.findall(number + r'\s*(?:€|euros?\b|eur\b)', text)
-    if not amounts:
-        amounts = re.findall(r'\b(?:budget|moins de|maximum|maxi|max|plafond|descends|monte)\s*(?::|de|a)?\s*' + number, text)
+    # Inspect all expressed bounds, including mixed bare/currency wording. A
+    # currency suffix must not conceal a conflicting numeric constraint.
+    amounts += re.findall(rf'\b{_BUDGET_TERM}\s*(?::|de|a)?\s*' + number, text)
+    # With an explicit amount, 'Max 18 Atelier' can be identity evidence, not
+    # another cap. Accept abbreviated 'max N' only as a complete constraint.
+    max_suffix = (r'(?=\s*(?:€|euros?\b|eur\b|[,;.!?]|$|et\b|disponibles?\b|en stock\b))'
+                  if amounts else '')
+    amounts += re.findall(r'\bmax\s*(?::|de|a)?\s*' + number + max_suffix, text)
     values = {float(amount.replace(',', '.')) for amount in amounts}
     if len(values) > 1 or re.search(r'\b(entre|a partir de|au moins|plus de)\s*\d', text):
         raise ClarificationRequired('Précisez un seul plafond de budget ; les intervalles et budgets minimum ne sont pas pris en charge.')
@@ -90,7 +110,8 @@ def extract_criteria(question: str, previous: AdviceCriteria | None = None) -> A
     if re.search(r'\b(mon|ce|le meme) budget\b', text) and maximum is None and previous is None:
         raise ClarificationRequired('Quel est votre budget maximum ?')
     remove_budget = bool(re.search(r'\b(sans (?:limite de )?budget|sans plafond|retire le budget)\b', text))
-    if maximum is None and not remove_budget and not (previous and re.search(r'\bmon budget\b', text)) and re.search(r'\b(budget|moins de|maximum|maxi)\b', text):
+    # A bare "Max" can be a product suffix; do not reinterpret it as a budget.
+    if maximum is None and not remove_budget and not (previous and re.search(r'\bmon budget\b', text)) and re.search(rf'\b(?:{_STRICT_BUDGET}|budget|maximum|maxi)\b', text):
         raise ClarificationRequired('Quel est votre budget maximum, en chiffres ?')
     unavailable = bool(re.search(r'\bindisponibles?\b|\ben rupture\b', text))
     available = bool(re.search(r'\bdisponibles?\b|\ben stock\b', text))
@@ -123,7 +144,7 @@ def extract_criteria(question: str, previous: AdviceCriteria | None = None) -> A
             raise ClarificationRequired('Choisissez au plus quatre alternatives, en plus du produit de référence.')
     if previous:
         maximum = maximum if maximum is not None else (None if remove_budget else previous.maximum)
-    exclusive = bool(re.search(r'\b(moins de|inferieur a)\b', text))
+    exclusive = bool(re.search(rf'\b{_STRICT_BUDGET}\b', text))
     if previous and not amounts and not remove_budget:
         exclusive = previous.exclusive_maximum
     remove_availability = bool(re.search(r'\b(?:meme indisponibles?|sans (?:contrainte de )?disponibilite|tous les stocks)\b', text))
@@ -161,16 +182,14 @@ def extract_reference(question: str) -> str | None:
     if prefix:
         text = text[prefix.end():]
     else:
-        text = re.sub(
-            r"^(?:(?:peux|pourrais|pouvez)[- ](?:tu|vous) (?:me )?)?"
-            r"(?:(?:je (?:cherche|voudrais|veux|souhaite))|(?:conseill\w*|recommand\w*|propose|montre|affiche|donne|compare)(?:[- ]moi)?)\s*"
-            r"(?:(?:sur|pour)\s+)?", '', text, count=1)
+        text = _REQUEST_PREFIX.sub('', text, count=1)
+        text = re.sub(r'^compare(?:[- ]moi)?\b\s*(?:(?:sur|pour)\s+)?', '', text, count=1)
     text = re.split(r'\s+(?:avec|a)\s+(?:(?:\d+|deux|trois|quatre|cinq)\s+)?(?:autres|alternatives)\b', text, maxsplit=1)[0]
     # Only complete trailing constraints can be removed. In particular, Max/Pro
     # and unknown model suffixes remain identity evidence when no amount follows.
     amount = r'\d+(?:[.,]\d{1,2})?'
     currency = r'(?:€|euros?\b|eur\b)'
-    budget_suffix = (r'[\s,;]+(?:(?:a )?(?:moins de|inferieur a|maximum|maxi|max|'
+    budget_suffix = (rf'[\s,;]+(?:(?:(?:a|pour) )?(?:{_STRICT_BUDGET}|maximum|maxi|max|'
                      r'(?:avec un )?budget|plafond)(?:\s+(?:de|a))?\s*:?\s*'
                      + amount + r'(?:\s*' + currency + r')?|(?:a )?'
                      + amount + r'\s*' + currency + r')(?:\s+maximum)?$')
