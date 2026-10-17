@@ -37,3 +37,18 @@ Use the existing PyJWT validator; pin accepted algorithms and check issuer/audie
 The Vue catalogue now sends the in-memory customer JWT and clears/reloads its data when that identity changes. Existing 401/403 error handling is retained; no new login form or browser credential storage was introduced. The verifier tooling authenticates its catalogue reads with the synthetic identity it already creates. These scripts were edited only in the isolated worktree; no demo verification or mutation command was executed against v017.
 
 Production container images intentionally return 503 on sensitive APIs, including docs/login, even with configured local credentials. `/health` reports process liveness, not SaaS readiness. Do not route public traffic to a development/test/local_demo installation. There is no anonymous demo bypass. The current Docker default `production` is closed; operators must explicitly choose a controlled nonproduction mode for future isolated local runs.
+
+## Configuration modes
+
+The default is `production_saas`, including direct Python/Uvicorn runs without an environment variable. It refuses all sensitive APIs. The legacy `production` name has the same closure. There is no activation flag.
+
+| Explicit mode | Scope and requirements |
+|---|---|
+| development | Controlled local tooling; signed customer JWT for all catalogue/conversation APIs; memory operator sessions permitted; local admin HTTP requires existing exact loopback opt-in |
+| test | Explicit test composition with synthetic identities; integration target guards still mandatory; memory operator sessions permitted |
+| local_demo | Authenticated local installation, no anonymous bypass; durable Mongo operator sessions and HTTPS required; not a public SaaS deployment mode |
+| production_saas / production | Sensitive HTTP APIs unconditionally closed; minimal health only |
+
+The existing demo launcher explicitly selects development and its loopback guards. It was not run against v017. No new local_demo deployment is supplied or activated. A newly built image defaults to the closed mode; rebuilding/recreating an old deployment is an operational change requiring a separate review. The pinned v017 deployment is untouched.
+
+Tests select development explicitly in `tests/conftest.py` before app imports; a regression removes that environment variable and proves the real default remains closed. This does not change the V13.1 database target guards.
