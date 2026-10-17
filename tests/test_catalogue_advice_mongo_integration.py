@@ -32,12 +32,22 @@ def test_mongo_synthetic_filters_identity_ambiguity_and_comparison_are_read_only
         assert [p['sku'] for p in result['recommendations']] == ['D-A', 'D-B', 'D-C']
         inclusive = await use.execute('Propose cinq perceuses disponibles budget 100 euros')
         assert [p['sku'] for p in inclusive['recommendations']] == ['D-A', 'D-B', 'D-C', 'D-E']
-        for message in ('Conseille-moi sur Concurrence Synthétique',
+        for message in ('Demander conseil sur la Perceuse Concurrence Synthétique V017',
+                        'Peux-tu me conseiller sur la Perceuse Concurrence Synthétique V017',
+                        'Conseille-moi sur SKU D-C',
+                        'Conseille-moi sur Concurrence Synthétique',
                         'Conseille-moi sur la Perceuse Concurrence Synthétique V017',
                         'Conseille-moi sur Concurrence Synthétique V017', 'Conseille-moi sur le SKU D-C'):
-            assert [p['sku'] for p in (await use.execute(message))['recommendations']] == ['D-C']
-        assert (await use.execute('Conseille-moi sur la Perceuse Pro V017'))['advice_status'] == 'CLARIFICATION_REQUIRED'
-        assert (await use.execute('Conseille-moi sur la Perceuse Inconnue V017'))['advice_status'] == 'NO_RESULTS'
+            result = await use.execute(message)
+            actual, = result['recommendations']
+            stored = database.products.find_one({'sku': 'D-C'})
+            assert (actual['sku'], actual['product_name'], actual['category'], actual['price'], actual['stock']) == (
+                stored['sku'], stored['name'], stored['category'], stored['price'], stored['stock'])
+        for prefix in ('Conseille-moi sur', 'Demander conseil sur'):
+            ambiguous = await use.execute(prefix + ' la Perceuse Pro V017')
+            absent = await use.execute(prefix + ' la Perceuse Inconnue V017')
+            assert ambiguous['advice_status'] == 'CLARIFICATION_REQUIRED' and ambiguous['recommendations'] == []
+            assert absent['advice_status'] == 'NO_RESULTS' and absent['recommendations'] == []
         compare = await use.execute('Compare le SKU D-H avec deux autres disponibles à moins de 100 euros')
         assert [p['sku'] for p in compare['recommendations']] == ['D-H', 'D-A', 'D-B']
         assert compare['recommendations'][0]['matches_criteria'] is False
