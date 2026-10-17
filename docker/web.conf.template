@@ -1,4 +1,7 @@
 server {
+  # Existing CSV accepts 4096-character SKUs; UTF-8 percent encoding can take 49KiB.
+  # Bound the request line while preserving those exact identifiers.
+  large_client_header_buffers 2 64k;
   listen 8080;
   server_name _;
   root /usr/share/nginx/html;
