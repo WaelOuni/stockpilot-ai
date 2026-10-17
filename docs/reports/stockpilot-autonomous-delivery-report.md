@@ -1,10 +1,13 @@
 # StockPilot — Livraison autonome, 17 octobre 2026
 
-Statut : **PARTIAL**. V13.3 est validée et ses outils publiés. Les livrables SaaS
+Statut : **PARTIAL** : livrables techniques/documentaires terminés, durcissement
+HMAC et nettoyage des éléments ambigus différés. V13.3 est validée et ses outils publiés. Les livrables SaaS
 et commerciaux sont des propositions ; ils n'activent aucune fonctionnalité SaaS,
 ne promeuvent aucune release et ne remplacent pas une validation humaine de pilote.
-Les états définitifs de PR/CI de cette livraison documentaire figurent dans sa PR.
-Ce rapport est consolidé après chaque phase ; aucun résultat en attente ne vaut PASS.
+Snapshot Git avant publication documentaire : `origin/main`
+`0ea002ccf4ed2f667ff373774c649441fa27d87a`. L’état de la PR qui publie ce rapport
+et son SHA final sont dans ses métadonnées GitHub ; aucune auto-référence de commit
+futur n’est revendiquée. Aucun résultat en attente ne vaut PASS.
 
 ## A — Candidate V13.3 et GitHub
 
@@ -33,6 +36,25 @@ exclusion de la commande unitaire ne constitue jamais une validation.
 
 Détails, scénarios A–F, valeurs Mongo, modèles/digests, mesures et limites :
 [rapport V13.3](../validation/v13.3-integrated-candidate.md).
+
+### PR du programme
+
+Toutes ciblent explicitement `main`, sans force-push ni bypass des protections.
+Les fusions #33–#35 ont été effectuées après revue satisfaisante et succès des
+cinq checks obligatoires ; #35 attendait aussi le nouveau navigateur synthétique.
+
+| PR / objet | Branche source | HEAD validé | État / fusion | CI / décision |
+|---|---|---|---|---|
+| [#33 — candidate V13.3](https://github.com/WaelOuni/stockpilot-ai/pull/33) | `validation/v133-integrated-demo` | `6b632b8264c32bcd1243849241cd50ad87107dd5` | MERGED `0a343a54d272d81bda5462543495f454bc128606` | 5 checks SUCCESS ; infra/tests/docs, fusion autorisée A |
+| [#34 — préparation et stock](https://github.com/WaelOuni/stockpilot-ai/pull/34) | `fix/order-preparation-explanation` | `fb17f5760dd98d78aafdd2cdfa145b5c22efb511` | MERGED `0aef4deb63933ad55eead2b782dd7ff5ae65be97` | 5 checks SUCCESS ; texte rétrocompatible et test, fusion autorisée C |
+| [#35 — isolation E2E](https://github.com/WaelOuni/stockpilot-ai/pull/35) | `fix/e2e-explicit-isolation` | `60ed62880b15354a3d07d1deeacd2d6eb800241e` | MERGED `0ea002ccf4ed2f667ff373774c649441fa27d87a` | 5 checks + advice-browser SUCCESS ; outillage, aucun contrat auth modifié, fusion autorisée B |
+| Livraison documentaire de ce rapport | `docs/v14-saas-design` | SHA final dans la PR associée | Publication après ces trois fusions | Revue indépendante faite ; CI obligatoire à attendre avant fusion documentaire |
+
+Le dossier produit a été préparé séparément dans `docs/commercial-pilot-readiness`
+(`c0ded0e`, `9f27398`), puis intégré par cherry-pick dans la PR documentaire, avec
+résolution de l’index préservant les liens produit et V14. Aucun travail `dev`
+intégré. Les branches et worktrees sources restent conservés. Les changements
+non committés de la reprise V13.3 ont été sauvegardés dans #33.
 
 ### Environnements conservés
 
@@ -88,10 +110,23 @@ effacer ; une restauration exacte peut les réactiver avant expiration. Les
 sessions anciennes comptent toujours dans la capacité. Ces comportements doivent
 être compris avant toute migration HMAC ou engagement de révocation.
 
-L'ancien initialiseur E2E pouvait déduire des URI DEV et ne vérifiait que le nom de
-base. Ce chemin n'a pas été lancé. Un correctif séparé impose des cibles explicites
-et une preuve de services jetables avant toute mutation ; son état de livraison
-est complété après validation. Le harnais synthétique sans DB/LLM est adapté à la
+L’ancien initialiseur E2E pouvait déduire des URI DEV et ne vérifiait que le nom de
+base. Ce chemin non protégé n’a pas été lancé. La PR #35 impose des cibles
+explicites et une preuve de services jetables avant toute mutation : daemon Docker
+local Unix, provenance Compose, deux conteneurs sains, ports et réseau exclusifs,
+stockage tmpfs, absence de bases étrangères et de marqueurs DEMO. Les redirections
+Mongo/libpq et contextes Docker distants sont refusés. Deux initialisations réelles
+sur les nouveaux services ont réussi (3 produits, X100 stock 10, tables checkpoint
+créées, 0 ligne) ; conteneurs/réseau retirés, aucun volume créé. **61 tests ciblés
+PASS**, 4,80 s ; **1 Playwright synthétique PASS**, 3,2 s. La suite backend avant
+les six derniers tests de daemon comptait 2 298 PASS ; sa CI finale sur `60ed628` valide le code
+synchronisé avec #34 : **2 304 PASS**, 200 désélectionnés, 89,41 s ; intégration
+**199 PASS**, 2 305 désélectionnés, 30,40 s ; frontend **408 PASS / 23 fichiers**,
+typecheck/lint/build PASS ; 104 évaluations sans échec. Le nouveau job
+`advice-browser` a aussi réussi en CI (1 scénario, workflow séparé). Revue indépendante : P2 contexte distant corrigé, aucun
+problème significatif restant identifié.
+
+[Analyse des sessions et stratégie HMAC](../security/admin-session-fingerprint-review.md). Le harnais synthétique sans DB/LLM est adapté à la
 CI rapide ; la candidate avec Ollama réel reste opt-in, sérialisée et précédée de
 son préflight. Les suites lourdes ne sont pas activées indistinctement.
 
