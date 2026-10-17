@@ -105,3 +105,15 @@ def test_duplicate_authorization_rejected(api):
     client, _ = api
     token = customer_headers()["Authorization"]
     assert client.get("/products", headers=[("Authorization", token), ("Authorization", "Bearer invalid")]).status_code == 401
+
+
+def test_missing_environment_fails_closed_outside_explicit_local_mode(api, monkeypatch):
+    client, _ = api
+    monkeypatch.delenv("DEPLOYMENT_ENVIRONMENT", raising=False)
+    settings = Settings(_env_file=None, customer_jwt_secret=CUSTOMER_JWT_SECRET)
+    assert settings.deployment_environment == "production_saas"
+    monkeypatch.setattr(app.state, "settings", settings)
+    for method, path in PROTECTED:
+        response = client.request(method, path, headers=customer_headers(), json={"message": "hello"})
+        assert response.status_code == 503
+    assert client.get("/health").json() == {"status": "UP"}
