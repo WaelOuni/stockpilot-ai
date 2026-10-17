@@ -50,3 +50,30 @@ def test_assistant_customer_and_thread_namespace_and_controlled_catalogue_error(
     result = ask(http, 'Je cherche une perceuse.')
     assert result['advice_status'] == 'CATALOGUE_UNAVAILABLE'
     assert result['recommendations'] == [] and 'private connection' not in str(result)
+
+
+def test_reported_named_requests_share_customer_thread_without_stale_cards_or_order_dispatch():
+    http, repo, forbidden = client()
+    before = list(repo.products)
+    messages = [
+        ('Demander conseil sur la Perceuse Concurrence Synthétique V017', 'RESULTS', ['D-C']),
+        ('Conseille-moi sur la Perceuse Concurrence Synthétique V017', 'RESULTS', ['D-C']),
+        ('Peux-tu me conseiller sur la Perceuse Concurrence Synthétique V017', 'RESULTS', ['D-C']),
+        ('Conseille-moi sur SKU D-C', 'RESULTS', ['D-C']),
+        ('Demander conseil sur la Perceuse Inconnue V017', 'NO_RESULTS', []),
+        ('Demander conseil sur la Perceuse Pro V017', 'CLARIFICATION_REQUIRED', []),
+        ('Conseille-moi sur SKU D-C', 'RESULTS', ['D-C']),
+    ]
+    for message, status, expected in messages:
+        result = ask(http, message, customer='demo-customer', thread='v1331-same-conversation')
+        assert result['intent'] == 'PRODUCT_ADVICE'
+        assert result['advice_status'] == status
+        assert [p['sku'] for p in result['recommendations']] == expected
+        if expected:
+            verified = next(p for p in repo.products if p.sku == 'D-C')
+            actual, = result['recommendations']
+            assert (actual['product_name'], actual['price'], actual['stock']) == (
+                verified.name, verified.price, verified.stock)
+        assert result.get('created_order_id') is None
+    assert repo.products == before
+    forbidden.execute.assert_not_awaited()

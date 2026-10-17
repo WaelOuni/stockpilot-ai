@@ -9,6 +9,10 @@ from stockpilot.application.dto.advice_criteria import AdviceCriteria
 from stockpilot.domain.enums.product_category import ProductCategory
 
 
+# One bounded request prefix, shared by routing and identity extraction.
+_ASK_ADVICE_PREFIX = re.compile(r'^demander\s+conseil\s+sur\b\s*')
+
+
 def normalize(text: str) -> str:
     return ''.join(c for c in unicodedata.normalize('NFKD', text.casefold())
                    if not unicodedata.combining(c)).replace('’', "'")
@@ -32,11 +36,12 @@ def is_catalogue_advice(text: str) -> bool:
     value = normalize(text)
     if re.search(r'\b(command\w*|achet\w*|reserve\w*|annul\w*)\b', value):
         return False
-    if (re.search(r'\b[a-z]+\d+[a-z0-9-]*\b', value)
+    targeted = bool(_ASK_ADVICE_PREFIX.match(value.lstrip()) or re.search(
+        r'^(?:(?:peux|pourrais)[- ]tu (?:me )?)?conseill\w*(?:[- ]moi)? sur\b', value))
+    if (not targeted and re.search(r'\b[a-z]+\d+[a-z0-9-]*\b', value)
             and re.search(r'\b(disponibles?|stocks?)\b', value)
             and not re.search(r'\b(cherche|voudrais|propose|montre|affiche|donne|compare|alternatives?|recommand\w*|conseill\w*)\b', value)):
         return False
-    targeted = bool(re.search(r'^(?:(?:peux|pourrais)[- ]tu (?:me )?)?conseill\w*(?:[- ]moi)? sur\b', value))
     return bool(targeted or is_advice_followup(text) or re.search(r'\bcompare\b|\balternatives?\b', value)
                 or (re.search(r'\b(cherche|voudrais|propose|affiche|montre|donne|recommande|conseill\w*|quelles?|quels?|recommander)\b', value)
                     and re.search(r'\b(perceuses?|visseuses?|scies?|ponceuses?|produits?|outils?|sku|[a-z]+\d+[a-z0-9-]*)\b', value)))
@@ -148,10 +153,14 @@ def extract_reference(question: str) -> str | None:
         return None
     if is_advice_followup(text) and not text.startswith('compare'):
         return None
-    text = re.sub(
-        r"^(?:(?:peux|pourrais|pouvez)[- ](?:tu|vous) (?:me )?)?"
-        r"(?:(?:je (?:cherche|voudrais|veux|souhaite))|(?:conseill\w*|recommand\w*|propose|montre|affiche|donne|compare)(?:[- ]moi)?)\s*"
-        r"(?:(?:sur|pour)\s+)?", '', text, count=1)
+    prefix = _ASK_ADVICE_PREFIX.match(text)
+    if prefix:
+        text = text[prefix.end():]
+    else:
+        text = re.sub(
+            r"^(?:(?:peux|pourrais|pouvez)[- ](?:tu|vous) (?:me )?)?"
+            r"(?:(?:je (?:cherche|voudrais|veux|souhaite))|(?:conseill\w*|recommand\w*|propose|montre|affiche|donne|compare)(?:[- ]moi)?)\s*"
+            r"(?:(?:sur|pour)\s+)?", '', text, count=1)
     text = re.split(r'\s+(?:avec|a)\s+(?:(?:\d+|deux|trois|quatre|cinq)\s+)?(?:autres|alternatives)\b', text, maxsplit=1)[0]
     # Only complete trailing constraints can be removed. In particular, Max/Pro
     # and unknown model suffixes remain identity evidence when no amount follows.
