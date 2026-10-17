@@ -7,6 +7,7 @@ import time
 from uuid import UUID
 
 from stockpilot.application.dto.product_csv_import import CsvImportResult, CsvIssue, CsvPreview
+from stockpilot.application.input_limits import MAX_PRODUCT_TEXT_CHARS
 from stockpilot.application.ports.product_csv_import import ProductCsvImportPort
 from stockpilot.application.use_cases.manage_products import validate_metadata
 from stockpilot.domain.entities.product import Product
@@ -64,7 +65,7 @@ def validate_quotes(text: str, delimiter: str) -> None:
 
 class PreviewProductCsvImportUseCase:
     def __init__(self, repository: ProductCsvImportPort, max_bytes=2 * 1024 * 1024,
-                 max_products=500, max_field=4096, max_issues=100, clock=time.time):
+                 max_products=500, max_field=MAX_PRODUCT_TEXT_CHARS, max_issues=100, clock=time.time):
         self.repository = repository
         self.max_bytes = max_bytes
         self.max_products = max_products

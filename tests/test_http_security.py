@@ -246,3 +246,29 @@ def test_composed_middleware_stack_order_keeps_saas_boundary_innermost():
     assert names.count("SaasBoundaryMiddleware") == 1
     positions = [names.index(name) for name in expected]
     assert positions == sorted(positions), names
+
+
+def test_input_protection_runs_inside_http_and_saas_boundaries():
+    from stockpilot.main import app
+
+    names = [middleware.cls.__name__ for middleware in app.user_middleware]
+    assert names.count("InputProtectionMiddleware") == 1
+    assert names.count("SaasBoundaryMiddleware") == 1
+    # user_middleware is outermost first.
+    assert names.index("HttpSecurityBoundary") < names.index("SaasBoundaryMiddleware")
+    assert names.index("SaasBoundaryMiddleware") < names.index("InputProtectionMiddleware")
+
+
+def test_saas_closed_environment_refuses_before_input_admission(monkeypatch):
+    from fastapi.testclient import TestClient
+    from stockpilot.infrastructure.config.settings import Settings
+    from stockpilot.main import app
+
+    settings = Settings(deployment_environment="production", http_trusted_hosts=["127.0.0.1"])
+    monkeypatch.setattr(app.state, "settings", settings)
+    client = TestClient(app, base_url="https://127.0.0.1")
+    # Oversized, unauthenticated conversation bodies must hit the SaaS lock
+    # (503), never the 401/413/429 produced by input protection.
+    response = client.post("/chat", content=b"x" * (settings.http_body_max_bytes + 1),
+                           headers={"content-type": "application/json"})
+    assert response.status_code == 503
