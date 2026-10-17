@@ -1,6 +1,9 @@
 import importlib.util
 from pathlib import Path
 from unittest.mock import MagicMock
+from types import SimpleNamespace
+import json
+import subprocess
 
 import pytest
 from psycopg.conninfo import conninfo_to_dict
@@ -79,6 +82,35 @@ def test_initializer_refuses_before_database_or_provider_access(monkeypatch):
     mongo.assert_not_called()
     postgres.assert_not_called()
     provider.assert_not_called()
+
+
+@pytest.mark.parametrize("remote", ["host", "context"])
+def test_remote_docker_refuses_before_database_clients(monkeypatch, remote):
+    from scripts import e2e_targets
+    monkeypatch.setattr("sys.argv", ["init_e2e_env"])
+    settings = SimpleNamespace(mongo_uri=MONGO, mongo_database="stockpilot_e2e",
+        postgres_url=POSTGRES, langgraph_checkpoint_db_uri=POSTGRES)
+    monkeypatch.setattr(e2e, "configure_environment", lambda: settings)
+    monkeypatch.delenv("PGHOSTADDR", raising=False)
+    monkeypatch.delenv("PGSERVICE", raising=False)
+    if remote == "host":
+        monkeypatch.setenv("DOCKER_HOST", "tcp://127.0.0.1:2375")
+        run = MagicMock()
+    else:
+        monkeypatch.delenv("DOCKER_HOST", raising=False)
+        monkeypatch.setenv("DOCKER_CONTEXT", "remote-context")
+        run = MagicMock(side_effect=[
+            subprocess.CompletedProcess([], 0, stdout="remote-context\n"),
+            subprocess.CompletedProcess([], 0, stdout=json.dumps([{"Endpoints": {"docker": {"Host": "ssh://remote.example.test"}}}])),
+        ])
+    monkeypatch.setattr(e2e_targets.subprocess, "run", run)
+    mongo, postgres = MagicMock(), MagicMock()
+    monkeypatch.setattr(e2e, "MongoClient", mongo)
+    monkeypatch.setattr(e2e.psycopg, "connect", postgres)
+    assert e2e.main() == 1
+    mongo.assert_not_called()
+    postgres.assert_not_called()
+    assert run.call_count == (0 if remote == "host" else 2)
 
 
 def test_e2e_reset_checks_actual_database_before_any_write():

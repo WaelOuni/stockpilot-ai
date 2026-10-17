@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+from urllib.parse import urlsplit
 
 from psycopg.conninfo import conninfo_to_dict
 from psycopg import ProgrammingError
@@ -16,6 +17,27 @@ from pymongo.uri_parser import parse_uri
 PROJECT = "stockpilot-e2e-tests"
 DATABASE = "stockpilot_e2e"
 COMPOSE = Path(__file__).resolve().parents[1] / "docker" / "compose.e2e.yml"
+
+
+def _local_socket(endpoint):
+    parsed = urlsplit(endpoint or "")
+    return (parsed.scheme == "unix" and not parsed.netloc and parsed.path.startswith("/")
+            and not parsed.query and not parsed.fragment)
+
+
+def verify_local_daemon():
+    # A remote daemon's published 127.0.0.1 is not the client's loopback address.
+    # Refuse a remote DOCKER_HOST even if DOCKER_CONTEXT would override it.
+    if os.environ.get("DOCKER_HOST") and not _local_socket(os.environ["DOCKER_HOST"]):
+        raise ValueError("E2E requires a local Docker daemon over a Unix socket.")
+    context = subprocess.run(["docker", "context", "show"], check=True,
+                             capture_output=True, text=True, timeout=15).stdout.strip()
+    if not context:
+        raise ValueError("E2E Docker context could not be proven local.")
+    details = json.loads(subprocess.run(["docker", "context", "inspect", context],
+        check=True, capture_output=True, text=True, timeout=15).stdout)
+    if len(details) != 1 or not _local_socket(details[0]["Endpoints"]["docker"]["Host"]):
+        raise ValueError("E2E Docker context must use a local Unix socket.")
 
 
 def endpoints(mongo_uri, postgres_uri):
@@ -78,6 +100,7 @@ def verify_docker_targets(mongo_uri, postgres_uri):
         raise ValueError("E2E refuses inherited PostgreSQL address/service overrides.")
     ports = endpoints(mongo_uri, postgres_uri)
     try:
+        verify_local_daemon()
         result = subprocess.run(["docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={PROJECT}"],
                                 check=True, capture_output=True, text=True, timeout=15)
         identifiers = result.stdout.split()

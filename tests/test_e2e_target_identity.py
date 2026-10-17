@@ -98,6 +98,8 @@ def test_docker_desktop_reports_tmpfs_in_host_config_without_mount_entries():
 def test_verification_inspects_actual_containers_and_network(monkeypatch):
     containers, network = docker_state()
     run = MagicMock(side_effect=[
+        subprocess.CompletedProcess([], 0, stdout="desktop-linux\n"),
+        subprocess.CompletedProcess([], 0, stdout=json.dumps([{"Endpoints": {"docker": {"Host": "unix:///var/run/docker.sock"}}}])),
         subprocess.CompletedProcess([], 0, stdout="mongo-id\npostgres-id\n"),
         subprocess.CompletedProcess([], 0, stdout=json.dumps(containers)),
         subprocess.CompletedProcess([], 0, stdout=json.dumps([network])),
@@ -105,10 +107,36 @@ def test_verification_inspects_actual_containers_and_network(monkeypatch):
     monkeypatch.setattr(targets.subprocess, "run", run)
     monkeypatch.delenv("PGHOSTADDR", raising=False)
     monkeypatch.delenv("PGSERVICE", raising=False)
+    monkeypatch.delenv("DOCKER_HOST", raising=False)
     targets.verify_docker_targets(MONGO, POSTGRES)
-    assert run.call_count == 3
-    assert run.call_args_list[1].args[0] == ["docker", "inspect", "mongo-id", "postgres-id"]
-    assert run.call_args_list[2].args[0] == ["docker", "network", "inspect", targets.PROJECT + "_default"]
+    assert run.call_count == 5
+    assert run.call_args_list[1].args[0] == ["docker", "context", "inspect", "desktop-linux"]
+    assert run.call_args_list[3].args[0] == ["docker", "inspect", "mongo-id", "postgres-id"]
+    assert run.call_args_list[4].args[0] == ["docker", "network", "inspect", targets.PROJECT + "_default"]
+
+
+@pytest.mark.parametrize("endpoint", ["tcp://127.0.0.1:2375", "ssh://remote.example.test", "tcp://remote.example.test:2376"])
+def test_remote_docker_host_is_refused_even_with_local_context_override(monkeypatch, endpoint):
+    monkeypatch.setenv("DOCKER_HOST", endpoint)
+    monkeypatch.setenv("DOCKER_CONTEXT", "desktop-linux")
+    run = MagicMock()
+    monkeypatch.setattr(targets.subprocess, "run", run)
+    with pytest.raises(ValueError, match="local Docker daemon"):
+        targets.verify_local_daemon()
+    run.assert_not_called()
+
+
+def test_docker_context_override_is_inspected_instead_of_assuming_local_host(monkeypatch):
+    monkeypatch.setenv("DOCKER_CONTEXT", "remote-context")
+    monkeypatch.setenv("DOCKER_HOST", "unix:///var/run/docker.sock")
+    run = MagicMock(side_effect=[
+        subprocess.CompletedProcess([], 0, stdout="remote-context\n"),
+        subprocess.CompletedProcess([], 0, stdout=json.dumps([{"Endpoints": {"docker": {"Host": "ssh://remote.example.test"}}}])),
+    ])
+    monkeypatch.setattr(targets.subprocess, "run", run)
+    with pytest.raises(ValueError, match="local Unix socket"):
+        targets.verify_local_daemon()
+    assert run.call_args_list[1].args[0] == ["docker", "context", "inspect", "remote-context"]
 
 
 def test_failed_docker_inspection_never_exposes_private_diagnostics(monkeypatch):

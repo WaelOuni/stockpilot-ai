@@ -434,6 +434,10 @@ is used as a fallback. The initializer verifies the effective Docker project,
 Compose source, loopback bindings, exclusive network, running/healthy services
 and tmpfs storage before connecting or resetting. Existing development/DEMO
 servers are refused even when a database is named `stockpilot_e2e`.
+Docker must use a local Unix socket (including Docker Desktop's local WSL socket).
+The effective context is inspected; remote TCP/SSH contexts and `DOCKER_HOST`
+values are refused because their published loopback is not the client's loopback.
+This check also respects `DOCKER_CONTEXT` overriding `DOCKER_HOST`.
 
 ```sh
 # Repository root. First verify that this project/these ports do not already exist.
