@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 import { mkdirSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { connectCustomer, syntheticCustomerToken } from '../e2e/support/customer_auth'
 
 async function login(page: import('@playwright/test').Page) {
   await page.goto('/admin/login')
@@ -46,6 +46,7 @@ test('real form validation, CSV preview, exact pagination, SKU filters and URL h
   await page.getByRole('button', { name: 'Confirmer l’import' }).click()
   await expect(page.getByRole('heading', { name: 'Import confirmé par le serveur' })).toBeVisible()
   await page.goto(`/products?q=${tag}`)
+  await connectCustomer(page, syntheticCustomerToken('ux-catalogue-' + randomUUID()))
   await expect(page.getByText('Page 1 sur 2', { exact: true })).toBeVisible()
   await expect(page.getByText('Affichage de 1 à 20 sur 23 produits', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Dernière page', exact: true }).click()
@@ -85,6 +86,7 @@ test('mobile keyboard menu, error / loading states and stale response invalidati
   mkdirSync(resolve('../artifacts/ui-ux/after'), { recursive: true })
   await page.setViewportSize({ width: 390, height: 900 })
   await page.goto('/products')
+  await connectCustomer(page, syntheticCustomerToken('ux-mobile-' + randomUUID()))
   await page.getByRole('button', { name: 'Menu', exact: true }).focus()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('button', { name: 'Fermer le menu' })).toHaveAttribute('aria-expanded', 'true')
@@ -120,7 +122,7 @@ test('mobile keyboard menu, error / loading states and stale response invalidati
 
 
 test('real catalogue recommendations remain readable at every viewport', async ({ page }) => {
-  const jwt = execFileSync(resolve('../.venv/bin/python'), [resolve('../scripts/create_customer_token.py'), 'ux-advice-' + randomUUID(), '--expires-in', '1800'], { cwd: resolve('..'), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  const jwt = syntheticCustomerToken('ux-advice-' + randomUUID())
   await page.goto('/assistant')
   await page.getByLabel('JWT client', { exact: true }).fill(jwt)
   await page.getByRole('button', { name: 'Connecter', exact: true }).click()

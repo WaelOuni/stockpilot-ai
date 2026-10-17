@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 
 from fastapi import FastAPI
+from stockpilot.presentation.api.saas_boundary import SaasBoundaryMiddleware
 from stockpilot.presentation.api.admin_auth import AdminSessions, router as admin_session_router
 from stockpilot.application.use_cases.backoffice_orders import GetBackofficeOrderUseCase, ListBackofficeOrdersUseCase
 from stockpilot.presentation.api.routes.backoffice_orders import router as backoffice_orders_router

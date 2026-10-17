@@ -40,7 +40,8 @@ l'intégration ; la release relance également les contrôles sur le commit tagu
   écriture (`tests/integration_targets.py`) ; aucune valeur par défaut n'est utilisée.
 - Images : builds et lancement sur ces mêmes services éphémères, base runtime
   Mongo `stockpilot_ci_runtime`, Ollama inaccessible volontairement. Smoke HTTP
-  santé API/web, fallback SPA et `/api/products` vide via reverse proxy.
+  santé API/web, fallback SPA et refus sûr 503 de `/api/products` via reverse proxy
+  dans le mode production fermé (aucun contenu métier).
 - Nettoyage `always()` limité aux ressources créées par le job. Pas d'artefacts
   de données, de logs applicatifs ou de credentials uploadés.
 

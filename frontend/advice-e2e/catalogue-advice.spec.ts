@@ -5,7 +5,8 @@ test('real E2E catalogue advice, exact facts/links, absence and clarification wi
   await page.goto('/assistant')
   await page.getByLabel('JWT client', { exact: true }).fill(process.env.ADVICE_E2E_TOKEN)
   await page.getByRole('button', { name: 'Connecter', exact: true }).click()
-  const catalogue = await (await request.get('/api/products?limit=100')).json()
+  const headers = { Authorization: `Bearer ${process.env.ADVICE_E2E_TOKEN}` }
+  const catalogue = await (await request.get('/api/products?limit=100', { headers })).json()
   expect(catalogue.items.length).toBeGreaterThan(0)
   const reference = catalogue.items[0]
   const categoryNames: Record<string, string> = { DRILL: 'perceuses', SAW: 'scies', SANDER: 'ponceuses', SCREWDRIVER: 'visseuses', OTHER: 'produits' }
@@ -27,7 +28,7 @@ test('real E2E catalogue advice, exact facts/links, absence and clarification wi
   expect(answer.recommendations.length).toBeGreaterThan(0)
   expect(answer.recommendations.length).toBeLessThanOrEqual(3)
   for (const product of answer.recommendations) {
-    const actual = await (await request.get(`/api/products/${encodeURIComponent(product.sku)}`)).json()
+    const actual = await (await request.get(`/api/products/${encodeURIComponent(product.sku)}`, { headers })).json()
     expect(product.product_name).toBe(actual.product_name)
     expect(product.price).toBe(actual.price)
     expect(product.stock).toBe(actual.stock)

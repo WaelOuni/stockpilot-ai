@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test'
+import { connectCustomer, customerHeaders, syntheticCustomerToken } from '../e2e/support/customer_auth'
 
 test('real demo catalogue pagination, combined filters and preserved detail context', async ({ page, request }) => {
   if (process.env.MONGO_DATABASE !== 'stockpilot_demo') throw new Error('Dedicated demo required.')
+  const jwt = syntheticCustomerToken('ephemeral-demo-catalogue-reader')
+  expect((await request.get('/api/products')).status()).toBe(401)
   await page.goto('/products')
+  await connectCustomer(page, jwt)
   await expect(page.getByRole('heading', { name: 'Catalogue', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Suivant', exact: true })).toBeEnabled()
   await page.getByRole('button', { name: 'Suivant', exact: true }).click()
@@ -25,7 +29,7 @@ test('real demo catalogue pagination, combined filters and preserved detail cont
   const link = page.locator(`a[href^="/products/${sku}"]`).first()
   await link.click()
   await expect(page).toHaveURL(new RegExp(`/products/${sku}\\?`))
-  const detail = await (await request.get(`/api/products/${sku}`)).json()
+  const detail = await (await request.get(`/api/products/${sku}`, { headers: customerHeaders(jwt) })).json()
   await expect(page.getByRole('heading', { name: detail.product_name, exact: true })).toBeVisible()
   const back = page.getByRole('link', { name: /catalogue/i }).filter({ hasText: /Retour/i })
   await back.click()

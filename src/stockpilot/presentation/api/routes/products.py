@@ -1,3 +1,4 @@
+from stockpilot.presentation.api.auth import require_customer_identity
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from stockpilot.application.use_cases.catalog_products import GetProductUseCase, ListProductsUseCase
@@ -6,7 +7,7 @@ from stockpilot.presentation.api.schemas.product import ProductResponse, Product
 from stockpilot.domain.enums.product_category import ProductCategory
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_customer_identity)])
 
 
 @router.get("/products", response_model=ProductsResponse, response_model_exclude_none=True)
