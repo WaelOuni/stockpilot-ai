@@ -13,6 +13,7 @@ defineEmits<{ confirm: []; cancel: [] }>()
       {{ productName }}
     </p>
     <p>Quantité : {{ quantity }}</p>
+    <p>Aucun stock n’est réservé à cette étape. La disponibilité sera revérifiée lors de la confirmation.</p>
     <div class="context-actions">
       <button
         type="button"
