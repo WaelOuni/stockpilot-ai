@@ -137,7 +137,8 @@ Existing volumes are preserved; do not use `docker compose down -v`.
 
 ```sh
 python scripts/seed_products.py
-python -m uvicorn stockpilot.main:app --reload
+export DEPLOYMENT_ENVIRONMENT=development  # controlled local machine only
+python -m uvicorn stockpilot.main:app --reload --host 127.0.0.1
 ```
 
 Startup requires healthy Mongo `rs0` and PostgreSQL, creates the unique order
@@ -151,13 +152,13 @@ For an existing standalone Mongo, read the
 | Endpoint | Contract |
 |---|---|
 | `GET /health` | Process liveness, not dependency readiness |
-| `POST /chat` | `{"message":"..."}`; direct LLM generation |
-| `POST /classify` | `{"message":"..."}`; structured intent/extraction |
+| `POST /chat` | Customer JWT required; `{"message":"..."}`; direct LLM generation |
+| `POST /classify` | Customer JWT required; `{"message":"..."}`; local tooling intent/extraction |
 | `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp` claims; advice/stock/ORDER/ORDER_STATUS |
 | `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; Bearer-protected demo back-office lifecycle update |
 | `GET /orders` | Customer JWT required; own orders only, newest first; `limit=20` (max 100), `offset=0` |
-| `GET /products` | Public read-only Mongo catalogue; optional `q`, `category`, `available`; `limit=20` (1..100), `offset=0` |
-| `GET /products/{sku}` | Public exact SKU lookup; product name/category/price/stock only |
+| `GET /products` | Customer JWT required; read-only Mongo catalogue; optional `q`, `category`, `available`; `limit=20` (1..100), `offset=0` |
+| `GET /products/{sku}` | Customer JWT required; exact SKU lookup; product name/category/price/stock only |
 | `POST /customer/orders/{order_id}/cancel` | Customer JWT required; cancel only an owned CREATED/PROCESSING order; CANCELLED is idempotent |
 | `POST /orders/{order_id}/cancel` | No body; atomic cancellation/stock restoration, requires back-office Bearer token |
 
@@ -298,8 +299,11 @@ validates signed customer JWTs; a trusted issuer must mint them. Technical order
 routes use a separate shared `BACKOFFICE_API_TOKEN`; unset configuration
 disables those routes (503).
 See [back-office authentication](docs/order-flow.md#back-office-authentication).
-`/health`, `/chat` and `/classify` remain public; `/assistant` requires a valid
-customer JWT for both identity and ownership isolation.
+`/health` remains a minimal public liveness endpoint. Catalogue, `/chat`,
+`/classify` and `/assistant` require a signed customer JWT in explicit local modes.
+The default `production_saas` and legacy `production` modes close sensitive APIs,
+even with local credentials, pending OIDC and repository-level tenant isolation.
+See the [V13.2 security architecture](docs/security/saas-auth-architecture.md).
 Model extraction is probabilistic;
 the advice-domain guard is lexical, not semantic. Small datasets and a
 three-document corpus limit quality conclusions. Product lookup assumes

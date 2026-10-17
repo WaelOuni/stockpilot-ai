@@ -2,7 +2,7 @@
 
 ## Executive summary
 
-Baseline `6f0949676e33a21c640b2ccc2f5877368a4dd0cb` is a single-catalogue local application. Signed customer ownership and atomic ORDER protections exist; organizational tenancy and production identity lifecycle do not. Public LLM/catalogue routes, unbounded messages and process-local sessions are unsuitable for SaaS exposure. V13.2 closes SaaS access until those boundaries can be implemented. No compromise or public exposure of v017 was demonstrated.
+Baseline `6f0949676e33a21c640b2ccc2f5877368a4dd0cb` is a single-catalogue local application. Signed customer ownership and atomic ORDER protections exist; organizational tenancy and production identity lifecycle do not. Public LLM/catalogue routes, unbounded messages and process-local sessions are unsuitable for SaaS exposure. V13.2 defaults to a closed SaaS mode until those boundaries can be implemented. No compromise or public exposure of v017 was demonstrated.
 
 ## Scope and assumptions
 

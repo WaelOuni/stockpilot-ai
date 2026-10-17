@@ -63,10 +63,10 @@ variables; it does **not** automatically load `../.env.local`. Export values exp
 | `MONGO_URI` | `mongodb://localhost:27017/?replicaSet=rs0&directConnection=true` |
 | `MONGO_DATABASE` | `stockpilot` |
 | `BACKOFFICE_API_TOKEN` | Unset: technical order routes return 503; configure a private shared Bearer secret |
-| `CUSTOMER_JWT_SECRET` | Unset: `/assistant` and `GET /orders` return 503; private HS256 signing secret |
+| `CUSTOMER_JWT_SECRET` | Unset: catalogue/conversation/customer-order APIs return 503; private HS256 signing secret |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD_VERIFIER` | Unset: demo admin sessions fail closed; server-only username and salted derived verifier |
 | `ADMIN_TRUSTED_ORIGIN` | Unset: exact browser origin required for login/logout, e.g. `https://admin.example.test` |
-| `DEPLOYMENT_ENVIRONMENT` | `development`; use `production` to forbid the local HTTP exception |
+| `DEPLOYMENT_ENVIRONMENT` | `production_saas` (sensitive APIs closed); choose `development` explicitly only for controlled local use; see [modes](security/saas-auth-architecture.md#configuration-modes) |
 | `ADMIN_ALLOW_LOCAL_HTTP` | `false`; explicit loopback-only development exception |
 | `ADMIN_SESSION_TTL_SECONDS` / `ADMIN_MAX_SESSIONS` | `1800` / `100`; fixed lifetime and bounded process-local capacity |
 | `PRODUCT_IMPORT_MAX_BYTES` / `PRODUCT_IMPORT_MAX_PRODUCTS` | `2097152` / `500`; raw CSV byte limit and small atomic product batch limit |
@@ -89,8 +89,9 @@ export CUSTOMER_TOKEN="$(python scripts/create_customer_token.py demo-customer)"
 
 Use at least 32 random bytes. Export the same secret securely in the API process
 environment; do not commit it or place it in captured logs. `/assistant` verifies
-the token's signature, expiration and `customer_id` claim. The other public
-endpoints do not require it.
+the token's signature, expiration and `customer_id` claim. Catalogue, `/chat`
+and `/classify` also require this JWT. Only minimal health is public; production
+modes remain closed even with valid local credentials.
 
 Compose has public **demo-only** PostgreSQL credentials. Mongo/PostgreSQL ports
 are published beyond loopback: use a trusted machine/firewall, never expose this
@@ -194,7 +195,8 @@ Seeding is optional when the demo products already exist.
 
 ```sh
 python scripts/seed_products.py
-python -m uvicorn stockpilot.main:app --reload
+export DEPLOYMENT_ENVIRONMENT=development  # controlled local machine only
+python -m uvicorn stockpilot.main:app --reload --host 127.0.0.1
 ```
 
 Startup creates the unique partial order-operation index and official PostgreSQL
@@ -204,8 +206,8 @@ failure is explicit; there is no in-memory checkpoint fallback.
 | Endpoint | Contract |
 |---|---|
 | `GET /health` | `{"status":"UP"}` process liveness, not dependency readiness |
-| `POST /chat` | `{"message":"..."}`; direct LLM generation |
-| `POST /classify` | `{"message":"..."}`; structured intent/extraction |
+| `POST /chat` | Customer JWT required; `{"message":"..."}`; direct LLM generation |
+| `POST /classify` | Customer JWT required; `{"message":"..."}`; local tooling intent/extraction |
 | `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp`; advice/stock/ORDER/ORDER_STATUS |
 | `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; technical/demo lifecycle update, back-office Bearer token required |
 | `GET /orders` | Customer JWT required; own order history, bounded limit/offset pagination |

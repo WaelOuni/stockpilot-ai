@@ -582,8 +582,10 @@ sanitize `authorization`. Keep env files private and outside Git.
 Missing/blank configuration disables only back-office routes with 503
 (`Back-office authentication is not configured.`); there is no open fallback.
 Missing, malformed or wrong credentials return 401 with `WWW-Authenticate: Bearer`
-and generic detail. `/health`, `/chat` and `/classify` remain public;
-`/assistant` uses separate customer JWT authentication.
+and generic detail. `/health` remains public; `/chat`, `/classify`, catalogue
+and `/assistant` use the separate customer JWT authentication in explicit local
+modes. Production modes close every sensitive API pending SaaS identity and
+tenant isolation. See [the security architecture](security/saas-auth-architecture.md).
 This is a shared local/demo API key, not user authentication: no identity,
 ownership, roles, expiration or automated rotation. Use TLS on any non-loopback
 connection to avoid exposing the credential in transit.
