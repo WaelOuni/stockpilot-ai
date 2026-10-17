@@ -2,6 +2,10 @@ import { defineConfig, devices } from '@playwright/test'
 import { pbkdf2Sync, randomBytes } from 'node:crypto'
 import { resolve } from 'node:path'
 
+if (!process.env.E2E_MONGO_URI || !process.env.E2E_POSTGRES_URL) {
+  throw new Error('E2E_MONGO_URI and E2E_POSTGRES_URL must identify the disposable docker/compose.e2e.yml services.')
+}
+
 process.env.E2E_FIXTURE_SUFFIX ||= String(randomBytes(4).readUInt32BE())
 
 // Override normal development targets for the entire test process and its children.
@@ -22,8 +26,7 @@ process.env.ADMIN_TRUSTED_ORIGIN = 'http://127.0.0.1:5174'
 process.env.ADMIN_ALLOW_LOCAL_HTTP = 'true'
 process.env.DEPLOYMENT_ENVIRONMENT = 'development'
 process.env.MONGO_DATABASE = 'stockpilot_e2e'
-process.env.MONGO_URI = process.env.E2E_MONGO_URI ||
-  'mongodb://localhost:27017/?replicaSet=rs0&directConnection=true'
+process.env.MONGO_URI = process.env.E2E_MONGO_URI
 process.env.API_PROXY_TARGET = 'http://127.0.0.1:8002'
 process.env.VITE_API_BASE_URL = '/api'
 

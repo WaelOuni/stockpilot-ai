@@ -14,7 +14,6 @@ import psycopg
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 from pymongo import MongoClient
-from pymongo.uri_parser import parse_uri
 from pymongo.errors import PyMongoError
 
 from stockpilot.infrastructure.config.settings import Settings
@@ -25,6 +24,12 @@ from stockpilot.infrastructure.persistence.mongodb.stock_movement_indexes import
     prepare_stock_movement_indexes,
 )
 from stockpilot.infrastructure.persistence.postgres.checkpointer import open_checkpointer
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from scripts.e2e_targets import (
+    endpoints, verify_docker_targets, verify_mongo_identity, verify_postgres_identity,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,19 +42,14 @@ CHECKPOINT_TABLES = ("checkpoints", "checkpoint_blobs", "checkpoint_writes")
 def validate_targets(mongo_uri: str, mongo_database: str, postgres_uri: str) -> None:
     if mongo_database != DATABASE:
         raise ValueError("E2E Mongo database must be exactly stockpilot_e2e.")
-    parsed = parse_uri(mongo_uri)
-    if parsed["database"] not in (None, DATABASE):
-        raise ValueError("E2E Mongo URI must not name a non-E2E database.")
-    if conninfo_to_dict(postgres_uri).get("dbname") != DATABASE:
-        raise ValueError("E2E PostgreSQL database must be exactly stockpilot_e2e.")
+    endpoints(mongo_uri, postgres_uri)
 
 
 def configure_environment() -> Settings:
-    defaults = Settings()
-    mongo_uri = os.environ.get("E2E_MONGO_URI", defaults.mongo_uri)
-    postgres_uri = os.environ.get(
-        "E2E_POSTGRES_URL", make_conninfo(defaults.postgres_url, dbname=DATABASE),
-    )
+    mongo_uri = os.environ.get("E2E_MONGO_URI")
+    postgres_uri = os.environ.get("E2E_POSTGRES_URL")
+    if not mongo_uri or not postgres_uri:
+        raise ValueError("E2E_MONGO_URI and E2E_POSTGRES_URL must explicitly name disposable E2E services.")
     validate_targets(mongo_uri, DATABASE, postgres_uri)
     os.environ.update({
         "MONGO_URI": mongo_uri,
@@ -77,8 +77,13 @@ async def setup_checkpoints(uri: str) -> None:
 def locked_database(uri: str):
     if conninfo_to_dict(uri).get("dbname") != DATABASE:
         raise ValueError("Refusing to initialize a non-E2E PostgreSQL database.")
+    mongo_uri = os.environ.get("E2E_MONGO_URI")
+    if not mongo_uri:
+        raise ValueError("E2E_MONGO_URI must explicitly identify the disposable Mongo service.")
+    verify_docker_targets(mongo_uri, uri)
     # Only CREATE DATABASE is issued on the administrative database, never a reset.
     with psycopg.connect(make_conninfo(uri, dbname="postgres"), autocommit=True, connect_timeout=5) as admin:
+        verify_postgres_identity(admin)
         if not admin.execute("SELECT pg_try_advisory_lock(%s)", (LOCK_KEY,)).fetchone()[0]:
             raise RuntimeError("Another E2E run/reset is active; refusing concurrent initialization.")
         if not admin.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DATABASE,)).fetchone():
@@ -86,6 +91,7 @@ def locked_database(uri: str):
         with psycopg.connect(uri, autocommit=True, connect_timeout=5) as connection:
             if connection.execute("SELECT current_database()").fetchone()[0] != DATABASE:
                 raise ValueError("Connected PostgreSQL database is not stockpilot_e2e.")
+            verify_postgres_identity(connection)
             yield connection
 
 
@@ -93,6 +99,9 @@ def reset_stores(settings: Settings, connection, mongo) -> None:
     validate_active_settings(settings)
     if mongo.name != DATABASE or connection.execute("SELECT current_database()").fetchone()[0] != DATABASE:
         raise ValueError("Refusing reset outside stockpilot_e2e.")
+    verify_docker_targets(settings.mongo_uri, settings.postgres_url)
+    verify_mongo_identity(mongo.client)
+    verify_postgres_identity(connection)
     hello = mongo.client.admin.command("hello")
     if not hello.get("setName") or not hello.get("isWritablePrimary"):
         raise RuntimeError("E2E Mongo requires a writable replica-set primary.")
@@ -137,6 +146,7 @@ def main() -> int:
     try:
         settings = configure_environment()
         validate_active_settings(settings)
+        verify_docker_targets(settings.mongo_uri, settings.postgres_url)
         if args.serve:
             if settings.customer_jwt_secret is None:
                 raise ValueError("The Playwright launcher must provide an ephemeral JWT secret.")
@@ -144,8 +154,9 @@ def main() -> int:
             with urlopen(settings.ollama_base_url.rstrip("/") + "/api/tags", timeout=10) as response:
                 if response.status != 200:
                     raise RuntimeError("Ollama is not ready.")
-        with locked_database(settings.postgres_url) as connection:
-            with MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=5000) as client:
+        with MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=5000) as client:
+            verify_mongo_identity(client)
+            with locked_database(settings.postgres_url) as connection:
                 if args.no_reset:
                     if client[DATABASE].name != DATABASE or not client[DATABASE].products.find_one():
                         raise ValueError("Existing E2E catalogue required; no seed permitted.")

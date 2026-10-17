@@ -51,6 +51,18 @@ uses an isolated dotenv directory and generated test JWT key. See
 Other Playwright E2E specs are described in [frontend/README](../frontend/README.md); the live
 ones need real Ollama and are opt-in.
 
+The historical live initializer additionally requires explicit `E2E_MONGO_URI`
+and `E2E_POSTGRES_URL` for the tmpfs-only `stockpilot-e2e-tests` project in
+`docker/compose.e2e.yml`. It inspects actual Docker labels, Compose provenance,
+exclusive network, published loopback ports and mounts before any DB creation or
+reset. A matching database name on a development/DEMO server is insufficient.
+Remote Docker hosts/contexts are refused; the effective daemon must use a local
+Unix socket so inspected published ports describe the same loopback as clients.
+See the frontend runbook for exact commands. The dedicated synthetic browser
+workflow runs the Advice harness above on relevant `main` PRs, with a 12-minute
+ceiling; it does not activate the historical real-model suite or modify required
+CI/release jobs. Real Ollama validation remains separate from deterministic proof.
+
 ## AI evaluations
 
 ```sh

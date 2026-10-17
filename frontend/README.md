@@ -396,7 +396,8 @@ Playwright preserves `e2e/order-flow.spec.ts`, `e2e/catalogue-navigation.spec.ts
 `e2e/admin.spec.ts` and `e2e/admin-products.spec.ts`, then runs the dedicated
 `e2e/admin-stock.spec.ts`, `e2e/admin-dashboard.spec.ts` and `e2e/admin-import.spec.ts` scenarios. It starts a
 dedicated FastAPI on port **8002** and Vite on **5174**, with no server reuse
-and no automatic retries. Only Mongo/Postgres/Ollama must already be running.
+and no automatic retries. The verified disposable Mongo/Postgres project and
+Ollama must already be running.
 The normal development FastAPI instance is neither used nor stopped.
 
 | Resource | E2E target |
@@ -427,18 +428,22 @@ npx playwright install chromium
 # npx playwright install-deps chromium
 ```
 
-Use a shell with local PostgreSQL connection credentials and the working Ollama
-URL. Settings does not load env files automatically. The E2E PostgreSQL URL
-defaults to `POSTGRES_URL` with its database replaced by `stockpilot_e2e`.
-Mongo defaults to the local replica-set URI. Optional `E2E_POSTGRES_URL` and
-`E2E_MONGO_URI` override only the connection; they must pass strict target checks.
-Do not configure remote production infrastructure.
+Use the dedicated disposable services in `docker/compose.e2e.yml` and a working
+Ollama URL. Both E2E connection variables are mandatory; no application setting
+is used as a fallback. The initializer verifies the effective Docker project,
+Compose source, loopback bindings, exclusive network, running/healthy services
+and tmpfs storage before connecting or resetting. Existing development/DEMO
+servers are refused even when a database is named `stockpilot_e2e`.
+Docker must use a local Unix socket (including Docker Desktop's local WSL socket).
+The effective context is inspected; remote TCP/SSH contexts and `DOCKER_HOST`
+values are refused because their published loopback is not the client's loopback.
+This check also respects `DOCKER_CONTEXT` overriding `DOCKER_HOST`.
 
 ```sh
-# Repository root; this file is private and ignored by Git.
-set -a
-source .env.local
-set +a
+# Repository root. First verify that this project/these ports do not already exist.
+docker compose -f docker/compose.e2e.yml -p stockpilot-e2e-tests up -d --wait
+export E2E_MONGO_URI='mongodb://127.0.0.1:27127/?replicaSet=rs0&directConnection=true'
+export E2E_POSTGRES_URL='postgresql://e2e:e2e@127.0.0.1:55532/stockpilot_e2e'
 # Only when Ollama runs on the Windows host:
 # source scripts/dev-env.sh
 cd frontend
@@ -446,6 +451,20 @@ npm run test:e2e
 # Optional interactive runner; restart the runner for a fresh reset:
 npm run test:e2e:ui
 ```
+
+After the run, inspect the project and remove only its disposable containers and
+network with `docker compose -f docker/compose.e2e.yml -p stockpilot-e2e-tests down`
+from the repository root. There are no persistent data volumes. Do not reuse an
+unidentified existing project. If the ports are occupied, stop here and select
+other free ports in a local Compose override; the URI ports must match inspected
+bindings. Do not stop another installation. `PGHOSTADDR`/`PGSERVICE` overrides are
+refused. All workers and launchers must use the same worktree Compose file.
+
+The independent `Synthetic browser validation` workflow runs only the fully
+synthetic Advice harness on relevant PRs to `main` or manually. It needs no
+database, Ollama or deployment credentials. Real-model ORDER/admin/browser runs
+remain an explicit deeper validation; the separate V13.3 candidate config never
+uses this reset initializer. See [testing](../docs/testing.md).
 
 The launcher overrides `MONGO_DATABASE`, `POSTGRES_URL`,
 `LANGGRAPH_CHECKPOINT_DB_URI`, `API_PROXY_TARGET` and `VITE_API_BASE_URL`; normal
@@ -506,9 +525,12 @@ new library or back-office client capability is introduced.
 
 ### Reset safety
 
-All destructive operations require the exact database name `stockpilot_e2e`,
-not merely a name containing `e2e`. A Mongo URI naming another database is
-rejected; an explicit PostgreSQL override must name `stockpilot_e2e`.
+All destructive operations require both proven disposable Docker services and
+the exact database name `stockpilot_e2e`, not merely a name containing `e2e`.
+A Mongo URI naming another database is rejected; PostgreSQL must also name
+`stockpilot_e2e`. Mongo requires direct replica-set mode so discovery cannot
+escape to a default-port server; proxy and libpq address/service overrides are
+refused. Matching URI text alone is insufficient.
 The connected PostgreSQL database and Mongo database are rechecked before reset.
 No `DROP DATABASE`, cascading truncation or arbitrary collection cleanup is used.
 The only operation on PostgreSQL's admin database is creating `stockpilot_e2e`
@@ -526,7 +548,7 @@ if setup fails partway, no backend is served and the next reset repairs E2E stat
 An explicit standalone reset (stop any manually started E2E server first):
 
 ```sh
-# Repository root, with local connection configuration exported:
+# Repository root, with both explicit disposable E2E URIs above exported:
 .venv/bin/python scripts/init_e2e_env.py
 ```
 
