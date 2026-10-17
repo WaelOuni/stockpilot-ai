@@ -32,7 +32,7 @@ revue et une décision distinctes : la candidate locale ne prouve pas cette apti
 | 4. Contrôler le catalogue | Référent métier | SKU exacts et uniques, catégories supportées, prix finis/non négatifs, stock entier ; vérifier 10 références et cas limites contre la source |
 | 5. Prévisualiser/importer | Administrateur supervisé | CSV conforme, aperçu sans écriture, confirmation explicite d'un lot ; reçu conservé ; produits nouveaux à stock zéro |
 | 6. Charger le stock | Opérateur + métier | Rapprochement signé des stocks initiaux ; ajustements autorisés avec motifs et identifiants d'opération ; pas de stock ajouté au CSV |
-| 7. Attribuer les accès | Opérateur | Émettre les JWT depuis l'autorité de confiance hors navigateur ; fournir les accès par canal privé ; tester expiration, révocation et séparation administrateur/client |
+| 7. Attribuer les accès | Opérateur | Émettre les JWT depuis l'autorité de confiance hors navigateur ; fournir les accès par canal privé ; tester expiration, retrait/rotation coordonnée selon le contrat disponible et séparation administrateur/client ; pas de révocation JWT individuelle disponible |
 | 8. Former | Référent | Recherche, nom ambigu, comparaison, budget, préparation puis confirmation, lecture de statut ; aucune mutation incertaine resoumise aveuglément |
 | 9. Accepter | Métier + technique | Exécuter la grille ci-dessous, signer les limites, autoriser ou refuser l'essai réel |
 | 10. Suivre/sortir | Référent + opérateur | Revue hebdomadaire des incidents et indicateurs ; export/restauration convenus ; retirer les accès en fin de pilote |
