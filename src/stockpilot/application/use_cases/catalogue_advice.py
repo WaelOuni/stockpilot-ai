@@ -4,7 +4,11 @@ import math
 import re
 import unicodedata
 from dataclasses import asdict, replace
+from decimal import Decimal
 from stockpilot.application.dto.advice_criteria import AdviceCriteria
+from stockpilot.application.use_cases.advice_presentation import (
+    advice_summary, catalogue_number, no_results_summary, relevance_reasons,
+)
 
 from stockpilot.domain.enums.product_category import ProductCategory
 
@@ -260,7 +264,7 @@ class CatalogueAdviceUseCase:
                     'response': 'Le catalogue ne peut pas être vérifié actuellement. Réessayez plus tard.'}
         if not verified:
             return {**empty, **context, 'advice_status': 'NO_RESULTS',
-                    'response': 'Aucun produit vérifiable du catalogue ne correspond à ces critères. Vous pouvez modifier le budget ou la catégorie.'}
+                    'response': no_results_summary(criteria)}
         recommendations = []
         llm_available = True
         shared_order = None
@@ -292,6 +296,7 @@ class CatalogueAdviceUseCase:
                 except Exception:
                     llm_available = False
             order = shared_order or order
+            reasons = relevance_reasons(criteria, product)
             comparison = {}
             if criteria.mode == 'compare':
                 is_reference = product.sku == reference_product.sku
@@ -299,26 +304,24 @@ class CatalogueAdviceUseCase:
                 comparison = {'role': 'reference' if is_reference else 'alternative',
                               'matches_criteria': matches,
                               'price_difference': product.price - reference_product.price}
-                facts['prix'] += (f' Écart de prix avec la référence : {product.price - reference_product.price:+g}.'
-                                  if not is_reference else ' Produit de référence.')
+                difference = Decimal(str(product.price)) - Decimal(str(reference_product.price))
+                reasons['prix'] += (' Produit de référence.' if is_reference else
+                                    f' Écart de prix avec la référence : {"+" if difference > 0 else ""}'
+                                    f'{catalogue_number(difference, price=True)}.')
                 if not matches:
-                    facts['prix'] += ' Hors critères' + (' : hors budget.' if criteria.maximum is not None and (
+                    reasons['prix'] += ' Hors critères' + (' : hors budget.' if criteria.maximum is not None and (
                         product.price >= criteria.maximum if criteria.exclusive_maximum else product.price > criteria.maximum
                     ) else ' (catégorie ou disponibilité).')
             elif criteria.mode == 'product' and not criteria.matches(product):
-                facts['prix'] += ' Fiche ciblée hors critères demandés ; ce produit n’est pas une correspondance valide.'
+                reasons['prix'] += ' Fiche ciblée hors critères demandés ; ce produit n’est pas une correspondance valide.'
             recommendations.append({**comparison, 'sku': product.sku, 'product_name': product.name,
                                     'category': product.category.value, 'price': product.price,
-                                    'stock': product.stock, 'explanation': ' '.join(facts[key] for key in order)})
-        summary = (f'Produit de référence et {len(recommendations) - 1} alternative(s) vérifiée(s). '
-                   if criteria.mode == 'compare' else 'Fiche du produit demandé. ' if criteria.mode == 'product'
-                   else 'Le moins cher parmi les produits précédemment présentés encore vérifiables. '
-                   if criteria.mode == 'cheapest' else f'{len(recommendations)} produit(s) du catalogue correspondent aux critères. ')
+                                    'stock': product.stock,
+                                    'explanation': (' '.join(reasons[key].strip() for key in order if reasons[key].strip())
+                                                    or 'Produit sélectionné dans le catalogue vérifié.')})
         return {'recommendations': recommendations, 'advice_status': 'RESULTS',
                 **context, 'advice_skus': [p['sku'] for p in recommendations],
-                'response': summary +
-                'Seuls la catégorie, le prix numérique et le stock sont vérifiés ; la devise et les caractéristiques techniques ne sont pas renseignées. '
-                'La disponibilité est un instantané.' + (
+                'response': advice_summary(criteria, verified) + (
                     ' Présentation déterministe : le modèle est indisponible ou sa réponse a été refusée.' if not llm_available else '')}
 
 

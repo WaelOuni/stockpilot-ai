@@ -25,6 +25,7 @@ test('real Ollama candidate: Advice, context, order cards, browser refresh and i
     await page.getByRole('button', { name: 'Connecter', exact: true }).click()
   }
   const send = async (message: string) => {
+    const previous = await page.locator('.message.assistant').count()
     const received = page.waitForResponse(r => r.url() === manifest.url + '/api/assistant' && r.request().method() === 'POST')
     await page.getByLabel('Votre message', { exact: true }).fill(message)
     const started = performance.now()
@@ -33,7 +34,8 @@ test('real Ollama candidate: Advice, context, order cards, browser refresh and i
     const response = await received
     expect(response.status()).toBe(200)
     const result = await response.json()
-    await expect(page.getByRole('log')).toContainText(result.response)
+    await expect(page.locator('.message.assistant')).toHaveCount(previous + 1)
+    await expect(page.locator('.message.assistant').last()).toContainText(result.response)
     timings.push({ message, total_ms: performance.now() - started, request_id: response.headers()['x-request-id'] })
     return result
   }
@@ -58,14 +60,16 @@ test('real Ollama candidate: Advice, context, order cards, browser refresh and i
   await expect(page.getByRole('article', { name: 'Produit de référence', exact: true })).toHaveCount(1)
   await expect(page.getByRole('article', { name: 'Alternative', exact: true })).toHaveCount(2)
   expect((await send('Compare cette perceuse avec deux autres.')).advice_status).toBe('CLARIFICATION_REQUIRED')
-  await expect(page.locator('article.recommendation')).toHaveCount(0)
+  await expect(page.locator('.message.assistant').last().locator('article.recommendation')).toHaveCount(0)
+  await expect(page.locator('article.recommendation')).toHaveCount(13)
   expect((await send('Conseille-moi sur la Perceuse Inconnue V017.')).advice_status).toBe('NO_RESULTS')
   await page.getByRole('button', { name: 'Nouvelle conversation', exact: true }).click()
   expect((await send('Compare cette perceuse avec deux autres.')).advice_status).toBe('CLARIFICATION_REQUIRED')
   await send('Conseille-moi sur le SKU D-C')
   const stock = await send('Le stock du SKU D-C ?')
   expect(stock.intent).toBe('STOCK_CHECK')
-  await expect(page.locator('article.recommendation')).toHaveCount(0)
+  await expect(page.locator('.message.assistant').last().locator('article.recommendation')).toHaveCount(0)
+  await expect(page.locator('article.recommendation')).toHaveCount(1)
   const prepared = await send('Commande-moi 1 SKU D-C')
   expect(prepared.order_status).toBe('PENDING_CONFIRMATION')
   await expect(page.getByRole('region', { name: 'Commande à confirmer' })).toBeVisible()

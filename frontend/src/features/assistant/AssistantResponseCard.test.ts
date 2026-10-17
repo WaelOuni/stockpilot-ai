@@ -147,7 +147,7 @@ describe('Contextual response cards', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(confirm.attributes('disabled')).toBeDefined()
     expect(wrapper!.get('textarea').attributes('disabled')).toBeDefined()
-    expect(wrapper!.get('[role="status"]').text()).toContain('prepare')
+    expect(wrapper!.get('[role="status"]').text()).toContain('prépare')
     const original = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body))
     const decision = JSON.parse(String(fetchMock.mock.calls[1]![1]?.body))
     expect(decision).toEqual({ thread_id: original.thread_id, message: 'Oui je confirme' })

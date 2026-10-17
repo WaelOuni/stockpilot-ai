@@ -41,7 +41,7 @@ describe('Assistant page', () => {
     fetchMock.mockResolvedValueOnce(response('Commande creee.', 'CONFIRMED'))
     wrapper = mount(AssistantPage)
     await send('Je veux commander 2 Bosch X100')
-    expect(wrapper.get('.order-prompt').text()).toContain('decision')
+    expect(wrapper.get('.order-prompt').text()).toContain('décision')
     await send('oui')
     expect(wrapper.find('.order-prompt').exists()).toBe(false)
     expect(wrapper.findAll('.message')).toHaveLength(4)
@@ -73,7 +73,7 @@ describe('Assistant page', () => {
     expect(wrapper.findAll('.message')).toHaveLength(0)
   })
 
-  it('removes previous advice cards after a stock turn while keeping the transcript', async () => {
+  it('keeps previous advice as snapshots after a stock turn, attached to its original message', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
       intent: 'PRODUCT_ADVICE', advice_status: 'RESULTS', response: 'Conseil vérifié',
       recommendations: [{ sku: 'A', product_name: 'Perceuse A', category: 'DRILL', price: 60, stock: 2, explanation: 'Stock vérifié' }],
@@ -83,7 +83,9 @@ describe('Assistant page', () => {
     await send('Je cherche une perceuse')
     expect(wrapper.findAll('[aria-label="Produit recommandé"]')).toHaveLength(1)
     await send('Le stock du SKU A ?')
-    expect(wrapper.findAll('[aria-label="Produit recommandé"]')).toHaveLength(0)
+    expect(wrapper.findAll('[aria-label="Produit recommandé"]')).toHaveLength(1)
+    expect(wrapper.findAll('.message.assistant')[0]!.text()).toContain('Instantané')
+    expect(wrapper.findAll('.message.assistant')[1]!.find('article.recommendation').exists()).toBe(false)
     expect(wrapper.text()).toContain('Conseil vérifié')
     expect(wrapper.text()).toContain('Stock courant')
   })

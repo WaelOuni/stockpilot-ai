@@ -34,10 +34,10 @@ test('real E2E catalogue advice, exact facts/links, absence and clarification wi
     expect(product.stock).toBe(actual.stock)
     if (reference.category !== 'OTHER') expect(product.category).toBe(reference.category)
     expect(product.price).toBeLessThanOrEqual(Math.ceil(reference.price) + 1)
-    await expect(page.getByRole('link', { name: `Voir la fiche de ${product.product_name}`, exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: `Voir la fiche catalogue de ${product.product_name}`, exact: true })).toBeVisible()
   }
   const first = answer.recommendations[0]
-  await page.getByRole('link', { name: `Voir la fiche de ${first.product_name}`, exact: true }).click()
+  await page.getByRole('link', { name: `Voir la fiche catalogue de ${first.product_name}`, exact: true }).click()
   await expect(page.getByRole('heading', { name: first.product_name, exact: true })).toBeVisible()
   await page.goto('/assistant')
   await page.getByLabel('JWT client', { exact: true }).fill(process.env.ADVICE_E2E_TOKEN)
