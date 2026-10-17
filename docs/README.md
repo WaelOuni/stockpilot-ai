@@ -6,6 +6,7 @@ kept in [archive/](archive/README.md) and are not current procedures.
 | Task | Read |
 |---|---|
 | Understand the product and its limits | [README](../README.md) |
+| Prepare a commercial demonstration or isolated pilot | [Product readiness](product/README.md) (positioning, demo, onboarding, cost hypotheses and prospect validation) |
 | Understand layers, flows and boundaries | [architecture](architecture.md), [order-flow](order-flow.md), [rag](rag.md) |
 | Install and run locally | [getting-started](getting-started.md) (uses [.env.example](../.env.example)) |
 | Run the persistent local demo | [demo-runbook](demo-runbook.md), [demo-dataset](demo-dataset.md) |
