@@ -44,6 +44,10 @@ class ProductRepositoryPort(Protocol):
         """Read bounded candidates filtered and ordered by price/SKU in the store."""
         ...
 
+    async def find_advice_by_sku(self, sku: str) -> Product | None:
+        """Read one exact identity with strict stored-fact validation for read-only advice."""
+        ...
+
     async def find_by_sku(self, sku: str) -> Product | None:
         ...
 

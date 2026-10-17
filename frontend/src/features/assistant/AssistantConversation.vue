@@ -73,6 +73,7 @@ function newConversation() {
         <AssistantResponseCard
           v-if="message.result"
           :result="message.result"
+          :show-advice="message.id === state.messages.at(-1)?.id"
           :actionable="message.id === state.messages.at(-1)?.id && !state.loading && !state.error && !state.decisionAttempted && !!customerToken"
           @confirm="decide('confirm')"
           @cancel="decide('cancel')"

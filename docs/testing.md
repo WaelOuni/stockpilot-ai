@@ -38,7 +38,17 @@ containers of your own Compose project when finished.
 cd frontend && npm ci && npm test && npm run typecheck && npm run lint && npm run build
 ```
 
-Playwright E2E specs are described in [frontend/README](../frontend/README.md); the live
+V13.C1 has a separate fully synthetic browser harness (no database/provider clients):
+
+```sh
+cd frontend && npx playwright test --config playwright.advice-synthetic.config.ts
+```
+
+It starts its own API/Vite on local ports 8002/5174, refuses existing servers and
+uses an isolated dotenv directory and generated test JWT key. See
+[catalogue-advice](catalogue-advice.md) for its contract and limitations.
+
+Other Playwright E2E specs are described in [frontend/README](../frontend/README.md); the live
 ones need real Ollama and are opt-in.
 
 ## AI evaluations

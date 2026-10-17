@@ -45,3 +45,8 @@ class StockPilotState(TypedDict, total=False):
     last_advice_query: str | None
     context_customer_id: str | None
     advice_query: str | None
+    # Optional additive fields: old checkpoints remain readable. Only bounded constraints/SKUs.
+    last_advice_criteria: dict | None
+    last_advice_skus: list[str]
+    advice_context_criteria: dict | None
+    advice_context_skus: list[str]

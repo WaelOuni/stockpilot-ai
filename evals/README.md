@@ -55,7 +55,12 @@ Run a subset with `--dataset intent`, `rag`, `recommendation` or `order`.
 The default `--suite historical` preserves the original 60 cases and their
 baseline. `--suite enriched` appends fifteen intent and eight ORDER cases from
 `intent_additional_cases.json` and `order_additional_cases.json`, plus five
-ORDER_STATUS cases from `intent_cases_enriched.json` (88 total).
+ORDER_STATUS cases from `intent_cases_enriched.json` (88 model/framework cases).
+The full deterministic enriched run also executes `catalogue_advice_cases.json`:
+10 synthetic conversations / 16 steps against the actual Advice graph (104 total).
+No external provider/database is used; the model baseline is unchanged. The Advice
+metric checks exact SKU lists, status, budgets, comparison roles and reference
+eligibility, independently of prose. An Advice failure returns exit 1.
 These cover varied out-of-domain advice, implicit tool needs, unknown
 references, signed/zero quantities, absent quantities and price/voltage/dimension
 traps, plus generic tools with power/voltage/diameter/material descriptions
@@ -213,7 +218,8 @@ Regression means a metric dropped **more than** three absolute percentage
 points (default); an absent required metric is also a regression. Baselines
 with stored hashes/configuration must match the dataset selection/content and
 model configuration. A subset run cannot be compared to a full-run baseline.
-Exit 0 = completed run (individual misses remain visible); exit 1 = regression;
+Exit 0 = completed model/framework run (individual model misses remain visible);
+exit 1 = baseline regression or synthetic Advice business failure;
 exit 2 = invalid configuration, unavailable service or invalid model schema.
 Service/schema failures produce an incomplete JSON report with no quality
 scores, not an artificial zero or a fabricated success.

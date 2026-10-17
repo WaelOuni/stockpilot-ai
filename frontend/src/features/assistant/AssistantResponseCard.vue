@@ -7,7 +7,7 @@ import OrderSummaryCard from '../../components/OrderSummaryCard.vue'
 import StockAvailabilityCard from '../../components/StockAvailabilityCard.vue'
 import { isOrderStatus } from '../../utils/format'
 
-const props = defineProps<{ result: AssistantResponse; actionable: boolean }>()
+const props = withDefaults(defineProps<{ result: AssistantResponse; actionable: boolean; showAdvice?: boolean }>(), { showAdvice: true })
 defineEmits<{ confirm: []; cancel: [] }>()
 const pending = computed(() => {
   const value = props.result.pending_order
@@ -24,7 +24,7 @@ const foundStatus = computed(() =>
 </script>
 
 <template>
-  <div v-if="result.intent === 'PRODUCT_ADVICE' && result.advice_status === 'RESULTS' && !result.confirmation_handled">
+  <div v-if="showAdvice !== false && result.intent === 'PRODUCT_ADVICE' && result.advice_status === 'RESULTS' && !result.confirmation_handled">
     <ProductRecommendationCard
       v-for="product in result.recommendations || []"
       :key="product.sku"

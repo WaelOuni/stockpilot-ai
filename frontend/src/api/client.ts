@@ -18,6 +18,18 @@ export async function sendAssistantMessage(body: AssistantRequest, signal?: Abor
         (status === 'RESULTS' ? !result.recommendations.length : !!result.recommendations.length)) {
       throw new ApiError('Les recommandations sont incompletes.', 200)
     }
+    const products = result.recommendations
+    if (products.some(product => product.role !== undefined || product.matches_criteria !== undefined || product.price_difference !== undefined)) {
+      const reference = products[0]
+      if (!reference || reference.role !== 'reference' || reference.price_difference !== 0 ||
+          products.some((product, index) =>
+            product.role !== (index === 0 ? 'reference' : 'alternative') ||
+            typeof product.matches_criteria !== 'boolean' || (index > 0 && !product.matches_criteria) ||
+            typeof product.price_difference !== 'number' || !Number.isFinite(product.price_difference) ||
+            Math.abs(product.price_difference - (product.price - reference.price)) > 0.000001)) {
+        throw new ApiError('La comparaison est incomplete.', 200)
+      }
+    }
   }
   return { ...result, response: result.response }
 }

@@ -162,6 +162,18 @@ def main(argv=None):
             raise ValueError("Dataset selection/content differs from baseline; establish a new reference")
         report = asyncio.run(local_evaluate(selected, cases) if args.mode == "local"
                              else evaluate("deterministic", selected, cases))
+        if args.mode == "deterministic" and args.suite == "enriched" and args.dataset == "all":
+            from evals.runners.catalogue_advice import load_advice_cases, evaluate_advice
+            advice_cases = load_advice_cases(ROOT / "evals/datasets/catalogue_advice_cases.json")
+            advice_results = asyncio.run(evaluate_advice(advice_cases))
+            report["cases"].extend(advice_results)
+            report["total_cases"] += len(advice_results)
+            failed = sum(bool(case["failed_checks"]) for case in advice_results)
+            report["failed_cases"] += failed
+            report["catalogue_advice_failed_cases"] = failed
+            report["metrics"]["catalogue_advice_business_accuracy"] = (len(advice_results) - failed) / len(advice_results)
+            report["metric_case_counts"]["catalogue_advice_business_accuracy"] = len(advice_results)
+            report["dataset_hashes"].update(dataset_hashes({"catalogue_advice": advice_cases}))
         report["regressions"] = []
         report["baseline_comparison"] = {"performed": False}
         if baseline is not None:
@@ -198,7 +210,7 @@ def main(argv=None):
         args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     for regression in report["regressions"]:
         print("REGRESSION:", regression)
-    return 1 if report["regressions"] else 0
+    return 1 if report["regressions"] or report.get("catalogue_advice_failed_cases", 0) else 0
 
 
 if __name__ == "__main__":

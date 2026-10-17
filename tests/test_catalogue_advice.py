@@ -26,17 +26,17 @@ def product(sku='A', price=99, stock=2, category=C.DRILL):
 
 def service(products, response='{"raisons":["prix","categorie","stock"]}'):
     repo = SimpleNamespace(find_advice_candidates=AsyncMock(return_value=products),
-                           find_by_sku=AsyncMock(side_effect=lambda sku: next(p for p in products if p.sku == sku)))
+                           find_advice_by_sku=AsyncMock(side_effect=lambda sku: next(p for p in products if p.sku == sku)))
     llm = SimpleNamespace(generate=AsyncMock(return_value=response))
     return CatalogueAdviceUseCase(repo, llm), repo, llm
 
 
 @pytest.mark.parametrize('question, category, maximum, available, limit, exclusive', [
-    ('Je cherche une perceuse à moins de 150 €.', C.DRILL, 150, None, 1, True),
+    ('Je cherche une perceuse à moins de 150 €.', C.DRILL, 150, None, 3, True),
     ('Quelles visseuses sont disponibles ?', C.SCREWDRIVER, None, True, 3, False),
     ('Propose-moi trois produits budget 150', None, 150, None, 3, False),
     ('Deux scies indisponibles à 150,50 euros maximum', C.SAW, 150.5, False, 2, False),
-    ('Une ponceuse pas en stock', C.SANDER, None, False, 1, False),
+    ('Une ponceuse pas en stock', C.SANDER, None, False, 3, False),
 ])
 def test_explicit_constraints(question, category, maximum, available, limit, exclusive):
     actual = extract_criteria(question)
@@ -64,14 +64,14 @@ def test_multiple_candidates_deterministic_and_revalidated():
     result = run(use.execute('Propose trois perceuses moins de 150 euros'))
     assert [p['sku'] for p in result['recommendations']] == ['A', 'B']
     assert all('plafond strict de 150' in p['explanation'] for p in result['recommendations'])
-    assert repo.find_by_sku.await_count == 4
+    assert repo.find_advice_by_sku.await_count == 4
     assert llm.generate.await_count == 1
 
 
 @pytest.mark.parametrize('stock,expected', [(0, 'NO_RESULTS'), (3, 'RESULTS')])
 def test_availability_recheck(stock, expected):
     use, repo, _ = service([product()])
-    repo.find_by_sku = AsyncMock(return_value=product(stock=stock))
+    repo.find_advice_by_sku = AsyncMock(return_value=product(stock=stock))
     assert run(use.execute('Quelles perceuses disponibles ?'))['advice_status'] == expected
 
 

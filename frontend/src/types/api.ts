@@ -15,6 +15,10 @@ export interface AssistantRequest {
 // /assistant returns a partial workflow state, not a dedicated response schema.
 export interface ProductRecommendation extends ProductResponse {
   explanation: string
+  // Optional, additive comparison metadata. A comparison contains one reference first.
+  role?: 'reference' | 'alternative'
+  matches_criteria?: boolean
+  price_difference?: number
 }
 
 export interface AssistantResponse {
