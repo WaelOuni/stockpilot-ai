@@ -71,3 +71,14 @@ No data migration, service deployment, secret or DEMO operation is part of this 
 References: [FastAPI proxy trust](https://fastapi.tiangolo.com/advanced/behind-a-proxy/),
 [Starlette middleware](https://www.starlette.dev/middleware/),
 [MDN CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy).
+
+## Long exact SKU compatibility
+
+CSV already permits 4096-character product identifiers. A maximum Unicode SKU may occupy 49,152 bytes when percent-encoded in a URL. The local web proxy therefore bounds individual request lines/large headers at 64 KiB (two buffers), rather than silently rejecting valid imported products at its default 8 KiB request-line ceiling. Application body/message/identifier limits remain separate. A public edge must be configured with the same compatibility contract or explicitly reject unsupported product identifiers before import; no historical SKU is renamed or truncated. This is a bounded local compatibility provision, not a recommendation to allow arbitrary headers or unbounded connections.
+
+Runtime validation of this buffer change used an owned disposable web container
+and a synthetic echo backend, with no database or business workflow: the exact
+4096-character four-byte Unicode SKU survived a 49,152-byte encoded path (200),
+and a request line above 64 KiB was rejected (414). Both test containers were
+removed by exact name. This proves proxy transport compatibility; API/Mongo
+identity preservation is separately covered by the guarded resource integration.
