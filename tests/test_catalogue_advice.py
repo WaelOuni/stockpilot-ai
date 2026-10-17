@@ -91,7 +91,9 @@ def test_hallucinated_model_text_cannot_be_rendered(response):
     result = run(use.execute('Une perceuse moins de 150 euros'))
     assert result['advice_status'] == 'RESULTS'
     assert 'INVENTED' not in str(result) and 'brushless' not in str(result)
-    assert '99' in result['recommendations'][0]['explanation']
+    assert result['recommendations'][0]['price'] == 99
+    assert 'plafond strict de 150' in result['recommendations'][0]['explanation']
+    assert 'Présentation déterministe' in result['response']
 
 
 def test_ollama_outage_keeps_verified_products_and_never_changes_other_intents():
