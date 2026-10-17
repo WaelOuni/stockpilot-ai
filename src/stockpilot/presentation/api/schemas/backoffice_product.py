@@ -3,9 +3,10 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from stockpilot.domain.enums.product_category import ProductCategory
+from stockpilot.application.input_limits import MAX_PRODUCT_TEXT_CHARS
 
 
-Nonblank = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=256)]
+Nonblank = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=MAX_PRODUCT_TEXT_CHARS)]
 Price = Annotated[float, Field(ge=0, allow_inf_nan=False, strict=True)]
 
 

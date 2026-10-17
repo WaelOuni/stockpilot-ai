@@ -180,7 +180,7 @@ def test_token_never_appears_in_response_or_structured_logs(
 
 @pytest.mark.parametrize("token", [None, TOKEN])
 @pytest.mark.parametrize("authorization", [None, "Bearer wrong-token"])
-def test_public_routes_remain_accessible_without_backoffice_auth(
+def test_health_public_and_customer_routes_independent_of_backoffice_auth(
     monkeypatch, mutation_use_cases, token, authorization,
 ):
     configure_token(monkeypatch, token)
@@ -196,10 +196,10 @@ def test_public_routes_remain_accessible_without_backoffice_auth(
         "Authorization": authorization,
     })
     assert client.get("/health").json() == {"status": "UP"}
-    assert client.post("/chat", json={"message": "advice"}).json() == {
+    assert client.post("/chat", headers=customer_headers(), json={"message": "advice"}).json() == {
         "response": "mock advice",
     }
-    response = client.post("/classify", json={"message": "classify"})
+    response = client.post("/classify", headers=customer_headers(), json={"message": "classify"})
     assert response.status_code == 200
     assert response.json()["intent"] == "PRODUCT_ADVICE"
     response = client.post("/assistant", headers=customer_headers("customer-a"),
