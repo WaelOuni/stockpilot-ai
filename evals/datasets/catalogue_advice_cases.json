@@ -1,0 +1,12 @@
+[
+  {"id":"advice-default-three","steps":[{"message":"Je cherche une perceuse disponible à moins de 100 euros.","expected":{"skus":["D-A","D-B","D-C"],"status":"RESULTS","budget":100}}]},
+  {"id":"advice-budget-replacement","steps":[{"message":"Je cherche une perceuse disponible à moins de 100 euros.","expected":{"skus":["D-A","D-B","D-C"],"status":"RESULTS"}},{"message":"Et si je monte le budget à 150 euros ?","expected":{"skus":["D-A","D-B","D-C"],"status":"RESULTS","budget":150}}]},
+  {"id":"advice-exact-named","steps":[{"message":"Conseille-moi sur la Perceuse Concurrence Synthétique V017.","expected":{"skus":["D-C"],"status":"RESULTS"}}]},
+  {"id":"advice-partial-named","steps":[{"message":"Conseille-moi sur Concurrence Synthétique.","expected":{"skus":["D-C"],"status":"RESULTS"}},{"message":"Compare cette perceuse avec deux autres disponibles.","expected":{"skus":["D-C","D-A","D-B"],"status":"RESULTS","roles":["reference","alternative","alternative"]}}]},
+  {"id":"advice-ambiguous-name","steps":[{"message":"Conseille-moi sur la Perceuse Pro V017.","expected":{"skus":[],"status":"CLARIFICATION_REQUIRED"}}]},
+  {"id":"advice-unknown-product","steps":[{"message":"Conseille-moi sur la Perceuse Inconnue V017.","expected":{"skus":[],"status":"NO_RESULTS"}}]},
+  {"id":"advice-missing-reference","steps":[{"message":"Compare cette perceuse avec deux autres.","expected":{"skus":[],"status":"CLARIFICATION_REQUIRED"}}]},
+  {"id":"advice-ordinal-and-cheapest","steps":[{"message":"Je cherche une perceuse disponible à moins de 100 euros.","expected":{"skus":["D-A","D-B","D-C"],"status":"RESULTS"}},{"message":"Compare le premier avec deux autres.","expected":{"skus":["D-A","D-B","D-C"],"status":"RESULTS","roles":["reference","alternative","alternative"]}},{"message":"Et parmi ceux-là, lequel est le moins cher ?","expected":{"skus":["D-A"],"status":"RESULTS"}}]},
+  {"id":"advice-explicit-two-and-category-change","steps":[{"message":"Je cherche une perceuse disponible à moins de 100 euros.","expected":{"skus":["D-A","D-B","D-C"],"status":"RESULTS"}},{"message":"Montre-moi seulement deux produits.","expected":{"skus":["D-A","D-B"],"status":"RESULTS"}},{"message":"Et si je veux une visseuse plutôt ?","expected":{"skus":["S-A"],"status":"RESULTS","budget":100}}]},
+  {"id":"advice-out-of-budget-reference","steps":[{"message":"Compare le SKU D-H avec deux autres disponibles à moins de 100 euros.","expected":{"skus":["D-H","D-A","D-B"],"status":"RESULTS","roles":["reference","alternative","alternative"],"reference_matches":false}}]}
+]

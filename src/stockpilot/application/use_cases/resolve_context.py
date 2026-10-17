@@ -2,6 +2,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 
+from stockpilot.application.use_cases.catalogue_advice import is_advice_followup
 from stockpilot.application.dto.intent_result import IntentResult
 from stockpilot.application.order_quantity_evidence import quantitative_continuation, inspect_quantity
 from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
@@ -85,7 +86,7 @@ class ContextResolutionUseCase:
         continuation = bool(
             (previous.intent == Intent.ORDER and (quantity or product))
             or (previous.intent == Intent.STOCK_CHECK and (stock or product))
-            or (previous.intent == Intent.PRODUCT_ADVICE and previous.advice_query and (usage or budget or repeat_advice))
+            or (previous.intent == Intent.PRODUCT_ADVICE and previous.advice_query and (usage or budget or repeat_advice or is_advice_followup(message)))
         )
         compatible = continuation and result.intent in (Intent.UNKNOWN, previous.intent)
         if compatible and previous.intent is not None:
@@ -123,7 +124,8 @@ class ContextResolutionUseCase:
 
         advice_query = None
         if compatible and result.intent == Intent.PRODUCT_ADVICE and previous.advice_query:
-            result.category = result.category if result.category is not None else previous.category
+            category = result.category if result.category is not None else previous.category
+            result.category = ProductCategory(category) if category is not None else None
             result.budget = result.budget if result.budget is not None else (
                 float(budget.group(1)) if budget else previous.budget
             )
@@ -133,7 +135,7 @@ class ContextResolutionUseCase:
             # A bounded task summary, never the raw transcript or a growing chain of prompts.
             details = []
             if result.category is not None:
-                details.append(f"Categorie : {result.category.value}.")
+                details.append(f"Categorie : {ProductCategory(result.category).value}.")
             if result.budget is not None:
                 details.append(f"Budget : {result.budget:g} euros.")
             if result.usage:

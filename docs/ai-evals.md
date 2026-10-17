@@ -8,7 +8,7 @@ The offline eval framework uses small French golden datasets and objective
 intent/extraction, retrieval and structured recommendation/grounding checks.
 It is not an LLM-as-judge benchmark. Real mode uses local Ollama and pgvector;
 no SaaS LLM is used. It does not start the API, connect Mongo, create orders,
-change stock, write checkpoints, ingest documents or export business telemetry.
+change stock, write persistent checkpoints, ingest documents or export business telemetry.
 Run the CLI in a separate process, not inside the API.
 
 [evals/README.md](../evals/README.md) is the single source for dataset layout,
@@ -29,7 +29,10 @@ python scripts/run_evals.py --mode deterministic --suite enriched
 
 **Deterministic mode substitutes golden expectations as synthetic predictions.**
 It exercises loading/aggregation/reporting, not AI quality; it cannot establish
-or compare a model baseline. Mocked pytest independently checks wrong predictions,
+or compare a model baseline. The enriched deterministic full run additionally executes
+16 Advice business steps through the real graph using a synthetic in-memory
+catalogue/checkpointer and a deliberately hostile fake classifier. This is a
+business regression gate, not a model-quality score. Mocked pytest independently checks wrong predictions,
 partial retrieval, ungrounded recommendations and regressions.
 
 Real measurements require pre-ingested PostgreSQL documents and downloaded
@@ -51,7 +54,8 @@ database environment after eval work. Keep real credentials out of shell
 history/logs and reports outside Git.
 
 Historical is the default **60-case** suite/reference. The enriched suite now
-contains **88 cases**, including five ORDER_STATUS cases. Enriched data adds
+contains **88 model/framework cases**, including five ORDER_STATUS cases. The full
+deterministic enriched run includes the 16 Advice steps too (**104 total**). Enriched data adds
 intent/ORDER extraction cases and ORDER_STATUS classification/explicit-ID
 regressions, remaining separate complementary validation. Earlier measured
 enriched runs had 78 or 83 cases, before ORDER_STATUS additions.

@@ -9,8 +9,12 @@ defineProps<{ product: ProductRecommendation }>()
 <template>
   <article
     class="card recommendation"
-    aria-label="Produit recommandé"
+    :aria-label="product.role === 'reference' ? 'Produit de référence' : product.role === 'alternative' ? 'Alternative' : 'Produit recommandé'"
   >
+    <p v-if="product.role">
+      <strong>{{ product.role === 'reference' ? 'Produit de référence' : 'Alternative' }}</strong>
+      <span v-if="product.matches_criteria === false"> — Hors critères demandés</span>
+    </p>
     <ProductInfo :product="product" />
     <p>{{ product.explanation }}</p>
     <RouterLink :to="{ path: `/products/${encodeURIComponent(product.sku)}` }">

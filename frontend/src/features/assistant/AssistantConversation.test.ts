@@ -73,6 +73,21 @@ describe('Assistant page', () => {
     expect(wrapper.findAll('.message')).toHaveLength(0)
   })
 
+  it('removes previous advice cards after a stock turn while keeping the transcript', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      intent: 'PRODUCT_ADVICE', advice_status: 'RESULTS', response: 'Conseil vérifié',
+      recommendations: [{ sku: 'A', product_name: 'Perceuse A', category: 'DRILL', price: 60, stock: 2, explanation: 'Stock vérifié' }],
+    })))
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ intent: 'STOCK_CHECK', response: 'Stock courant' })))
+    wrapper = mount(AssistantPage, { global: { stubs: { RouterLink: true } } })
+    await send('Je cherche une perceuse')
+    expect(wrapper.findAll('[aria-label="Produit recommandé"]')).toHaveLength(1)
+    await send('Le stock du SKU A ?')
+    expect(wrapper.findAll('[aria-label="Produit recommandé"]')).toHaveLength(0)
+    expect(wrapper.text()).toContain('Conseil vérifié')
+    expect(wrapper.text()).toContain('Stock courant')
+  })
+
   it('shows HTTP errors without retrying confirmation automatically', async () => {
     fetchMock.mockResolvedValue(new Response('{"detail":"Unauthorized"}', { status: 401 }))
     wrapper = mount(AssistantPage)

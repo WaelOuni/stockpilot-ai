@@ -197,8 +197,12 @@ def test_enriched_suite_preserves_historical_cases(tmp_path):
     output = tmp_path / "enriched.json"
     assert run.main(["--suite", "enriched", "--output", str(output)]) == 0
     report = json.loads(output.read_text())
-    assert report["total_cases"] == 88
-    assert len({(case["dataset"], case["id"]) for case in report["cases"]}) == 88
+    historical_framework_cases = [case for case in report["cases"] if case["dataset"] != "catalogue_advice"]
+    assert len(historical_framework_cases) == 88
+    assert len({(case["dataset"], case["id"]) for case in historical_framework_cases}) == 88
+    assert report["metric_case_counts"]["catalogue_advice_business_accuracy"] == 16
+    assert report["total_cases"] == 104
+    assert len({(case["dataset"], case["id"]) for case in report["cases"]}) == 104
     for kind in ("intent", "order"):
         additions = load_cases(run.ROOT / "evals" / "datasets" / f"{kind}_additional_cases.json", kind)
         historical = load_cases(run.ROOT / "evals" / "datasets" / f"{kind}_cases.json", kind)

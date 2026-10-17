@@ -1,7 +1,8 @@
 import logging
 from stockpilot.observability import Timer, bind_context, event, timed_event
 
-from stockpilot.application.use_cases.catalogue_advice import extract_criteria, ClarificationRequired
+from stockpilot.application.dto.advice_criteria import AdviceCriteria
+from stockpilot.application.use_cases.catalogue_advice import extract_criteria, ClarificationRequired, is_advice_followup
 from stockpilot.application.use_cases.classify_intent import ClassifyIntentUseCase
 from stockpilot.application.dto.intent_result import IntentResult
 from stockpilot.application.use_cases.resolve_context import (
@@ -152,6 +153,17 @@ def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
                 "last_relevant_intent": None,
                 "context_customer_id": state.get("customer_id"),
             }
+        advice_continuation = (owner_matches and previous.intent == Intent.PRODUCT_ADVICE
+                               and result.classification.intent == Intent.PRODUCT_ADVICE
+                               and is_advice_followup(state["message"]))
+        prior_criteria = state.get("last_advice_criteria") if advice_continuation else None
+        if advice_continuation and prior_criteria is None and previous.advice_query:
+            # Read legacy checkpoints without migrating or concatenating old prompts.
+            try:
+                from stockpilot.application.use_cases.catalogue_advice import criteria_context
+                prior_criteria = criteria_context(extract_criteria(previous.advice_query))
+            except ClarificationRequired:
+                pass
         inherited_evidence = None
         if result.quantity_from_context:
             inherited_evidence = state.get("last_order_quantity_evidence")
@@ -160,6 +172,10 @@ def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
             **({"pending_order": None, "order_status": None}
                if pending.get("status") == PreparedOrderStatus.PENDING_CONFIRMATION.value
                and result.classification.intent not in (Intent.ORDER, Intent.ORDER_STATUS) else {}),
+            "advice_context_criteria": prior_criteria,
+            "advice_context_skus": state.get("last_advice_skus", [])[:5] if advice_continuation else [],
+            **({"last_advice_criteria": None, "last_advice_skus": []}
+               if result.classification.intent != Intent.PRODUCT_ADVICE else {}),
             "quantity_validation_failed": False,
             "inherited_quantity_evidence": inherited_evidence,
             "product_from_context": result.product_from_context,
@@ -417,19 +433,23 @@ def create_advice_node(
     ) -> StockPilotState:
         if catalogue_advice is not None:
             question = state["message"]
-            # Reuse only user-authored evidence from a resolved same-owner follow-up,
-            # never classifier-supplied budgets/categories in the generated summary.
-            if state.get("advice_query") and state.get("last_advice_query"):
-                question = state["last_advice_query"] + "\n" + question
-            advice = await catalogue_advice.execute(question)
-            try:
-                criteria = extract_criteria(question)
-            except ClarificationRequired:
-                criteria = None
+            previous = (AdviceCriteria(**state["advice_context_criteria"])
+                        if state.get("advice_context_criteria") else None)
+            advice = await catalogue_advice.execute(
+                question, previous=previous,
+                previous_skus=tuple(state.get("advice_context_skus", [])[:5]),
+            )
+            stored_criteria = advice.pop("advice_criteria", None)
+            presented_skus = advice.pop("advice_skus", [])
+            criteria = AdviceCriteria(**stored_criteria) if stored_criteria else None
             # Do not expose model-invented single-product/constraint metadata beside
             # verified multi-product cards; subsequent context is grounded too.
             return {
                 **advice, "product_name": None, "raw_product": None,
+                "last_advice_criteria": stored_criteria,
+                "last_advice_skus": presented_skus,
+                "last_advice_query": question,
+                "advice_query": None, "advice_context_criteria": None, "advice_context_skus": [],
                 "quantity": None, "usage": None, "last_product_name": None,
                 "last_quantity": None, "last_usage": None,
                 "category": criteria.category if criteria else None,

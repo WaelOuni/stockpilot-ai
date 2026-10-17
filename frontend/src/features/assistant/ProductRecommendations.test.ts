@@ -42,3 +42,40 @@ describe('Catalogue-grounded chat cards', () => {
     await expect(sendAssistantMessage({ message: 'Perceuse', thread_id: 'thread' })).rejects.toThrow('recommandations')
   })
 })
+
+it('renders several cards with explicit comparison roles', () => {
+  const reference = { ...recommendation, role: 'reference' as const, matches_criteria: false, price_difference: 0 }
+  const alternative = { ...recommendation, sku: 'B', product_name: 'Alternative réelle', role: 'alternative' as const, matches_criteria: true, price_difference: -20, price: 79.5 }
+  const wrapper = mount(AssistantResponseCard, { props: { result: { ...result, recommendations: [reference, alternative] }, actionable: false }, global: { stubs: { RouterLink: true } } })
+  expect(wrapper.findAll('article')).toHaveLength(2)
+  expect(wrapper.get('[aria-label="Produit de référence"]').text()).toContain('Hors critères')
+  expect(wrapper.get('[aria-label="Alternative"]').text()).toContain('Alternative réelle')
+  wrapper.unmount()
+})
+
+it.each(['NO_RESULTS', 'CLARIFICATION_REQUIRED', 'CATALOGUE_UNAVAILABLE'] as const)('renders no old cards for %s', (advice_status) => {
+  const wrapper = mount(AssistantResponseCard, { props: { result: { ...result, advice_status, recommendations: [] }, actionable: false } })
+  expect(wrapper.findAll('article')).toHaveLength(0)
+  wrapper.unmount()
+})
+
+it('accepts backward compatible cards and valid comparison metadata', async () => {
+  setCustomerToken('test-only-token')
+  const products = [
+    { ...recommendation, role: 'reference', matches_criteria: false, price_difference: 0 },
+    { ...recommendation, sku: 'B', price: 79.5, role: 'alternative', matches_criteria: true, price_difference: -20 },
+  ]
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...result, recommendations: products }))))
+  expect((await sendAssistantMessage({ message: 'Compare', thread_id: 'thread' })).recommendations).toHaveLength(2)
+})
+
+it.each([
+  { role: 'alternative', matches_criteria: true, price_difference: 0 },
+  { role: 'reference', matches_criteria: true, price_difference: 10 },
+  { role: 'reference', matches_criteria: 'yes', price_difference: 0 },
+  { role: 'reference', price_difference: 0 },
+])('refuses inconsistent comparison metadata', async (metadata) => {
+  setCustomerToken('test-only-token')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...result, recommendations: [{ ...recommendation, ...metadata }] }))))
+  await expect(sendAssistantMessage({ message: 'Compare', thread_id: 'thread' })).rejects.toThrow('comparaison')
+})

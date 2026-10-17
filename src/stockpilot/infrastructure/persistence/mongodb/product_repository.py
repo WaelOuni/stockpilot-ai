@@ -206,21 +206,33 @@ class MongoProductRepository(ProductRepositoryPort):
             query["category"] = criteria.category.value
         if criteria.available is not None:
             query["stock"] = {"$gt" if criteria.available else "$lte": 0}
+        if criteria.exclude_skus:
+            query["sku"] = {"$nin": list(criteria.exclude_skus)}
         documents = self.collection.find(query).sort([
             ("price", 1), ("sku", 1), ("_id", 1),
         ]).limit(criteria.limit)
-        products = []
-        for document in documents:
-            if (isinstance(document["price"], bool)
-                    or not isinstance(document["price"], (int, float))
-                    or isinstance(document["stock"], bool)
-                    or not isinstance(document["stock"], int) or document["stock"] < 0):
-                raise ValueError("Malformed catalogue facts; advice refused.")
-            product = self._to_product(document)
-            if not product.sku.strip() or not product.name.strip() or not criteria.matches(product):
-                raise ValueError("Invalid catalogue candidate; advice refused.")
-            products.append(product)
+        products = [self._to_advice_product(document) for document in documents]
+        if any(not criteria.matches(product) for product in products):
+            raise ValueError("Invalid catalogue candidate; advice refused.")
         return products
+
+    def _to_advice_product(self, document) -> Product:
+        # Validate raw values before the legacy converter can coerce bools/fractions.
+        if (isinstance(document["price"], bool)
+                or not isinstance(document["price"], (int, float))
+                or isinstance(document["stock"], bool)
+                or not isinstance(document["stock"], int) or document["stock"] < 0):
+            raise ValueError("Malformed catalogue facts; advice refused.")
+        product = self._to_product(document)
+        if not AdviceCriteria().matches(product):
+            raise ValueError("Malformed catalogue facts; advice refused.")
+        return product
+
+    async def find_advice_by_sku(self, sku: str) -> Product | None:
+        documents = list(self.collection.find({"sku": sku}, collation=Collation("simple")).limit(2))
+        if len(documents) > 1:
+            raise ValueError("Duplicate product SKU; advice refused.")
+        return self._to_advice_product(documents[0]) if documents else None
 
     async def find_by_sku(self, sku: str) -> Product | None:
         documents = list(self.collection.find({"sku": sku}).limit(2))
