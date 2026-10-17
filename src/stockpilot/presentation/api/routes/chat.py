@@ -1,3 +1,4 @@
+from stockpilot.presentation.api.auth import require_customer_identity
 from fastapi import APIRouter, Depends, Request
 import logging
 from stockpilot.observability import timed_event
@@ -13,7 +14,7 @@ from stockpilot.presentation.api.schemas.chat import ChatRequest, ChatResponse
 from stockpilot.presentation.api.input_protection import validate_conversation_input
 
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_customer_identity)])
 logger = logging.getLogger(__name__)
 
 

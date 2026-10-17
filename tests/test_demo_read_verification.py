@@ -1,3 +1,4 @@
+from customer_auth import CUSTOMER_JWT_SECRET, customer_headers
 from unittest.mock import MagicMock
 
 from fastapi.testclient import TestClient
@@ -60,8 +61,8 @@ def test_real_session_expiry_and_recomposition_are_read_only():
 def test_simulated_read_network_errors_fail_closed_without_mutation(error):
     database = MagicMock()
     database["products"].find.side_effect = error("withheld simulated driver details")
-    app = compose_read_app(database, Settings())
-    with TestClient(app, base_url=ORIGIN, raise_server_exceptions=False) as client:
+    app = compose_read_app(database, Settings(customer_jwt_secret=CUSTOMER_JWT_SECRET))
+    with TestClient(app, base_url=ORIGIN, headers=customer_headers(), raise_server_exceptions=False) as client:
         response = client.get("/products/DEMO-1")
         assert response.status_code == 500
         assert response.text == "Internal Server Error"

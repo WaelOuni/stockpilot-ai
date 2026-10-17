@@ -117,7 +117,12 @@ raise SystemExit(main())
                 time.sleep(.25)
             else:
                 pytest.fail('Isolated launcher readiness timeout')
-            assert client.get('/api/products').status_code == 200
+            assert client.get('/api/products').status_code == 401
+            token = subprocess.check_output([
+                sys.executable, str(ROOT / 'scripts/create_customer_token.py'),
+                'ephemeral-lifecycle-reader', '--expires-in', '1800',
+            ], cwd=ROOT, env=environment, text=True, stderr=subprocess.PIPE).strip()
+            assert client.get('/api/products', headers={'Authorization': 'Bearer ' + token}).status_code == 200
             assert client.get('/products').status_code == 200
     finally:
         process.send_signal(signal.SIGINT)

@@ -1,3 +1,4 @@
+from customer_auth import configure_customer_auth, customer_headers
 import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -22,7 +23,8 @@ def catalogue(monkeypatch):
     )
     monkeypatch.setattr(app.state, "list_products_use_case", ListProductsUseCase(repository))
     monkeypatch.setattr(app.state, "get_product_use_case", GetProductUseCase(repository))
-    return TestClient(app), repository, products
+    configure_customer_auth(monkeypatch, app)
+    return TestClient(app, headers=customer_headers()), repository, products
 
 
 def test_public_catalogue_contract_and_pagination(catalogue):
