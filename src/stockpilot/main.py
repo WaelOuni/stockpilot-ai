@@ -64,6 +64,7 @@ from stockpilot.infrastructure.persistence.postgres.pgvector_knowledge_repositor
 from stockpilot.infrastructure.persistence.postgres.checkpointer import open_checkpointer
 from stockpilot.observability import configure_logging
 from stockpilot.presentation.api.observability import RequestLoggingMiddleware
+from stockpilot.presentation.api.security_http import HttpResponseHeaders, install_http_security
 from stockpilot.telemetry import initialize_telemetry, instrument_app
 
 
@@ -107,11 +108,12 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
-app.add_middleware(SaasBoundaryMiddleware)
-app.add_middleware(RequestLoggingMiddleware)
-
 settings = Settings()
 app.state.settings = settings
+app.add_middleware(SaasBoundaryMiddleware)
+install_http_security(app)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(HttpResponseHeaders)
 telemetry_provider = initialize_telemetry(settings)
 instrument_app(app, telemetry_provider)
 

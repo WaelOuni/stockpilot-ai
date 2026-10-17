@@ -1,9 +1,44 @@
 from pydantic_settings import BaseSettings
 from typing import Literal
-from pydantic import Field, SecretStr
+import ipaddress
+import re
+from urllib.parse import urlsplit
+
+from pydantic import Field, SecretStr, field_validator
 
 
 class Settings(BaseSettings):
+    http_trusted_hosts: list[str] = Field(default_factory=list)
+    http_allowed_origins: list[str] = Field(default_factory=list)
+
+    @field_validator("http_trusted_hosts")
+    @classmethod
+    def exact_http_hosts(cls, hosts: list[str]) -> list[str]:
+        normalized = []
+        for host in hosts:
+            try:
+                address = ipaddress.ip_address(host.removeprefix("[").removesuffix("]"))
+                host = f"[{address}]" if address.version == 6 else str(address)
+            except ValueError:
+                if (not re.fullmatch(r"[a-zA-Z0-9.-]+", host)
+                        or host.startswith(".") or host.endswith(".") or ".." in host):
+                    raise ValueError("HTTP trusted hosts must be exact hostnames or IP addresses.") from None
+            normalized.append(host)
+        return normalized
+
+    @field_validator("http_allowed_origins")
+    @classmethod
+    def exact_http_origins(cls, origins: list[str]) -> list[str]:
+        for origin in origins:
+            parsed = urlsplit(origin)
+            if (parsed.scheme not in {"http", "https"} or not parsed.hostname
+                    or parsed.username or parsed.password or parsed.path or parsed.query
+                    or parsed.fragment or "*" in origin or any(c.isspace() for c in origin)):
+                raise ValueError("HTTP allowed origins must be exact HTTP(S) origins.")
+            if parsed.port == 0:
+                raise ValueError("HTTP allowed origins must use a valid port.")
+        return origins
+
     product_import_max_bytes: int = Field(default=2 * 1024 * 1024, ge=1, le=16 * 1024 * 1024)
     product_import_max_products: int = Field(default=500, ge=1, le=500)
     admin_username: str | None = Field(default=None, repr=False)
