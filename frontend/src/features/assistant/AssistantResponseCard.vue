@@ -24,13 +24,20 @@ const foundStatus = computed(() =>
 </script>
 
 <template>
-  <div v-if="showAdvice !== false && result.intent === 'PRODUCT_ADVICE' && result.advice_status === 'RESULTS' && !result.confirmation_handled">
+  <section
+    v-if="showAdvice !== false && result.intent === 'PRODUCT_ADVICE' && result.advice_status === 'RESULTS' && !result.confirmation_handled"
+    class="advice-snapshot"
+    :aria-label="result.recommendations?.some(product => product.role) ? 'Comparaison de cette réponse' : 'Produits de cette réponse'"
+  >
+    <p class="hint snapshot-notice">
+      Instantané de cette recherche · prix et stock non actualisés.
+    </p>
     <ProductRecommendationCard
       v-for="product in result.recommendations || []"
       :key="product.sku"
       :product="product"
     />
-  </div>
+  </section>
   <OrderSummaryCard
     v-if="result.intent === 'ORDER_STATUS' && result.order_status_result === 'FOUND' && result.queried_order_id && foundStatus"
     title="Statut de la commande"

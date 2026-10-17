@@ -16,8 +16,13 @@ describe('Catalogue-grounded chat cards', () => {
     const wrapper = mount(AssistantResponseCard, { props: { result, actionable: false }, global: { plugins: [router] } })
     expect(wrapper.text()).toContain('Outil réel')
     expect(wrapper.text()).toContain('A/B')
-    expect(wrapper.text()).toContain('99,5')
+    expect(wrapper.text()).toContain('99,50')
     expect(wrapper.text()).toContain('Disponible')
+    expect(wrapper.text()).toContain('Perceuse')
+    expect(wrapper.text()).not.toContain('DRILL')
+    expect(wrapper.text()).not.toContain('€')
+    expect(wrapper.text()).toContain('prix et stock non actualisés')
+    expect(wrapper.get('details').attributes('open')).toBeUndefined()
     expect(wrapper.text()).toContain(recommendation.explanation)
     expect(wrapper.get('a').attributes('href')).toBe('/products/A%2FB')
     wrapper.unmount()
@@ -41,6 +46,23 @@ describe('Catalogue-grounded chat cards', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ ...result, recommendations: [product] }))))
     await expect(sendAssistantMessage({ message: 'Perceuse', thread_id: 'thread' })).rejects.toThrow('recommandations')
   })
+})
+
+it('escapes long product names, SKU and legacy explanation text without enabling actions', () => {
+  const malicious = '<script>window.untrusted = true</script>'
+  const wrapper = mount(AssistantResponseCard, { props: {
+    result: { ...result, recommendations: [{ ...recommendation,
+      product_name: malicious + 'Outil très long '.repeat(40), sku: '<img src=x>',
+      explanation: 'Catégorie catalogue : DRILL. Prix catalogue : 99.5.', stock: 0,
+    }] }, actionable: false,
+  }, global: { stubs: { RouterLink: true } } })
+  expect(wrapper.find('script').exists()).toBe(false)
+  expect(wrapper.find('img').exists()).toBe(false)
+  expect(wrapper.get('h2').text()).toContain(malicious)
+  expect(wrapper.get('details').text()).toContain('Catégorie catalogue')
+  expect(wrapper.text()).toContain('Indisponible')
+  expect(wrapper.find('button').exists()).toBe(false)
+  wrapper.unmount()
 })
 
 it('renders several cards with explicit comparison roles', () => {

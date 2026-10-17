@@ -129,7 +129,7 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   expect(preparation.result.intent, 'The real classifier must identify ORDER.').toBe('ORDER')
   expect(preparation.result.order_status, 'Expected confirmation; check product matching and available stock.').toBe('PENDING_CONFIRMATION')
   expect(preparation.result.pending_order).toMatchObject({ product_name: 'Bosch X100', quantity: 1, customer_id: customerId })
-  await expect(page.getByText('Une commande attend votre decision.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Une commande attend votre décision.', { exact: false })).toBeVisible()
   expect(preparation.result.response).toMatch(/Confirmez-vous/)
 
   await expect(page.getByRole('region', { name: 'Commande à confirmer' })).toBeVisible()
