@@ -82,3 +82,14 @@ and a synthetic echo backend, with no database or business workflow: the exact
 and a request line above 64 KiB was rejected (414). Both test containers were
 removed by exact name. This proves proxy transport compatibility; API/Mongo
 identity preservation is separately covered by the guarded resource integration.
+
+## Upload boundary compatibility
+
+The import prefix accepts at most 16 MiB at Nginx, matching the existing hard CSV ceiling; the application still streams and enforces its configured default 2 MiB after admin authentication/CSRF. Other API bodies are capped at 1 MiB by the proxy and at the smaller configurable application limit (default 128 KiB). This prevents Nginx's default 1 MiB ceiling from silently blocking an otherwise valid CSV import. The explicit import proxy target preserves the full backend route prefix. Forwarding metadata is defined once at server scope and inherited by both API locations.
+
+References: [Nginx request/body limits](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size), [proxy URI replacement](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass).
+
+A fresh runtime echo-backend probe passed the exact import prefix and a 2 MiB
+upload through the rebuilt proxy. Other API bodies above 1 MiB and import bodies
+above 16 MiB returned 413; the Unicode SKU and request-line bounds also passed
+again. No real import, model request, database or business mutation was used.
