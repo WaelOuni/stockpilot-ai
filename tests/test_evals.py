@@ -200,9 +200,20 @@ def test_enriched_suite_preserves_historical_cases(tmp_path):
     historical_framework_cases = [case for case in report["cases"] if case["dataset"] != "catalogue_advice"]
     assert len(historical_framework_cases) == 88
     assert len({(case["dataset"], case["id"]) for case in historical_framework_cases}) == 88
-    assert report["metric_case_counts"]["catalogue_advice_business_accuracy"] == 16
-    assert report["total_cases"] == 104
-    assert len({(case["dataset"], case["id"]) for case in report["cases"]}) == 104
+    historical_advice = {
+        'advice-default-three': 1, 'advice-budget-replacement': 2, 'advice-exact-named': 1,
+        'advice-partial-named': 2, 'advice-ambiguous-name': 1, 'advice-unknown-product': 1,
+        'advice-missing-reference': 1, 'advice-ordinal-and-cheapest': 3,
+        'advice-explicit-two-and-category-change': 3, 'advice-out-of-budget-reference': 1,
+    }
+    historical_advice_ids = {f'{case_id}-{index}' for case_id, steps in historical_advice.items() for index in range(steps)}
+    actual_advice_ids = {case['id'] for case in report['cases'] if case['dataset'] == 'catalogue_advice'}
+    assert len(historical_advice_ids) == 16
+    assert historical_advice_ids <= actual_advice_ids
+    assert len(actual_advice_ids - historical_advice_ids) == 18
+    assert report["metric_case_counts"]["catalogue_advice_business_accuracy"] == 34
+    assert report["total_cases"] == 122
+    assert len({(case["dataset"], case["id"]) for case in report["cases"]}) == 122
     for kind in ("intent", "order"):
         additions = load_cases(run.ROOT / "evals" / "datasets" / f"{kind}_additional_cases.json", kind)
         historical = load_cases(run.ROOT / "evals" / "datasets" / f"{kind}_cases.json", kind)
