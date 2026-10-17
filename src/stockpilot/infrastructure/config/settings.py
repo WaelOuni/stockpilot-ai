@@ -40,6 +40,7 @@ class Settings(BaseSettings):
         return origins
 
     http_body_max_bytes: int = Field(default=128 * 1024, ge=128, le=1024 * 1024)
+    http_body_timeout_seconds: float = Field(default=10.0, ge=0.1, le=60, allow_inf_nan=False)
     api_message_max_chars: int = Field(default=8000, ge=1, le=32000)
     api_thread_max_chars: int = Field(default=128, ge=1, le=256)
     api_identifier_max_chars: int = Field(default=256, ge=1, le=256)

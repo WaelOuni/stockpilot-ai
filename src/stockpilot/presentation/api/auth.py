@@ -13,6 +13,11 @@ _backoffice_bearer = HTTPBearer(auto_error=False, scheme_name="BackofficeBearer"
 _customer_bearer = HTTPBearer(auto_error=False, scheme_name="CustomerBearer")
 
 
+async def authenticate_customer_request(request: Request) -> str:
+    """Reuse the route verifier before an ASGI layer receives a request body."""
+    return require_customer_identity(request, await _customer_bearer(request))
+
+
 def require_customer_identity(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_customer_bearer),

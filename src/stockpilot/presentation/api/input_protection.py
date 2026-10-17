@@ -1,12 +1,15 @@
 """Bound requests before dispatch; local admission is not a distributed quota."""
+import asyncio
 from threading import Lock
 
 from fastapi import HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
+from stockpilot.application.input_limits import MAX_PRODUCT_TEXT_CHARS
 from stockpilot.application.resource_errors import (
     ModelInputLimitError, ModelTimeoutError, ModelUnavailableError,
 )
+from stockpilot.presentation.api.auth import authenticate_customer_request
 
 
 CONVERSATION_PATHS = frozenset({"/assistant", "/chat", "/classify"})
@@ -26,13 +29,22 @@ class InputProtectionMiddleware:
             return await self.app(scope, receive, send)
         settings = scope["app"].state.settings
         path = scope["path"].rstrip("/")
+        conversation = path in CONVERSATION_PATHS and scope["method"] == "POST"
         admitted = False
-        if path in CONVERSATION_PATHS and scope["method"] == "POST":
+        if conversation:
+            # Authentication never reads the body and uses the same verifier as
+            # route dependencies. Anonymous slow uploads cannot own model slots.
+            try:
+                await authenticate_customer_request(Request(scope))
+            except HTTPException as error:
+                response = JSONResponse(
+                    {"detail": error.detail}, status_code=error.status_code,
+                    headers=error.headers,
+                )
+                return await response(scope, receive, send)
             with self._lock:
-                if self._inflight < settings.conversation_max_inflight:
-                    self._inflight += 1
-                    admitted = True
-            if not admitted:
+                full = self._inflight >= settings.conversation_max_inflight
+            if full:
                 response = JSONResponse(
                     {"detail": "Conversation service busy; retry later."},
                     status_code=429, headers={"Retry-After": "1"},
@@ -52,17 +64,39 @@ class InputProtectionMiddleware:
                 response = JSONResponse({"detail": "Request body too large."}, status_code=413)
                 return await response(scope, receive, send)
             body = bytearray()
-            while True:
-                message = await receive()
-                if message["type"] == "http.disconnect":
-                    return
-                chunk = message.get("body", b"")
-                if len(body) + len(chunk) > limit:
-                    response = JSONResponse({"detail": "Request body too large."}, status_code=413)
+            overflow = False
+            try:
+                # This deadline ends BEFORE dispatch. Never cancel a running
+                # ORDER workflow or transaction on an HTTP body deadline.
+                async with asyncio.timeout(settings.http_body_timeout_seconds):
+                    while True:
+                        message = await receive()
+                        if message["type"] == "http.disconnect":
+                            return
+                        chunk = message.get("body", b"")
+                        if len(body) + len(chunk) > limit:
+                            overflow = True
+                            break
+                        body.extend(chunk)
+                        if not message.get("more_body", False):
+                            break
+            except TimeoutError:
+                response = JSONResponse({"detail": "Request body timed out."}, status_code=408)
+                return await response(scope, receive, send)
+            if overflow:
+                response = JSONResponse({"detail": "Request body too large."}, status_code=413)
+                return await response(scope, receive, send)
+            if conversation:
+                with self._lock:
+                    if self._inflight < settings.conversation_max_inflight:
+                        self._inflight += 1
+                        admitted = True
+                if not admitted:
+                    response = JSONResponse(
+                        {"detail": "Conversation service busy; retry later."},
+                        status_code=429, headers={"Retry-After": "1"},
+                    )
                     return await response(scope, receive, send)
-                body.extend(chunk)
-                if not message.get("more_body", False):
-                    break
             delivered = False
 
             async def replay_body():
@@ -81,7 +115,10 @@ class InputProtectionMiddleware:
 
 async def require_bounded_path_identifiers(request: Request):
     limit = request.app.state.settings.api_identifier_max_chars
-    if any(isinstance(value, str) and len(value) > limit for value in request.path_params.values()):
+    if any(
+        isinstance(value, str) and len(value) > (MAX_PRODUCT_TEXT_CHARS if name == "sku" else limit)
+        for name, value in request.path_params.items()
+    ):
         raise HTTPException(422, "Request identifier exceeds configured limit.")
 
 

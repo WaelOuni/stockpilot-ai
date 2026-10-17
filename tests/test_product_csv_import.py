@@ -150,6 +150,24 @@ def test_limits_and_bounded_errors(use_cases):
     assert result.invalid
 
 
+@pytest.mark.parametrize("field", ["sku", "name"])
+def test_shared_product_text_ceiling_rejects_oversized_import_without_writes(use_cases, field):
+    from stockpilot.application.input_limits import MAX_PRODUCT_TEXT_CHARS
+
+    repository, preview, execute = use_cases
+    values = {"sku": "SYNTHETIC", "name": "Synthetic", "category": "DRILL", "price": "1"}
+    values[field] = "x" * (MAX_PRODUCT_TEXT_CHARS + 1)
+    content = ("sku,name,category,price\n" + ",".join(values.values())).encode()
+    rejected = preview.execute(content, SCOPE)
+    assert rejected.invalid == 1 and not rejected.binding
+    # Even an explicitly signed binding cannot bypass execution revalidation.
+    binding = str(int(preview.clock()) + 1800)
+    binding += "." + preview.signature(rejected.fingerprint, SCOPE, binding)
+    with pytest.raises(CsvImportConflict):
+        execute.execute(content, SCOPE, str(uuid4()), binding, True)
+    assert repository.products == {} and repository.receipts == {} and repository.writes == 0
+
+
 def test_atomic_stock_zero_replay_and_different_payload(use_cases):
     repository, preview, execute = use_cases
     before = deepcopy(repository.products)
