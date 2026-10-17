@@ -205,7 +205,7 @@ clean, prune, suppression de branche ou suppression de dossier ordinaire.
 |---|---|
 | `stockpilot-ai` | Conservé, dépôt principal propre ; branche locale main historique non déplacée |
 | `stockpilot-v133-validation` | Conservé obligatoirement : candidate active et scripts bind-mountés |
-| `stockpilot-e2e-safety`, `stockpilot-order-confirmation-ux`, `stockpilot-v14-design`, `stockpilot-product-readiness` | Conservés : travaux de cette mission / revue / publication |
+| `stockpilot-e2e-safety`, `stockpilot-v14-design`, `stockpilot-product-readiness` | Conservés : travaux de cette mission / revue / publication |
 | `stockpilot-order-quantity-guard`, `stockpilot-v014-hotfix`, `stockpilot-v1232-conversation-audit`, `stockpilot-v1238-conversation-fix` | Conservés : dossiers reports non suivis, aucun effacement ni archivage supposé |
 | `stockpilot-v132-auth-callers`, `stockpilot-v132-io-measurement` | Conservés : chacun un commit non publié détecté |
 | `stockpilot-v1321-integration` | Conservé : 20 commits non présents sur les remotes |
@@ -214,8 +214,14 @@ clean, prune, suppression de branche ou suppression de dossier ordinaire.
 | Anciennes entrées `/tmp` absentes | Métadonnées conservées, pas de prune global |
 | `/tmp/stockpilot-v125-order-natural` | Dossier existant mais plus worktree Git valide ; conservation obligatoire, aucun rm |
 
-**Aucun worktree supprimé ; espace récupéré : 0.** La préservation du travail et des
-rapports prime sur le gain disque. Le journal local d'inventaire ne contient que
+**Un seul worktree retiré proprement** : `stockpilot-order-confirmation-ux`, créé
+pour #34 puis libéré par son agent. HEAD publié et inclus dans main, aucun
+changement ni commit unique, rapport versionné et autres preuves conservées hors
+worktree, caches reproductibles, aucun cwd/fichier ouvert ni dépendance Docker.
+Commande : `git worktree remove`, sans force. La cible du lien `.venv` V133 reste
+intacte. Empreinte avant retrait : **152 028 KiB, environ 148,5 MiB** selon `du -sk` ;
+ce n’est pas une mesure isolée de blocs physiques libérés. Aucun worktree
+historique ambigu supprimé. La préservation des rapports prime sur le gain disque. Le journal local d'inventaire ne contient que
 métadonnées Git/process/Docker, hors secrets. Les dossiers et fichiers ordinaires
 `STOCKPILOT_AI_CHEAT_SHEET_COMPLET.html` et fichiers `:Zone.Identifier` ne sont pas
 reconnus comme worktrees et restent intacts. Aucun nettoyage de volumes Docker.

@@ -36,8 +36,9 @@ Toutes les entrées sont conservées. Ce document ne contient aucun log ou secre
 | `/tmp/stockpilot-v127-release` | `détaché` | `94b242f7c18c` | absent | — / — |
 
 Le worktree `stockpilot-e2e-safety` puis `stockpilot-order-confirmation-ux` ont été
-créés ensuite pour les corrections B/C ; ils sont également conservés. Aucun
-worktree utilisé par les agents de ce programme n'est retiré.
+créés ensuite pour les corrections B/C. B3 est conservé ; le worktree C a été
+retiré après fusion #34, libération par son agent et preuves de sûreté détaillées
+dans le rapport consolidé.
 
 Les huit worktrees propres et inclus dans main inspectés contiennent des logs
 ignorés non archivés ; C1 conserve aussi des résultats navigateur. Aucun cwd actif
@@ -50,7 +51,9 @@ L'inventaire de `/home/waelko/projects/` comprend en plus des fichiers HTML et
 `:Zone.Identifier`, qui ne sont pas des worktrees Git. Aucune suppression de ces
 fichiers ordinaires. Aucun prune des métadonnées `/tmp` absentes.
 
-Suppression effectuée : **aucune**. Espace récupéré : **0**. Dépôt principal,
+Suppression effectuée : **seul le nouveau worktree C terminé**, par
+`git worktree remove` sans force. Empreinte retirée : **152 028 KiB (~148,5 MiB)**,
+sans prétendre isoler les blocs physiques libérés sur le système. Dépôt principal,
 candidate, données et secrets inchangés par cette phase. Avant une reprise du
 nettoyage, refaire état Git, remotes/PR, cwd et fichiers ouverts, dépendances de
 montages, utilité/archivage des rapports ; utiliser uniquement `git worktree remove`
