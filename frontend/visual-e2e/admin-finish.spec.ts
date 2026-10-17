@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { customerHeaders, syntheticCustomerToken } from '../e2e/support/customer_auth'
 
 test('admin finishing: actions, alerts and long identifiers', async ({ page }) => {
   const stage = process.env.FINISH_STAGE || 'after'
@@ -11,10 +12,11 @@ test('admin finishing: actions, alerts and long identifiers', async ({ page }) =
   await page.getByLabel('Mot de passe administrateur').fill(process.env.E2E_ADMIN_PASSWORD!)
   await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
   await expect(page).toHaveURL(/admin\/orders/)
-  const data = await page.evaluate(async () => ({
-    product: (await (await fetch('/api/products?limit=1')).json()).items[0],
+  const jwt = syntheticCustomerToken(`visual-admin-finish-${process.env.E2E_FIXTURE_SUFFIX}`)
+  const data = await page.evaluate(async headers => ({
+    product: (await (await fetch('/api/products?limit=1', { headers })).json()).items[0],
     order: (await (await fetch('/api/backoffice/orders?limit=1')).json()).items[0],
-  }))
+  }), customerHeaders(jwt))
   const longSku = 'SKU-' + 'LONG-IDENTIFIER-'.repeat(10)
   const product = { ...data.product, sku: longSku }
   const order = { ...data.order, events: data.order.events.filter((event: { status: string }) => ['CREATED', 'PROCESSING'].includes(event.status)), customer_id: 'customer-' + 'long-'.repeat(35), status: 'PROCESSING' }

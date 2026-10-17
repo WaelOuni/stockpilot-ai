@@ -205,7 +205,7 @@ def verify_http(database, dataset, iterations):
             or dashboard["product_stats"] != expected_products
         ):
             raise ValueError("Dashboard aggregates do not match the persisted fixture.")
-        catalogue = _page_ids(client, "/products", "sku")
+        catalogue = _page_ids(client, "/products", "sku", headers=customer_headers)
         if catalogue != [
             product["sku"] for product in sorted(all_products, key=lambda item: (item["sku"], item["_id"]))
         ]:
@@ -240,14 +240,14 @@ def verify_http(database, dataset, iterations):
         )
         if stock_history != [movement["movement_id"] for movement in expected_movements]:
             raise ValueError("Stock history pagination does not match the persisted fixture.")
-        _expect(client.get("/products/DEMO-NOT-FOUND"), 404)
+        _expect(client.get("/products/DEMO-NOT-FOUND", headers=customer_headers), 404)
         _expect(client.get("/orders/DEMO-NOT-FOUND", headers=customer_headers), 404)
         _expect(client.get(f"/orders/{dataset.orders[1]['order_id']}", headers=customer_headers), 404)
-        _expect(client.get("/products?limit=0"), 422)
-        _expect(client.get("/products?offset=-1"), 422)
-        if _expect(client.get("/products?offset=10000"))["items"]:
+        _expect(client.get("/products?limit=0", headers=customer_headers), 422)
+        _expect(client.get("/products?offset=-1", headers=customer_headers), 422)
+        if _expect(client.get("/products?offset=10000", headers=customer_headers))["items"]:
             raise ValueError("Out-of-range product pagination should be empty.")
-        unavailable = _expect(client.get("/products?available=false"))["items"]
+        unavailable = _expect(client.get("/products?available=false", headers=customer_headers))["items"]
         expected_unavailable = sorted(
             product["sku"] for product in all_products if product["stock"] <= 0
         )
@@ -256,10 +256,10 @@ def verify_http(database, dataset, iterations):
         _expect(client.post(f"/backoffice/products/{sku}/stock-adjustments", json={}), 405)
 
         endpoints = {
-            "catalogue": ("/products?limit=20", None),
-            "catalogue_filters": ("/products?category=DRILL&available=true&q=Drill&limit=20", None),
-            "catalogue_unavailable_filter": ("/products?available=false", None),
-            "product_detail": (f"/products/{sku}", None),
+            "catalogue": ("/products?limit=20", customer_headers),
+            "catalogue_filters": ("/products?category=DRILL&available=true&q=Drill&limit=20", customer_headers),
+            "catalogue_unavailable_filter": ("/products?available=false", customer_headers),
+            "product_detail": (f"/products/{sku}", customer_headers),
             "dashboard": ("/backoffice/dashboard", None),
             "customer_history": ("/orders?limit=20", customer_headers),
             "customer_detail": (f"/orders/{order_id}", customer_headers),

@@ -27,7 +27,7 @@ def test_chat_uses_generate_use_case(monkeypatch) -> None:
     use_case = GenerateResponseUseCase(llm)
     monkeypatch.setattr(app.state, "generate_response_use_case", use_case)
 
-    response = TestClient(app).post("/chat", json={"message": "Recommend a drill"})
+    response = TestClient(app, headers=customer_headers()).post("/chat", json={"message": "Recommend a drill"})
 
     assert response.status_code == 200
     assert response.json() == {"response": "Product advice"}
@@ -46,7 +46,7 @@ def test_classify_uses_classify_use_case(monkeypatch) -> None:
     use_case = ClassifyIntentUseCase(llm)
     monkeypatch.setattr(app.state, "classify_intent_use_case", use_case)
 
-    response = TestClient(app).post("/classify", json={"message": "I need a drill"})
+    response = TestClient(app, headers=customer_headers()).post("/classify", json={"message": "I need a drill"})
 
     assert response.status_code == 200
     assert response.json() == {

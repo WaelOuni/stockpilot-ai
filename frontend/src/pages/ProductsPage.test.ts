@@ -17,7 +17,7 @@ const list = (count = 1, offset = 0, has_more = false) => json({
 const fetchMock = vi.fn<typeof fetch>()
 let wrapper: VueWrapper | undefined
 beforeEach(() => {
-  setCustomerToken('')
+  setCustomerToken('test-catalogue-customer')
   useAssistant().reset()
   vi.stubGlobal('fetch', fetchMock)
 })
@@ -39,14 +39,14 @@ async function open(path = '/products') {
   return router
 }
 
-it('lists public products with only real fields and no JWT header', async () => {
+it('lists authenticated products with only real fields', async () => {
   fetchMock.mockResolvedValue(list())
   await open()
   expect(wrapper!.text()).toContain('Bosch X100')
   expect(wrapper!.text()).toContain('Perceuse')
   expect(wrapper!.text()).toContain('99')
   expect(wrapper!.text()).toContain('10')
-  expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).has('Authorization')).toBe(false)
+  expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).has('Authorization')).toBe(true)
   expect(wrapper!.get('a').attributes('href')).toBe('/products/sku-0')
 })
 
@@ -139,10 +139,34 @@ it('handles detail loading, 404 and network failure', async () => {
   expect(wrapper!.get('[role="alert"]').text()).toContain('Connexion')
 })
 
-it('does not send a JWT for public endpoints even when connected and validates responses', async () => {
+it('sends the current JWT for catalogue endpoints and validates responses', async () => {
   setCustomerToken('private-test-token')
   fetchMock.mockResolvedValueOnce(json(product)).mockResolvedValueOnce(json({ items: [], limit: 20, offset: 0, count: 1 }))
   await getProduct('BOSCH-X100')
-  expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).has('Authorization')).toBe(false)
+  expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).has('Authorization')).toBe(true)
   await expect(listProducts()).rejects.toThrow('incomplet')
+})
+
+it('requests authentication before catalogue network access', async () => {
+  setCustomerToken('')
+  fetchMock.mockClear()
+  await open()
+  expect(wrapper!.get('[role="alert"]').text()).toContain('connecter')
+  expect(fetchMock).not.toHaveBeenCalled()
+  fetchMock.mockResolvedValueOnce(list())
+  setCustomerToken('customer-after-login')
+  await flushPromises()
+  expect(wrapper!.text()).toContain('Bosch X100')
+  expect(new Headers(fetchMock.mock.calls[0]![1]?.headers).get('Authorization')).toBe('Bearer customer-after-login')
+  setCustomerToken('')
+  await flushPromises()
+  expect(wrapper!.text()).not.toContain('Bosch X100')
+})
+
+it.each([401, 403])('shows safe catalogue error for HTTP %s without displaying private content', async status => {
+  fetchMock.mockResolvedValueOnce(json({ detail: 'SECRET-OTHER-TENANT' }, status))
+  await open()
+  expect(wrapper!.find('[role="alert"]').exists()).toBe(true)
+  expect(wrapper!.text()).not.toContain('SECRET-OTHER-TENANT')
+  expect(wrapper!.text()).not.toContain('Bosch X100')
 })

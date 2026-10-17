@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { customerToken } from '../utils/customerSession'
 import ProductFilters from '../components/ProductFilters.vue'
 import Pagination from "../components/BasePagination.vue"
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
@@ -84,7 +85,7 @@ async function load() {
     if (controller === request) loading.value = false
   }
 }
-watch(() => route.fullPath, () => {
+watch([() => route.fullPath, customerToken], () => {
   controller?.abort()
   loading.value = false
   search.value = typeof route.query.q === 'string' ? route.query.q : ''
