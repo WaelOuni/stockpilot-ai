@@ -51,6 +51,7 @@ from stockpilot.application.workflows.stockpilot_workflow import build_graph
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.llm.ollama_adapter import OllamaAdapter
 from stockpilot.infrastructure.persistence.mongodb.client import create_mongo_client
+from stockpilot.infrastructure.persistence.mongodb.admin_sessions import MongoAdminSessions
 from stockpilot.infrastructure.persistence.mongodb.product_repository import MongoProductRepository
 from stockpilot.infrastructure.persistence.mongodb.order_repository import MongoOrderRepository
 from stockpilot.infrastructure.persistence.mongodb.order_transaction import MongoOrderTransaction
@@ -81,6 +82,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging(settings.log_level, settings.log_file)
+    if settings.admin_session_store == "mongo":
+        app.state.admin_sessions.initialize()
     order_repository.initialize()
     checkpoint_uri = (
         settings.langgraph_checkpoint_db_uri
@@ -214,7 +217,9 @@ app.include_router(chat_router)
 app.include_router(assistant_router)
 app.include_router(orders_router)
 app.include_router(products_router)
-app.state.admin_sessions = AdminSessions()
+app.state.admin_sessions = (
+    MongoAdminSessions(mongo_database) if settings.admin_session_store == "mongo" else AdminSessions()
+)
 app.include_router(admin_session_router)
 app.include_router(backoffice_orders_router)
 app.include_router(backoffice_dashboard_router)

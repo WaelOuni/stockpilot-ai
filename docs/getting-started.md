@@ -135,7 +135,13 @@ session-bound CSRF token. No arbitrary stock mutation is exposed.
 Uncertain outcomes are reread, never retried automatically.
 Missing/unsafe configuration fails closed
 without preventing the existing customer/public/technical routes from running.
-See [session security and single-process limitations](order-flow.md#demo-administrator-sessions-v2).
+The default `ADMIN_SESSION_STORE=memory` is limited to development/test. For
+durable local operator sessions, explicitly select `ADMIN_SESSION_STORE=mongo`
+before startup. This creates dedicated security collections and an expiry index
+in the configured Mongo replica set; use only the intended environment. There is
+no migration or automatic fallback. Store configuration changes require restart.
+See [the durable session contract and limitations](security/admin-sessions.md)
+and [session security](order-flow.md#demo-administrator-sessions-v2).
 See [V3 operations and isolated E2E](order-flow.md#operational-administrator-orders-v3).
 
 V4.1 adds `/admin/products`, `/admin/products/new` and
