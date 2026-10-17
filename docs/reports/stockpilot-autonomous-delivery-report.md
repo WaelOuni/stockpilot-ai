@@ -53,7 +53,9 @@ cinq checks obligatoires ; #35 attendait aussi le nouveau navigateur synthétiqu
 Le dossier produit a été préparé séparément dans `docs/commercial-pilot-readiness`
 (`c0ded0e`, `9f27398`), puis intégré par cherry-pick dans la PR documentaire, avec
 résolution de l’index préservant les liens produit et V14. Aucun travail `dev`
-intégré. Les branches et worktrees sources restent conservés. Les changements
+intégré. Toutes les branches restent conservées ; seul le worktree C terminé est
+retiré selon les preuves de phase F. Les worktrees conservés de cette mission sont
+propres après commits ; les `reports/` historiques non suivis sont préservés. Les changements
 non committés de la reprise V13.3 ont été sauvegardés dans #33.
 
 ### Environnements conservés
