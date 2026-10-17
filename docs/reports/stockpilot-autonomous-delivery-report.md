@@ -158,6 +158,8 @@ support doivent être vérifiés avant une vraie donnée client.
 
 ## F — Inventaire et nettoyage conservateur
 
+[Inventaire initial détaillé](worktree-inventory-2026-10-17.md).
+
 Inventaire réalisé avec `git worktree list --porcelain`, état individuel, commits
 hors main/remotes, PR, cwd de processus, labels et mounts Docker. Aucun reset,
 clean, prune, suppression de branche ou suppression de dossier ordinaire.
