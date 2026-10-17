@@ -48,7 +48,7 @@ cinq checks obligatoires ; #35 attendait aussi le nouveau navigateur synthétiqu
 | [#33 — candidate V13.3](https://github.com/WaelOuni/stockpilot-ai/pull/33) | `validation/v133-integrated-demo` | `6b632b8264c32bcd1243849241cd50ad87107dd5` | MERGED `0a343a54d272d81bda5462543495f454bc128606` | 5 checks SUCCESS ; infra/tests/docs, fusion autorisée A |
 | [#34 — préparation et stock](https://github.com/WaelOuni/stockpilot-ai/pull/34) | `fix/order-preparation-explanation` | `fb17f5760dd98d78aafdd2cdfa145b5c22efb511` | MERGED `0aef4deb63933ad55eead2b782dd7ff5ae65be97` | 5 checks SUCCESS ; texte rétrocompatible et test, fusion autorisée C |
 | [#35 — isolation E2E](https://github.com/WaelOuni/stockpilot-ai/pull/35) | `fix/e2e-explicit-isolation` | `60ed62880b15354a3d07d1deeacd2d6eb800241e` | MERGED `0ea002ccf4ed2f667ff373774c649441fa27d87a` | 5 checks + advice-browser SUCCESS ; outillage, aucun contrat auth modifié, fusion autorisée B |
-| Livraison documentaire de ce rapport | `docs/v14-saas-design` | SHA final dans la PR associée | Publication après ces trois fusions | Revue indépendante faite ; CI obligatoire à attendre avant fusion documentaire |
+| [#36 — V14, produit et rapport](https://github.com/WaelOuni/stockpilot-ai/pull/36) | `docs/v14-saas-design` | SHA final dans la PR associée | OPEN lors de la rédaction, après les trois fusions | Revue indépendante faite ; état final et CI consultables dans cette PR avant fusion documentaire |
 
 Le dossier produit a été préparé séparément dans `docs/commercial-pilot-readiness`
 (`c0ded0e`, `9f27398`), puis intégré par cherry-pick dans la PR documentaire, avec
@@ -66,7 +66,9 @@ non committés de la reprise V13.3 ont été sauvegardés dans #33.
 - Mongo et PostgreSQL : `stockpilot_candidate_v133`, propres au projet
   `stockpilot-v133-candidate` ; trois volumes et quatre réseaux dédiés. Seul le web
   TLS est publié, sur `127.0.0.1:5193`.
-- 512 produits synthétiques, 2 000 commandes initiales et 3 000 mouvements ; les
+- Préflight final : cinq services sains, **512 produits**, **2 004 commandes**
+  (2 000 initiales + quatre contrôles annulés), **3 000 mouvements**, **387 checkpoints**
+  et quatre lignes RAG. Les
   commandes de contrôle annulées restent traçables. L'empreinte produits reste
   `d18a247367c6fdfb98ccb62ac17e5cbc2ca8b810106ece29fb71b8d95b2dc7b1` après les parcours
   ORDER et les validations navigateur. Quatre embeddings de 768 dimensions.
