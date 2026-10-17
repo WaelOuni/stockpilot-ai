@@ -7,11 +7,14 @@ interdisant de modifier les produits de la démo.
 
 ## DEMO conservée
 
-Seule la DEMO isolée **v0.1.7** (`stockpilot-demo-v017`, https://localhost:5191,
+La DEMO stable de référence **v0.1.7** (`stockpilot-demo-v017`, https://localhost:5191,
 déployée hors de ce dépôt depuis les images GHCR publiées) est conservée. Les DEMO
 v012 à v016 ont été retirées le 2026-10-16 ; leurs images GHCR, tags Git et Releases
 restent disponibles pour un retour arrière. Les consignes ci-dessous décrivent le
 lanceur local du dépôt, qui n'agit jamais sur cette instance.
+
+La candidate V13.3 est indépendante et reste une installation de validation,
+jamais une promotion de v017 : voir le [rapport et les commandes dédiées](validation/v13.3-integrated-candidate.md).
 
 ## Démarrer, arrêter, reprendre
 
