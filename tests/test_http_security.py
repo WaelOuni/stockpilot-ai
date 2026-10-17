@@ -234,3 +234,15 @@ def test_web_document_policy_is_local_and_does_not_assume_hsts():
     assert "Strict-Transport-Security" not in template
     assert "proxy_set_header X-Forwarded-Proto $scheme;" in template
     assert "proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto" not in template
+
+def test_composed_middleware_stack_order_keeps_saas_boundary_innermost():
+    from stockpilot.main import app
+    from stockpilot.presentation.api.saas_boundary import SaasBoundaryMiddleware
+
+    names = [middleware.cls.__name__ for middleware in app.user_middleware]
+    expected = ["HttpResponseHeaders", "RequestLoggingMiddleware", "HttpSecurityBoundary",
+                "SaasBoundaryMiddleware"]
+    assert SaasBoundaryMiddleware.__name__ in names, "SaaS fail-closed boundary is not registered"
+    assert names.count("SaasBoundaryMiddleware") == 1
+    positions = [names.index(name) for name in expected]
+    assert positions == sorted(positions), names

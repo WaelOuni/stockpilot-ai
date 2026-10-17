@@ -110,6 +110,7 @@ app = FastAPI(
 )
 settings = Settings()
 app.state.settings = settings
+app.add_middleware(SaasBoundaryMiddleware)
 install_http_security(app)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(HttpResponseHeaders)
