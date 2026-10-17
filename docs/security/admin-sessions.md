@@ -21,7 +21,7 @@ Keep the HTTP contract and password verification unchanged. Add a session-store
 port with the existing in-memory implementation for explicit development/test
 use and a MongoDB implementation using the already configured database. Select
 `ADMIN_SESSION_STORE=memory|mongo`; memory is refused by admin authentication
-outside development. A failed or unavailable persistent store returns a generic
+outside development/test. A failed or unavailable persistent store returns a generic
 503 and never falls back to memory.
 
 MongoDB stores only SHA-256 hashes of random 256-bit session identifiers. Session
@@ -87,3 +87,9 @@ mutations, not XSS or replay of a stolen cookie and CSRF token. Logout cannot
 cancel a mutation that was already authorized and started. SaaS administrator
 permissions, MFA, recovery, invitations and audited organizational revocation
 remain product/deployment decisions. This change is not production readiness.
+
+## Operational limitations verified during independent review
+
+Keep the operator interface on a restricted administrative network until a managed SaaS identity exists. The pre-password global/address throttle also limits an attacker’s ability to force expensive password hashing, but it can deny legitimate logins during a flood. A proxy presenting one shared address makes the per-address limit shared by all its users. Configure only verified trusted proxy peers and use network access controls; there is no unthrottled privileged login path. Successful requests count toward the existing conservative admission budget. This change preserves that policy rather than moving the CPU defense after password verification.
+
+Synchronize UTC clocks across workers and MongoDB. Clock skew affects session expiry and shared attempt windows; no clock-skew or multi-region rollout guarantee was established. The configuration fingerprint hashes the whole tuple including the salted password verifier and other private values; it is not a password/token hash or a replacement for secret storage. CSRF values are retained server-side to preserve `/me`; they remain protected backup data and do not grant access without the opaque session cookie.
