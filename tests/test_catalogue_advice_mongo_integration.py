@@ -63,12 +63,16 @@ def test_mongo_targeted_raw_validation(repository, database, field, value):
     assert result['advice_status'] == 'CATALOGUE_UNAVAILABLE' and result['recommendations'] == []
 
 
-def test_advice_constraints_and_references_survive_postgres_reconnection(repository):
+@pytest.mark.parametrize('initial', [
+    'Je cherche une perceuse disponible à moins de 100 euros.',
+    'Rechercher trois perceuses disponibles sous 100',
+])
+def test_advice_constraints_and_references_survive_postgres_reconnection(repository, initial):
     async def scenario(uri):
         config = {'configurable': {'thread_id': 'v13c1-persistent'}}
         async with open_checkpointer(uri) as saver:
             graph, _, _, _ = advice_graph(repository, saver)
-            first = await graph.ainvoke({'message': 'Je cherche une perceuse disponible à moins de 100 euros.', 'customer_id': 'a'}, config)
+            first = await graph.ainvoke({'message': initial, 'customer_id': 'a'}, config)
             assert first['last_advice_skus'] == ['D-A', 'D-B', 'D-C']
         async with open_checkpointer(uri) as saver:
             graph, _, _, forbidden = advice_graph(repository, saver)
@@ -82,3 +86,31 @@ def test_advice_constraints_and_references_survive_postgres_reconnection(reposit
             forbidden.execute.assert_not_awaited()
     with postgres_test_schema() as uri:
         asyncio.run(scenario(uri))
+
+
+@pytest.mark.parametrize('message,expected', [
+    ('Rechercher trois perceuses disponibles sous 100', ['D-A', 'D-B', 'D-C']),
+    ('Chercher trois perceuses à moins de 100', ['D-O', 'D-A', 'D-B']),
+    ('Recherche de perceuses disponibles sous 100', ['D-A', 'D-B', 'D-C']),
+    ('Trouve-moi trois perceuses sous 100 €', ['D-O', 'D-A', 'D-B']),
+    ('Je cherche trois perceuses disponibles à moins de 100 euros', ['D-A', 'D-B', 'D-C']),
+    ('Montre-moi les perceuses disponibles pour moins de 100 €', ['D-A', 'D-B', 'D-C']),
+    ('Propose-moi deux visseuses en stock à moins de 80 €', ['S-A']),
+    ('Quelles scies sont disponibles sous 150 € ?', ['W-A']),
+    ('Rechercher cinq perceuses disponibles maximum 100', ['D-A', 'D-B', 'D-C', 'D-E']),
+    ('Rechercher cinq perceuses disponibles sous 100', ['D-A', 'D-B', 'D-C']),
+])
+def test_natural_searches_verify_mongo_facts_without_mutations(repository, database, message, expected):
+    before = list(database.products.find({}))
+    async def scenario():
+        graph, _, _, forbidden = advice_graph(repository)
+        result = await graph.ainvoke({'message': message, 'customer_id': 'synthetic'},
+                                    {'configurable': {'thread_id': 'natural-search'}})
+        assert [p['sku'] for p in result['recommendations']] == expected
+        for card in result['recommendations']:
+            stored = database.products.find_one({'sku': card['sku']})
+            assert (card['product_name'], card['category'], card['price'], card['stock']) == (
+                stored['name'], stored['category'], stored['price'], stored['stock'])
+        forbidden.execute.assert_not_awaited()
+    asyncio.run(scenario())
+    assert list(database.products.find({})) == before

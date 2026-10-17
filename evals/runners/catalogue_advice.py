@@ -35,6 +35,9 @@ async def evaluate_advice(cases: list[dict]) -> list[dict]:
             actual = {'skus': [p['sku'] for p in products], 'status': result['advice_status'],
                       'budget': result.get('budget'), 'roles': [p.get('role') for p in products],
                       'reference_matches': products[0].get('matches_criteria') if products else None}
+            criteria = result.get('last_advice_criteria') or {}
+            actual.update({key: criteria.get(key) for key in
+                           ('category', 'maximum', 'exclusive_maximum', 'available', 'limit')})
             failures = [key for key, expected in step['expected'].items() if actual.get(key) != expected]
             forbidden.execute.assert_not_awaited()
             results.append({'id': f'{case["id"]}-{index}', 'dataset': 'catalogue_advice',
