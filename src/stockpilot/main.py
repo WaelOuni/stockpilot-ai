@@ -1,7 +1,16 @@
 from contextlib import asynccontextmanager
 import logging
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
+from fastapi.exceptions import RequestValidationError
+from stockpilot.application.resource_errors import (
+    ModelInputLimitError, ModelTimeoutError, ModelUnavailableError,
+)
+from stockpilot.presentation.api.input_protection import (
+    InputProtectionMiddleware, require_bounded_path_identifiers,
+    safe_model_resource_error, safe_validation_error,
+)
+from stockpilot.presentation.api.saas_boundary import SaasBoundaryMiddleware
 from stockpilot.presentation.api.admin_auth import AdminSessions, router as admin_session_router
 from stockpilot.application.use_cases.backoffice_orders import GetBackofficeOrderUseCase, ListBackofficeOrdersUseCase
 from stockpilot.presentation.api.routes.backoffice_orders import router as backoffice_orders_router
@@ -64,6 +73,7 @@ from stockpilot.infrastructure.persistence.postgres.pgvector_knowledge_repositor
 from stockpilot.infrastructure.persistence.postgres.checkpointer import open_checkpointer
 from stockpilot.observability import configure_logging
 from stockpilot.presentation.api.observability import RequestLoggingMiddleware
+from stockpilot.presentation.api.security_http import HttpResponseHeaders, install_http_security
 from stockpilot.telemetry import initialize_telemetry, instrument_app
 
 
@@ -108,11 +118,20 @@ app = FastAPI(
     title="StockPilot AI",
     version="0.1.0",
     lifespan=lifespan,
+    dependencies=[Depends(require_bounded_path_identifiers)],
 )
-app.add_middleware(RequestLoggingMiddleware)
-
 settings = Settings()
 app.state.settings = settings
+app.add_exception_handler(RequestValidationError, safe_validation_error)
+for resource_error in (ModelInputLimitError, ModelTimeoutError, ModelUnavailableError):
+    app.add_exception_handler(resource_error, safe_model_resource_error)
+# Starlette runs the last registered middleware first: keep SaaS closure and
+# the HTTP boundary outside input protection so blocked requests never reach it.
+app.add_middleware(InputProtectionMiddleware)
+app.add_middleware(SaasBoundaryMiddleware)
+install_http_security(app)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(HttpResponseHeaders)
 telemetry_provider = initialize_telemetry(settings)
 instrument_app(app, telemetry_provider)
 

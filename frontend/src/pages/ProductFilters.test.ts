@@ -1,3 +1,4 @@
+import { setCustomerToken } from '../utils/customerSession'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -12,8 +13,8 @@ function response(offset = 0, count = 1, has_more = false) {
     })), limit: 20, offset, count, has_more,
   }))
 }
-beforeEach(() => { fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock) })
-afterEach(() => { wrapper?.unmount(); wrapper = undefined; vi.unstubAllGlobals() })
+beforeEach(() => { setCustomerToken('test-filter-customer'); fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock) })
+afterEach(() => { setCustomerToken(''); wrapper?.unmount(); wrapper = undefined; vi.unstubAllGlobals() })
 async function open(path = '/products') {
   const router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/products', component: ProductsPage },

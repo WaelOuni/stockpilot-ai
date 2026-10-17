@@ -158,7 +158,9 @@ python -m pytest -q
 - A Vue customer frontend and signed customer JWT checks exist; no real customer
   login/refresh/revocation, payment or tenant isolation exists.
   A separate shared back-office token protects technical order mutations; the
-  operational admin UI uses single-process demo sessions, not managed identity.
+  operational admin UI uses a separate local operator identity, not managed SaaS
+  identity. V13.2 adds opt-in durable Mongo sessions; memory remains local-only.
+  Production SaaS is closed pending OIDC and full repository-level tenant scoping.
   Not hardened for public access.
 - Customer ownership isolation uses the verified `customer_id` claim in a signed
   expiring JWT; caller-supplied identity headers are ignored.

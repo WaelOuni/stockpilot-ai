@@ -1,3 +1,4 @@
+from customer_auth import configure_customer_auth, customer_headers
 """Pagination totals are computed by Mongo, from the exact same bounded filter."""
 import asyncio
 from types import SimpleNamespace
@@ -73,8 +74,9 @@ def test_public_api_opt_in_preserves_legacy_shape():
     collection.aggregate.return_value = [{"items": [], "total": []}]
     app = FastAPI()
     app.include_router(products.router)
+    configure_customer_auth(None, app)
     app.dependency_overrides[get_list_products_use_case] = lambda: ListProductsUseCase(MongoProductRepository({"products": collection}))
-    with TestClient(app) as client:
+    with TestClient(app, headers=customer_headers()) as client:
         assert client.get('/products').json() == {"items": [], "limit": 20, "offset": 0, "count": 0, "has_more": False}
         assert client.get('/products?include_total=true&q=SKU&category=DRILL&available=true').json() == {
             "items": [], "limit": 20, "offset": 0, "count": 0, "has_more": False, "total": 0}

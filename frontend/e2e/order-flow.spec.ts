@@ -87,7 +87,9 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   await expect(page.getByLabel('JWT client', { exact: true })).toHaveValue('')
   await page.getByRole('navigation').getByRole('link', { name: 'Assistant', exact: true }).click()
 
-  const catalogueCount = (await (await request.get('/api/products?limit=20')).json()).count
+  const catalogueCount = (await (await request.get('/api/products?limit=20', {
+    headers: { Authorization: `Bearer ${token}` },
+  })).json()).count
   await page.getByRole('navigation').getByRole('link', { name: 'Catalogue', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Catalogue', exact: true })).toBeVisible()
   await page.getByLabel('Catégorie', { exact: true }).selectOption('DRILL')
@@ -113,9 +115,9 @@ test('creates, tracks polling updates and cancels its own order', async ({ page,
   await page.reload()
   await expect(page.getByLabel('Recherche', { exact: true })).toHaveValue('Makita')
   await expect(page.getByLabel('Disponibilité', { exact: true })).toHaveValue('true')
-  await expect(page.getByText('Aucun produit ne correspond à vos critères.', { exact: true })).toBeVisible()
   await page.getByLabel('JWT client', { exact: true }).fill(token)
   await page.getByRole('button', { name: 'Connecter', exact: true }).click()
+  await expect(page.getByText('Aucun produit ne correspond à vos critères.', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Réinitialiser les filtres', exact: true }).click()
   await expect(page.getByRole('article')).toHaveCount(catalogueCount)
   const productCard = page.getByRole('article').filter({ has: page.getByRole('heading', { name: 'Bosch X100', exact: true }) })

@@ -180,7 +180,7 @@ def test_token_never_appears_in_response_or_structured_logs(
 
 @pytest.mark.parametrize("token", [None, TOKEN])
 @pytest.mark.parametrize("authorization", [None, "Bearer wrong-token"])
-def test_public_routes_remain_accessible_without_backoffice_auth(
+def test_health_public_and_customer_routes_independent_of_backoffice_auth(
     monkeypatch, mutation_use_cases, token, authorization,
 ):
     configure_token(monkeypatch, token)
@@ -196,10 +196,10 @@ def test_public_routes_remain_accessible_without_backoffice_auth(
         "Authorization": authorization,
     })
     assert client.get("/health").json() == {"status": "UP"}
-    assert client.post("/chat", json={"message": "advice"}).json() == {
+    assert client.post("/chat", headers=customer_headers(), json={"message": "advice"}).json() == {
         "response": "mock advice",
     }
-    response = client.post("/classify", json={"message": "classify"})
+    response = client.post("/classify", headers=customer_headers(), json={"message": "classify"})
     assert response.status_code == 200
     assert response.json()["intent"] == "PRODUCT_ADVICE"
     response = client.post("/assistant", headers=customer_headers("customer-a"),
@@ -280,6 +280,8 @@ def test_openapi_separates_customer_technical_and_admin_session_security():
     }
     assert bearer_names
     protected = {
+        ("post", "/chat"), ("post", "/classify"),
+        ("get", "/products"), ("get", "/products/{sku}"),
         ("get", "/backoffice/orders"),
         ("get", "/backoffice/orders/{order_id}"),
         ("get", "/orders"),
@@ -305,16 +307,20 @@ def test_openapi_separates_customer_technical_and_admin_session_security():
         ("get", "/backoffice/products/import/batches/{operation_id}"),
     }
     actual = set()
+    public = set()
     for path, operations in schema["paths"].items():
         for method, operation in operations.items():
             if method not in {"get", "post", "patch", "put", "delete", "head", "options"}:
                 continue
             security = operation.get("security", schema.get("security", []))
+            if not security:
+                public.add((method, path))
             if security:
                 actual.add((method, path))
                 assert any(set(requirement) & (bearer_names | {"AdminSessionCookie"}) for requirement in security)
                 assert {} not in security
     assert actual == protected
+    assert public == {("get", "/health"), ("post", "/backoffice/session/login")}
     assert schema["paths"]["/assistant"]["post"]["security"] == [
         {"CustomerBearer": []},
     ]

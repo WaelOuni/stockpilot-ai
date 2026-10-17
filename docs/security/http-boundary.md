@@ -1,0 +1,95 @@
+# HTTP security boundary
+
+V13.2 mini-RFC, baseline `6f094967`. Scope: HTTP configuration and browser
+headers only. Authentication, tenant schemas, ORDER and deployment remain separate.
+
+The baseline API accepts arbitrary Host values and does not enforce HTTPS for
+customer routes. Its tracked web proxy is an HTTP catch-all. Only backoffice
+responses currently prohibit caching. The built Vue app has no external runtime
+resources or inline style attributes, so a same-origin CSP fits the current app.
+These observations concern repository artifacts; no running DEMO was modified or
+probed to establish them.
+
+## Decision
+
+Add a small ASGI boundary installed by the composition root. In production,
+operators must configure exact allowed hosts, with no wildcard. Until configured,
+business routes return 503; a minimal loopback-host `/health` remains available.
+Configured production requests require ASGI HTTPS except `/health` for internal
+probes. Raw `Forwarded` or `X-Forwarded-*` headers never satisfy this requirement.
+Trusted ASGI-server proxy configuration is an operational prerequisite.
+
+The frontend and API use the same public origin by default. No CORS allowlist is
+needed. Cross-origin browser requests in production are refused unless their
+exact HTTPS origin is explicitly configured. An explicit CORS list supports a
+future split frontend; it does not grant authentication or tenant permissions.
+Admin cookies still require their existing exact Origin and session CSRF checks.
+
+The API owns `Cache-Control: no-store`, `X-Content-Type-Options: nosniff` and
+`Referrer-Policy: no-referrer`. The web server owns the SPA CSP and anti-framing
+headers. This avoids attaching an irrelevant CSP to JSON or duplicating browser
+document policies on the backend. Build output must contain only local scripts
+and styles compatible with `script-src 'self'; style-src 'self'`.
+
+TLS termination and optional HSTS belong to the actual public edge. HSTS remains
+unset here: no public domain, TLS chain or subdomain policy has been selected.
+Do not enable preload/includeSubDomains on localhost or without an operational
+decision. The tracked development Compose is not a SaaS deployment template.
+
+## Proxy contract
+
+Only the TLS edge may reach a production backend. Restrict Uvicorn's trusted proxy
+addresses to those peers; do not trust arbitrary forwarded headers or expose the
+backend publicly. Each proxy hop must sanitize its incoming forwarding metadata.
+The included web server sends its own HTTP scheme, so an external TLS edge must
+route `/api` directly to the backend or use a separately reviewed private proxy
+chain that preserves the original HTTPS scheme. Changing a raw client header is
+never an alternative to configuring that chain.
+
+Health remains deliberately minimal and unauthenticated. It is not a readiness
+or infrastructure diagnostic and reveals no database, principal or tenant state.
+Host validation still applies when a production allowlist is configured; include
+the actual probe host or use its configured Host header.
+
+Configuration values are environment JSON arrays, for example
+`HTTP_TRUSTED_HOSTS='["app.example.test","127.0.0.1"]'`. Hosts contain no scheme
+or port. Leave `HTTP_ALLOWED_ORIGINS` unset for a same-origin app. If a separate
+frontend is required, use an exact serialized browser origin such as
+`HTTP_ALLOWED_ORIGINS='["https://frontend.example.test"]'`; no wildcard, trailing
+slash, credentials, path or query is permitted. All allowed origins must use
+HTTPS in production. These values do not enable SaaS authentication or tenancy.
+
+## Validation and compatibility
+
+Tests must cover unexpected hosts, missing configuration, plain HTTP, forged
+forwarding headers, forbidden origins, explicit CORS preflight, credentialed
+origins and security headers on errors. Existing local development behavior stays
+compatible. Production smoke tests must prove business APIs are closed until the
+security prerequisites exist, while health and built frontend remain accessible.
+No data migration, service deployment, secret or DEMO operation is part of this PR.
+
+References: [FastAPI proxy trust](https://fastapi.tiangolo.com/advanced/behind-a-proxy/),
+[Starlette middleware](https://www.starlette.dev/middleware/),
+[MDN CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy).
+
+## Long exact SKU compatibility
+
+CSV already permits 4096-character product identifiers. A maximum Unicode SKU may occupy 49,152 bytes when percent-encoded in a URL. The local web proxy therefore bounds individual request lines/large headers at 64 KiB (two buffers), rather than silently rejecting valid imported products at its default 8 KiB request-line ceiling. Application body/message/identifier limits remain separate. A public edge must be configured with the same compatibility contract or explicitly reject unsupported product identifiers before import; no historical SKU is renamed or truncated. This is a bounded local compatibility provision, not a recommendation to allow arbitrary headers or unbounded connections.
+
+Runtime validation of this buffer change used an owned disposable web container
+and a synthetic echo backend, with no database or business workflow: the exact
+4096-character four-byte Unicode SKU survived a 49,152-byte encoded path (200),
+and a request line above 64 KiB was rejected (414). Both test containers were
+removed by exact name. This proves proxy transport compatibility; API/Mongo
+identity preservation is separately covered by the guarded resource integration.
+
+## Upload boundary compatibility
+
+The import prefix accepts at most 16 MiB at Nginx, matching the existing hard CSV ceiling; the application still streams and enforces its configured default 2 MiB after admin authentication/CSRF. Other API bodies are capped at 1 MiB by the proxy and at the smaller configurable application limit (default 128 KiB). This prevents Nginx's default 1 MiB ceiling from silently blocking an otherwise valid CSV import. The explicit import proxy target preserves the full backend route prefix. Forwarding metadata is defined once at server scope and inherited by both API locations.
+
+References: [Nginx request/body limits](https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size), [proxy URI replacement](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass).
+
+A fresh runtime echo-backend probe passed the exact import prefix and a 2 MiB
+upload through the rebuilt proxy. Other API bodies above 1 MiB and import bodies
+above 16 MiB returned 413; the Unicode SKU and request-line bounds also passed
+again. No real import, model request, database or business mutation was used.

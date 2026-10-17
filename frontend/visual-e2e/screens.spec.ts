@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
+import { customerHeaders, syntheticCustomerToken } from '../e2e/support/customer_auth'
 
 test('all existing screens at desktop, tablet and mobile', async ({ page }) => {
   test.setTimeout(240_000)
@@ -18,11 +18,13 @@ test('all existing screens at desktop, tablet and mobile', async ({ page }) => {
   await page.getByLabel('Mot de passe administrateur').fill(process.env.E2E_ADMIN_PASSWORD!)
   await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
   await expect(page).toHaveURL(/admin\/orders/)
-  const data = await page.evaluate(async () => ({ products: await (await fetch('/api/products?limit=1')).json(), orders: await (await fetch('/api/backoffice/orders?limit=1', { credentials: 'include' })).json() }))
-  const product = data.products.items[0]
-  const order = data.orders.items[0]
+  const orders = await page.evaluate(async () => (await fetch('/api/backoffice/orders?limit=1', { credentials: 'include' })).json())
+  const order = orders.items[0]
   const customer = order?.customer_id || 'visual-review-customer'
-  const jwt = execFileSync(resolve('../.venv/bin/python'), [resolve('../scripts/create_customer_token.py'), customer, '--expires-in', '1800'], { cwd: resolve('..'), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  const jwt = syntheticCustomerToken(customer)
+  const products = await page.evaluate(async headers =>
+    (await fetch('/api/products?limit=1', { headers })).json(), customerHeaders(jwt))
+  const product = products.items[0]
   const screens = [
     ['catalogue', '/products'], ['product', `/products/${encodeURIComponent(product.sku)}`],
     ['assistant', '/assistant'], ['customer-orders', '/orders'],

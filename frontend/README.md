@@ -3,7 +3,7 @@
 Vue 3 + TypeScript + Vite, Composition API, vue-router and native fetch.
 The customer endpoints `POST /assistant`, `GET /orders`,
 `GET /orders/{order_id}` and `POST /customer/orders/{order_id}/cancel` are used.
-The catalogue additionally uses public read-only `GET /products` and
+The catalogue additionally uses authenticated read-only `GET /products` and
 `GET /products/{sku}`; no JWT is sent with these public requests.
 The separate admin `/admin/login`, `/admin/orders`, `/admin/orders/:orderId` space
 uses V2 server-side demo admin sessions, global reads and dedicated operational

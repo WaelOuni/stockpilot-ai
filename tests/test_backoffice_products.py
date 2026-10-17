@@ -1,3 +1,4 @@
+from customer_auth import customer_headers
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -153,7 +154,7 @@ def test_create_edit_public_identity_stock_and_persisted_response(product_api):
     assert collection.documents[0]["_id"] == order_reference["reserved_product_id"]
     assert order_reference["product_name"] == "New drill"
     assert collection.writes[-1] == ("update", {"$set": {"name": "Renamed", "price": 15, "category": "SAW"}})
-    assert client.get("/products/NEW-SKU").json() == response.json()
+    assert client.get("/products/NEW-SKU", headers=customer_headers()).json() == response.json()
     assert client.get("/backoffice/products/NEW-SKU").json() == response.json()
     assert mutate(client, headers, True, {"price": 0}).json()["price"] == 0
     assert client.delete("/backoffice/products/NEW-SKU", headers=headers).status_code == 405
@@ -180,7 +181,7 @@ def test_admin_list_reuses_has_more_and_public_page(product_api):
         assert response.status_code == 200
         assert response.json()["count"] == count
         assert response.json()["has_more"] is more
-        assert response.json() == client.get("/products" + query).json()
+        assert response.json() == client.get("/products" + query, headers=customer_headers()).json()
         assert response.headers["cache-control"] == "no-store"
 
 
@@ -276,7 +277,7 @@ def test_read_auth_conventions_unchanged(product_api):
         client.cookies.clear()
         assert client.get(path).status_code == 401
         assert client.get(path, headers={"Authorization": "Bearer technical-only-secret"}).status_code == 200
-    assert client.get("/products").status_code == 200
+    assert client.get("/products", headers=customer_headers()).status_code == 200
     assert client.get("/orders").status_code == 401
 
 
