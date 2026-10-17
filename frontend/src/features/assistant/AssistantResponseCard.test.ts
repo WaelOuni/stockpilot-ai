@@ -42,7 +42,24 @@ describe('Contextual response cards', () => {
     expect(wrapper.get('h3').text()).toBe('Commande à confirmer')
     expect(wrapper.text()).toContain('Bosch X100')
     expect(wrapper.text()).toContain('Quantité : 1')
+    expect(wrapper.text()).toContain('Aucun stock n’est réservé à cette étape.')
+    expect(wrapper.text()).toContain('La disponibilité sera revérifiée lors de la confirmation.')
     expect(wrapper.findAll('button')).toHaveLength(2)
+  })
+
+  it('shows the reservation explanation only while the response is a preparation', async () => {
+    wrapper = mount(AssistantResponseCard, {
+      props: { result: pending, actionable: true }, global: { stubs: { RouterLink: true } },
+    })
+    expect(wrapper.get('.confirmation-card').text()).toContain('Aucun stock n’est réservé à cette étape.')
+    await wrapper.get('.confirmation-card button:first-child').trigger('click')
+    expect(wrapper.emitted('confirm')).toEqual([[]])
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+    await wrapper.setProps({ result: confirmed, actionable: false })
+    expect(wrapper.text()).toContain('Commande créée')
+    expect(wrapper.text()).not.toContain('Aucun stock n’est réservé à cette étape.')
+    expect(wrapper.find('.confirmation-card').exists()).toBe(false)
+    expect(wrapper.find('button').exists()).toBe(false)
   })
 
   it.each(['CREATED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'] as OrderStatus[])('renders the real %s status badge', (status) => {
