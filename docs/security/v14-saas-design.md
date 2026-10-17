@@ -224,11 +224,15 @@ l’observabilité actuelle constitue une comptabilité de facturation.
 2. Mapping explicite et approuvé de chaque donnée vers l’entreprise propriétaire.
    Les lignes sans propriétaire ou ambiguës bloquent le lot. Aucun tenant par
    défaut et aucune inférence depuis `customer_id` seul.
-3. Snapshot apparié Mongo + PostgreSQL, répétition de restauration et journal de
-   correspondances. Les sauvegardes doivent avoir des droits distincts du runtime.
-4. Provisionnement de nouvelles bases ; copie hors ligne sans modifier les
-   sources ; validation des comptes, empreintes, index et invariants stock/ordre.
-   Définir une fenêtre de gel et le traitement des commandes en vol avant cutover.
+3. Définir puis appliquer le gel des écritures et drainer les opérations en vol
+   avant tout snapshot ; aucune transaction distribuée ne garantit à elle seule
+   la cohérence entre Mongo et PostgreSQL. Un mécanisme sans gel exige une preuve
+   distincte de cohérence et de réconciliation avant utilisation.
+4. Sous ce gel, produire un snapshot apparié Mongo + PostgreSQL, répéter sa
+   restauration et conserver le journal de correspondances. Les sauvegardes ont
+   des droits distincts du runtime. Provisionner de nouvelles bases ; copier hors
+   ligne sans modifier les sources ; valider comptes, empreintes, index et
+   invariants stock/ordre avant toute décision de cutover.
 5. Démarrer de nouveaux threads et désarmer les anciennes préparations selon la
    procédure approuvée. Conserver les identités d’opération pour éviter les doublons
    métier ; vérifier l’historique de réservation et d’annulation.
