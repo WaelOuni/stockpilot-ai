@@ -25,3 +25,8 @@ Keep this file short; details live in `docs/`.
 - Use a dedicated git worktree per task; keep unrelated worktrees untouched.
 - Open PRs against `main` explicitly (the repository default branch is `dev`). Do not merge, tag or release without instruction.
 - Each deletion needs evidence (no references, dynamic usages checked) and a non-regression check.
+
+## Project memory
+Read [project status](docs/project/PROJECT_STATUS.md), [roadmap](docs/project/ROADMAP.md),
+[architecture decisions](docs/project/ARCHITECTURE_DECISIONS.md) and
+[agent handoff](docs/project/AGENT_HANDOFF.md) before planning a task.
