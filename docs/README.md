@@ -5,6 +5,7 @@ kept in [archive/](archive/README.md) and are not current procedures.
 
 | Task | Read |
 |---|---|
+| Resume project work and priorities | [Project status](project/PROJECT_STATUS.md), [roadmap](project/ROADMAP.md), [decisions](project/ARCHITECTURE_DECISIONS.md), [agent handoff](project/AGENT_HANDOFF.md) |
 | Understand the product and its limits | [README](../README.md) |
 | Prepare a commercial demonstration or isolated pilot | [Product readiness](product/README.md) (positioning, demo, onboarding, cost hypotheses and prospect validation) |
 | Understand layers, flows and boundaries | [architecture](architecture.md), [order-flow](order-flow.md), [rag](rag.md) |
