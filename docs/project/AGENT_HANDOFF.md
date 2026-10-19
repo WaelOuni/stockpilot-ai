@@ -24,10 +24,10 @@
 - ORDER : SKU/quantités exacts, préparation sans réservation, confirmation explicite,
   atomicité, idempotence, ownership et gestion des issues inconnues.
 
-## Point de reprise B4 — 21 octobre 2026
+## Point de reprise après B4 — 21 octobre 2026
 
-Main vérifié à146e74a, fusion #49 ; HEAD de sa branche9dc2ace distinct.
-B1/B2/B3 sont intégrés, [contrats de ressources](../security/tenant-authorization-boundary.md).
+Main vérifié à`394bd7c`, fusion #50 ; SHA de branche distinct du SHA de fusion.
+B1/B2/B3/B4 sont intégrés, [contrats de ressources](../security/tenant-authorization-boundary.md).
 B4 : [ADR RAG/checkpoints](../security/tenant-rag-conversations.md),
 [migrations PG](../postgresql-migrations.md), [validation](../validation/v13.7.3b4-rag-conversations.md).
 Worktree /home/waelko/projects/stockpilot-v1373b4-tenant-rag-consolidation,
@@ -62,5 +62,8 @@ revue indépendante et CI sur le dernier SHA. PR vers main explicitement ; aucun
 merge/tag/release sans instruction. La prochaine mission ne doit pas hériter
 automatiquement d'une autorisation d'arrêt Windows propre à un chantier terminé.
 
-Prochaine étape : composition HTTP/CSRF/autorisations et UX Vue, puis validation
+Le [kit commercial #42](../product/README.md) distingue le script historique de
+la future démo canonique ; aucun prix ou pilote n'est validé par les documents.
+
+Prochaine étape V13.8 : composition HTTP/CSRF/autorisations et UX Vue, puis validation
 E2E et restauration avant pilote distant. Kubernetes reste une option à arbitrer.

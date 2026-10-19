@@ -4,6 +4,17 @@ Proposition du 17 octobre 2026. Un pilote exige un accord humain sur son périm�
 ses données et son exploitation. Cette procédure n'active aucun mode SaaS et ne
 vaut pas autorisation de migrer des données persistantes.
 
+Le cadre à discuter avec le prospect est la [proposition non contractuelle](offre-pilote.md) ;
+les mesures sont consignées dans la [grille avant/après](validation-commerciale.md).
+Ce guide conserve les prérequis techniques ; sa publication n'autorise aucune installation.
+
+## Périmètre historique
+
+Les instructions JWT et CSV ci-dessous concernent le parcours historique uniquement,
+sur une nouvelle copie isolée explicitement autorisée. Elles ne configurent pas
+la future démo Keycloak/BFF/Vue : suivre ses [conditions de promotion](../b2b-demo.md).
+Les installations 5191, 5193 et 5175/8003 restent protégées.
+
 ## Conditions d'entrée
 
 Choisir une seule entreprise, un référent métier et un opérateur technique. Commencer
@@ -37,8 +48,9 @@ revue et une décision distinctes : la candidate locale ne prouve pas cette apti
 | 9. Accepter | Métier + technique | Exécuter la grille ci-dessous, signer les limites, autoriser ou refuser l'essai réel |
 | 10. Suivre/sortir | Référent + opérateur | Revue hebdomadaire des incidents et indicateurs ; export/restauration convenus ; retirer les accès en fin de pilote |
 
-Il n'existe pas aujourd'hui de création d'utilisateurs libre-service ni de rôles
-d'organisation. Le client reçoit un JWT contrôlé ; le back-office possède une
+Dans cette interface historique, il n'existe pas de création d'utilisateurs
+libre-service ni de rôles d'organisation. Les modèles et permissions B2B internes
+ne sont pas encore reliés à ce parcours. Le client reçoit un JWT contrôlé ; le back-office possède une
 configuration d'administrateur de démonstration. Si le pilote exige comptes
 nominatifs, révocation individuelle immédiate ou plusieurs rôles d'équipe, traiter
 ces exigences comme des prérequis manquants, pas comme une fonction disponible.
