@@ -1,5 +1,6 @@
 from uuid import uuid4
 from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
+from stockpilot.application.order_quantity_evidence import concordant_quantity
 from stockpilot.telemetry import traced
 from stockpilot.metrics import record
 
@@ -13,6 +14,24 @@ class PrepareOrderUseCase:
     def __init__(self, check_stock: CheckStockUseCase, resolver: ResolveProductUseCase | None = None) -> None:
         self._check_stock = check_stock
         self._resolver = resolver
+
+    async def quantity_evidence(self, message: str, extracted=None, inherited: dict | None = None):
+        try:
+            return concordant_quantity(message, extracted, inherited)
+        except InvalidOrderQuantityError:
+            if self._resolver is None:
+                raise
+            # The strict parser remains authoritative. Its only fallback is a
+            # complete name verified in the catalogue, never an extracted hint.
+            name = inherited.get('product_name') if isinstance(inherited, dict) else None
+            if inherited is not None and not name:
+                raise
+            resolution = await self._resolver.execute(name, None if inherited is not None else message)
+            product = resolution.product
+            if (resolution.status != ResolutionStatus.RESOLVED or product is None
+                    or (name is not None and product.name != name)):
+                raise
+            return concordant_quantity(message, extracted, inherited, product_name=product.name)
 
     @traced("stockpilot.order.prepare")
     async def execute(

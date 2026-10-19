@@ -27,7 +27,7 @@ _REQUEST_PREFIX = re.compile(
     r'(?:(?:sur|pour|de)\s+)?')
 # 'tous les stocks' removes an Advice availability filter; it is not a stock lookup.
 _NON_ADVICE = re.compile(r'\b(command\w*|achet\w*|reserve\w*|annul\w*)\b|\b(?:le|(?<!tous )les) stocks?\b')
-_STRICT_BUDGET = r'(?:moins de|inferieur a|sous|en dessous de)'
+_STRICT_BUDGET = r'(?:moins de|moins(?=\s+\d)|inferieur a|sous|en dessous de)'
 _BUDGET_TERM = rf'(?:{_STRICT_BUDGET}|budget|maximum|maxi|plafond|descends|monte)'
 
 
@@ -198,7 +198,7 @@ def extract_reference(question: str) -> str | None:
         text = re.sub(r'[\s,;]+(?:(?:et|sont) )?(?:(?:non|pas) )?(?:disponibles?|indisponibles?|en stock|en rupture)$', '', text).rstrip(' ,;')
 
     text = re.sub(r'^(?:(?:exactement|seulement)\s+)?(?:un|une|la|le|les|des|du|deux|trois|quatre|cinq|\d+)\s+(?:seule?\s+)?', '', text)
-    if re.fullmatch(r'(?:quelles? |quels? )?(?:perceuses?|visseuses?|scies?|ponceuses?|produits?|outils?)(?: sont)?', text):
+    if re.fullmatch(r'(?:quelles? |quels? )?(?:perceuses?|visseuses?|scies?|ponceuses?|produits?|outils?)(?: (?:est|sont))?', text):
         return None
     if not text or re.fullmatch(r'(?:et .*|pour .*|.*mon budget)', text):
         return None

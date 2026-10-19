@@ -40,10 +40,12 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase, resolve_order_r
             result = await classify_intent.execute(state["message"])
         # A literal supported ORDER request cannot leave an older preparation
         # confirmable just because the model labels its invalid quantity UNKNOWN.
+        quantity_classification_conflict = False
         if explicit_order_request(state["message"]):
             try:
                 inspect_quantity(state["message"])
             except InvalidOrderQuantityError:
+                quantity_classification_conflict = result.intent not in (Intent.ORDER, Intent.UNKNOWN)
                 result.intent = Intent.ORDER
             else:
                 if result.intent == Intent.UNKNOWN:
@@ -79,6 +81,7 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase, resolve_order_r
             "recommendations": [],
             "advice_status": None,
             "intent": result.intent,
+            "quantity_classification_conflict": quantity_classification_conflict,
             "raw_product": result.raw_product,
             "product_name": result.product_name,
             "category": result.category,
@@ -91,7 +94,7 @@ def create_classify_node(classify_intent: ClassifyIntentUseCase, resolve_order_r
     return classify_node
 
 
-def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
+def create_context_resolution_node(resolve_context: ContextResolutionUseCase, quantity_evidence=None):
     async def context_node(state: StockPilotState) -> StockPilotState:
         pending = state.get("pending_order") or {}
         armed = (
@@ -102,7 +105,12 @@ def create_context_resolution_node(resolve_context: ContextResolutionUseCase):
         complete_request = explicit_order_request(state["message"])
         if armed and (complete_request or quantitative_continuation(state["message"])):
             try:
-                inspect_quantity(state["message"])
+                if state.get("quantity_classification_conflict"):
+                    raise InvalidOrderQuantityError('La demande de commande est incertaine. Précisez le SKU et la quantité.')
+                if complete_request and quantity_evidence is not None:
+                    await quantity_evidence(state["message"])
+                else:
+                    inspect_quantity(state["message"])
                 if state.get("intent") not in (Intent.ORDER, Intent.UNKNOWN):
                     raise InvalidOrderQuantityError(
                         "La demande de commande est incertaine. Précisez le SKU et la quantité "
@@ -301,7 +309,7 @@ def create_order_confirmation_node(
             try:
                 quantity = strict_quantity(updated_order.get("quantity"))
                 if updated_order.get("quantity_evidence") is not None:
-                    if validate_evidence(updated_order["quantity_evidence"]).quantity != quantity:
+                    if validate_evidence(updated_order["quantity_evidence"], product_name=product_name).quantity != quantity:
                         raise InvalidOrderQuantityError("La quantité du checkpoint a changé.")
             except InvalidOrderQuantityError as error:
                 return {**_invalid_quantity(error), "confirmation_handled": True}
@@ -530,13 +538,18 @@ def _invalid_quantity(error: InvalidOrderQuantityError) -> StockPilotState:
     }
 
 
-def create_order_node(prepare_order: PrepareOrderUseCase):
+def create_order_node(prepare_order: PrepareOrderUseCase, quantity_evidence=None):
     async def order_node(state: StockPilotState) -> StockPilotState:
         quantity = state.get("quantity")
         try:
-            evidence = concordant_quantity(
+            if state.get("quantity_classification_conflict"):
+                raise InvalidOrderQuantityError('La demande de commande est incertaine. Précisez le SKU et la quantité.')
+            inspect = quantity_evidence or concordant_quantity
+            evidence = inspect(
                 state["message"], quantity, state.get("inherited_quantity_evidence"),
             )
+            if quantity_evidence is not None:
+                evidence = await evidence
             result = await prepare_order.execute(
                 product_name=state.get("product_name"),
                 product_sku=state.get("product_resolution_reference"),
@@ -551,6 +564,9 @@ def create_order_node(prepare_order: PrepareOrderUseCase):
         pending_order = None
 
         if status == PreparedOrderStatus.PENDING_CONFIRMATION:
+            if evidence.product_name is not None and evidence.product_name != product_name:
+                return _invalid_quantity(InvalidOrderQuantityError(
+                    'Le produit a changé. Précisez une quantité explicite et le SKU pour préparer à nouveau la commande.'))
             pending_order = {
                 "operation_id": result.operation_id,
                 "product_name": product_name or "",

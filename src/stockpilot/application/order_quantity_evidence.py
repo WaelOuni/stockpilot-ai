@@ -76,9 +76,13 @@ class QuantityEvidence:
     end: int | None
     quantity: int
     kind: str  # explicit / default
+    product_name: str | None = None  # Optional catalogue-verified literal name.
 
     def to_dict(self):
-        return asdict(self)
+        value = asdict(self)
+        if self.product_name is None:
+            value.pop('product_name')
+        return value
 
 
 def strict_quantity(value) -> int:
@@ -135,7 +139,7 @@ def quantitative_continuation(message: str):
     return None
 
 
-def inspect_quantity(message: str) -> QuantityEvidence:
+def inspect_quantity(message: str, *, product_name: str | None = None) -> QuantityEvidence:
     if len(message) > 4096:
         raise InvalidOrderQuantityError('Précisez une quantité entière et un seul produit.')
     continuation = quantitative_continuation(message)
@@ -151,6 +155,18 @@ def inspect_quantity(message: str) -> QuantityEvidence:
     start = prefix.end()
     body = message[start:]
     protected = _protected_spans(body)
+    model_span = None
+    if product_name is not None:
+        # A verified literal name may attest its final integer model token only.
+        # It must never shield fractions, lexical counts or quantity markers
+        # elsewhere in the name. The caller resolves and binds this name.
+        if not isinstance(product_name, str) or not re.match(r'[^\W\d_]', product_name):
+            raise InvalidOrderQuantityError('Précisez le SKU du produit.')
+        named = re.search(r'(?<![\w-])' + re.escape(product_name) + r'\s*[?!.]?\s*$', body, re.I)
+        model = re.search(r'(?<![\w-])[0-9]{1,18}$', product_name)
+        if named is None or model is None:
+            raise InvalidOrderQuantityError('Le nom complet du produit doit être explicite.')
+        model_span = (named.start() + model.start(), named.start() + model.end())
     def shielded(a, b):
         return _shielded((a, b), protected)
     lexical = _LEXICAL_HEAD.match(body)
@@ -164,6 +180,8 @@ def inspect_quantity(message: str) -> QuantityEvidence:
         count = _integer(token)
     elif _UNSUPPORTED_WORD.match(body):
         raise InvalidOrderQuantityError('Précisez la quantité entière souhaitée.')
+    if model_span is not None and (count is None or head.end() > named.start()):
+        raise InvalidOrderQuantityError('Précisez une quantité entière avant le nom complet du produit.')
     if re.match(r"[+\-−]?(?:\d|[.,]\d)|[½¼¾⅓⅔⅛]", body) and count is None and not any(left == 0 for left, _ in protected):
         raise InvalidOrderQuantityError('Précisez une quantité entière sans notation ambiguë.')
     if any(not shielded(*m.span()) for m in re.finditer(r"[½¼¾⅓⅔⅛]", body)):
@@ -183,26 +201,33 @@ def inspect_quantity(message: str) -> QuantityEvidence:
     for number in _NUMBER.finditer(body):
         if shielded(*number.span()):
             continue
+        if number.span() == model_span:
+            continue
         if count is not None and number.span() == head.span('count'):
             continue
         raise InvalidOrderQuantityError('Plusieurs nombres ou une quantité non identifiée : précisez la quantité et un seul produit.')
     if count is None:
-        return QuantityEvidence(message, None, None, 1, 'default')
-    return QuantityEvidence(message, start + head.start('count'), start + head.end('count'), count, 'explicit')
+        return QuantityEvidence(message, None, None, 1, 'default', product_name)
+    return QuantityEvidence(message, start + head.start('count'), start + head.end('count'), count, 'explicit', product_name)
 
 
-def concordant_quantity(message: str, extracted, inherited: dict | None = None) -> QuantityEvidence:
-    evidence = validate_evidence(inherited) if inherited is not None else inspect_quantity(message)
+def concordant_quantity(message: str, extracted, inherited: dict | None = None,
+                        *, product_name: str | None = None) -> QuantityEvidence:
+    evidence = (validate_evidence(inherited, product_name=product_name) if inherited is not None
+                else inspect_quantity(message, product_name=product_name))
     if extracted is not None and strict_quantity(extracted) != evidence.quantity:
         raise InvalidOrderQuantityError('La quantité extraite ne correspond pas à votre demande. Précisez la quantité entière souhaitée.')
     return evidence
 
 
-def validate_evidence(evidence: dict) -> QuantityEvidence:
+def validate_evidence(evidence: dict, *, product_name: str | None = None) -> QuantityEvidence:
     """Recompute persisted evidence; a restored scalar alone is insufficient."""
     if not isinstance(evidence, dict) or not isinstance(evidence.get('message'), str):
         raise InvalidOrderQuantityError('Préparez à nouveau la commande avec une quantité explicite.')
-    original = inspect_quantity(evidence['message'])
+    bound_name = evidence.get('product_name')
+    if bound_name is not None and (not isinstance(bound_name, str) or bound_name != product_name):
+        raise InvalidOrderQuantityError('La preuve de quantité ne correspond pas au produit préparé.')
+    original = inspect_quantity(evidence['message'], product_name=bound_name)
     if original.to_dict() != evidence or type(evidence.get('quantity')) is not int:
         raise InvalidOrderQuantityError('La quantité du checkpoint ne correspond pas à la demande.')
     return original

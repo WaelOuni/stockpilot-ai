@@ -37,6 +37,8 @@ def build_graph(
     resolve_order_reference=None,
 ):
     graph = StateGraph(StockPilotState)
+    quantity_evidence = (prepare_order.quantity_evidence
+                         if isinstance(prepare_order, PrepareOrderUseCase) else None)
 
     graph.add_node(
         "resolve_order_confirmation",
@@ -46,14 +48,14 @@ def build_graph(
     )
     graph.add_node("classify", create_classify_node(classify_intent, resolve_order_reference))
     graph.add_node(
-        "resolve_context", create_context_resolution_node(resolve_context or ContextResolutionUseCase()),
+        "resolve_context", create_context_resolution_node(resolve_context or ContextResolutionUseCase(), quantity_evidence),
     )
     graph.add_node(
         "advice",
         create_advice_node(recommend_product, check_stock, catalogue_advice),
     )
     graph.add_node("stock", create_stock_node(check_stock))
-    graph.add_node("order", create_order_node(prepare_order))
+    graph.add_node("order", create_order_node(prepare_order, quantity_evidence))
     graph.add_node("order_status", create_order_status_node(get_order_status))
     graph.add_node("unknown", unknown_node)
 
