@@ -25,6 +25,7 @@ class StockPilotState(TypedDict, total=False):
     last_order_quantity_evidence: dict | None
     inherited_quantity_evidence: dict | None
     quantity_validation_failed: bool
+    quantity_classification_conflict: bool
     order_status: str | None
     confirmation_handled: bool
     created_order_id: str | None
