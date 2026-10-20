@@ -127,3 +127,18 @@ jetable identifiée ; aucun `apply` au démarrage. Verrou expiré/started/failed
 intervention humaine, aucun takeover automatique ou commande force.
 La suite B2 exige mapping acheteur et transactions/révocation ; l'observation de
 disponibilité B1 ne réserve aucun stock et ALLOW n'est pas un ticket de mutation.
+
+## Reprise V13.7.3-B2
+
+Base `15f4fb80eb54e05d5c30abee94ce398b8c6ec36b`, fusion réelle de #47.
+Branche `feature/v1373b2-tenant-orders-atomicity`, worktree
+`/home/waelko/projects/stockpilot-v1373b2-tenant-orders-atomicity`.
+[ADR](../security/tenant-orders-atomicity.md), [preuves](../validation/v13.7.3b2-tenant-orders.md).
+Aucune composition HTTP : le port spécialisé MongoTenantOrders garde sa propre
+frontière transactionnelle ; ne pas ouvrir la politique générique A réservée.
+0002 est explicite, seulement jetable, 0001 immuable ; ne pas réécrire l'historique.
+Même base/replica set pour identités/grants/commandes/produits et index BFF uniques
+préprovisionnés. own = created_by, pas le customer partagé. Mapping désactivé bloque
+également manager ; outcome unknown impose même clé/contenu, jamais une nouvelle
+commande de compensation. Le journal n'a aucun TTL. Voir les limites session,
+contention, sauvegarde et futurs imports/mouvements avant activation.

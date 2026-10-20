@@ -212,3 +212,18 @@ Les doubles mémoire de cette phase ne prouvent pas une isolation MongoDB/RAG.
 
 Voir le [rapport de validation](../validation/v13.7.3a-tenant-authorization.md)
 pour les campagnes exécutées, la revue et l'intégrité des environnements.
+
+## Complément V13.7.3-B2 — preuve de stockage, sans route activée
+
+L'[ADR commandes](tenant-orders-atomicity.md) remplace les hypothèses B2 pour le
+nouveau chemin dédié, sans modifier la politique générique réservée ni l'historique.
+
+| Ressource | Ownership actuel B2B | Ownership cible | Filtrage actuel | Filtrage futur | Risque restant |
+|---|---|---|---|---|---|
+| Commande | org, customer, created_by explicites | Organisation ; own = créateur | org/order_id jusque transaction, permission/grant actuels | Même contrat dans future API | Session/logout hors transaction ; HTTP non activé |
+| Acheteur | Grant org/user/customer actif | Grant explicite et cycle de vie approuvé | Tuple exact unique, fence transactionnelle | Administration et audit scoped | Grant désactivé bloque aussi manager |
+| Stock réservé | Produit B1 org/ObjectId/SKU | Même propriété | org/id/SKU/revision/statut/disponibilité atomiques | Mouvements/imports cohérents avec reserved | Contention org ; consommation non livrée |
+| Idempotence | Journal org/namespace/operation + acteur/empreinte | Durable sans TTL de double débit | Lookup et index uniques scoppés, même transaction | Contrats équivalents pour futurs workflows | Ne jamais jeter les résultats inconnus ou le journal |
+
+Conversations/checkpoints/RAG restent non isolés par ce chemin et inaccessibles
+depuis le BFF. Les futurs filtres de retrieval doivent précéder le LLM.

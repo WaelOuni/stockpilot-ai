@@ -113,3 +113,7 @@ n'obtient une organisation par déduction.
 Voir [migrations et récupération](../mongodb-migrations.md),
 [frontière A](tenant-authorization-boundary.md) et
 [preuves B1](../validation/v13.7.3b1-tenant-catalogue-stock.md).
+
+Complément B2 : [commandes, acheteurs et transactions](tenant-orders-atomicity.md)
+utilisent ce stock embarqué sans changer 0001 ou le modèle historique.
+Les lectures B1 restent compatibles après 0002 appliquée. Aucun endpoint n'est ouvert.

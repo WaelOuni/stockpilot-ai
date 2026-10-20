@@ -1,0 +1,407 @@
+{
+  "version": 2,
+  "id": "0002_b2b_orders",
+  "description": "Prepare tenant orders explicit buyer associations and durable operation results",
+  "collections": [
+    {
+      "collection": "b2b_buyers",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "association_id",
+              "organization_id",
+              "user_id",
+              "customer_id",
+              "status",
+              "revision"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "association_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "user_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "customer_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "status": {
+                "enum": [
+                  "active",
+                  "disabled"
+                ]
+              },
+              "revision": {
+                "bsonType": [
+                  "int",
+                  "long"
+                ],
+                "minimum": 1
+              },
+              "authorization_fence": {
+                "bsonType": [
+                  "int",
+                  "long"
+                ],
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_buyer_identity",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "user_id",
+              1
+            ],
+            [
+              "customer_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_buyer_id",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "association_id",
+              1
+            ]
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
+      "collection": "b2b_orders",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "order_id",
+              "customer_id",
+              "created_by",
+              "status",
+              "lines",
+              "operation_id",
+              "preparation_digest",
+              "session_binding",
+              "created_at",
+              "expires_at",
+              "reserved_at",
+              "cancelled_at",
+              "revision"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "order_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "customer_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "created_by": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "status": {
+                "enum": [
+                  "prepared",
+                  "reserved",
+                  "cancelled"
+                ]
+              },
+              "lines": {
+                "bsonType": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "bsonType": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "product_id",
+                    "sku",
+                    "quantity",
+                    "price_minor",
+                    "currency"
+                  ],
+                  "properties": {
+                    "product_id": {
+                      "bsonType": "objectId"
+                    },
+                    "sku": {
+                      "bsonType": "string",
+                      "pattern": "^\\S(?:.*\\S)?$",
+                      "maxLength": 128
+                    },
+                    "quantity": {
+                      "bsonType": [
+                        "int",
+                        "long"
+                      ],
+                      "minimum": 1,
+                      "maximum": 1000000
+                    },
+                    "price_minor": {
+                      "bsonType": [
+                        "int",
+                        "long"
+                      ],
+                      "minimum": 0
+                    },
+                    "currency": {
+                      "bsonType": "string",
+                      "pattern": "^[A-Z]{3}$"
+                    }
+                  }
+                }
+              },
+              "operation_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "preparation_digest": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "session_binding": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "created_at": {
+                "bsonType": "date"
+              },
+              "expires_at": {
+                "bsonType": "date"
+              },
+              "reserved_at": {
+                "bsonType": [
+                  "date",
+                  "null"
+                ]
+              },
+              "cancelled_at": {
+                "bsonType": [
+                  "date",
+                  "null"
+                ]
+              },
+              "revision": {
+                "bsonType": [
+                  "int",
+                  "long"
+                ],
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_order_identity",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "order_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_order_owner",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "created_by",
+              1
+            ],
+            [
+              "created_at",
+              1
+            ]
+          ]
+        },
+        {
+          "name": "b2b_order_customer",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "customer_id",
+              1
+            ],
+            [
+              "created_at",
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "collection": "b2b_order_operations",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "namespace",
+              "operation_id",
+              "user_id",
+              "fingerprint",
+              "order_id",
+              "created_at"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "namespace": {
+                "enum": [
+                  "prepare",
+                  "confirm",
+                  "cancel"
+                ]
+              },
+              "operation_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "user_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "fingerprint": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "order_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "created_at": {
+                "bsonType": "date"
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_operation_identity",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "namespace",
+              1
+            ],
+            [
+              "operation_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_operation_order",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "order_id",
+              1
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

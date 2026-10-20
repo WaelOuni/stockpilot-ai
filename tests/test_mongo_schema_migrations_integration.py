@@ -36,7 +36,7 @@ def apply(db, **kwargs):
 def test_empty_read_commands_write_nothing(db):
     runner = MigrationRunner(db)
     assert runner.status() == {"database": db.name, "history": [], "lock": None}
-    assert [m.version for m in runner.plan()] == [1]
+    assert [m.version for m in runner.plan()] == [m.version for m in registry()]
     assert runner.validate() == []
     assert not db.list_collection_names()
     with pytest.raises(MigrationError):
@@ -65,7 +65,8 @@ def test_initial_migration_rerun_and_legacy_untouched(db):
     indexes = list(db.products.list_indexes())
     runner = apply(db)
     history = runner.validate()
-    assert len(history) == 1
+    assert len(history) == len(registry())
+    assert [row["checksum"] for row in history] == [m.checksum for m in registry()]
     assert history[0]["checksum"] == registry()[0].checksum
     assert history[0]["status"] == "succeeded"
     assert history[0]["started_at"] <= history[0]["finished_at"]
@@ -89,10 +90,7 @@ def test_history_divergence_blocks_read_plan_and_apply(db, change):
     elif change == "id":
         db[HISTORY].update_one({"_id": 1}, {"$set": {"migration_id": "other"}})
     elif change == "gap":
-        row = db[HISTORY].find_one({"_id": 1})
         db[HISTORY].delete_one({"_id": 1})
-        row["_id"] = 2
-        db[HISTORY].insert_one(row)
     elif change == "unknown":
         db[HISTORY].insert_one({"_id": 999, "status": "succeeded"})
     elif change in ("started", "failed"):
@@ -166,7 +164,7 @@ def test_two_real_runners_serialize(db):
         finally:
             finish.set()
         future.result(timeout=10)
-    assert len(MigrationRunner(db).validate()) == 1
+    assert len(MigrationRunner(db).validate()) == len(registry())
     assert db[LOCKS].count_documents({}) == 0
 
 
@@ -200,7 +198,7 @@ def test_simultaneous_empty_history_runners_contend_for_same_lock(db):
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         assert sorted(executor.map(run, range(2))) == ["applied", "refused"]
-    assert len(MigrationRunner(db).validate()) == 1
+    assert len(MigrationRunner(db).validate()) == len(registry())
     assert not db[LOCKS].find_one({"_id": "schema"})
 
 
@@ -409,7 +407,8 @@ def test_next_schema_snapshot_adds_index_and_previous_gate_stays_usable(db):
         content=content,
         checksum=hashlib.sha256(content).hexdigest(),
     )
-    apply(db)
+    # Isolated synthetic two-version registry, not the production 0002 schema.
+    apply(db, migrations=[first])
     runner = MigrationRunner(db, [first, second])
     runner.apply(confirmation=db.name)
     assert [row["_id"] for row in runner.validate()] == [1, 2]
