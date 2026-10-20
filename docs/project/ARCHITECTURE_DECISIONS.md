@@ -63,3 +63,14 @@ par org et empreinte canonique. quantity physique, reserved séparé ; annulatio
 au plus une fois. Migration 0002 dédiée sans backfill, 0001 immuable.
 Fences Mongo identité/grant pour la révocation concurrente ; session BFF relue
 hors transaction distribuée. Aucun endpoint métier ni activation de SaaS.
+
+## 21 octobre 2026 — opérations physiques et imports B3
+
+[ADR](../security/tenant-stock-operations.md) : ajustements quantity>=reserved,
+sans toucher reserved, mouvements et résultat idempotent atomiques ; modes CSV
+CREATE_ONLY/METADATA_ONLY/STOCK_ONLY et rejet total d'un lot borné.
+Déclaration pending durable avant admission d'une mutation puis terminal réel ;
+ne jamais convertir une indisponibilité en succès/abort implicite. Helpers B2
+et CSV partagés, migrations0001/0002 immuables et0003 additive explicite.
+Pas de nouveaux mouvements ORDER : journal physique B3 non exhaustif des réservations.
+Aucune composition HTTP ; révocation BFF et ouverture Internet restent distinctes.

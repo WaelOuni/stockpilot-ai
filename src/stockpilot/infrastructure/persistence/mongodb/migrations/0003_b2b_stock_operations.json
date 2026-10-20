@@ -1,0 +1,511 @@
+{
+  "version": 3,
+  "id": "0003_b2b_stock_operations",
+  "description": "Prepare tenant physical stock movements import previews and durable operation states",
+  "collections": [
+    {
+      "collection": "b2b_stock_movements",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$and": [
+            {
+              "$jsonSchema": {
+                "bsonType": "object",
+                "additionalProperties": false,
+                "required": [
+                  "_id",
+                  "movement_id",
+                  "organization_id",
+                  "product_id",
+                  "sku",
+                  "operation_id",
+                  "actor_user_id",
+                  "operation_namespace",
+                  "kind",
+                  "quantity_before",
+                  "quantity_after",
+                  "reserved_before",
+                  "reserved_after",
+                  "revision_after",
+                  "reason",
+                  "source_reference",
+                  "occurred_at"
+                ],
+                "properties": {
+                  "_id": {
+                    "bsonType": "objectId"
+                  },
+                  "movement_id": {
+                    "bsonType": "string",
+                    "pattern": "^\\S(?:.*\\S)?$",
+                    "maxLength": 128
+                  },
+                  "organization_id": {
+                    "bsonType": "string",
+                    "pattern": "^\\S(?:.*\\S)?$",
+                    "maxLength": 128
+                  },
+                  "product_id": {
+                    "bsonType": "objectId"
+                  },
+                  "sku": {
+                    "bsonType": "string",
+                    "pattern": "^\\S(?:.*\\S)?$",
+                    "maxLength": 128
+                  },
+                  "operation_id": {
+                    "bsonType": "string",
+                    "pattern": "^\\S(?:.*\\S)?$",
+                    "maxLength": 128
+                  },
+                  "actor_user_id": {
+                    "bsonType": "string",
+                    "pattern": "^\\S(?:.*\\S)?$",
+                    "maxLength": 128
+                  },
+                  "operation_namespace": {
+                    "enum": [
+                      "adjust",
+                      "import"
+                    ]
+                  },
+                  "kind": {
+                    "enum": [
+                      "ADJUSTMENT",
+                      "IMPORT_ADJUSTMENT"
+                    ]
+                  },
+                  "quantity_before": {
+                    "bsonType": [
+                      "int",
+                      "long"
+                    ],
+                    "minimum": 0
+                  },
+                  "quantity_after": {
+                    "bsonType": [
+                      "int",
+                      "long"
+                    ],
+                    "minimum": 0
+                  },
+                  "reserved_before": {
+                    "bsonType": [
+                      "int",
+                      "long"
+                    ],
+                    "minimum": 0
+                  },
+                  "reserved_after": {
+                    "bsonType": [
+                      "int",
+                      "long"
+                    ],
+                    "minimum": 0
+                  },
+                  "revision_after": {
+                    "bsonType": [
+                      "int",
+                      "long"
+                    ],
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "bsonType": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "source_reference": {
+                    "bsonType": "string",
+                    "pattern": "^\\S(?:.*\\S)?$",
+                    "maxLength": 128
+                  },
+                  "occurred_at": {
+                    "bsonType": "date"
+                  }
+                }
+              }
+            },
+            {
+              "$expr": {
+                "$and": [
+                  {
+                    "$lte": [
+                      "$reserved_before",
+                      "$quantity_before"
+                    ]
+                  },
+                  {
+                    "$lte": [
+                      "$reserved_after",
+                      "$quantity_after"
+                    ]
+                  },
+                  {
+                    "$eq": [
+                      "$reserved_before",
+                      "$reserved_after"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_movement_id",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "movement_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_movement_operation",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "operation_namespace",
+              1
+            ],
+            [
+              "operation_id",
+              1
+            ],
+            [
+              "product_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_movement_history",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "occurred_at",
+              1
+            ],
+            [
+              "movement_id",
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "collection": "b2b_imports",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "import_id",
+              "organization_id",
+              "actor_user_id",
+              "session_binding",
+              "mode",
+              "status",
+              "file_fingerprint",
+              "preview_digest",
+              "rules_version",
+              "rows",
+              "issues",
+              "created_at",
+              "expires_at",
+              "operation_id",
+              "finished_at"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "import_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "actor_user_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "session_binding": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "mode": {
+                "enum": [
+                  "create_only",
+                  "metadata_only",
+                  "stock_only"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "invalid",
+                  "preview",
+                  "applied",
+                  "rejected"
+                ]
+              },
+              "file_fingerprint": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "preview_digest": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "rules_version": {
+                "enum": [
+                  "b2b-csv-v1"
+                ]
+              },
+              "rows": {
+                "bsonType": "array",
+                "maxItems": 100,
+                "items": {
+                  "bsonType": "object"
+                }
+              },
+              "issues": {
+                "bsonType": "array",
+                "maxItems": 50,
+                "items": {
+                  "bsonType": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "line",
+                    "code",
+                    "message"
+                  ],
+                  "properties": {
+                    "line": {
+                      "bsonType": [
+                        "int",
+                        "long"
+                      ],
+                      "minimum": 0
+                    },
+                    "code": {
+                      "bsonType": "string",
+                      "maxLength": 40
+                    },
+                    "message": {
+                      "bsonType": "string",
+                      "maxLength": 256
+                    }
+                  }
+                }
+              },
+              "created_at": {
+                "bsonType": "date"
+              },
+              "expires_at": {
+                "bsonType": "date"
+              },
+              "operation_id": {
+                "bsonType": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 128
+              },
+              "finished_at": {
+                "bsonType": [
+                  "date",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_import_id",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "import_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_import_history",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "created_at",
+              1
+            ],
+            [
+              "import_id",
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "collection": "b2b_stock_operations",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "namespace",
+              "operation_id",
+              "actor_user_id",
+              "fingerprint",
+              "status",
+              "code",
+              "movement_ids",
+              "import_id",
+              "created_at",
+              "finished_at"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "namespace": {
+                "enum": [
+                  "adjust",
+                  "import"
+                ]
+              },
+              "operation_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "actor_user_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "fingerprint": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "status": {
+                "enum": [
+                  "pending",
+                  "succeeded",
+                  "rejected"
+                ]
+              },
+              "code": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "movement_ids": {
+                "bsonType": "array",
+                "maxItems": 100,
+                "uniqueItems": true,
+                "items": {
+                  "bsonType": "string",
+                  "pattern": "^\\S(?:.*\\S)?$",
+                  "maxLength": 128
+                }
+              },
+              "import_id": {
+                "bsonType": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 128
+              },
+              "created_at": {
+                "bsonType": "date"
+              },
+              "finished_at": {
+                "bsonType": [
+                  "date",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_stock_operation_id",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "namespace",
+              1
+            ],
+            [
+              "operation_id",
+              1
+            ]
+          ],
+          "unique": true
+        }
+      ]
+    }
+  ]
+}

@@ -591,7 +591,8 @@ def test_0001_upgrade_to_0002_keeps_products_and_history(db):
     product = document()
     db.b2b_products.insert_one(product)
     checksum = db.stockpilot_schema_migrations.find_one({"_id": 1})["checksum"]
-    runner = MigrationRunner(db)
+    # This test pins the B2 upgrade; B3 separately covers 0002 -> 0003.
+    runner = MigrationRunner(db, migrations=registry()[:2])
     assert [m.version for m in runner.plan()] == [2]
     runner.apply(confirmation=db.name)
     runner.require_version(1)

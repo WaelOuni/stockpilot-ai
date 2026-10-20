@@ -161,7 +161,7 @@ commandes B2B, RAG et checkpoints ne sont pas isolés par B1. Pas de SaaS opéra
 PR #47 fusionnée à `15f4fb80eb54e05d5c30abee94ce398b8c6ec36b`, vérifiée le
 21 octobre 2026 ; distincte du HEAD de branche `49b1e65`.
 
-## V13.7.3-B2 — commandes isolées, en revue, sans activation HTTP
+## V13.7.3-B2 — commandes isolées fusionnées, sans activation HTTP
 
 [ADR](../security/tenant-orders-atomicity.md) : commandes par organisation,
 own = created_by, associations acheteurs explicites, preuve de préparation,
@@ -171,3 +171,17 @@ par org/namespace/operation avec empreinte. Migration 0002 dédiée, sans backfi
 Fences d'identité/grant dans la transaction Mongo ; session BFF relue mais pas
 transaction distribuée de logout. Aucun chemin métier BFF ouvert, ORDER/ADVICE
 historiques inchangés ; imports/mouvements/RAG/checkpoints restent à isoler.
+
+PR #48 fusionnée à `d6a0bcdb7709d2a8e54d6104ce77043b2493d325`, vérifiée le
+21 octobre 2026 ; distincte du HEAD de branche `7c7a1d2`.
+
+## V13.7.3-B3 — stock physique et imports, en revue, sans route métier
+
+[ADR](../security/tenant-stock-operations.md), [formats CSV](../security/tenant-csv-imports.md)
+et [validation](../validation/v13.7.3b3-stock-imports.md) : ajustements respectant
+reserved, mouvements atomiques scoppés, previews liés org/acteur/session et
+applications CSV en lot total borné. Journal durable pending/succeeded/rejected,
+sans faux succès après timeout. Migration0003 additive, 0001/0002 inchangées.
+Coordinateur transactionnel B2 et quoting CSV partagés sans changement métier
+historique. Permissions serveur existantes conservées, aucune route BFF ouverte.
+RAG, conversations/checkpoints et ouverture SaaS restent bloqués hors périmètre.

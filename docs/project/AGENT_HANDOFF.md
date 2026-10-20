@@ -142,3 +142,17 @@ préprovisionnés. own = created_by, pas le customer partagé. Mapping désactiv
 également manager ; outcome unknown impose même clé/contenu, jamais une nouvelle
 commande de compensation. Le journal n'a aucun TTL. Voir les limites session,
 contention, sauvegarde et futurs imports/mouvements avant activation.
+
+## Reprise V13.7.3-B3
+
+Base `d6a0bcdb7709d2a8e54d6104ce77043b2493d325`, fusion #48, pas son HEAD.
+Worktree `/home/waelko/projects/stockpilot-v1373b3-tenant-stock-imports-admin`,
+branche `feature/v1373b3-tenant-stock-imports-admin`.
+[ADR stock/imports](../security/tenant-stock-operations.md), [preuve](../validation/v13.7.3b3-stock-imports.md).
+MongoTenantUnitOfWork conserve les garanties B2 ; B3 exige gate3, B2 gate2.
+Ne pas modifier reserved par inventaire/import. Toute mutation physique et son
+mouvement/résultat sont transactionnels. pending n'est ni succès ni preuve d'abort :
+réconcilier avec la commande et la clé originales. Aucun TTL, purge ou nouvelle
+opération de compensation. Imports limités à100lignes/256Kio ; modifications de
+revision après preview imposent un nouvel aperçu. Pas d'activation HTTP implicite.
+Protéger les mêmes installations et preuves ; les démos arrêtées restent arrêtées.
