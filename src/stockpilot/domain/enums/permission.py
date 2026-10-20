@@ -1,5 +1,6 @@
 from enum import StrEnum
 
+
 class Permission(StrEnum):
     CATALOGUE_READ = "catalogue:read"
     STOCK_READ = "stock:read"

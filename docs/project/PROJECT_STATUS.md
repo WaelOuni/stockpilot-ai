@@ -106,6 +106,13 @@ Priorités et critères : [roadmap](ROADMAP.md). Reprise : [handoff](AGENT_HANDO
 Les rapports anciens restent des snapshots ; en cas d'écart, conserver leur date et
 ajouter la preuve récente plutôt que réécrire l'histoire.
 
-## V13.7.1 identity foundations (implementation branch)
+## V13.7.1 — fondations B2B en revue
 
-The isolated V13.7.1 work introduces domain-only User, Organization, Membership and Principal contracts plus explicit role permissions and deny-by-default resolution. It does not enable routes, Keycloak, BFF sessions, persistence, or tenant filtering. customer_id, existing JWT validation, admin sessions, ORDER ownership and production_saas fail-closed behavior remain unchanged.
+PR [#44](https://github.com/WaelOuni/stockpilot-ai/pull/44), base `3eba881` :
+User, Organization, Membership et Principal immuables, résolution humaine par port
+serveur de confiance, permissions et portée organisation/propriétaire vérifiées.
+[Contrats et limites](../security/b2b-identity-foundations.md).
+Keycloak auto-hébergé, PKCE S256 et BFF FastAPI sont le choix validé pour la suite.
+Aucune route, persistance, session BFF ou isolation multi-tenant activée ici.
+`customer_id`, JWT historique, sessions admin, ORDER et fermeture SaaS restent inchangés.
+PR non fusionnée ; les installations de démonstration ne sont pas mises à jour.

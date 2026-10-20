@@ -97,6 +97,17 @@ Nouvelle frontière HTTP séparée de l’auth : host allowlist, fail-closed des
 - [MDN — Content-Security-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy) : CSP appartient aux réponses HTML ; l’appliquer aux réponses JSON ne protège pas le document frontend.
 - Références locales du skill security-best-practices : FastAPI, Vue, JavaScript frontend. Les recommandations sont adaptées à l’architecture réellement observée, sans nouveau fournisseur d’identité ou Redis imposé.
 
-## V13.7.1 correction
+## Contrat courant vérifié V13.7.1 (base `3eba881`)
 
-The current code applies require_customer_identity to /products, /products/{sku}, /chat, /classify, and /assistant. Earlier baseline paragraphs describing these routes as public are historical and must not be used as the current runtime contract. The routes still have no organization boundary; V13.7.1 adds no route and does not claim multi-tenant isolation.
+La matrice précédente est explicitement la baseline pré-V13.2. Les lignes
+`/products`, `/products/{sku}`, `/chat` et `/classify` exigent désormais le JWT
+`require_customer_identity` comme `/assistant` : voir
+`src/stockpilot/presentation/api/routes/products.py:10` et `routes/chat.py:17`.
+Ils ne sont plus publics dans les modes locaux. En `production_saas`/`production`,
+tous les chemins sensibles, docs comprises, sont fermés par `SaasBoundaryMiddleware` ;
+seul `/health` reste public. Les sessions Mongo partagées et les limites HTTP sont
+également présentes depuis V13.2 ; ne pas reprendre les lacunes de la baseline
+historique comme constats du code courant. Voir [architecture actuelle](saas-auth-architecture.md).
+
+Les [fondations B2B](b2b-identity-foundations.md) n'ajoutent aucune route ou
+permission aux API existantes et n'isolent pas les données métier par organisation.
