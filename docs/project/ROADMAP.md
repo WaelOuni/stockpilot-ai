@@ -46,3 +46,12 @@ supplémentaire. Le responsable du chantier ajoute date, preuve et limite :
 
 Les contrats détaillés restent dans leurs guides et les preuves dans
 `docs/validation/`. Ne jamais recopier secrets, JWT ou données privées dans le suivi.
+
+## V13.7.1 — fondations B2B : IN_PROGRESS / revue
+
+PR [#44](https://github.com/WaelOuni/stockpilot-ai/pull/44) : modèles, ports et
+politique avec refus par défaut ; aucune activation HTTP ni migration.
+Keycloak auto-hébergé + Authorization Code/PKCE S256 + BFF FastAPI validés.
+V13.7.2 reste à réaliser : adaptateur OIDC/session, persistance d'identité et
+provisionnement explicite, après revue de ces fondations. Ouverture distante et
+isolation des stores restent des gates distinctes ; voir [ADR](../security/b2b-identity-foundations.md).

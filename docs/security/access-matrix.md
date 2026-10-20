@@ -96,3 +96,18 @@ Nouvelle frontière HTTP séparée de l’auth : host allowlist, fail-closed des
 - [FastAPI — Behind a proxy](https://fastapi.tiangolo.com/advanced/behind-a-proxy/) : les forwarded headers doivent être interprétés uniquement pour les proxies de confiance ; l’origine publique TLS et le préfixe `/api` dépendent du point d’entrée.
 - [MDN — Content-Security-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy) : CSP appartient aux réponses HTML ; l’appliquer aux réponses JSON ne protège pas le document frontend.
 - Références locales du skill security-best-practices : FastAPI, Vue, JavaScript frontend. Les recommandations sont adaptées à l’architecture réellement observée, sans nouveau fournisseur d’identité ou Redis imposé.
+
+## Contrat courant vérifié V13.7.1 (base `3eba881`)
+
+La matrice précédente est explicitement la baseline pré-V13.2. Les lignes
+`/products`, `/products/{sku}`, `/chat` et `/classify` exigent désormais le JWT
+`require_customer_identity` comme `/assistant` : voir
+`src/stockpilot/presentation/api/routes/products.py:10` et `routes/chat.py:17`.
+Ils ne sont plus publics dans les modes locaux. En `production_saas`/`production`,
+tous les chemins sensibles, docs comprises, sont fermés par `SaasBoundaryMiddleware` ;
+seul `/health` reste public. Les sessions Mongo partagées et les limites HTTP sont
+également présentes depuis V13.2 ; ne pas reprendre les lacunes de la baseline
+historique comme constats du code courant. Voir [architecture actuelle](saas-auth-architecture.md).
+
+Les [fondations B2B](b2b-identity-foundations.md) n'ajoutent aucune route ou
+permission aux API existantes et n'isolent pas les données métier par organisation.

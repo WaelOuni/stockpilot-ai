@@ -69,3 +69,15 @@ les défauts liés au chantier. Aucun merge, tag, release ou déploiement sans i
 Restituer : URL/base/HEAD et état de PR, fichiers changés, résultats locaux et CI
 distincts, exclusions, risques/incertitudes et prochaine action humaine.
 Un commit fusionné, un commit déployé et une version stable sont trois preuves distinctes.
+
+## Reprise V13.7.1
+
+PR [#44](https://github.com/WaelOuni/stockpilot-ai/pull/44), branche
+`feature/v1371-b2b-identity-foundations`, worktree
+`/home/waelko/projects/stockpilot-v1371-b2b-identity-foundations` ; base `3eba881`.
+Fondations inactives : [ADR et contrats](../security/b2b-identity-foundations.md).
+Le port serveur HumanAuthentication précède la résolution ; aucune clé externe
+ou principal envoyé par le navigateur n'est une preuve d'authentification.
+Pas de provisioning automatique ; `customer_id` reste distinct du contexte humain.
+V13.7.2 intégrera Keycloak/PKCE/BFF et les adapters de persistance après revue.
+Pas de merge, déploiement, migration ni activation implicite.
