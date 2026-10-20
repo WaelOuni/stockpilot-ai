@@ -1,5 +1,9 @@
 # ADR V13.7.1 - Fondations B2B, inactives par defaut
 
+Snapshot de la PR #44, désormais fusionnée. L'adaptateur et le BFF de la phase
+suivante sont décrits dans [V13.7.2](keycloak-bff.md) ; les limites ci-dessous
+décrivent le périmètre initial des fondations.
+
 Decision validee par la demande V13.7.1 : Keycloak auto-heberge fournira
 l'identite OIDC humaine, Authorization Code + PKCE S256, avec BFF FastAPI et
 sessions serveur. StockPilot controle ses organisations, memberships et droits.

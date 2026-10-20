@@ -1,0 +1,66 @@
+# Disposable local test only. Secrets are random runtime env; no admin bootstrap.
+name: ${BFF_TEST_PROJECT:?unique project required}
+services:
+  keycloak-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: keycloak_test
+      POSTGRES_USER: keycloak_test
+      POSTGRES_PASSWORD: ${BFF_TEST_DB_PASSWORD:?random test password required}
+    tmpfs: [/var/lib/postgresql/data]
+    labels:
+      stockpilot.audit.purpose: v1372-ephemeral
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U keycloak_test -d keycloak_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: [start-dev, --import-realm]
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    ports: ["127.0.0.1:57915:8080"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak_test
+      KC_DB_USERNAME: keycloak_test
+      KC_DB_PASSWORD: ${BFF_TEST_DB_PASSWORD:?random test password required}
+      KC_HOSTNAME: http://127.0.0.1:57915
+      KC_HTTP_ENABLED: "true"
+      BFF_TEST_CLIENT_SECRET: ${BFF_TEST_CLIENT_SECRET:?random test secret required}
+      BFF_TEST_USER_PASSWORD: ${BFF_TEST_USER_PASSWORD:?random test password required}
+      JAVA_OPTS_APPEND: "-Xms128m -Xmx512m"
+    tmpfs: [/opt/keycloak/data]
+    volumes:
+      - ./keycloak/stockpilot-dev-realm.json:/opt/keycloak/data/import/stockpilot-dev-realm.json:ro
+    labels:
+      stockpilot.audit.purpose: v1372-ephemeral
+  mongo:
+    image: mongo:8
+    command: [mongod, --replSet, rs0, --bind_ip_all]
+    ports: ["127.0.0.1:57916:27017"]
+    tmpfs: [/data/db, /data/configdb]
+    labels:
+      stockpilot.audit.purpose: v1372-ephemeral
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "try { rs.status() } catch(e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }; if (!db.hello().isWritablePrimary) quit(1)"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+  test-postgres:
+    image: pgvector/pgvector:pg16
+    ports: ["127.0.0.1:57918:5432"]
+    environment:
+      POSTGRES_USER: ci
+      POSTGRES_PASSWORD: ${BFF_TEST_DB_PASSWORD:?random test password required}
+      POSTGRES_DB: stockpilot_ci
+    tmpfs: [/var/lib/postgresql/data]
+    labels:
+      stockpilot.audit.purpose: v1372-ephemeral
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U ci -d stockpilot_ci"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
