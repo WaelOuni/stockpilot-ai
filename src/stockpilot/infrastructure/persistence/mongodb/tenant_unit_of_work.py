@@ -3,6 +3,7 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from time import sleep
 
 from bson.codec_options import CodecOptions
 from pymongo import ReadPreference, timeout
@@ -149,6 +150,10 @@ class MongoTenantUnitOfWork:
                                 isinstance(error, DuplicateKeyError)
                                 or error.has_error_label("TransientTransactionError")
                             ):
+                                # Yield to a competing fence holder; immediate retries
+                                # can exhaust all attempts before its commit completes.
+                                # At most 10+20+40ms, inside the existing 15s deadline.
+                                sleep(0.01 * (2**attempt))
                                 continue
                             if committing or isinstance(error, ConnectionFailure):
                                 raise TenantOrderOutcomeUnknown(

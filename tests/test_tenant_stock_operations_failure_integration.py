@@ -357,3 +357,55 @@ def test_partial0003_blocks_all_gates_without_destructive_rollback(db):
     for version in (1, 2, 3):
         with pytest.raises(MigrationError):
             MigrationRunner(db).require_version(version)
+
+
+def test_order_fence_retry_yields_until_competing_commit(
+    db, orders, stock, monkeypatch
+):
+    """A real Mongo WriteConflict must yield time for the fence holder to finish."""
+    from time import sleep
+
+    from pymongo.errors import PyMongoError
+
+    order = prepare(orders, quantity=4)
+    held, collision, release = Event(), Event(), Event()
+    original, first, errors = orders[0]._identity, [True], []
+
+    def fenced(principal, session):
+        try:
+            original(principal, session)
+        except PyMongoError as error:
+            errors.append(
+                (
+                    type(error).__name__,
+                    getattr(error, "code", None),
+                    error.has_error_label("TransientTransactionError"),
+                )
+            )
+            collision.set()
+            raise
+        if first[0]:
+            first[0] = False
+            held.set()
+            assert release.wait(10)
+
+    monkeypatch.setattr(orders[0], "_identity", fenced)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        reservation = pool.submit(confirm, orders, order)
+        assert held.wait(10)
+        cancellation = pool.submit(cancel, orders, order)
+        try:
+            assert collision.wait(10)
+            sleep(0.025)
+        finally:
+            release.set()
+        reservation.result(timeout=20)
+        try:
+            result = cancellation.result(timeout=20)
+        except TenantOrdersUnavailable:
+            pytest.fail(f"Fence holder released but retries exhausted: {errors}")
+    assert errors and any(code == 112 and transient for _, code, transient in errors)
+    assert result.status.value == "cancelled"
+    assert facts(db)[1] == 0
+    assert db.b2b_orders.find_one({"order_id": order.order_id})["status"] == "cancelled"
+    assert db.b2b_order_operations.count_documents({"namespace": "cancel"}) == 1

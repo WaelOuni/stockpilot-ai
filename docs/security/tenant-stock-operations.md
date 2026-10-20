@@ -14,8 +14,9 @@ chemin global. Aucun port nouveau n'est composé dans main.py ou le BFF.
 Le coordinateur B2 est extrait en `MongoTenantUnitOfWork` : contexte courant,
 fences user/org/membership, transaction snapshot/majority, retries bornés et
 réconciliation. MongoTenantOrders conserve schema_version=2 ; B3 exige 3.
-Comparaison AST locale : toutes les méthodes ORDER gardent leur corps, à la
-seule différence du paramètre de gate de version dans le coordinateur partagé.
+Comparaison AST locale : les cas d'usage ORDER et les fences gardent leur corps.
+Le coordinateur partagé utilise un paramètre de gate et un espacement borné des
+retries transitoires, décrit ci-dessous ; aucune condition métier n'est assouplie.
 La suite B2 réelle est rejouée ; aucun changement d'algorithme ORDER.
 
 Le validateur de quoting CSV historique est extrait dans un helper pur partagé ;
@@ -162,7 +163,12 @@ Identités, memberships, produits et registres doivent partager la même DB/repl
 avec index d'identité BFF explicitement provisionnés. Aucun bootstrap automatique.
 
 Quatre tentatives de corps et de commit, deadline de 15 s par transaction et
-commit borné à 3 s, puis réconciliation séparément bornée. La déclaration ajoute
+commit borné à 3 s, puis réconciliation séparément bornée.
+Avant un retry de corps pour erreur transitoire ou DuplicateKey, attente de
+10/20/40 ms au plus (70 ms total), sous la deadline existante : laisser finir
+le détenteur d'une fence au lieu d'épuiser les quatre essais immédiatement.
+UnknownTransactionCommitResult ne relance toujours jamais le corps.
+La déclaration ajoute
 une transaction et la fence org crée une contention volontaire. Mesures locales
 faible concurrence dans le [rapport](../validation/v13.7.3b3-stock-imports.md) :
 échantillon petit, pas un SLA ou benchmark de capacité. Les tests injectent des
