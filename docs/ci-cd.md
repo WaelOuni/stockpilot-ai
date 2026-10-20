@@ -2,12 +2,16 @@
 
 V10 est une étape interne, pas la version v10.0.0. Le projet reste pré-1.0 :
 `v0.1.0` première release technique stable, `v0.2.0` évolution fonctionnelle,
-`v0.2.1` correctif. Aucun tag ni publication pendant V10. La livraison se fait par commits et PR vers dev.
+`v0.2.1` correctif. Aucun tag ni publication pendant V10. La procédure actuelle de maintenance stable suit AGENTS.md : branche isolée depuis
+`origin/main`, puis PR explicitement vers `main`. Le chantier V11 sur `dev` reste
+séparé ; ne pas le fusionner ou cherry-pick dans le stable.
 
 ## Branches et PR
 
-Feature depuis `dev` → PR vers `dev` → CI → PR `dev` vers `main` → tag annoté
-sur un commit de `main`. Protéger les deux branches contre les push directs,
+Pour le stable : branche depuis le main distant vérifié → PR vers `main` → CI
+et règles de protection → merge autorisé. Le circuit historique via `dev` ne
+s'applique pas au chantier stable actuel. Un tag annoté et une release sur `main`
+restent des actions séparément autorisées. Protéger les deux branches contre les push directs,
 force-push et suppressions ; exiger une PR (0 approbation obligatoire en mode
 solo) et les cinq checks
 `Unit Tests` (backend-quality), `AI Eval Framework` (eval-framework),

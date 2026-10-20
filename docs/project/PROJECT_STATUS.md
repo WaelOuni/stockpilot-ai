@@ -1,7 +1,7 @@
 # StockPilot AI — état du projet
 
-Snapshot documentaire : **18 octobre 2026**, après vérification GitHub et fetch de
-`origin/main` à `bf2329b85bcc5cbd33b5e395db6523b16c5fa1d8`.
+Snapshot documentaire : **20 octobre 2026**, après vérification GitHub et fetch de
+`origin/main` à `85df5c42e9188352623f11a5c12e639fb2c98b9d`.
 Ce SHA est une preuve datée, pas une référence permanente. Retrouver le courant :
 `git fetch origin main && git rev-parse origin/main`. La branche par défaut est
 `dev` ; ce programme suit **main**, sans intégrer le chantier V11 de dev.
@@ -55,6 +55,29 @@ Preuves historiques #39 : 2 482 tests backend, 210 intégrations, 428 frontend,
 122 évaluations déterministes, 11 scénarios navigateur synthétiques réussis ;
 CI finale verte consignée dans la PR. Ce ne sont pas des tests rejoués par V13.5,
 ni une mesure d'Ollama réel. Les rapports conservent désélections et limites.
+
+## Consolidation vérifiée le 20 octobre 2026
+
+- PR [#40](https://github.com/WaelOuni/stockpilot-ai/pull/40) (mémoire V13.5)
+  et [#41](https://github.com/WaelOuni/stockpilot-ai/pull/41) fusionnées ; CI de main
+  `85df5c4` réussie. La PR #42 (kit pilote) est encore ouverte à ce relevé.
+- [V13.4.3](../validation/v13.4.3-real-user-journey.md) : parcours réel ciblé
+  réussi sur `85df5c4`, 85 assertions, zéro erreur Vue ; preuves locales relues,
+  campagne non rejouée par la consolidation. Ce n'est ni un test de charge ni une
+  garantie de compréhension générale ou de devise/TVA.
+- [V13.6](../reports/v13.6-local-consolidation.md) : audit, nettoyage limité et
+  diagnostic stockage terminés. Ils n'ont promu aucune image ou installation.
+- Trois démos séparées : v017 sur **5191**, candidate sur **5193**, historique
+  sur **5175/8003**. La candidate exécute web/API `79368b1316b0` et relais API
+  `c760d407713c` selon l'inspection Docker ; ses scripts restent montés depuis
+  `/home/waelko/projects/stockpilot-v133-validation/`.
+  Le checkout principal historique reste volontairement à `6f09496` : ne pas le
+  synchroniser pour mettre GitHub à jour. Les lignes du tableau précédent sont
+  des preuves historiques ; cette inspection ne vaut pas nouvelle validation live.
+- Prochaine priorité décidée pour la préparation : **V13.7, audit d'authentification
+  B2B** ; contrats d'identité/organisation, autorisations et isolation à vérifier
+  avant implémentation. Préparer ensuite un environnement de test distant isolé.
+  Kubernetes/K3s reste envisagé, sans installation ni choix d'architecture approuvé.
 
 ## SaaS, limites et décisions en attente
 
