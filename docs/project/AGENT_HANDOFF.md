@@ -79,5 +79,20 @@ Fondations inactives : [ADR et contrats](../security/b2b-identity-foundations.md
 Le port serveur HumanAuthentication précède la résolution ; aucune clé externe
 ou principal envoyé par le navigateur n'est une preuve d'authentification.
 Pas de provisioning automatique ; `customer_id` reste distinct du contexte humain.
-V13.7.2 intégrera Keycloak/PKCE/BFF et les adapters de persistance après revue.
-Pas de merge, déploiement, migration ni activation implicite.
+PR #44 fusionnée à `eecf8a4`, vérifiée le 20 octobre 2026.
+
+## Reprise V13.7.2
+
+Worktree `/home/waelko/projects/stockpilot-v1372-keycloak-oidc-bff`, branche
+`feature/v1372-keycloak-oidc-bff`, base distante `eecf8a4`.
+[Guide OIDC/BFF et tests isolés](../security/keycloak-bff.md).
+Entrypoint indépendant : `stockpilot.bff:create_app`, BFF_MODE désactivé par défaut.
+Ne pas le brancher à l'API globale : seul le flux auth/session est composé.
+Le harnais crée et retire uniquement ses ressources Docker tmpfs identifiées.
+Les collections d'identité/session sont distinctes, aucun provisioning au callback.
+Pas de refresh ; les tokens restent transitoires côté serveur, sessions bornées
+par l'ID token. Pas de readiness Internet ni de multi-tenant opérationnel.
+Inspection initiale : 5 conteneurs candidate actifs, 28 conteneurs au total,
+30 volumes ; absence préexistante de certains artefacts temporaires V13.4.3.
+Ne pas restaurer automatiquement ni attribuer cet écart à la branche.
+Checkout historique à `6f09496` inchangé ; aucun merge, déploiement ou arrêt Windows.

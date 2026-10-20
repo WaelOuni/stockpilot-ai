@@ -19,7 +19,7 @@ dependencies = [
     "pymongo",
     "psycopg[binary]",
     "pgvector",
-    "PyJWT>=2.10,<3",
+    "PyJWT[crypto]>=2.10,<3",
 ]
 
 [project.optional-dependencies]

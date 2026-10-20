@@ -106,7 +106,7 @@ Priorités et critères : [roadmap](ROADMAP.md). Reprise : [handoff](AGENT_HANDO
 Les rapports anciens restent des snapshots ; en cas d'écart, conserver leur date et
 ajouter la preuve récente plutôt que réécrire l'histoire.
 
-## V13.7.1 — fondations B2B en revue
+## V13.7.1 — fondations B2B fusionnées
 
 PR [#44](https://github.com/WaelOuni/stockpilot-ai/pull/44), base `3eba881` :
 User, Organization, Membership et Principal immuables, résolution humaine par port
@@ -115,4 +115,16 @@ serveur de confiance, permissions et portée organisation/propriétaire vérifi�
 Keycloak auto-hébergé, PKCE S256 et BFF FastAPI sont le choix validé pour la suite.
 Aucune route, persistance, session BFF ou isolation multi-tenant activée ici.
 `customer_id`, JWT historique, sessions admin, ORDER et fermeture SaaS restent inchangés.
-PR non fusionnée ; les installations de démonstration ne sont pas mises à jour.
+PR #44 fusionnée : commit de fusion `eecf8a40198d04084ff0c221cea2eec53d4b72b7`,
+vérifié le 20 octobre 2026 ; distinct du HEAD de PR `97ca2d2`.
+Les installations de démonstration ne sont pas mises à jour.
+
+## V13.7.2 — OIDC/BFF, en cours de validation
+
+[Guide et limites](../security/keycloak-bff.md) : entrypoint FastAPI séparé,
+Keycloak 26.8.1, Authorization Code/PKCE S256, sessions MongoDB partagées,
+cookies HTTPS et provisioning explicite. Mode désactivé par défaut ;
+`b2b_auth_test` expose uniquement authentification/session, aucun endpoint métier.
+Pas de refresh token conservé ; session plafonnée par l'expiration de l'ID token.
+Ni isolation multi-tenant ni exposition Internet validées ; aucun déploiement.
+La PR #42 (kit pilote) reste ouverte au relevé V13.7.2, sans intégration implicite.

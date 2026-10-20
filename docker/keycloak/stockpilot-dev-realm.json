@@ -1,0 +1,73 @@
+{
+  "realm": "stockpilot-dev",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 600,
+  "ssoSessionMaxLifespan": 1800,
+  "clients": [
+    {
+      "clientId": "stockpilot-bff",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${BFF_TEST_CLIENT_SECRET}",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "consentRequired": false,
+      "redirectUris": [
+        "https://127.0.0.1:57914/b2b/auth/callback"
+      ],
+      "webOrigins": [
+        "https://127.0.0.1:57914"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "https://127.0.0.1:57914/b2b/auth/logged-out",
+        "id.token.signed.response.alg": "RS256"
+      }
+    }
+  ],
+  "users": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "username": "bff-test-user",
+      "firstName": "Synthetic",
+      "lastName": "Fixture",
+      "email": "bff-fixture@example.test",
+      "requiredActions": [],
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${BFF_TEST_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "username": "bff-unprovisioned",
+      "firstName": "Unknown",
+      "lastName": "Fixture",
+      "email": "bff-unknown@example.test",
+      "requiredActions": [],
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${BFF_TEST_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}
