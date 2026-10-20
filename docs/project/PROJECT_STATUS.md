@@ -82,7 +82,8 @@ ni une mesure d'Ollama réel. Les rapports conservent désélections et limites.
 ## SaaS, limites et décisions en attente
 
 **Multi-tenant non livré** : `customer_id` désigne un propriétaire client, pas
-`tenant_id`. Pas d'OIDC, rôles d'organisation ou stores multi-tenant opérationnels.
+`tenant_id`. Modèles et permissions B2B présents ; OIDC/BFF limité au mode de test.
+Pas de stores métier multi-tenant opérationnels.
 `production_saas` et l'alias `production` restent fail-closed.
 [V13.2](../security/saas-auth-architecture.md) décrit la frontière actuelle ;
 [V14](../security/v14-saas-design.md) propose des évolutions à approuver.
@@ -119,7 +120,7 @@ PR #44 fusionnée : commit de fusion `eecf8a40198d04084ff0c221cea2eec53d4b72b7`,
 vérifié le 20 octobre 2026 ; distinct du HEAD de PR `97ca2d2`.
 Les installations de démonstration ne sont pas mises à jour.
 
-## V13.7.2 — OIDC/BFF, en cours de validation
+## V13.7.2 — OIDC/BFF fusionné, mode de test uniquement
 
 [Guide et limites](../security/keycloak-bff.md) : entrypoint FastAPI séparé,
 Keycloak 26.8.1, Authorization Code/PKCE S256, sessions MongoDB partagées,
@@ -128,3 +129,17 @@ cookies HTTPS et provisioning explicite. Mode désactivé par défaut ;
 Pas de refresh token conservé ; session plafonnée par l'expiration de l'ID token.
 Ni isolation multi-tenant ni exposition Internet validées ; aucun déploiement.
 La PR #42 (kit pilote) reste ouverte au relevé V13.7.2, sans intégration implicite.
+PR [#45](https://github.com/WaelOuni/stockpilot-ai/pull/45) fusionnée à
+`80da436e455c48afc5db15c8feaad950960e604f`, vérifiée le 20 octobre 2026 ;
+son HEAD de branche `26c68f9` est distinct. Aucun déploiement n'en découle.
+
+## V13.7.3-A — frontière tenant en préparation de revue
+
+[ADR et matrice de ressources](../security/tenant-authorization-boundary.md) :
+TenantContext immuable lié à la session validée, revalidation du Principal,
+opération/permission/type/ownership et association acheteur explicite.
+Décisions ALLOW/DENY/NOT_FOUND/INDETERMINATE ; aucun accès global de secours.
+Contrats et tests uniquement : aucune migration, collection métier, route ou
+activation des repositories tenant. Les lectures RAG/conversations/checkpoints,
+la création B2B et le rejeu d'idempotence restent refusés dans cette politique.
+Leur isolation réelle et l'atomicité vérification/écriture relèvent de V13.7.3-B.

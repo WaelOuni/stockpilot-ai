@@ -33,3 +33,12 @@ Les sources liées font autorité pour les détails et les garanties.
 Pour une nouvelle décision approuvée, ajouter seulement une entrée : date, périmètre,
 motivation, compromis, questions et lien vers l'accord humain/PR. Ne pas convertir
 une hypothèse commerciale ou une proposition V14 en décision par simple recopie.
+
+## 20 octobre 2026 — frontière d'autorisation V13.7.3-A
+
+Choix demandé : réutiliser Principal et la résolution V13.7.1 via les sessions BFF,
+avec un contexte serveur immuable revalidé, ownership scoped et mapping acheteur
+explicite. [ADR et limites](../security/tenant-authorization-boundary.md).
+Les permissions métier et l'organisation ne se déduisent pas de Keycloak ou du
+navigateur. Aucun store métier tenant ou migration n'est activé ; l'atomicité
+future, l'attribution historique et la politique d'acheteurs restent des gates B.
