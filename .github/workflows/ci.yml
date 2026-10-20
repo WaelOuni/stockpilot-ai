@@ -79,7 +79,9 @@ jobs:
       - run: npm run lint
       - run: npm run build
   integration-tests:
-    runs-on: ubuntu-latest
+    # MongoDB refuses Linux >=6.19 (SERVER-121912). Keep DB jobs on the 6.8 image.
+    # Revisit this pin before the Ubuntu 22.04 hosted-image retirement.
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     env:
       MONGO_TEST_URI: mongodb://127.0.0.1:27027/?replicaSet=rs0&directConnection=true
@@ -110,7 +112,8 @@ jobs:
       - if: always()
         run: docker compose -f docker/compose.ci.yml down -v
   containers:
-    runs-on: ubuntu-latest
+    # Same MongoDB kernel compatibility requirement as integration-tests.
+    runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
