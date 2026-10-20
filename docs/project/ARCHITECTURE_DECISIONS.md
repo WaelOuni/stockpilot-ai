@@ -42,3 +42,14 @@ explicite. [ADR et limites](../security/tenant-authorization-boundary.md).
 Les permissions métier et l'organisation ne se déduisent pas de Keycloak ou du
 navigateur. Aucun store métier tenant ou migration n'est activé ; l'atomicité
 future, l'attribution historique et la politique d'acheteurs restent des gates B.
+
+## 21 octobre 2026 — stockage B1 et migrations Mongo explicites
+
+Demande V13.7.3-B1 : collection B2B dédiée `b2b_products`, organisation obligatoire,
+stock embarqué, unicité SKU par organisation ; [comparaison A/B/C et compromis](../security/tenant-catalogue-stock.md).
+Isolation dans les requêtes et revalidation des contrats A, sans activation de
+route. [Runner Mongo léger](../mongodb-migrations.md) versionné, checksums, suivi
+et exclusion mutuelle sans takeover ; apply autorisé seulement sur cibles jetables
+dans ce lot. Aucune attribution historique, migration existante ou modification PG.
+L'extension production, les commandes/acheteurs et l'ouverture du BFF restent
+des décisions et preuves distinctes, non acquises par ce choix.

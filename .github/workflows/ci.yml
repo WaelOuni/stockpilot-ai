@@ -79,10 +79,13 @@ jobs:
       - run: npm run lint
       - run: npm run build
   integration-tests:
-    runs-on: ubuntu-latest
+    # MongoDB refuses Linux >=6.19 (SERVER-121912). Keep DB jobs on the 6.8 image.
+    # Revisit this pin before the Ubuntu 22.04 hosted-image retirement.
+    runs-on: ubuntu-22.04
     timeout-minutes: 20
     env:
       MONGO_TEST_URI: mongodb://127.0.0.1:27027/?replicaSet=rs0&directConnection=true
+      MONGO_MIGRATION_AUTH_TEST_URI: mongodb://ci:ci@127.0.0.1:27028/?authSource=admin
       POSTGRES_TEST_URI: postgresql://ci:ci@127.0.0.1:55432/stockpilot_ci
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -97,13 +100,20 @@ jobs:
             requirements.lock
             requirements-dev.lock
       - run: python -m pip install -r requirements-dev.lock && python -m pip install --no-deps -e .
-      - run: docker compose -f docker/compose.ci.yml up -d --wait
+      - name: Start disposable integration services
+        run: |
+          if ! docker compose -f docker/compose.ci.yml up -d --wait; then
+            docker compose -f docker/compose.ci.yml ps -a
+            docker compose -f docker/compose.ci.yml logs --no-color --tail 160 mongo mongo-migrations-auth postgres
+            exit 1
+          fi
       - run: python scripts/ci/check_targets.py
       - run: python -m pytest -q -m "integration and not integration_optional" tests
       - if: always()
         run: docker compose -f docker/compose.ci.yml down -v
   containers:
-    runs-on: ubuntu-latest
+    # Same MongoDB kernel compatibility requirement as integration-tests.
+    runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -112,7 +122,13 @@ jobs:
           ref: ${{ inputs.release_sha || github.sha }}
       - run: docker build -t stockpilot-api:ci .
       - run: docker build -f frontend/Dockerfile -t stockpilot-web:ci .
-      - run: docker compose -f docker/compose.ci.yml up -d --wait
+      - name: Start disposable image-test services
+        run: |
+          if ! docker compose -f docker/compose.ci.yml up -d --wait; then
+            docker compose -f docker/compose.ci.yml ps -a
+            docker compose -f docker/compose.ci.yml logs --no-color --tail 160 mongo mongo-migrations-auth postgres
+            exit 1
+          fi
       - name: Start images on isolated services
         run: |
           docker run -d --name ci-api --network stockpilot-ci_default -p 127.0.0.1:58000:8000 -e MONGO_URI='mongodb://mongo:27017/?replicaSet=rs0&directConnection=true' -e MONGO_DATABASE=stockpilot_ci_runtime -e POSTGRES_URL=postgresql://ci:ci@postgres:5432/stockpilot_ci -e OLLAMA_BASE_URL=http://127.0.0.1:9 stockpilot-api:ci

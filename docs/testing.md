@@ -21,6 +21,7 @@ test URIs they publish, verify them, then select by marker:
 ```sh
 docker compose -f docker/compose.ci.yml -p stockpilot-local-tests up -d --wait
 export MONGO_TEST_URI='mongodb://127.0.0.1:27027/?replicaSet=rs0&directConnection=true'
+export MONGO_MIGRATION_AUTH_TEST_URI='mongodb://ci:ci@127.0.0.1:27028/?authSource=admin'
 export POSTGRES_TEST_URI='postgresql://ci:ci@127.0.0.1:55432/stockpilot_ci'
 .venv/bin/python scripts/ci/check_targets.py
 .venv/bin/python -m pytest -q -m "integration and not integration_optional" tests

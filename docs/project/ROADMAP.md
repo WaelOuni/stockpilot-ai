@@ -56,10 +56,17 @@ PR #44 fusionnée à `eecf8a4`, vérifiée le 20 octobre 2026.
 V13.7.2 — **DONE**, PR [#45](https://github.com/WaelOuni/stockpilot-ai/pull/45)
 fusionnée à `80da436` : adaptateur OIDC, sessions partagées et
 persistance dédiée, provisioning explicite ; [guide](../security/keycloak-bff.md).
-V13.7.3-A — **IN_PROGRESS / revue** : contexte vérifié, contrats ownership/mapping,
+V13.7.3-A — **DONE**, PR #46 fusionnée à `b8fb6ee` : contexte vérifié, contrats ownership/mapping,
 politique fail-closed et [matrice par ressource](../security/tenant-authorization-boundary.md).
 V13.7.3-B — **PLANNED / activation bloquée** : repositories et transactions scoped,
 catalogue/stock puis commandes/idempotence, imports/admin et RAG/checkpoints.
 Choix de stockage/migration et tests réels interorganisationnels obligatoires.
+
+V13.7.3-B1 — **IN_PROGRESS / revue** : [catalogue et stock scoped en Mongo](../security/tenant-catalogue-stock.md),
+collection dédiée, [migrations versionnées](../mongodb-migrations.md), tests réels
+interorg et concurrence. Aucune activation BFF ou migration existante.
+V13.7.3-B2 — **PLANNED / activation bloquée** : commandes B2B, mapping acheteur
+durable, idempotence et opérations atomiques ; décider révocation/ownership,
+prouver sauvegarde/restauration et étendre les migrations sans reprendre l'historique.
 V13.7.4 : UX Vue et validation navigateur complète. Ouverture distante et
 isolation des stores restent des gates distinctes ; voir [ADR](../security/b2b-identity-foundations.md).
