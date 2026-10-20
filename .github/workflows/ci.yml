@@ -98,7 +98,13 @@ jobs:
             requirements.lock
             requirements-dev.lock
       - run: python -m pip install -r requirements-dev.lock && python -m pip install --no-deps -e .
-      - run: docker compose -f docker/compose.ci.yml up -d --wait
+      - name: Start disposable integration services
+        run: |
+          if ! docker compose -f docker/compose.ci.yml up -d --wait; then
+            docker compose -f docker/compose.ci.yml ps -a
+            docker compose -f docker/compose.ci.yml logs --no-color --tail 160 mongo mongo-migrations-auth postgres
+            exit 1
+          fi
       - run: python scripts/ci/check_targets.py
       - run: python -m pytest -q -m "integration and not integration_optional" tests
       - if: always()
@@ -113,7 +119,13 @@ jobs:
           ref: ${{ inputs.release_sha || github.sha }}
       - run: docker build -t stockpilot-api:ci .
       - run: docker build -f frontend/Dockerfile -t stockpilot-web:ci .
-      - run: docker compose -f docker/compose.ci.yml up -d --wait
+      - name: Start disposable image-test services
+        run: |
+          if ! docker compose -f docker/compose.ci.yml up -d --wait; then
+            docker compose -f docker/compose.ci.yml ps -a
+            docker compose -f docker/compose.ci.yml logs --no-color --tail 160 mongo mongo-migrations-auth postgres
+            exit 1
+          fi
       - name: Start images on isolated services
         run: |
           docker run -d --name ci-api --network stockpilot-ci_default -p 127.0.0.1:58000:8000 -e MONGO_URI='mongodb://mongo:27017/?replicaSet=rs0&directConnection=true' -e MONGO_DATABASE=stockpilot_ci_runtime -e POSTGRES_URL=postgresql://ci:ci@postgres:5432/stockpilot_ci -e OLLAMA_BASE_URL=http://127.0.0.1:9 stockpilot-api:ci
