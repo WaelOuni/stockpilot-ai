@@ -96,3 +96,19 @@ Inspection initiale : 5 conteneurs candidate actifs, 28 conteneurs au total,
 30 volumes ; absence préexistante de certains artefacts temporaires V13.4.3.
 Ne pas restaurer automatiquement ni attribuer cet écart à la branche.
 Checkout historique à `6f09496` inchangé ; aucun merge, déploiement ou arrêt Windows.
+
+## Reprise V13.7.3-A
+
+PR #45 fusionnée : main vérifié à `80da436e455c48afc5db15c8feaad950960e604f`,
+distinct du HEAD de branche `26c68f9`. Worktree
+`/home/waelko/projects/stockpilot-v1373a-tenant-authorization-boundary`, branche
+`feature/v1373a-tenant-authorization-boundary`.
+[ADR, ownership et lots B](../security/tenant-authorization-boundary.md).
+Le pont BFF réutilise current() et le resolver V13.7.1, sans nouvelle route.
+Ne pas traiter TenantContext ou ALLOW comme une preuve persistante de mutation.
+Ownership/association sont des ports, sans adapter réel ni migration ; aucune
+organisation des données historiques n'est devinée. Garder le BFF fermé aux métiers.
+Le harnais Keycloak a seulement un délai client de test plus long que le timeout
+du fournisseur pour observer sa réponse 503 ; aucune assertion n'est affaiblie.
+Tests sur ressources jetables uniquement ; préserver les 5 services actifs
+initialement constatés, sans restaurer les services arrêtés ou preuves absentes.

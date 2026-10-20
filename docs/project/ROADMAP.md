@@ -53,8 +53,13 @@ PR [#44](https://github.com/WaelOuni/stockpilot-ai/pull/44) : modèles, ports et
 politique avec refus par défaut ; aucune activation HTTP ni migration.
 Keycloak auto-hébergé + Authorization Code/PKCE S256 + BFF FastAPI validés.
 PR #44 fusionnée à `eecf8a4`, vérifiée le 20 octobre 2026.
-V13.7.2 — **IN_PROGRESS / validation** : adaptateur OIDC, sessions partagées et
+V13.7.2 — **DONE**, PR [#45](https://github.com/WaelOuni/stockpilot-ai/pull/45)
+fusionnée à `80da436` : adaptateur OIDC, sessions partagées et
 persistance dédiée, provisioning explicite ; [guide](../security/keycloak-bff.md).
-V13.7.3 : isolation et autorisation jusqu'aux ressources métier.
+V13.7.3-A — **IN_PROGRESS / revue** : contexte vérifié, contrats ownership/mapping,
+politique fail-closed et [matrice par ressource](../security/tenant-authorization-boundary.md).
+V13.7.3-B — **PLANNED / activation bloquée** : repositories et transactions scoped,
+catalogue/stock puis commandes/idempotence, imports/admin et RAG/checkpoints.
+Choix de stockage/migration et tests réels interorganisationnels obligatoires.
 V13.7.4 : UX Vue et validation navigateur complète. Ouverture distante et
 isolation des stores restent des gates distinctes ; voir [ADR](../security/b2b-identity-foundations.md).
