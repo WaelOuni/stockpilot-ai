@@ -19,6 +19,25 @@
    données, secrets, services ou ports sans accord explicite. Ne pas lancer les
    recettes DEMO présentes dans les anciens rapports. Tests : cibles jetables uniquement.
 
+## Point de reprise V13.6.4 (20 octobre 2026)
+
+Main distant vérifié à `85df5c4` avant consolidation ; retrouver son état courant
+sur GitHub. [Parcours V13.4.3](../validation/v13.4.3-real-user-journey.md) et
+[rapport V13.6](../reports/v13.6-local-consolidation.md) distinguent preuves locales,
+code fusionné et installations. PR #42 (kit pilote) ouverte au relevé initial :
+la réexaminer séparément, sans supposer qu'elle est intégrée.
+
+Le checkout `/home/waelko/projects/stockpilot-ai/` à `6f09496` sert la démo
+historique 5175/8003. Aucun pull/reset/checkout dessus pour suivre main. Fetch des
+références puis worktree dédié seulement. Protéger aussi v017/5191, candidate/5193,
+le worktree `stockpilot-v133-validation`, les preuves `stockpilot-v1343-*` et les
+fichiers non suivis du worktree V13.4.3. Aucun déploiement implicite après merge.
+
+Prochaine étape : audit B2B V13.7, puis préparation d'un test distant isolé.
+Kubernetes/K3s reste une option à décider. Ni multi-tenant opérationnel ni aptitude
+à une production commerciale ne sont attestés. Ne pas réutiliser le harnais local
+V13.4.3 comme outil générique : voir ses limites dans le rapport publié.
+
 ## Exécuter et préparer une PR
 
 Depuis le dépôt vérifié, choisir un **nouveau** chemin et une branche par tâche :
