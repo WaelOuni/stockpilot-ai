@@ -1,5 +1,18 @@
 name: stockpilot-ci
 services:
+  mongo-migrations-auth:
+    image: mongo:8
+    command: [mongod, --auth, --bind_ip_all]
+    ports: ["127.0.0.1:27028:27017"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ci
+      MONGO_INITDB_ROOT_PASSWORD: ci
+    tmpfs: [/data/db, /data/configdb]
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --username, ci, --password, ci, --authenticationDatabase, admin, --eval, "if (!db.hello().isWritablePrimary) quit(1)"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
   mongo:
     image: mongo:8
     command: [mongod, --replSet, rs0, --bind_ip_all]

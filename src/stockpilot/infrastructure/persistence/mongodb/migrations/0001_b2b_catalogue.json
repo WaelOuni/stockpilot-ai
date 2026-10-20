@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "id": "0001_b2b_catalogue",
+  "description": "Prepare organization-owned B2B products with embedded stock",
+  "collection": "b2b_products",
+  "options": {
+    "collation": {"locale": "simple"},
+    "validationLevel": "strict",
+    "validationAction": "error",
+    "validator": {
+      "$and": [
+        {"$jsonSchema": {
+          "bsonType": "object",
+          "additionalProperties": false,
+          "required": ["_id", "organization_id", "sku", "name", "description", "category", "price_minor", "currency", "status", "attributes", "quantity", "reserved", "revision"],
+          "properties": {
+            "_id": {"bsonType": "objectId"},
+            "organization_id": {"bsonType": "string", "pattern": "^\\S(?:.*\\S)?$", "maxLength": 128},
+            "sku": {"bsonType": "string", "pattern": "^\\S(?:.*\\S)?$", "maxLength": 128},
+            "name": {"bsonType": "string", "minLength": 1, "maxLength": 512},
+            "description": {"bsonType": "string", "maxLength": 8192},
+            "category": {"bsonType": "string", "minLength": 1, "maxLength": 128},
+            "price_minor": {"bsonType": ["int", "long"], "minimum": 0},
+            "currency": {"bsonType": "string", "pattern": "^[A-Z]{3}$"},
+            "status": {"enum": ["active", "inactive"]},
+            "attributes": {"bsonType": "array", "maxItems": 64, "uniqueItems": true, "items": {"bsonType": "string", "minLength": 1, "maxLength": 128}},
+            "quantity": {"bsonType": ["int", "long"], "minimum": 0},
+            "reserved": {"bsonType": ["int", "long"], "minimum": 0},
+            "revision": {"bsonType": ["int", "long"], "minimum": 1}
+          }
+        }},
+        {"$expr": {"$lte": ["$reserved", "$quantity"]}}
+      ]
+    }
+  },
+  "indexes": [
+    {"name": "b2b_org_sku_unique", "key": [["organization_id", 1], ["sku", 1]], "unique": true},
+    {"name": "b2b_org_status_sku", "key": [["organization_id", 1], ["status", 1], ["sku", 1]]},
+    {"name": "b2b_org_category_sku", "key": [["organization_id", 1], ["category", 1], ["sku", 1]]},
+    {"name": "b2b_org_currency_price", "key": [["organization_id", 1], ["currency", 1], ["price_minor", 1], ["sku", 1]]}
+  ]
+}

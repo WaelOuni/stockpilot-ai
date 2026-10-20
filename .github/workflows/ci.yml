@@ -83,6 +83,7 @@ jobs:
     timeout-minutes: 20
     env:
       MONGO_TEST_URI: mongodb://127.0.0.1:27027/?replicaSet=rs0&directConnection=true
+      MONGO_MIGRATION_AUTH_TEST_URI: mongodb://ci:ci@127.0.0.1:27028/?authSource=admin
       POSTGRES_TEST_URI: postgresql://ci:ci@127.0.0.1:55432/stockpilot_ci
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

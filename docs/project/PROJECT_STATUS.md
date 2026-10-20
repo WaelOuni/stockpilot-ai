@@ -133,7 +133,7 @@ PR [#45](https://github.com/WaelOuni/stockpilot-ai/pull/45) fusionnée à
 `80da436e455c48afc5db15c8feaad950960e604f`, vérifiée le 20 octobre 2026 ;
 son HEAD de branche `26c68f9` est distinct. Aucun déploiement n'en découle.
 
-## V13.7.3-A — frontière tenant en préparation de revue
+## V13.7.3-A — frontière tenant fusionnée
 
 [ADR et matrice de ressources](../security/tenant-authorization-boundary.md) :
 TenantContext immuable lié à la session validée, revalidation du Principal,
@@ -143,3 +143,17 @@ Contrats et tests uniquement : aucune migration, collection métier, route ou
 activation des repositories tenant. Les lectures RAG/conversations/checkpoints,
 la création B2B et le rejeu d'idempotence restent refusés dans cette politique.
 Leur isolation réelle et l'atomicité vérification/écriture relèvent de V13.7.3-B.
+
+PR #46 fusionnée à `b8fb6ee229ed64de5e00881d43c66ff79e4a1f24`, vérifiée le
+21 octobre 2026 ; distincte du HEAD de branche `cb778eb`.
+
+## V13.7.3-B1 — catalogue/stock isolés, sans activation métier
+
+[ADR](../security/tenant-catalogue-stock.md) : collection `b2b_products`, stock
+embarqué, organisation obligatoire, unicité `(organization_id, sku)` et adapters
+de lecture explicitement scoped. [Migrations versionnées](../mongodb-migrations.md)
+avec historique, checksums, verrou sans takeover et gate de version ; apply limité
+aux cibles jetables explicitement identifiées. Aucun backfill ni migration DEMO.
+[Preuves et limites](../validation/v13.7.3b1-tenant-catalogue-stock.md).
+Le BFF n'expose aucun métier. ORDER/ADVICE historiques restent sur leurs adapters ;
+commandes B2B, RAG et checkpoints ne sont pas isolés par B1. Pas de SaaS opérationnel.

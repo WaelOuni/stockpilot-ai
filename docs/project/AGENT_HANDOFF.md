@@ -112,3 +112,18 @@ Le harnais Keycloak a seulement un délai client de test plus long que le timeou
 du fournisseur pour observer sa réponse 503 ; aucune assertion n'est affaiblie.
 Tests sur ressources jetables uniquement ; préserver les 5 services actifs
 initialement constatés, sans restaurer les services arrêtés ou preuves absentes.
+
+## Reprise V13.7.3-B1
+
+Base réelle vérifiée : `b8fb6ee229ed64de5e00881d43c66ff79e4a1f24`, fusion de #46
+(son HEAD `cb778eb` ne sert pas de base). Branche
+`feature/v1373b1-tenant-catalogue-stock`, worktree Windows isolé ; aucun changement
+du checkout Linux historique. [ADR](../security/tenant-catalogue-stock.md),
+[guide migrations](../mongodb-migrations.md),
+[validation](../validation/v13.7.3b1-tenant-catalogue-stock.md).
+Les ports B2B ne sont composés dans aucune route. Ne pas remplacer l'adapter
+historique ni relier le BFF aux métiers. Appliquer seulement sur une infrastructure
+jetable identifiée ; aucun `apply` au démarrage. Verrou expiré/started/failed :
+intervention humaine, aucun takeover automatique ou commande force.
+La suite B2 exige mapping acheteur et transactions/révocation ; l'observation de
+disponibilité B1 ne réserve aucun stock et ALLOW n'est pas un ticket de mutation.

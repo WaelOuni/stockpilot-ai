@@ -1,3 +1,5 @@
 * text=auto
 *.sh text eol=lf
 .env.example text eol=lf
+# Migration checksums must be identical across Windows and Linux checkouts.
+src/stockpilot/infrastructure/persistence/mongodb/migrations/*.json text eol=lf

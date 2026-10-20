@@ -123,6 +123,33 @@ class TenantAuthorizationService:
         ):
             return D.INDETERMINATE
 
+    def decide_scope(
+        self, request_context: object, context: TenantContext | None, operation: O
+    ) -> D:
+        """Collection reads only; never authorizes an individual resource/write.
+
+        Reuses the same server resolution and permission matrix. Every resulting
+        repository query must still include the freshly validated organization.
+        """
+        if (
+            not isinstance(context, TenantContext)
+            or not isinstance(operation, O)
+            or operation not in (O.CATALOGUE_READ, O.STOCK_READ)
+        ):
+            return D.DENY
+        try:
+            current = self.resolve_context(request_context)
+            if (
+                current != context
+                or _RULES[operation][0] not in current.principal.permissions
+            ):
+                return D.DENY
+            return D.ALLOW
+        except AuthorizationDenied:
+            return D.DENY
+        except TenantContextUnavailable:
+            return D.INDETERMINATE
+
     def _order(self, context: TenantContext, operation: O, row: OrderResource) -> D:
         if row.owner_user_id is None or row.customer_id is None:
             return D.NOT_FOUND
