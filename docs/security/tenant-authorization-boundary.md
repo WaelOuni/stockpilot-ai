@@ -227,3 +227,10 @@ nouveau chemin dédié, sans modifier la politique générique réservée ni l'h
 
 Conversations/checkpoints/RAG restent non isolés par ce chemin et inaccessibles
 depuis le BFF. Les futurs filtres de retrieval doivent précéder le LLM.
+
+Complément B3 : [ajustements, mouvements et imports](tenant-stock-operations.md)
+portent organisation jusque dans les filtres transactionnels, préservent reserved
+et synchronisent révocation user/org/membership par les fences B2 partagées.
+stock:read, stock:adjust et import:execute restent les seules permissions utilisées.
+Les résultats pending/terminaux et previews sont scoppés ; aucun accès HTTP ajouté.
+La frontière RAG/conversations/checkpoints reste à implémenter dans B4.

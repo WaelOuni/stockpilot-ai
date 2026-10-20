@@ -151,3 +151,21 @@ trous, concurrence, lock expiré, crash avec DDL partiel, arrêt avant la migrat
 suivante, index/collection incompatibles, cible absente, droits insuffisants,
 réseau indisponible et configuration CLI incomplète. Voir le
 [rapport](validation/v13.7.3b1-tenant-catalogue-stock.md) pour les résultats exécutés.
+
+## Extension V13.7.3-B3
+
+0003_b2b_stock_operations crée b2b_stock_movements (audit physique scoppé),
+b2b_imports (previews et workflow) et b2b_stock_operations (déclarations pending
+puis résultats terminaux). Index uniques org/mouvement, org/namespace/op/produit,
+org/import et org/namespace/op ; historiques ordonnés par organisation/date.
+Validateurs racines stricts, bornes et réservations avant/après cohérentes ; plans
+d'import aussi validés et liés par digest dans l'adapter. Aucun TTL métier.
+
+0001/0002 inchangées. Le gate3 est exigé uniquement par B3, sans DDL automatique ;
+les gates1/2 vérifient également les versions ultérieures déjà appliquées.
+Échec DDL partiel : blocage persistant, aucun takeover ou rollback destructif.
+[ADR](security/tenant-stock-operations.md), [tests upgrade/incident](validation/v13.7.3b3-stock-imports.md).
+Apply reste limité aux bases jetables identifiées ; aucune donnée historique
+attribuée. Conserver journaux/PENDING après incident et exiger sauvegarde et
+restauration avant toute réparation future. Ne jamais supprimer un registre pour
+faire croire qu'une opération n'a pas été appliquée.

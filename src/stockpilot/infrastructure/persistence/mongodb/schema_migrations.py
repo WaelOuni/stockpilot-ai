@@ -24,7 +24,15 @@ LOCK_ID = "schema"
 TARGET = re.compile(r"stockpilot_b2b_test_[0-9a-f]{32}")
 log = logging.getLogger(__name__)
 B2B_COLLECTIONS = frozenset(
-    {"b2b_products", "b2b_buyers", "b2b_orders", "b2b_order_operations"}
+    {
+        "b2b_products",
+        "b2b_buyers",
+        "b2b_orders",
+        "b2b_order_operations",
+        "b2b_stock_movements",
+        "b2b_imports",
+        "b2b_stock_operations",
+    }
 )
 
 

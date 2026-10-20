@@ -111,3 +111,13 @@ historique comme constats du code courant. Voir [architecture actuelle](saas-aut
 
 Les [fondations B2B](b2b-identity-foundations.md) n'ajoutent aucune route ou
 permission aux API existantes et n'isolent pas les données métier par organisation.
+
+## Contrats internes B3, sans ajout de routes
+
+[Stock/imports B3](tenant-stock-operations.md) utilise les permissions applicatives :
+stock:read pour stock B1 et mouvements ; stock:adjust pour MANAGER/ORG_ADMIN ;
+import:execute pour preview/apply/historique par ORG_ADMIN seulement.
+Résultat d'opération : permission du namespace et acteur identique.
+Toute lecture/écriture est scoppée à l'organisation active revalidée. Aucun rôle
+Keycloak, header ou CSV n'accorde de droit. ORGANIZATION_ADMIN n'est jamais global.
+Ces ports restent internes ; ils n'ouvrent pas les routes historiques ou BFF.
