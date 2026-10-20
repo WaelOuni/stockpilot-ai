@@ -23,6 +23,22 @@ LOCKS = "stockpilot_schema_migration_locks"
 LOCK_ID = "schema"
 TARGET = re.compile(r"stockpilot_b2b_test_[0-9a-f]{32}")
 log = logging.getLogger(__name__)
+B2B_COLLECTIONS = frozenset(
+    {"b2b_products", "b2b_buyers", "b2b_orders", "b2b_order_operations"}
+)
+
+
+def collection_definitions(data):
+    """0001 stays byte-for-byte immutable; 0002 can group related collections."""
+    definitions = data.get("collections", [data])
+    names = [d["collection"] for d in definitions]
+    if (
+        not names
+        or len(set(names)) != len(names)
+        or any(name not in B2B_COLLECTIONS for name in names)
+    ):
+        raise MigrationError("Migration collection is outside the B2B allowlist.")
+    return definitions
 
 
 class MigrationError(Exception):
@@ -50,8 +66,7 @@ class Migration:
             or not data["description"]
         ):
             raise MigrationError("Invalid migration definition.")
-        if data["collection"] != "b2b_products":
-            raise MigrationError("Migration collection is outside the B2B allowlist.")
+        collection_definitions(data)
         return cls(
             version,
             data["id"],
@@ -77,7 +92,13 @@ def registry() -> tuple[Migration, ...]:
 
 def effective_migrations(migrations):
     """Latest complete schema snapshot per collection; history stays immutable."""
-    return tuple({m.definition["collection"]: m for m in migrations}.values())
+    return tuple(
+        {
+            d["collection"]: d
+            for m in migrations
+            for d in collection_definitions(m.definition)
+        }.values()
+    )
 
 
 def _database(db):
@@ -89,7 +110,7 @@ def _database(db):
 
 
 def verify_structure(db, migration: Migration) -> None:
-    data = migration.definition
+    data = migration if isinstance(migration, dict) else migration.definition
     name = data["collection"]
     records = list(db.list_collections(filter={"name": name}))
     if len(records) != 1 or records[0].get("type") != "collection":
@@ -154,9 +175,9 @@ class MigrationRunner:
                 or data["version"] != m.version
                 or data["id"] != m.migration_id
                 or data["description"] != m.description
-                or data["collection"] != "b2b_products"
             ):
                 raise MigrationError("Migration content fingerprint mismatch.")
+            collection_definitions(data)
 
     def _history(self):
         return list(self.db[HISTORY].find({}).sort("_id", 1))
@@ -265,7 +286,10 @@ class MigrationRunner:
                 )
 
     def _execute(self, migration, owner):
-        data = migration.definition
+        for data in collection_definitions(migration.definition):
+            self._execute_collection(data, owner)
+
+    def _execute_collection(self, data, owner):
         self._assert_lock(owner)
         if not self.db.list_collection_names(filter={"name": data["collection"]}):
             try:
@@ -298,7 +322,7 @@ class MigrationRunner:
                 name=spec["name"],
                 unique=spec.get("unique", False),
             )
-        verify_structure(self.db, migration)
+        verify_structure(self.db, data)
 
     def apply(self, *, confirmation=None):
         """Only explicitly identified disposable targets in B1. Never at startup."""

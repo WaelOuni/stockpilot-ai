@@ -157,3 +157,17 @@ aux cibles jetables explicitement identifiées. Aucun backfill ni migration DEMO
 [Preuves et limites](../validation/v13.7.3b1-tenant-catalogue-stock.md).
 Le BFF n'expose aucun métier. ORDER/ADVICE historiques restent sur leurs adapters ;
 commandes B2B, RAG et checkpoints ne sont pas isolés par B1. Pas de SaaS opérationnel.
+
+PR #47 fusionnée à `15f4fb80eb54e05d5c30abee94ce398b8c6ec36b`, vérifiée le
+21 octobre 2026 ; distincte du HEAD de branche `49b1e65`.
+
+## V13.7.3-B2 — commandes isolées, en revue, sans activation HTTP
+
+[ADR](../security/tenant-orders-atomicity.md) : commandes par organisation,
+own = created_by, associations acheteurs explicites, preuve de préparation,
+réservations/annulations atomiques quantity/reserved/revision et journal durable
+par org/namespace/operation avec empreinte. Migration 0002 dédiée, sans backfill.
+[Tests exécutés et limites](../validation/v13.7.3b2-tenant-orders.md).
+Fences d'identité/grant dans la transaction Mongo ; session BFF relue mais pas
+transaction distribuée de logout. Aucun chemin métier BFF ouvert, ORDER/ADVICE
+historiques inchangés ; imports/mouvements/RAG/checkpoints restent à isoler.

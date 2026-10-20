@@ -62,11 +62,15 @@ V13.7.3-B — **PLANNED / activation bloquée** : repositories et transactions s
 catalogue/stock puis commandes/idempotence, imports/admin et RAG/checkpoints.
 Choix de stockage/migration et tests réels interorganisationnels obligatoires.
 
-V13.7.3-B1 — **IN_PROGRESS / revue** : [catalogue et stock scoped en Mongo](../security/tenant-catalogue-stock.md),
+V13.7.3-B1 — **DONE**, PR #47 fusionnée à `15f4fb8` : [catalogue et stock scoped en Mongo](../security/tenant-catalogue-stock.md),
 collection dédiée, [migrations versionnées](../mongodb-migrations.md), tests réels
 interorg et concurrence. Aucune activation BFF ou migration existante.
-V13.7.3-B2 — **PLANNED / activation bloquée** : commandes B2B, mapping acheteur
-durable, idempotence et opérations atomiques ; décider révocation/ownership,
-prouver sauvegarde/restauration et étendre les migrations sans reprendre l'historique.
+V13.7.3-B2 — **IN_PROGRESS / revue, activation bloquée** :
+[commandes et réservations atomiques](../security/tenant-orders-atomicity.md),
+mapping acheteur explicite, own = created_by, journal durable et migration 0002.
+Transactions Mongo interorg et concurrence testées ; aucune route BFF ouverte.
+V13.7.3-B3 — **PLANNED** : imports/mouvements/administration scoped, stock physique
+compatible avec reserved, audit et sauvegarde/restauration ; RAG/conversations/
+checkpoints ensuite. Pas de migration de données historiques sans décision explicite.
 V13.7.4 : UX Vue et validation navigateur complète. Ouverture distante et
 isolation des stores restent des gates distinctes ; voir [ADR](../security/b2b-identity-foundations.md).

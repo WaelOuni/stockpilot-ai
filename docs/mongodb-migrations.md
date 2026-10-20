@@ -1,4 +1,4 @@
-# Migrations MongoDB versionnées — B1
+# Migrations MongoDB versionnées — B1/B2
 
 ## Périmètre et mécanisme
 
@@ -18,11 +18,20 @@ jamais en modifiant une migration déjà réussie.
 
 **0001_b2b_catalogue** crée `b2b_products`, son validateur et ses quatre index
 composites ; aucun produit inséré, aucune collection historique touchée.
-Les définitions sont déclaratives, limitées à la collection B2B autorisée.
+Les définitions sont déclaratives, limitées à une liste fermée de collections B2B.
+0001 garde son format à une collection et ses octets/checksum inchangés.
+**0002_b2b_orders** regroupe les définitions de `b2b_buyers`, `b2b_orders` et
+`b2b_order_operations`, avec validateurs stricts, index organisationnels et
+unicité des associations/commandes/opérations. Aucun TTL d'idempotence.
+Le groupe n'est pas une transaction DDL : une erreur au milieu laisse un état
+partiel et marque toute la version failed, bloquant les gates même de B1.
+Les identités BFF et leurs index doivent être explicitement préprovisionnés ;
+0002 ne crée aucun utilisateur, organisation ou membership.
 Chaque définition décrit le schéma complet attendu pour cette collection à cette
 version. Le gate vérifie la dernière définition appliquée par collection, tout en
-validant les empreintes de toutes les versions historiques : un ajout d'index en
-0002 ne rend pas le gate minimum 0001 inutilisable. Les index doivent être cumulatifs
+validant les empreintes de toutes les versions historiques : un ajout d'index dans
+une version ultérieure ne rend pas le gate minimum 0001 inutilisable.
+Les index doivent être cumulatifs
 dans ce moteur ; modifier un validateur existant ou retirer un index nécessite
 une extension explicite du moteur et sa propre revue, jamais une altération implicite.
 Les créations sont idempotentes si leurs options sont identiques ; une structure

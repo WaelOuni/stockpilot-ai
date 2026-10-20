@@ -53,3 +53,13 @@ et exclusion mutuelle sans takeover ; apply autorisé seulement sur cibles jetab
 dans ce lot. Aucune attribution historique, migration existante ou modification PG.
 L'extension production, les commandes/acheteurs et l'ouverture du BFF restent
 des décisions et preuves distinctes, non acquises par ce choix.
+
+## 21 octobre 2026 — commandes B2B et atomicité B2
+
+Demande B2 : organisation propriétaire, own = created_by, acheteur explicitement
+associé ; [ADR](../security/tenant-orders-atomicity.md). Préparation persistée
+sans réservation puis transaction stock/commande/journal, namespace idempotent
+par org et empreinte canonique. quantity physique, reserved séparé ; annulation
+au plus une fois. Migration 0002 dédiée sans backfill, 0001 immuable.
+Fences Mongo identité/grant pour la révocation concurrente ; session BFF relue
+hors transaction distribuée. Aucun endpoint métier ni activation de SaaS.
