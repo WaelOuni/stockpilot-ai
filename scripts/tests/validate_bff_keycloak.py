@@ -353,7 +353,9 @@ def main():
         def browser():
             return httpx.Client(
                 verify=context,
-                timeout=10,
+                # Must exceed the provider's own 10 s read timeout so its
+                # sanitized 503 can reach this client during the outage test.
+                timeout=25,
                 follow_redirects=False,
                 limits=httpx.Limits(max_keepalive_connections=0),
             )
