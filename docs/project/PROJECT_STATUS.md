@@ -105,3 +105,7 @@ mesuré n'est attesté dans les documents inspectés.
 Priorités et critères : [roadmap](ROADMAP.md). Reprise : [handoff](AGENT_HANDOFF.md).
 Les rapports anciens restent des snapshots ; en cas d'écart, conserver leur date et
 ajouter la preuve récente plutôt que réécrire l'histoire.
+
+## V13.7.1 identity foundations (implementation branch)
+
+The isolated V13.7.1 work introduces domain-only User, Organization, Membership and Principal contracts plus explicit role permissions and deny-by-default resolution. It does not enable routes, Keycloak, BFF sessions, persistence, or tenant filtering. customer_id, existing JWT validation, admin sessions, ORDER ownership and production_saas fail-closed behavior remain unchanged.

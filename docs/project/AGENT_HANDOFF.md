@@ -69,3 +69,7 @@ les défauts liés au chantier. Aucun merge, tag, release ou déploiement sans i
 Restituer : URL/base/HEAD et état de PR, fichiers changés, résultats locaux et CI
 distincts, exclusions, risques/incertitudes et prochaine action humaine.
 Un commit fusionné, un commit déployé et une version stable sont trois preuves distinctes.
+
+## V13.7.1 handoff
+
+The identity foundation is intentionally inactive. External (issuer, subject) identities resolve only to pre-provisioned active users and memberships; no default organization or automatic provisioning exists. customer_id remains historical order ownership. Keycloak, BFF, persistence adapters and API dependencies are reserved for V13.7.2.

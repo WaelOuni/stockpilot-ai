@@ -1,0 +1,6 @@
+from typing import Protocol
+from stockpilot.domain.entities.membership import Membership
+
+class MembershipRepository(Protocol):
+    def find_active_for_user(self, user_id: str) -> list[Membership]: ...
+    def find_for_user_and_organization(self, user_id: str, organization_id: str) -> Membership | None: ...

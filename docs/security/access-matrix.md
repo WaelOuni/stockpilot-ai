@@ -96,3 +96,7 @@ Nouvelle frontière HTTP séparée de l’auth : host allowlist, fail-closed des
 - [FastAPI — Behind a proxy](https://fastapi.tiangolo.com/advanced/behind-a-proxy/) : les forwarded headers doivent être interprétés uniquement pour les proxies de confiance ; l’origine publique TLS et le préfixe `/api` dépendent du point d’entrée.
 - [MDN — Content-Security-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy) : CSP appartient aux réponses HTML ; l’appliquer aux réponses JSON ne protège pas le document frontend.
 - Références locales du skill security-best-practices : FastAPI, Vue, JavaScript frontend. Les recommandations sont adaptées à l’architecture réellement observée, sans nouveau fournisseur d’identité ou Redis imposé.
+
+## V13.7.1 correction
+
+The current code applies require_customer_identity to /products, /products/{sku}, /chat, /classify, and /assistant. Earlier baseline paragraphs describing these routes as public are historical and must not be used as the current runtime contract. The routes still have no organization boundary; V13.7.1 adds no route and does not claim multi-tenant isolation.

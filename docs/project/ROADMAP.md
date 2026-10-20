@@ -46,3 +46,7 @@ supplémentaire. Le responsable du chantier ajoute date, preuve et limite :
 
 Les contrats détaillés restent dans leurs guides et les preuves dans
 `docs/validation/`. Ne jamais recopier secrets, JWT ou données privées dans le suivi.
+
+## V13.7.1 - B2B identity foundations
+
+In progress on a dedicated branch: immutable identity and organization contracts, membership resolution and explicit authorization policy. V13.7.2 will integrate Keycloak OIDC, PKCE and BFF sessions only after provider and provisioning decisions are confirmed.
