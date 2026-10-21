@@ -64,3 +64,14 @@ d'ingestion : même clé/contenu ; ne pas supprimer le registre pour forcer un r
 Tests : pgvector réel, plan/status/reapply, cible incorrecte, verrou concurrent,
 checksum/version/type/index altérés, DDL interrompue transactionnellement puis
 réapplication. Mongo0001/0002/0003 restent indépendantes et immuables.
+
+## V13.8.3 : PostgreSQL0002
+
+0002_b2b_assistant ajoute le journal privé assistant_turns et son index
+organisation/utilisateur/conversation/date. 0001 reste byte-identique ; aucun
+backfill ni downgrade automatique. Le runner plan/status présente désormais
+les deux versions. Les empreintes structurelles utilisent un search_path
+canonique, y compris lorsque l'URI n'a pas d'options, pour éviter une fausse
+dérive de qualification SQL. Appliquer explicitement sur la cible jetable
+vérifiée avant activation assistant ; jamais au démarrage ou sur une démo.
+[Contrat et réconciliation](security/b2b-assistant.md).

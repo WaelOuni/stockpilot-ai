@@ -1,5 +1,7 @@
 """Scoped B2B reads. Never composes or imports a historical repository."""
 
+import re
+
 from bson import ObjectId
 from bson.int64 import Int64
 from pymongo.collation import Collation
@@ -157,6 +159,63 @@ class MongoTenantCatalogue:
         except (MigrationError, PyMongoError, ValueError):
             raise TenantCatalogueUnavailable("B2B schema unavailable.") from None
 
+    def resolution_candidates(
+        self, request, context, reference, *, exact=False, limit=21
+    ):
+        """Literal bounded name evidence; org filter is in Mongo before retrieval."""
+        org = self._scope(request, context, O.CATALOGUE_READ)
+        if (
+            type(reference) is not str
+            or not reference
+            or len(reference) > 256
+            or type(limit) is not int
+            or not 1 <= limit <= 21
+        ):
+            raise ValueError("Bounded literal reference required.")
+        from stockpilot.application.use_cases.resolve_product import normalize_name
+
+        normalized = normalize_name(reference)
+        filters = {"organization_id": org, "status": "active"}
+        if exact:
+            filters["name"] = reference
+            collation = Collation("fr", strength=1)
+        else:
+            accents = {
+                "a": "[aàâäá]",
+                "e": "[eéèêë]",
+                "i": "[iîïí]",
+                "o": "[oôöó]",
+                "u": "[uùûüú]",
+                "c": "[cç]",
+            }
+            terms = re.findall(r"\w+", normalized)
+            if not terms or len(terms) > 32:
+                return ()
+            filters["$and"] = [
+                {
+                    "name": {
+                        "$regex": r"(?<![\p{L}\p{N}_])"
+                        + "".join(accents.get(ch, re.escape(ch)) for ch in term)
+                        + r"(?![\p{L}\p{N}_])",
+                        "$options": "i",
+                    }
+                }
+                for term in terms
+            ]
+            collation = Collation("simple")
+        try:
+            rows = (
+                self.collection.find(filters, collation=collation)
+                .sort("sku", 1)
+                .limit(limit)
+                .max_time_ms(2000)
+            )
+            return tuple(_product(row, org) for row in rows)
+        except (PyMongoError, KeyError, TypeError, ValueError):
+            raise TenantCatalogueUnavailable(
+                "Scoped product resolution unavailable."
+            ) from None
+
     def _resource(self, request, context, operation, kind, product_id):
         decision = self.authorization.decide(
             request, context, operation, ResourceReference(kind, product_id)
@@ -199,7 +258,11 @@ class MongoTenantCatalogue:
             # read-then-count race. No global read followed by Python filtering.
             pipeline = [
                 {"$match": filters},
-                {"$sort": {"sku": 1}},
+                {
+                    "$sort": {"price_minor": 1, "sku": 1}
+                    if query.sort_by_price
+                    else {"sku": 1}
+                },
                 {
                     "$facet": {
                         "items": [{"$skip": query.offset}, {"$limit": query.limit}],

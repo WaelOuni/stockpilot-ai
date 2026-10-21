@@ -5,10 +5,10 @@ from dataclasses import dataclass
 from enum import Enum
 
 from stockpilot.application.ports.product_repository import ProductRepositoryPort
+from stockpilot.application.product_reference import SKU_PATTERN
 from stockpilot.domain.entities.product import Product
 
 CANDIDATE_LIMIT = 21
-SKU_PATTERN = re.compile(r"(?<![\w-])[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+(?![\w-])")
 
 
 def normalize_name(value: str) -> str:
@@ -49,8 +49,10 @@ def order_product_phrase(value: str) -> str:
         # Reuse the validated quantity span rather than teaching a second
         # parser to remove number words. Import locally: quantity evidence
         # also uses this module's literal SKU pattern.
+        from stockpilot.application.order_quantity_errors import (
+            InvalidOrderQuantityError,
+        )
         from stockpilot.application.order_quantity_evidence import inspect_quantity
-        from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
 
         try:
             evidence = inspect_quantity(value)

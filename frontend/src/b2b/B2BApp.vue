@@ -47,6 +47,12 @@ async function login() { await run(async () => { location.assign(await session.l
       aria-label="Navigation entreprise"
     >
       <RouterLink
+        v-if="current.assistant_available && session.has('conversation:own')"
+        to="/b2b-app/assistant"
+      >
+        Assistant
+      </RouterLink>
+      <RouterLink
         v-if="session.has('catalogue:read')"
         to="/b2b-app/"
       >
@@ -144,11 +150,11 @@ async function login() { await run(async () => { location.assign(await session.l
           </button>
         </section>
         <OperationPanel />
-        <RouterView :key="current.user_id + ':' + current.organization_id + ':' + current.csrf_token + ':' + session.businessRevision.value" />
+        <RouterView :key="current.user_id + ':' + current.organization_id + ':' + current.csrf_token + ':' + session.businessRevision.value + ':' + $route.path" />
       </template>
     </main>
     <footer class="b2b-footer">
-      Espace B2B de test · Organisation vérifiée côté serveur · Assistant IA prévu en V13.8.3
+      Espace B2B de test · Organisation vérifiée côté serveur · Assistant activé uniquement sur configuration explicite
     </footer>
   </div>
 </template>

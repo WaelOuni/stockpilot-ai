@@ -27,12 +27,27 @@ def table(schema, name):
 
 
 def registry():
-    path = Path(__file__).with_name("migrations") / "0001_b2b_knowledge.sql"
-    body = path.read_text()
-    return ((1, hashlib.sha256(path.read_bytes()).hexdigest(), body),)
+    root = Path(__file__).with_name("migrations")
+    names = ("0001_b2b_knowledge.sql", "0002_b2b_assistant.sql")
+    return tuple(
+        (
+            number,
+            hashlib.sha256((root / name).read_bytes()).hexdigest(),
+            (root / name).read_text(),
+        )
+        for number, name in enumerate(names, 1)
+    )
 
 
 def structure(connection, schema):
+    # pg_get_constraintdef/indexdef qualify names according to search_path.
+    # Canonicalize this session setting so startup/status compare the same DDL
+    # as apply(), including when the connection URI has no options.
+    connection.execute(
+        sql.SQL("SET LOCAL search_path TO {}, public").format(
+            sql.Identifier(schema_name(schema))
+        )
+    )
     columns = connection.execute(
         "SELECT c.relname,a.attname,tn.nspname,t.typname,a.atttypmod,a.attnotnull,"
         "pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a "

@@ -24,6 +24,16 @@ class TenantCataloguePort(Protocol):
         self, request: object, context: TenantContext, sku: str
     ) -> TenantProduct | None: ...
 
+    def resolution_candidates(
+        self,
+        request: object,
+        context: TenantContext,
+        reference: str,
+        *,
+        exact: bool = False,
+        limit: int = 21,
+    ) -> tuple[TenantProduct, ...]: ...
+
     def by_id(
         self, request: object, context: TenantContext, product_id: str
     ) -> TenantProduct | None: ...

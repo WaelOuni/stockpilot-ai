@@ -481,7 +481,7 @@ def test_migration_checksum_version_typmod_index_drift_refused(environment, drif
             )
         elif drift == "version":
             c.execute(
-                sql.SQL("UPDATE {} SET version=99").format(
+                sql.SQL("UPDATE {} SET version=99 WHERE version=1").format(
                     e.repo.t("schema_migrations")
                 )
             )
@@ -525,7 +525,9 @@ def test_migration_plan_reapply_lock_and_transactional_rollback(
     with postgres_test_schema() as uri:
         schema = conninfo_to_dict(uri)["options"].split("=")[1]
         runner = PostgresTenantMigrations(uri, schema)
-        assert runner.plan() == [(registry()[0][0], registry()[0][1])]
+        assert runner.plan() == [
+            (version, checksum) for version, checksum, _ in registry()
+        ]
         original = psycopg.Connection.execute
 
         def broken(connection, query, *args, **kwargs):
@@ -540,7 +542,9 @@ def test_migration_plan_reapply_lock_and_transactional_rollback(
                 runner.apply(database=name, system_identifier=identity)
         assert runner.status() == []
         runner.apply(database=name, system_identifier=identity)
-        assert len(runner.status()) == 1
+        assert [row[:2] for row in runner.status()] == [
+            (v, h) for v, h, _ in registry()
+        ]
 
 
 def test_candidate_database_on_test_server_is_refused(environment):

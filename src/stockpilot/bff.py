@@ -1,5 +1,6 @@
 """Opt-in isolated BFF factory. Never imports the historical stockpilot.main."""
 
+import logging
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 from uuid import uuid4
@@ -22,7 +23,7 @@ from stockpilot.presentation.api.routes.bff_auth import (
 
 
 def create_app(
-    settings: BffSettings | None = None, *, service=None, business=None
+    settings: BffSettings | None = None, *, service=None, business=None, assistant=None
 ) -> FastAPI:
     settings = settings or BffSettings()
     configured = False
@@ -98,11 +99,23 @@ def create_app(
                     app.state.bff_business = BffBusiness.compose(
                         database, app.state.bff_service
                     )
-            except (BffUnavailable, IdentityRepositoryError, PyMongoError):
+                    if settings.assistant_enabled:
+                        from stockpilot.infrastructure.identity.bff_assistant import (
+                            compose_assistant,
+                        )
+
+                        app.state.bff_assistant = compose_assistant(
+                            settings, app.state.bff_business
+                        )
+            except (BffUnavailable, IdentityRepositoryError, PyMongoError) as error:
+                logging.getLogger(__name__).warning(
+                    "BFF startup dependency unavailable (%s)", type(error).__name__
+                )
                 # Startup fails closed. Never include connection, token or exception
                 # contents in HTTP replies. No in-memory production fallback.
                 app.state.bff_service = None
                 app.state.bff_business = None
+                app.state.bff_assistant = None
         try:
             yield
         finally:
@@ -123,6 +136,9 @@ def create_app(
     app.state.bff_business = (
         business if configured and settings.mode == "b2b_business_test" else None
     )
+    app.state.bff_assistant = (
+        assistant if configured and settings.assistant_enabled else None
+    )
     app.state.business_limiter = anyio.CapacityLimiter(settings.max_inflight)
     if settings.mode == "b2b_business_test":
         from stockpilot.presentation.api.b2b_boundary import install_business
@@ -131,6 +147,12 @@ def create_app(
         )
 
         install_business(app, settings, business_router)
+        if settings.assistant_enabled:
+            from stockpilot.presentation.api.routes.b2b_assistant import (
+                router as assistant_router,
+            )
+
+            app.include_router(assistant_router)
 
     @app.middleware("http")
     async def closed_boundary(request: Request, call_next):

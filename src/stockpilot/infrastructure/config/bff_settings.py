@@ -32,6 +32,58 @@ class BffSettings(BaseSettings):
     transaction_seconds: int = Field(default=300, ge=30, le=300)
     configuration_key: SecretStr | None = Field(default=None, repr=False)
 
+    assistant_enabled: bool = False
+    assistant_postgres_uri: SecretStr | None = Field(default=None, repr=False)
+    assistant_schema: str = "stockpilot_b2b"
+    assistant_ollama_url: str | None = None
+    assistant_allow_http: bool = False
+    assistant_model: str = "qwen2.5:7b"
+    assistant_embedding_model: str = "nomic-embed-text"
+    assistant_timeout_seconds: float = Field(default=60, ge=1, le=90)
+
+    def validate_assistant(self):
+        from psycopg.conninfo import conninfo_to_dict
+
+        from stockpilot.infrastructure.persistence.postgres.tenant_migrations import (
+            schema_name,
+        )
+
+        try:
+            if self.mode != "b2b_business_test" or not self.assistant_postgres_uri:
+                raise ValueError
+            info = conninfo_to_dict(self.assistant_postgres_uri.get_secret_value())
+            if (
+                not re.fullmatch(
+                    r"stockpilot_(ci|test)(_[a-z0-9]+)*", info.get("dbname", "")
+                )
+                or int(info.get("port", 5432)) == 5432
+            ):
+                raise ValueError
+            schema_name(self.assistant_schema)
+            endpoint = urlsplit(self.assistant_ollama_url or "")
+            if (
+                endpoint.scheme != "https"
+                and not (self.assistant_allow_http and endpoint.scheme == "http")
+            ) or not endpoint.hostname:
+                raise ValueError
+            if (
+                endpoint.path not in {"", "/"}
+                or endpoint.query
+                or endpoint.fragment
+                or endpoint.username
+                or endpoint.password
+            ):
+                raise ValueError
+            if (
+                not self.assistant_model.strip()
+                or not self.assistant_embedding_model.strip()
+            ):
+                raise ValueError
+        except (ValueError, TypeError):
+            raise BffUnavailable(
+                "Assistant configuration incomplete or unsafe."
+            ) from None
+
     @property
     def callback_uri(self) -> str:
         return f"{self.origin}/b2b/auth/callback"
@@ -108,6 +160,8 @@ class BffSettings(BaseSettings):
                 raise ValueError
         except (ValueError, TypeError):
             raise BffUnavailable("BFF configuration incomplete or unsafe.") from None
+        if self.assistant_enabled:
+            self.validate_assistant()
         # HMAC prevents a DB-only reader guessing configuration values. Rotation
         # intentionally invalidates transactions and sessions across all workers.
         import hmac
@@ -127,6 +181,16 @@ class BffSettings(BaseSettings):
         )
         if self.mode == "b2b_business_test":
             context += json.dumps([self.mode, self.trusted_proxy_ips])
+        if self.assistant_enabled:
+            context += json.dumps(
+                [
+                    self.assistant_postgres_uri.get_secret_value(),
+                    self.assistant_schema,
+                    self.assistant_ollama_url,
+                    self.assistant_model,
+                    self.assistant_embedding_model,
+                ]
+            )
         fingerprint = hmac.new(
             self.configuration_key.get_secret_value().encode(),
             context.encode(),

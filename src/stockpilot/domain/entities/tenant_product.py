@@ -95,8 +95,11 @@ class TenantProductQuery:
     currency: str | None = None
     status: str | None = None
     available: bool | None = None
+    sort_by_price: bool = False
 
     def __post_init__(self):
+        if type(self.sort_by_price) is not bool:
+            raise ValueError("Boolean sort selector required.")
         if self.available is not None and type(self.available) is not bool:
             raise ValueError("Boolean availability required.")
         if (

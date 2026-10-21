@@ -19,6 +19,7 @@ export const router = createRouter({
   routes: [
     { path: "/b2b-app/", meta: { b2b: true }, component: () => import("../b2b/B2BApp.vue"), children: [
       { path: "", component: () => import("../b2b/CatalogueView.vue") },
+      { path: "assistant/:conversationId?", component: () => import("../b2b/AssistantView.vue") },
       { path: "orders", component: () => import("../b2b/OrdersView.vue") },
       { path: "stock", component: () => import("../b2b/StockView.vue") },
       { path: ":pathMatch(.*)*", redirect: "/b2b-app/" },

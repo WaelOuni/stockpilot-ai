@@ -12,6 +12,12 @@ from stockpilot.application.ports.bff_security import BffUnauthenticated, BffUna
 from stockpilot.application.ports.identity_errors import IdentityRepositoryError
 from stockpilot.application.ports.tenant_authorization import TenantContextUnavailable
 from stockpilot.application.ports.tenant_catalogue import TenantCatalogueUnavailable
+from stockpilot.application.ports.tenant_knowledge import (
+    TenantDataConflict,
+    TenantDataNotFound,
+    TenantDataOutcomeUnknown,
+    TenantDataUnavailable,
+)
 from stockpilot.application.ports.tenant_orders import (
     TenantOrderConflict,
     TenantOrderNotFound,
@@ -22,8 +28,17 @@ from stockpilot.application.ports.tenant_stock_operations import (
     TenantStockOperationConflict,
     TenantStockResourceNotFound,
 )
+from stockpilot.application.resource_errors import (
+    ModelInputLimitError,
+    ModelTimeoutError,
+    ModelUnavailableError,
+)
 from stockpilot.application.services.bff_sessions import BffForbidden
 from stockpilot.application.services.identity_authorization import AuthorizationDenied
+from stockpilot.application.services.tenant_assistant import (
+    AssistantBusy,
+    AssistantPending,
+)
 from stockpilot.domain.entities.tenant_authorization import TenantContext
 from stockpilot.infrastructure.identity.bff_tenant_context import BffTenantRequest
 from stockpilot.presentation.api.routes.bff_auth import (
@@ -39,14 +54,22 @@ from stockpilot.presentation.api.routes.bff_auth import (
 
 def failure(error, operation=None):
     status, code = 500, "INTERNAL_ERROR"
-    if isinstance(error, BffUnauthenticated):
+    if isinstance(error, AssistantBusy):
+        status, code = 429, "BUSY"
+    elif isinstance(error, BffUnauthenticated):
         status, code = 401, "UNAUTHENTICATED"
     elif isinstance(error, (BffForbidden, AuthorizationDenied)):
         status, code = 403, "FORBIDDEN"
-    elif isinstance(error, (TenantOrderNotFound, TenantStockResourceNotFound)):
+    elif isinstance(
+        error, (TenantOrderNotFound, TenantStockResourceNotFound, TenantDataNotFound)
+    ):
         status, code = 404, "NOT_FOUND"
-    elif isinstance(error, (TenantOrderConflict, TenantStockOperationConflict)):
+    elif isinstance(
+        error, (TenantOrderConflict, TenantStockOperationConflict, TenantDataConflict)
+    ):
         status, code = 409, "CONFLICT"
+    elif isinstance(error, (TenantDataOutcomeUnknown, AssistantPending)):
+        status, code = 503, "OUTCOME_UNKNOWN"
     elif isinstance(error, TimeoutError):
         status, code = 503, "OUTCOME_UNKNOWN" if operation else "DEPENDENCY_UNAVAILABLE"
     elif isinstance(error, TenantOrderOutcomeUnknown):
@@ -55,6 +78,10 @@ def failure(error, operation=None):
         error,
         (
             BffUnavailable,
+            TenantDataUnavailable,
+            ModelInputLimitError,
+            ModelTimeoutError,
+            ModelUnavailableError,
             IdentityRepositoryError,
             TenantContextUnavailable,
             TenantCatalogueUnavailable,
@@ -68,6 +95,8 @@ def failure(error, operation=None):
     if operation is not None:
         body["operation"] = operation
     response = JSONResponse(body, status_code=status)
+    if status == 429:
+        response.headers["Retry-After"] = "1"
     if status == 401:
         response.delete_cookie(
             SESSION_COOKIE, secure=True, httponly=True, samesite="lax", path="/"
@@ -231,6 +260,13 @@ def install_business(app, settings, router):
         return JSONResponse({"code": "INVALID_REQUEST"}, status_code=422)
 
     for kind in (
+        AssistantBusy,
+        TenantDataUnavailable,
+        TenantDataConflict,
+        TenantDataNotFound,
+        ModelInputLimitError,
+        ModelTimeoutError,
+        ModelUnavailableError,
         AuthorizationDenied,
         TenantContextUnavailable,
         TenantCatalogueUnavailable,

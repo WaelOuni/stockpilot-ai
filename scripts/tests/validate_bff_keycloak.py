@@ -155,7 +155,14 @@ def main():
         action="store_true",
         help="Real HTTPS Vue/Chromium campaign, implies business mode",
     )
+    parser.add_argument(
+        "--assistant",
+        action="store_true",
+        help="Real Ollama + tenant PostgreSQL assistant; implies frontend",
+    )
     args = parser.parse_args()
+    if args.assistant:
+        args.frontend = True
     if args.frontend:
         args.business = True
         global ISSUER
@@ -410,6 +417,44 @@ def main():
                 )
         if args.frontend:
             bff_env["B2B_BROWSER_TEST"] = "isolated"
+        if args.assistant:
+            import psycopg
+
+            from stockpilot.infrastructure.persistence.postgres.tenant_migrations import (
+                PostgresTenantMigrations,
+            )
+
+            pg_uri = (
+                "postgresql://ci:"
+                + env["BFF_TEST_DB_PASSWORD"]
+                + "@127.0.0.1:57918/stockpilot_ci"
+            )
+            runner = PostgresTenantMigrations(pg_uri)
+            with psycopg.connect(pg_uri) as connection:
+                target, identity = runner.target(connection)
+            runner.apply(database=target, system_identifier=identity)
+            endpoint = os.environ.get("V1383_OLLAMA_URL", "")
+            if not endpoint:
+                raise RuntimeError("Explicit available Ollama endpoint required.")
+            tags = httpx.get(endpoint + "/api/tags", timeout=5).json()["models"]
+            required = {"qwen2.5:7b", "nomic-embed-text:latest"}
+            assert required <= {model["name"] for model in tags}
+            report["ollama_models"] = [
+                {"name": model["name"], "digest": model["digest"]}
+                for model in tags
+                if model["name"] in required
+            ]
+            report["ollama_initial_loaded_count"] = len(
+                httpx.get(endpoint + "/api/ps", timeout=5).json()["models"]
+            )
+            bff_env.update(
+                {
+                    "BFF_ASSISTANT_ENABLED": "true",
+                    "BFF_ASSISTANT_POSTGRES_URI": pg_uri,
+                    "BFF_ASSISTANT_OLLAMA_URL": endpoint,
+                    "BFF_ASSISTANT_ALLOW_HTTP": "true",
+                }
+            )
         start_bff(bff_env, cert, key, context)
 
         def browser():
@@ -670,6 +715,89 @@ def main():
             from scripts.tests.b2b_browser_campaign import run_browser
 
             run_browser(db, bff_env, directory, cert, passed)
+            if args.assistant:
+                from scripts.tests.b2b_assistant_campaign import run_assistant_browser
+
+                run_assistant_browser(db, bff_env, directory, cert, passed, report)
+                stop_bff()
+                start_bff(bff_env, cert, key, context)
+                with browser() as resumed:
+                    assert resumed.get(auth_code(resumed)).status_code == 303
+                    session_data = resumed.get(ORIGIN + "/b2b/auth/session").json()
+                    headers = {
+                        "Origin": ORIGIN,
+                        "X-BFF-CSRF": session_data["csrf_token"],
+                    }
+                    conversation = report["assistant_browser"]["conversation_id"]
+                    response = resumed.get(
+                        ORIGIN + "/b2b/api/assistant/conversations/" + conversation,
+                        headers=headers,
+                    )
+                    assert response.status_code == 200 and response.json()["items"]
+                passed(
+                    "owned BFF restart preserves private assistant transcript/checkpoints"
+                )
+                # A closed, owned loopback port simulates an unavailable provider.
+                # Never stop or reconfigure the existing Ollama instance.
+                stop_bff()
+                offline_env = bff_env | {
+                    "BFF_ASSISTANT_OLLAMA_URL": "http://127.0.0.1:9"
+                }
+                start_bff(offline_env, cert, key, context)
+                with browser() as offline:
+                    assert offline.get(auth_code(offline)).status_code == 303
+                    session_data = offline.get(ORIGIN + "/b2b/auth/session").json()
+                    headers = {
+                        "Origin": ORIGIN,
+                        "X-BFF-CSRF": session_data["csrf_token"],
+                    }
+                    response = offline.post(
+                        ORIGIN + "/b2b/api/assistant/conversations",
+                        headers=headers,
+                        json={"thread_id": "outage"},
+                    )
+                    base = (
+                        ORIGIN
+                        + "/b2b/api/assistant/conversations/"
+                        + response.json()["conversation_id"]
+                    )
+                    response = offline.post(
+                        base + "/messages",
+                        headers=headers,
+                        json={
+                            "message_id": "same-outage-turn",
+                            "message": "Quelle est la garantie documentaire ?",
+                        },
+                    )
+                    assert response.status_code == 503
+                stop_bff()
+                start_bff(bff_env, cert, key, context)
+                with browser() as recovered:
+                    assert recovered.get(auth_code(recovered)).status_code == 303
+                    session_data = recovered.get(ORIGIN + "/b2b/auth/session").json()
+                    headers = {
+                        "Origin": ORIGIN,
+                        "X-BFF-CSRF": session_data["csrf_token"],
+                    }
+                    assert (
+                        recovered.get(base, headers=headers).json()["items"][-1][
+                            "status"
+                        ]
+                        == "pending"
+                    )
+                    response = recovered.post(
+                        base + "/turns/same-outage-turn/retry",
+                        headers=headers,
+                        json={},
+                        timeout=90,
+                    )
+                    assert (
+                        response.status_code == 200
+                        and response.json()["status"] == "completed"
+                    )
+                passed(
+                    "unavailable Ollama endpoint fails 503; persisted original turn retries after owned BFF restart"
+                )
         db.b2b_organizations.update_one(
             {"organization_id": "fixture-org"}, {"$set": {"status": "suspended"}}
         )
