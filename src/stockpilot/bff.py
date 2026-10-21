@@ -1,7 +1,9 @@
 """Opt-in isolated BFF factory. Never imports the historical stockpilot.main."""
 
+import json
 import logging
 from contextlib import asynccontextmanager
+from time import perf_counter
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -82,6 +84,7 @@ def create_app(
                     settings.callback_uri,
                     settings.post_logout_uri,
                     allow_loopback_http=settings.allow_loopback_http_issuer,
+                    ca_file=settings.oidc_ca_file,
                 )
                 app.state.bff_service = BffSessionService(
                     provider,
@@ -156,6 +159,7 @@ def create_app(
 
     @app.middleware("http")
     async def closed_boundary(request: Request, call_next):
+        started = perf_counter()
         request.state.request_id = uuid4().hex
         try:
             if request.url.path != "/health":
@@ -177,6 +181,27 @@ def create_app(
         finally:
             # Also scrub unexpected error paths before standard ASGI access logging.
             request.scope["query_string"] = b""
+        # Fixed categories, never URLs, callbacks, request bodies, cookies or subjects.
+        category = (
+            "oidc"
+            if request.url.path.startswith("/b2b/auth/")
+            else "assistant"
+            if request.url.path.startswith("/b2b/api/assistant/")
+            else "business"
+            if request.url.path.startswith("/b2b/api/")
+            else "boundary"
+        )
+        logging.getLogger("stockpilot.bff.http").info(
+            json.dumps(
+                {
+                    "event": "bff_request",
+                    "category": category,
+                    "status": response.status_code,
+                    "request_id": request.state.request_id,
+                    "duration_ms": round((perf_counter() - started) * 1000, 2),
+                }
+            )
+        )
         response.headers["X-Request-ID"] = request.state.request_id
         response.headers.update(
             {
