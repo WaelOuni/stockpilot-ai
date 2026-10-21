@@ -6,11 +6,13 @@ import { chromium, expect } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 const origin = 'https://127.0.0.1:57914'
+const issuerOrigin = process.env.B2B_TEST_ISSUER_ORIGIN || 'http://localhost:57915'
+const dnsArgs = process.env.B2B_TEST_ISSUER_ORIGIN ? ['--host-resolver-rules=MAP auth.stockpilot.test 127.0.0.1'] : []
 const checks = []
 const check = name => checks.push(name)
 const browser = await chromium.launch({
   headless: true,
-  args: ['--ignore-certificate-errors-spki-list=' + process.env.B2B_BROWSER_SPKI],
+  args: [...dnsArgs, '--ignore-certificate-errors-spki-list=' + process.env.B2B_BROWSER_SPKI],
 })
 const context = await browser.newContext()
 const page = await context.newPage()
@@ -23,7 +25,7 @@ async function login(org, username) {
   await page.goto(origin + '/b2b-app/')
   await page.getByLabel('Code d’entreprise').fill(org)
   await page.getByRole('button', { name: 'Continuer avec Keycloak' }).click()
-  await page.waitForURL('http://localhost:57915/**')
+  await page.waitForURL(issuerOrigin + '/**')
   await page.locator('#username').fill(username)
   await page.locator('#password').fill(process.env.BFF_TEST_USER_PASSWORD)
   await page.locator('#kc-login').click()
@@ -41,7 +43,7 @@ try {
   const cookies = await context.cookies(origin)
   const sessionCookie = cookies.find(c => c.name === '__Host-stockpilot_bff')
   expect(sessionCookie).toMatchObject({ secure: true, httpOnly: true, sameSite: 'Lax', path: '/' })
-  const providerCookies = await context.cookies('http://localhost:57915')
+  const providerCookies = await context.cookies(issuerOrigin)
   expect(providerCookies.some(c => c.name.startsWith('__Host-stockpilot'))).toBe(false)
   expect(await page.evaluate(() => ({ local: globalThis.localStorage.length, session: globalThis.sessionStorage.length }))).toEqual({ local: 0, session: 0 })
   check('real Keycloak confidential PKCE login, HTTPS cookies, separate provider host, scoped catalogue and no browser tokens')
@@ -154,7 +156,7 @@ try {
   await expect.poll(async () => await page.evaluate(async () => (await globalThis.fetch('/b2b/auth/session', { credentials: 'include' })).status)).toBe(401)
   check('logout revokes server session, clears tenant UI and rejects a delayed real response')
   // The other account uses its own Keycloak login session; local logout does not promise SSO logout.
-  await context.clearCookies({ domain: 'localhost' })
+  await context.clearCookies({ domain: new globalThis.URL(issuerOrigin).hostname })
   await login('fixture-other', 'bff-unprovisioned')
   await expect(page.getByRole('heading', { name: 'Perceuse B', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Perceuse A', exact: true })).toHaveCount(0)

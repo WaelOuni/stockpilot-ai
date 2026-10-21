@@ -26,12 +26,12 @@
 
 ## Point de reprise — 21 octobre 2026
 
-Main vérifié à`9e76936`, fusion #52 ; SHA de branche distinct du SHA de fusion.
+Main vérifié à`b6a1709`, fusion #53 ; SHA de branche distinct du SHA de fusion.
 B1/B2/B3/B4 sont intégrés, [contrats de ressources](../security/tenant-authorization-boundary.md).
 B4 : [ADR RAG/checkpoints](../security/tenant-rag-conversations.md),
 [migrations PG](../postgresql-migrations.md), [validation](../validation/v13.7.3b4-rag-conversations.md).
-Worktree /home/waelko/projects/stockpilot-v1383-unified-b2b-assistant,
-branche feature/v1383-unified-b2b-assistant.
+Worktree /home/waelko/projects/stockpilot-v1384-canonical-b2b-demo,
+branche feature/v1384-canonical-b2b-demo.
 
 Le mode b2b_auth_test garde auth/session uniquement. V13.8.1 (#51 intégrée) fournit les routes
 B1/B2/B3 via b2b_business_test, exclusivement jetable et désactivé par défaut.
@@ -70,14 +70,25 @@ automatiquement d'une autorisation d'arrêt Windows propre à un chantier termin
 Le [kit commercial #42](../product/README.md) distingue le script historique de
 la future démo canonique ; aucun prix ou pilote n'est validé par les documents.
 
-Prochaine étape : revue/CI assistant V13.8.3, puis validation
-E2E complète et restauration avant pilote distant. Kubernetes reste une option à arbitrer.
+Prochaine étape : revue/CI V13.8.4, puis décision humaine d’installation
+durable et de sauvegarde externe avant pilote distant. Kubernetes reste une option à arbitrer.
 
-## V13.8.3 — assistant en revue
+## V13.8.3 — assistant intégré par #53
 
 Assistant LangGraph opt-in dans b2b_business_test ; [contrat](../security/b2b-assistant.md),
 [validation](../validation/v13.8.3-unified-b2b-assistant.md). Vue privée, catalogue
 vérifié, RAG SQL-scoped avant LLM, préparation B2 sans réservation et confirmation
 HTTP explicite. Journal PG0002 avant Mongo et réconciliation à clé constante.
 Aucun déploiement, migration historique ou ouverture Internet.
-Prochaine gate : V13.8.4, installation canonique isolée et backup/restore éprouvé.
+La recette V13.8.4 éprouve le backup/restore en jetable ; une installation durable
+exige une décision humaine séparée.
+
+## V13.8.4 — opérateur et reprise
+
+Un seul [guide opérateur](../b2b-demo.md), une seule composition canonique,
+scripts/b2b_demo.py validate uniquement. Ne pas traiter le harness comme un
+installateur durable ; aucun --promote/--install n’existe.
+Rapport : [V13.8.4](../validation/v13.8.4-canonical-b2b-demo.md).
+Les backups privés de recette ne sont pas des archives client chiffrées/hors site.
+Après restauration, garder issuer/sub mais tourner la clé BFF et reconnecter.
+Ne jamais réécrire les identités ni changer une clé ORDER pour masquer un pending.

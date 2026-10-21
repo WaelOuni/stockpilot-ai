@@ -46,9 +46,13 @@ def command(args, env=None):
         env=env,
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=900 if args[1:3] == ["-m", "pytest"] else 300,
     )
     if result.returncode:
+        private = ROOT / "tmp" / "owned-command-private.log"
+        private.parent.mkdir(exist_ok=True)
+        private.write_text(result.stdout + result.stderr)
+        private.chmod(0o600)
         # Do not echo a command environment or provider/container logs.
         raise RuntimeError("Owned test command failed: " + Path(args[0]).name)
     return result.stdout
@@ -120,6 +124,7 @@ def make_certificate(directory):
                 [
                     x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
                     x509.DNSName("localhost"),
+                    x509.DNSName("auth.stockpilot.test"),
                 ]
             ),
             critical=False,
@@ -160,15 +165,33 @@ def main():
         action="store_true",
         help="Real Ollama + tenant PostgreSQL assistant; implies frontend",
     )
+    parser.add_argument(
+        "--canonical",
+        action="store_true",
+        help="Canonical container composition and recovery campaign",
+    )
     args = parser.parse_args()
+    if args.canonical and not args.assistant:
+        parser.error("Canonical validation requires --assistant.")
     if args.assistant:
         args.frontend = True
     if args.frontend:
         args.business = True
         global ISSUER
         ISSUER = "http://localhost:57915/realms/stockpilot-dev"
+    if args.canonical:
+        global COMPOSE
+        from scripts.tests.canonical_demo import COMPOSE, CanonicalDemo, local_dns
+        from scripts.tests.canonical_demo import ISSUER as canonical_issuer
+
+        ISSUER = canonical_issuer
+        local_dns()
     os.umask(0o077)
-    for port in (57914, 57915, 57916, 57918):
+    for port in (
+        (57914, 57915, 57916, 57918, 57919)
+        if args.canonical and args.regressions
+        else (57914, 57915, 57916, 57918)
+    ):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", port))
     endpoint = command(
@@ -203,7 +226,11 @@ def main():
     ).strip():
         raise RuntimeError("Test project already exists.")
     (ROOT / "tmp").mkdir(exist_ok=True)
-    directory = Path(tempfile.mkdtemp(prefix="v1372-", dir=ROOT / "tmp"))
+    directory = Path(
+        tempfile.mkdtemp(
+            prefix="v1384-" if args.canonical else "v1372-", dir=ROOT / "tmp"
+        )
+    )
     report = {
         "project": project,
         "keycloak_version": "26.8.1",
@@ -214,9 +241,22 @@ def main():
         "passed": False,
         "cleanup": False,
     }
+    if args.canonical:
+        report["kind"] = (
+            "canonical HTTPS proxy/container BFF/Vue/Keycloak and real paired backup/restore"
+        )
     process, logfile, mongo = None, None, None
     owned = {}
     compose = ["docker", "compose", "-f", str(COMPOSE), "-p", project]
+    if args.canonical:
+        compose[4:4] = ["--env-file", "/dev/null"]
+    canonical = None
+    cert, key = make_certificate(directory)
+    context = ssl.create_default_context(cafile=str(cert))
+    if args.canonical:
+        canonical = CanonicalDemo(directory, env, compose, command, cert, key)
+        env["B2B_TEST_ISSUER_ORIGIN"] = "https://auth.stockpilot.test:57915"
+        env["BFF_TEST_ISSUER_ORIGIN"] = env["B2B_TEST_ISSUER_ORIGIN"]
 
     def passed(name):
         report["checks"].append(name)
@@ -228,9 +268,14 @@ def main():
             labels = record["Config"]["Labels"]
             assert cid not in baseline
             assert labels["com.docker.compose.project"] == project
-            assert labels["stockpilot.audit.purpose"] == "v1372-ephemeral"
+            assert labels["stockpilot.audit.purpose"] == (
+                "v1384-ephemeral" if canonical else "v1372-ephemeral"
+            )
             assert str(COMPOSE) in labels["com.docker.compose.project.config_files"]
             for mount in record.get("Mounts", []):
+                if canonical:
+                    canonical.validate_mount(mount)
+                    continue
                 assert mount["Type"] in {"tmpfs", "bind"}
                 if mount["Type"] == "bind":
                     assert (
@@ -247,6 +292,9 @@ def main():
 
     def stop_bff():
         nonlocal process, logfile
+        if canonical:
+            canonical.stop()
+            return
         if process is not None:
             process.terminate()
             process.wait(timeout=20)
@@ -257,6 +305,9 @@ def main():
 
     def start_bff(bff_env, cert, key, context):
         nonlocal process, logfile
+        if canonical:
+            canonical.start(bff_env)
+            return
         logfile = (directory / "bff-private.log").open("a")
         process = subprocess.Popen(
             [
@@ -298,14 +349,22 @@ def main():
         raise RuntimeError("Isolated BFF startup deadline.")
 
     try:
+        if canonical:
+            canonical.build_images()
         command([*compose, "up", "-d"], env)
         validate_owned()
         assert len(owned) == 4
+        if canonical:
+            canonical.start_proxy()
+            canonical.start_sampling()
         passed("unique local project, isolated mounts, services and loopback ports")
         for _ in range(150):
             try:
                 discovery = httpx.get(
-                    ISSUER + "/.well-known/openid-configuration", timeout=2
+                    ISSUER + "/.well-known/openid-configuration",
+                    timeout=2,
+                    verify=context,
+                    trust_env=False,
                 )
                 if discovery.status_code == 200:
                     break
@@ -316,8 +375,6 @@ def main():
             raise RuntimeError("Keycloak discovery deadline.")
         assert discovery.json()["issuer"] == ISSUER
         passed("real Keycloak discovery")
-        cert, key = make_certificate(directory)
-        context = ssl.create_default_context(cafile=str(cert))
         dbname = "stockpilot_b2b_test_" + uuid4().hex
         mongo_uri = "mongodb://127.0.0.1:57916/?replicaSet=rs0&directConnection=true"
         sys.path.insert(0, str(ROOT / "tests"))
@@ -456,10 +513,16 @@ def main():
                 }
             )
         start_bff(bff_env, cert, key, context)
+        if canonical:
+            canonical.security_probes()
+            passed(
+                "real HTTPS proxy denies admin/diagnostics/historical APIs and forged Host"
+            )
 
         def browser():
             return httpx.Client(
                 verify=context,
+                trust_env=False,
                 # Must exceed the provider's own 10 s read timeout so its
                 # sanitized 503 can reach this client during the outage test.
                 timeout=25,
@@ -507,7 +570,9 @@ def main():
                     form.action,
                     headers={
                         "Cookie": provider_cookies,
-                        "Origin": "http://" + urlsplit(ISSUER).netloc,
+                        "Origin": urlsplit(ISSUER).scheme
+                        + "://"
+                        + urlsplit(ISSUER).netloc,
                     },
                     data=form.hidden
                     | {
@@ -688,6 +753,17 @@ def main():
                     "updated_at": now,
                 }
             )
+            if canonical:
+                db.b2b_buyers.insert_one(
+                    {
+                        "association_id": "fixture-other-buyer",
+                        "organization_id": "fixture-other",
+                        "user_id": "fixture-other-user",
+                        "customer_id": "fixture-other-customer",
+                        "status": "active",
+                        "revision": 1,
+                    }
+                )
             with browser() as second:
                 assert (
                     second.get(
@@ -719,6 +795,16 @@ def main():
                 from scripts.tests.b2b_assistant_campaign import run_assistant_browser
 
                 run_assistant_browser(db, bff_env, directory, cert, passed, report)
+                if canonical:
+                    models = httpx.get(
+                        bff_env["BFF_ASSISTANT_OLLAMA_URL"] + "/api/ps",
+                        timeout=5,
+                        trust_env=False,
+                    ).json()["models"]
+                    report["ollama_loaded_after_assistant"] = [
+                        {key: model.get(key) for key in ("name", "size", "size_vram")}
+                        for model in models
+                    ]
                 stop_bff()
                 start_bff(bff_env, cert, key, context)
                 with browser() as resumed:
@@ -798,6 +884,21 @@ def main():
                 passed(
                     "unavailable Ollama endpoint fails 503; persisted original turn retries after owned BFF restart"
                 )
+        if canonical:
+            from scripts.tests.canonical_recovery import run_recovery
+
+            run_recovery(
+                canonical,
+                db,
+                bff_env,
+                directory,
+                cert,
+                key,
+                browser,
+                auth_code,
+                passed,
+                report,
+            )
         db.b2b_organizations.update_one(
             {"organization_id": "fixture-org"}, {"$set": {"status": "suspended"}}
         )
@@ -830,7 +931,33 @@ def main():
             )
             assert response.status_code == 503
             passed("provider discovery unavailable fails 503")
+        if canonical:
+            report["resource_sample"] = canonical.stats()
         if args.regressions:
+            if canonical:
+                command(
+                    [*compose, "--profile", "regression", "up", "-d", "auth-mongo"], env
+                )
+                validate_owned()
+                from pymongo import MongoClient
+                from pymongo.errors import PyMongoError
+
+                auth_uri = (
+                    "mongodb://ci:"
+                    + env["BFF_TEST_DB_PASSWORD"]
+                    + "@127.0.0.1:57919/?authSource=admin"
+                )
+                for _ in range(60):
+                    try:
+                        with MongoClient(
+                            auth_uri, serverSelectionTimeoutMS=500
+                        ) as auth_probe:
+                            auth_probe.admin.command("ping")
+                        break
+                    except PyMongoError:
+                        time.sleep(0.5)
+                else:
+                    raise RuntimeError("Disposable auth Mongo readiness deadline.")
             regression_env = bff_env | {
                 "MONGO_TEST_URI": mongo_uri,
                 "POSTGRES_TEST_URI": "postgresql://ci:"
@@ -838,6 +965,8 @@ def main():
                 + "@127.0.0.1:57918/stockpilot_ci",
                 "PYTHONDONTWRITEBYTECODE": "1",
             }
+            if canonical:
+                regression_env["MONGO_MIGRATION_AUTH_TEST_URI"] = auth_uri
             output = command(
                 [
                     sys.executable,
@@ -860,13 +989,34 @@ def main():
         report["error_type"] = type(error).__name__
         frame = traceback.extract_tb(error.__traceback__)[-1]
         report["error_location"] = f"{Path(frame.filename).name}:{frame.lineno}"
+        report["error_frames"] = [
+            f"{Path(f.filename).name}:{f.lineno}"
+            for f in traceback.extract_tb(error.__traceback__)
+            if str(ROOT) in f.filename
+        ]
     finally:
         try:
+            if canonical:
+                canonical.stop_sampling()
+                report["resource_samples"] = canonical.samples
+                report["capacity_before"] = canonical.capacity_start
             stop_bff()
             if mongo is not None:
                 mongo.close()
             validate_owned()
-            command([*compose, "down", "--timeout", "15"], env)
+            command(
+                [*compose, "--profile", "*", "down", "--timeout", "15"], env
+            ) if canonical else command([*compose, "down", "--timeout", "15"], env)
+            if canonical:
+                canonical.cleanup_volumes()
+                canonical.cleanup_images()
+            if canonical:
+                import shutil
+
+                report["capacity_after"] = {
+                    "ubuntu_free": shutil.disk_usage(ROOT).free,
+                    "windows_c_free": shutil.disk_usage("/mnt/c").free,
+                }
             report["cleanup"] = not command([*compose, "ps", "-aq"], env).strip()
             after = docker_snapshot()
             report["protected_containers_unchanged"] = all(

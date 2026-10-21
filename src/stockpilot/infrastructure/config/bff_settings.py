@@ -22,6 +22,7 @@ class BffSettings(BaseSettings):
     trusted_proxy_ips: list[str] = Field(default_factory=list)
     origin: str | None = None
     issuer: str | None = None
+    oidc_ca_file: str | None = None
     client_id: str | None = None
     client_secret: SecretStr | None = Field(default=None, repr=False)
     mongo_uri: SecretStr | None = Field(default=None, repr=False)
@@ -94,6 +95,10 @@ class BffSettings(BaseSettings):
 
     def validated_policy(self) -> BffPolicy:
         try:
+            import ssl
+
+            if self.oidc_ca_file:
+                ssl.create_default_context(cafile=self.oidc_ca_file)
             origin = urlsplit(self.origin or "")
             issuer = urlsplit(self.issuer or "")
             if (
@@ -158,7 +163,7 @@ class BffSettings(BaseSettings):
                 raise ValueError
             if self.session_idle_seconds > self.session_absolute_seconds:
                 raise ValueError
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OSError):
             raise BffUnavailable("BFF configuration incomplete or unsafe.") from None
         if self.assistant_enabled:
             self.validate_assistant()
@@ -179,6 +184,10 @@ class BffSettings(BaseSettings):
             ],
             separators=(",", ":"),
         )
+        if self.oidc_ca_file:
+            from pathlib import Path
+
+            context += sha256(Path(self.oidc_ca_file).read_bytes()).hexdigest()
         if self.mode == "b2b_business_test":
             context += json.dumps([self.mode, self.trusted_proxy_ips])
         if self.assistant_enabled:

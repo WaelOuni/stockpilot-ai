@@ -3,7 +3,9 @@ import process from 'node:process'
 import { writeFileSync } from 'node:fs'
 import { chromium, expect } from '@playwright/test'
 const origin = 'https://127.0.0.1:57914'
-const browser = await chromium.launch({ headless: true, args: ['--ignore-certificate-errors-spki-list=' + process.env.B2B_BROWSER_SPKI] })
+const issuerOrigin = process.env.B2B_TEST_ISSUER_ORIGIN || 'http://localhost:57915'
+const dnsArgs = process.env.B2B_TEST_ISSUER_ORIGIN ? ['--host-resolver-rules=MAP auth.stockpilot.test 127.0.0.1'] : []
+const browser = await chromium.launch({ headless: true, args: [...dnsArgs, '--ignore-certificate-errors-spki-list=' + process.env.B2B_BROWSER_SPKI] })
 const context = await browser.newContext()
 const page = await context.newPage()
 page.setDefaultTimeout(90000)
@@ -14,7 +16,7 @@ async function login(org, username) {
   await page.goto(origin + '/b2b-app/')
   await page.getByLabel('Code d’entreprise').fill(org)
   await page.getByRole('button', { name: 'Continuer avec Keycloak' }).click()
-  await page.waitForURL('http://localhost:57915/**')
+  await page.waitForURL(issuerOrigin + '/**')
   await page.locator('#username').fill(username)
   await page.locator('#password').fill(process.env.BFF_TEST_USER_PASSWORD)
   await page.locator('#kc-login').click()

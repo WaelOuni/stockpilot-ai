@@ -8,6 +8,7 @@ import hmac
 import json
 import math
 import re
+import ssl
 import threading
 import time
 from datetime import UTC, datetime
@@ -44,6 +45,7 @@ class OidcHttpProvider:
         *,
         allow_loopback_http: bool = False,
         client: httpx.Client | None = None,
+        ca_file: str | None = None,
     ):
         self._allow_loopback_http = allow_loopback_http
         self._issuer = issuer
@@ -57,7 +59,13 @@ class OidcHttpProvider:
         self._redirect_uri = redirect_uri
         self._post_logout_redirect_uri = post_logout_redirect_uri
         self._owns_client = client is None
-        self._client = client if client is not None else httpx.Client(trust_env=False)
+        self._client = (
+            client
+            if client is not None
+            else httpx.Client(
+                trust_env=False, verify=ssl.create_default_context(cafile=ca_file)
+            )
+        )
         self._lock = threading.RLock()
         self._metadata: dict[str, Any] | None = None
         self._metadata_until = 0.0

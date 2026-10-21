@@ -1,7 +1,7 @@
 # StockPilot AI — état du projet
 
 État vérifié le **21 octobre 2026** : main distant à
-`9e769360a0d53f2522df84eecc5ffc7bd2fe67f0`, fusion réelle de la PR #52.
+`b6a170974c275d2f9602f6c9bc08aca5af8d7df0`, fusion réelle de la PR #53.
 La branche par défaut GitHub reste dev ; les chantiers stables ciblent main.
 Ce SHA est une preuve datée, jamais une invitation à synchroniser une démo.
 
@@ -24,11 +24,13 @@ StockPilot n'est pas un SaaS prêt pour Internet ni une production commerciale.
 | V13.7.3-B3 / #49 | Ajustements quantity>=reserved, mouvements et imports atomiques bornés ; Mongo0003 | [ADR B3](../security/tenant-stock-operations.md) |
 | V13.7.3-B4 / #50 | RAG, conversations privées et checkpoints B2B PostgreSQL ; aucune route métier BFF | [ADR B4](../security/tenant-rag-conversations.md) |
 | V13.8.1 / #51 | BFF métier de test opt-in, sessions/CSRF/permissions et API B1/B2/B3 | [Contrat HTTP](../security/b2b-http-api.md) |
+| V13.8.2 / #52 | Vue B2B cookie/session, catalogue/ORDER/administration jetables | [Validation](../validation/v13.8.2-unified-b2b-frontend.md) |
+| V13.8.3 / #53 | Assistant LangGraph tenant-scoped, RAG et réconciliation Mongo/PG | [Validation](../validation/v13.8.3-unified-b2b-assistant.md) |
 
-La chaîne de fusions #44→#51 est vérifiable dans l'historique first-parent de main.
+La chaîne de fusions #44→#53 est vérifiable dans l'historique first-parent de main.
 Fusionner un port métier ne le rend pas accessible par Vue ou le BFF.
 
-## B4 intégré — activation métier toujours bloquée
+## B4 intégré — activation durable toujours bloquée
 
 [ADR RAG/conversations](../security/tenant-rag-conversations.md) :
 documents/embeddings tenant-scoped dans SQL avant tri vectoriel exact et avant
@@ -47,7 +49,7 @@ quotas, exploitation, composition HTTP et UX Vue restent des gates distinctes.
 ## Démonstrations et cible produit
 
 Une seule cible future : [StockPilot AI B2B Demo](../b2b-demo.md), Keycloak + BFF +
-Vue, **non opérationnelle et non promue**. Le guide canonique définit les scénarios
+Vue, **installation officielle absente et non promue**. Le guide canonique définit les scénarios
 et conditions de promotion, sans créer de quatrième installation persistante.
 
 Installations locales protégées :
@@ -100,10 +102,10 @@ commandes explicites, réconciliation, stocks/mouvements/CSV selon permissions.
 [Guide utilisateur](../b2b-user-guide.md), [validation](../validation/v13.8.2-unified-b2b-frontend.md).
 Aucun token OIDC browser ; BFF et données d’autorisation restent l’autorité.
 Campagne Chromium/Keycloak/BFF/Mongo HTTPS jetable, sans installation ni déploiement.
-L’assistant B2B est réservé àV13.8.3 ; la [démo canonique](../b2b-demo.md) n’est
+À sa livraison, l’assistant était réservé àV13.8.3, intégrée depuis par #53 ; la [démo canonique](../b2b-demo.md) n’est
 pas promue, aucun SaaS public/multi-tenant prêt pour Internet n’est annoncé.
 
-## V13.8.3 — assistant en revue
+## V13.8.3 — assistant intégré (#53)
 
 Assistant LangGraph opt-in dans b2b_business_test ; [contrat](../security/b2b-assistant.md),
 [validation](../validation/v13.8.3-unified-b2b-assistant.md). Vue privée, catalogue
@@ -111,3 +113,12 @@ vérifié, RAG SQL-scoped avant LLM, préparation B2 sans réservation et confir
 HTTP explicite. Journal PG0002 avant Mongo et réconciliation à clé constante.
 Aucun déploiement, migration historique ou ouverture Internet.
 Prochaine gate : V13.8.4, installation canonique isolée et backup/restore éprouvé.
+
+## V13.8.4 — composition et reprise en revue
+
+[Guide canonique unique](../b2b-demo.md) : opérateur validate seulement,
+proxy HTTPS, provisioning synthétique, sauvegardes Mongo/PG/Keycloak et
+restauration indépendante. [Rapport et limites](../validation/v13.8.4-canonical-b2b-demo.md).
+Aucun mode durable ou Internet n’est activé ; les garde-fous de bases de test
+restent obligatoires. Promotion et retrait des anciennes démos restent soumis
+à une décision humaine distincte.

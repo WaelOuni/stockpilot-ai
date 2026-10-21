@@ -91,3 +91,24 @@ Anciens guides/runbooks conservés pour reprise et preuves ; aucun retrait
 d'installation ni déploiement. Les propositions historiques ne remettent pas en
 cause le choix utilisateur validé Keycloak + BFF ; activation et hébergement
 restent des décisions et preuves séparées.
+
+
+## V13.8.4 — recette canonique et restauration appariée
+
+Décision du chantier, 21 octobre 2026 : une seule composition et un seul
+opérateur de validation, sans installateur durable ni activation Internet.
+Les volumes de recette sont propres au projet et conservés pendant les
+redémarrages, puis retirés après attestation d'identité ; aucun volume historique.
+
+Réutiliser les migrations Mongo0001–0003 et PG0001–0002 immuables. Pas de nouveau
+schéma ni de DDL au startup. Les sauvegardes sont appariées **à écritures
+applicatives arrêtées**, avec hashes logiques avant/après et restauration dans
+des bases indépendantes vides. Cela ne constitue pas un snapshot distribué
+atomique ou une politique de sauvegarde client.
+
+Conserver issuer/subject et résultat Mongo autoritaire après restauration ;
+tourner la clé BFF, reconnecter et réconcilier le journal PG à clé constante.
+Ne pas réparer une incertitude en créant une autre commande.
+La cible durable exigera une autorisation, des secrets/rôles DB dédiés,
+chiffrement/rétention hors machine et validation de son exposition propre.
+[Guide canonique](../b2b-demo.md), [preuves](../validation/v13.8.4-canonical-b2b-demo.md).

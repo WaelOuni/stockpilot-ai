@@ -93,18 +93,20 @@ isolation des stores restent des gates distinctes ; voir [ADR](../security/b2b-i
   mode de test opt-in, DTO exacts, CSRF et lectures manquantes ; pas de SaaS public.
 - V13.8.2 — **DONE**, #52 fusionnée à9e76936 : Vue session/Keycloak, contrat de navigation, catalogue,
   commandes et administration scoped ; ni back-office global ni faux switch d'org.
-- V13.8.3 — **EN REVUE** : assistant tenant/RAG/ORDER, opérations stables entre
+- V13.8.3 — **DONE**, #53 fusionnée àb6a1709 : assistant tenant/RAG/ORDER, opérations stables entre
   commit Mongo et checkpoint PG, campagne Ollama isolée.
-- V13.8.4 — **PLANNED** : environnement canonique autorisé séparément, provisioning,
-  migrations persistantes à concevoir, sauvegarde/restauration et E2E avant promotion.
+- V13.8.4 — **EN REVUE** : composition canonique et provisioning jetables,
+  migrations explicites existantes, sauvegarde/restauration et E2E ;
+  [guide unique](../b2b-demo.md), [preuves](../validation/v13.8.4-canonical-b2b-demo.md).
 
 V13.8.2 : [UX et contrats](../b2b-user-guide.md), campagne réelle jetable et
 [preuves](../validation/v13.8.2-unified-b2b-frontend.md). L’acceptation de cette PR
 ne promeut aucune installation et ne remplace pas la campagne assistant V13.8.3.
 
-## V13.8.3 en revue
+## Prochaine décision de promotion
 
-Assistant Vue/BFF/LangGraph tenant-scoped, ORDER B2 et RAG B4, journal PG0002
-réconciliable. [Contrat](../security/b2b-assistant.md) et [preuves](../validation/v13.8.3-unified-b2b-assistant.md).
-V13.8.2/#52 est fusionnée à9e76936. La prochaine PR V13.8.4 doit prouver
-restauration Mongo/PG, exploitation et environnement canonique avant toute promotion.
+V13.8.3/#53 est intégrée ; la validation V13.8.4 reste distincte d'une
+autorisation durable. Choisir implantation locale/serveur, capacité,
+sécurité des bases, sauvegarde externe chiffrée/rétention, responsabilités
+et autorisation d'installation. Aucun déploiement implicite.
+Kubernetes reste une option ultérieure.
