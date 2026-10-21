@@ -1,5 +1,10 @@
 # DEMO locale persistante
 
+Guide historique d'exploitation, conservé pour reprise et rollback.
+La [cible canonique B2B future](b2b-demo.md) n'est pas encore opérationnelle.
+Ces commandes ne constituent pas une autorisation de modifier les installations
+protégées ; aucune promotion ou réinitialisation n'est implicite après une fusion.
+
 La DEMO utilise exclusivement MongoDB `stockpilot_demo` et PostgreSQL
 `stockpilot_demo/public`. DEV (`stockpilot`) et E2E (`stockpilot_e2e`) sont exclus.
 Les anciennes mesures V6/V7 sont des instantanés historiques, pas une contrainte

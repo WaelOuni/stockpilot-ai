@@ -74,3 +74,20 @@ ne jamais convertir une indisponibilité en succès/abort implicite. Helpers B2
 et CSV partagés, migrations0001/0002 immuables et0003 additive explicite.
 Pas de nouveaux mouvements ORDER : journal physique B3 non exhaustif des réservations.
 Aucune composition HTTP ; révocation BFF et ouverture Internet restent distinctes.
+
+## 21 octobre 2026 — RAG/conversations B4 et cible de démo
+
+[ADR B4](../security/tenant-rag-conversations.md) : tables PG dédiées, recherche
+exacte filtrée avant calcul topK/LLM, publication atomique de génération,
+ownership privé du créateur et saver racine conforme à l'API verrouillée.
+[Migrations SQL explicites](../postgresql-migrations.md) transactionnelles,
+sans ORM ajouté, checksums/structure/verrou et cibles jetables vérifiées.
+Aucun changement des repositories ou migrations historiques/Mongo.
+Fenêtre de révocation inter-stores explicitement conservée, pas de promesse
+d'atomicité Mongo/PG/LLM ni d'ouverture publique.
+
+Une seule [démo B2B future canonique](../b2b-demo.md), non opérationnelle.
+Anciens guides/runbooks conservés pour reprise et preuves ; aucun retrait
+d'installation ni déploiement. Les propositions historiques ne remettent pas en
+cause le choix utilisateur validé Keycloak + BFF ; activation et hébergement
+restent des décisions et preuves séparées.

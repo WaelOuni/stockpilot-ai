@@ -24,7 +24,7 @@ Une proposition documentaire terminée ne rend pas sa fonctionnalité opération
 | Chantier / statut | Priorité et critères | Dépendances / décision |
 |---|---|---|
 | Audit et stockage V13.6 — **DONE** | Nettoyage limité et diagnostic consignés dans [le rapport](../reports/v13.6-local-consolidation.md) | Aucun compactage ni nettoyage supplémentaire implicite |
-| Authentification B2B V13.7 — **PLANNED**, P1 | Auditer identité serveur, sessions, autorisations, distinction client/organisation et tests de non-fuite ; livrer constats et proposition | Choix humain du fournisseur d'identité et du périmètre avant implémentation ; aucun SaaS activé |
+| Authentification B2B V13.7 — **IN_PROGRESS**, P1 | Identité, Keycloak/BFF et stores internes B1–B3 fusionnés ; B4 en revue, puis composition HTTP et UX | Keycloak validé ; activation métier, révocation inter-stores et validation E2E restent bloquantes avant pilote |
 | Environnement de test distant — **PLANNED**, P1 | Définir isolation, données synthétiques, accès, sauvegarde/restauration, observabilité et coût | Serveur, budget et politique d'accès à choisir ; ne pas déplacer les démos existantes |
 | Kubernetes/K3s — **ENVISAGÉ**, P2 | Comparer utilité et coût opérationnel avec une implantation Compose dédiée | Aucune implémentation ; décision après besoins et contraintes du serveur distant |
 
@@ -69,11 +69,14 @@ V13.7.3-B2 — **DONE**, PR #48 fusionnée à `d6a0bcd`, activation HTTP bloqué
 [commandes et réservations atomiques](../security/tenant-orders-atomicity.md),
 mapping acheteur explicite, own = created_by, journal durable et migration 0002.
 Transactions Mongo interorg et concurrence testées ; aucune route BFF ouverte.
-V13.7.3-B3 — **IN_PROGRESS / revue, activation HTTP bloquée** :
+V13.7.3-B3 — **DONE**, PR #49 fusionnée à146e74a, activation HTTP bloquée :
 [imports/mouvements/administration scoped](../security/tenant-stock-operations.md),
 stock physique compatible avec reserved, migration0003 et résultats durables.
-V13.7.3-B4 — **PLANNED** : retrieval RAG, conversations et toutes les écritures/
-tables checkpoints scoppées ; isolation réelle avant LLM. Sauvegarde/restauration
+V13.7.3-B4 — **IN_PROGRESS / revue**, activation HTTP bloquée :
+[RAG/conversations/checkpoints scoppés](../security/tenant-rag-conversations.md),
+[migrations PostgreSQL](../postgresql-migrations.md), recherche exacte avant LLM.
+Une seule [cible de démonstration future](../b2b-demo.md), non opérationnelle.
+Sauvegarde/restauration
 et routes HTTP sécurisées restent des gates distinctes. Aucune migration historique
 sans décision explicite.
 V13.7.4 : UX Vue et validation navigateur complète. Ouverture distante et

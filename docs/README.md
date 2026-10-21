@@ -5,6 +5,8 @@ kept in [archive/](archive/README.md) and are not current procedures.
 
 | Task | Read |
 |---|---|
+| Future official B2B demo (not operational) | [Canonical target and promotion gates](b2b-demo.md) |
+| Internal tenant RAG/conversations and PostgreSQL migrations | [ADR B4](security/tenant-rag-conversations.md), [explicit migrations](postgresql-migrations.md) |
 | Resume project work and priorities | [Project status](project/PROJECT_STATUS.md), [roadmap](project/ROADMAP.md), [decisions](project/ARCHITECTURE_DECISIONS.md), [agent handoff](project/AGENT_HANDOFF.md) |
 | Understand the product and its limits | [README](../README.md) |
 | Prepare a commercial demonstration or isolated pilot | [Product readiness](product/README.md) (positioning, demo, onboarding, cost hypotheses and prospect validation) |

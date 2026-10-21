@@ -1,5 +1,8 @@
 # Démonstration commerciale de 8 minutes
 
+Scénario historique. Pour la future cible Keycloak/BFF/Vue, suivre le
+[guide canonique B2B](../b2b-demo.md), qui n'est pas encore un parcours opérationnel.
+
 Script préparé le 17 octobre 2026. C'est une procédure à exécuter avant chaque
 présentation, pas une nouvelle preuve de validation. Utiliser uniquement la
 candidate synthétique autorisée, jamais la DEMO stable v017.
