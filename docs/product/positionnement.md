@@ -23,6 +23,10 @@ hébergement, budget et support ; aucun besoin équivalent n'est présumé.
 
 ## Disponible et prévu
 
+La table décrit le parcours historique Vue/JWT. Les composants internes B2B
+Keycloak/BFF et stores isolés ont depuis été intégrés ; leur assemblage métier
+HTTP/Vue reste à réaliser. Voir la [cible canonique](../b2b-demo.md).
+
 | Besoin | État observable dans le code actuel | Limite à annoncer |
 |---|---|---|
 | Catalogue et disponibilité | Recherche, catégorie, prix, stock et fiche par SKU | Instantané ; conseil ne réserve rien |
@@ -34,7 +38,7 @@ hébergement, budget et support ; aucun besoin équivalent n'est présumé.
 | Administration | Catalogue, ajustements tracés, commandes, tableau de bord | Configuration et index prérequis ; rôles d'organisation non disponibles |
 | Import CSV | Aperçu puis création atomique de nouveaux SKU, stock initial zéro | 500 produits et 2 MiB par défaut ; pas de mise à jour de masse des SKU existants |
 | Connexion | JWT client fourni par un émetteur de confiance ; session administrateur | Pas d'inscription, annuaire client ou SSO commercial prêt à l'emploi |
-| SaaS multi-tenant | Conception à préparer ; accès SaaS fermé par défaut | Pas une offre hébergée multi-entreprise opérationnelle |
+| SaaS multi-tenant | Stores B2B internes intégrés ; accès métier HTTP/Vue encore fermé | Pas une offre hébergée multi-entreprise opérationnelle |
 
 Sources internes : [Advice](../catalogue-advice.md), [ORDER](../order-flow.md),
 [CSV et index](../database.md#create_only-product-csv-imports-v6),
@@ -42,7 +46,7 @@ Sources internes : [Advice](../catalogue-advice.md), [ORDER](../order-flow.md),
 le code peut rester bloquée dans une installation non provisionnée : vérifier les
 index et la configuration avant de la présenter comme utilisable.
 
-Le modèle produit ne porte pas de devise, de TVA ni de spécifications techniques.
+Le modèle produit historique ne porte pas de devise, de TVA ni de spécifications techniques.
 Les exemples en euros sont une convention du catalogue synthétique, pas une
 capacité de conversion ni un modèle comptable validé.
 

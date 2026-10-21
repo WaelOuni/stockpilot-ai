@@ -13,17 +13,24 @@ humain ; aucun contact n'est déclenché par ce document. Ne pas sélectionner s
 des connaissances favorables au produit. Reporter une exploration en Tunisie après
 les premières conclusions françaises et une vérification des besoins locaux.
 
-Demander des exemples récents avant de montrer la solution :
+## Questionnaire de découverte — 12 questions
 
-1. « Racontez votre dernière recherche d'une alternative disponible pour un client. »
-2. « Quels outils, personnes, vérifications et ressaisies avez-vous utilisés ? »
-3. « Où sont le SKU, le stock faisant autorité, le prix, la devise et la TVA ? »
-4. « Combien de demandes comparables recevez-vous ? Combien de minutes chacune ? »
-5. « Que se passe-t-il lorsque le stock change pendant une prise de commande ? »
-6. « Qu'avez-vous déjà essayé, et pourquoi le problème persiste-t-il ? »
-7. « Quelles contraintes d'accès, de données et de support bloqueraient un pilote ? »
-8. Après démonstration : « Sur quelle tâche l'utiliseriez-vous réellement ? Qui
-   décide et finance ? Quel engagement concret seriez-vous prêt à examiner ? »
+Noter date, rôle (sans identité privée dans Git), tâche récente et réponses avec
+l'accord de l'interlocuteur. Ne pas commencer par une promesse de gain. Utiliser
+les questions 1–10 avant la démonstration, puis 11–12 après si elle a lieu.
+
+1. Racontez la dernière demande client où trouver la bonne référence a été difficile.
+2. Quels outils et quelles personnes avez-vous consultés, et quelles informations avez-vous ressaisies ?
+3. Où se trouvent les références, prix et stocks qui font foi ? Qui les met à jour ?
+4. Combien de recherches comparables faites-vous par jour, et combien de temps prend une demande récente, attente et vérification comprises ?
+5. Que faites-vous lorsqu'une référence est ambiguë, absente ou en rupture ?
+6. Quelles erreurs de référence, de prix, de stock ou de quantité avez-vous rencontrées récemment ? Quelles conséquences ?
+7. Comment préparez-vous, validez-vous et annulez-vous une commande ? Qui peut réserver le stock ?
+8. Qu'avez-vous déjà essayé avec vos fichiers ou votre logiciel actuel ? Qu'est-ce qui fonctionne bien et doit être conservé ?
+9. Quelles contraintes de confidentialité, d'accès, de matériel et de sauvegarde empêcheraient un essai sur une copie isolée ?
+10. Qui serait référent pour un essai de 2–4 semaines, et combien de temps l'équipe pourrait-elle y consacrer ?
+11. Après la démonstration, quelle tâche voudriez-vous comparer à votre méthode actuelle ? Qu'est-ce qui vous ferait refuser le pilote ?
+12. Qui décide du budget, quelle enveloppe serait envisageable et quelles preuves faudrait-il pour payer ? Préférez-vous poursuivre, attendre ou arrêter ?
 
 Ne pas assimiler enthousiasme, clic ou préférence déclarée à une volonté de payer.
 Une lettre d'intention avec périmètre, décideur, budget et conditions est un signal
@@ -54,6 +61,46 @@ de 25 €/h, cela représente environ 333 €/mois avant coût d'adoption. Ce n'
 Mesurer aussi le temps de vérification, l'attente LLM et les erreurs évitées ; ne pas
 valoriser chaque réponse comme une vente supplémentaire.
 
+## Grille avant/après à remplir — aucune mesure client disponible
+
+Une ligne par tâche et utilisateur pseudonymisé, même catalogue/source et mêmes
+conditions. Alterner l'ordre méthode actuelle/StockPilot ; noter l'ordre, la
+formation et l'aide reçue. Le temps inclut attente modèle, vérification et reprises.
+Les propositions d'échantillon et de seuils ci-dessus restent à convenir.
+Conserver les fichiers de séance privés hors Git et ne partager que des agrégats
+anonymisés autorisés.
+
+| Ligne de mesure | Valeur à remplir |
+|---|---|
+| Date / rôle / code utilisateur / ordre des méthodes | À renseigner |
+| Tâche / catalogue et version / référence attendue / source officielle | À renseigner |
+| Temps méthode actuelle, en secondes | Non mesuré |
+| Temps StockPilot, en secondes | Non mesuré |
+| Référence, prix et stock exacts : actuelle puis StockPilot | Oui / non / non vérifiable, séparément |
+| Erreurs et gravité : actuelle puis StockPilot | Nombre, nature, correction nécessaire |
+| Issue : actuelle puis StockPilot | Réussite / échec / abandon / panne ; raison et temps écoulé |
+| Satisfaction : actuelle puis StockPilot | Note 1–5 après chaque tâche, même question : « Cette méthode vous a-t-elle permis de finir facilement ? » |
+| Aide et support : actuelle puis StockPilot | Minutes, motif, intervenant ; distinguer formation et incident |
+| Budget et intention de payer après essai | Montant/devise/période déclaré, décideur, conditions ; oui / non / à revoir |
+| Commentaire contradictoire / incident | À renseigner, sans données personnelles inutiles |
+
+Synthèse de bilan :
+
+| Indicateur | Méthode actuelle | StockPilot | Calcul / décision |
+|---|---|---|---|
+| Tâches tentées / réussies / échouées / abandonnées | Non mesuré | Non mesuré | Tout compter, détailler les pannes |
+| Temps médian et cas lent | Non mesuré | Non mesuré | Sur paires de tâches terminées : (avant−après)/avant × 100 ; avant = 0 ⇒ non calculable ; publier aussi les échecs exclus de ce calcul |
+| Exactitude vérifiable | Non mesuré | Non mesuré | Tâches exactes / tâches vérifiables, avec dénominateur et non-vérifiables séparés |
+| Erreurs par type et gravité | Non mesuré | Non mesuré | Aucun incident d'identité ou de réservation toléré pour poursuivre sans analyse |
+| Satisfaction médiane / répondants | Non mesuré | Non mesuré | Même échelle 1–5, commentaires et non-réponses conservés |
+| Coût de support sur la période | Non mesuré | Non mesuré | Heures × coût horaire convenu + frais réels ; formation/installation séparées pour éviter double compte |
+| Intention de payer / décideurs consultés | Non mesuré | Non mesuré | Déclaratif distinct d'un accord écrit, d'un pilote payé et d'un renouvellement |
+| Décision et désaccords | À renseigner | À renseigner | Poursuivre / réduire / arrêter, responsable et date |
+
+Ne pas transformer un temps plus court en économie de salaire, vente ou marge
+acquise. Comparer coût et qualité, conserver les résultats négatifs et relier
+toute proposition au [périmètre pilote](offre-pilote.md).
+
 ## Objections et réponses à vérifier
 
 | Objection | Réponse honnête | Preuve / décision attendue |
@@ -63,9 +110,9 @@ valoriser chaque réponse comme une vente supplémentaire.
 | « L'IA invente. » | Advice relit les faits produit et refuse les sorties non vérifiables ; la compréhension reste probabiliste | Cas manquant/ambigu, panne et injection ; journal d'incidents, pas promesse absolue |
 | « Mes données restent-elles chez moi ? » | Une installation et une inférence locales sont possibles ; vérifier les flux réellement configurés | Carte de flux, absence d'export non autorisé, contrôle des accès et sauvegardes |
 | « Peut-elle vendre deux fois le même stock ? » | Confirmation explicite et transaction Mongo sont prévues ; aucune réservation en conseil/préparation | Test concurrent et rejeu sur l'installation pilote ; incidents bloquants analysés |
-| « Je veux plusieurs agences/entreprises et du SSO. » | Multi-tenant, rôles d'organisation et OIDC ne sont pas livrés | Besoin préalable à V14 ; ne pas mélanger les données dans la candidate |
+| « Je veux plusieurs agences/entreprises et du SSO. » | Keycloak/BFF, permissions et stores isolés existent en interne ; le parcours HTTP/Vue unifié n'est pas livré | [Gates de la démo B2B](../b2b-demo.md) ; aucune ouverture des données globales |
 | « Je veux facturation, codes-barres et ERP. » | Ce périmètre n'est pas démontré dans StockPilot | Qualifier intégration ou autre solution, sans promesse de livraison |
-| « Peut-on importer nos fichiers Excel ? » | Export CSV conforme, création seule, stock zéro puis rapprochement autorisé | Aperçu, petit lot, reçu ; pas de synchronisation automatique |
+| « Peut-on importer nos fichiers Excel ? » | Parcours historique : CSV conforme, création seule, stock zéro ; les modes internes B3 ne sont pas exposés par cette UI | Aperçu, petit lot, reçu ; pas de synchronisation automatique |
 | « Le service doit fonctionner sans interruption. » | La candidate locale n'est pas hautement disponible et `/health` n'est pas une preuve de readiness | Plan d'exploitation, restauration et objectif de service négocié avant vente |
 | « Pourquoi payer ce prix ? » | Le prix couvre installation/support/infrastructure ; la valeur reste à démontrer | Résultats du pilote et coûts réels, plutôt que prix présenté comme validé |
 

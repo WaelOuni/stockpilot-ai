@@ -5,7 +5,11 @@ estimations en euros hors taxes, sauf indication contraire. Aucun devis, achat,
 abonnement ou prix accepté par le marché. La TVA, le change, les promotions et les
 conditions territoriales doivent être revérifiés avant une proposition réelle.
 
-## Repères externes vérifiés
+## Repères externes historiques
+
+Les relevés datés ci-dessous sont conservés comme hypothèses du kit ; ils n'ont
+pas été revérifiés lors de sa réconciliation du 21 octobre. Aucun tarif actuel
+ni fournisseur recommandé n'en est déduit.
 
 | Poste | Repère public consulté le 17 octobre 2026 | Portée |
 |---|---|---|

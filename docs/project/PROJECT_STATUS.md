@@ -1,7 +1,7 @@
 # StockPilot AI — état du projet
 
 État vérifié le **21 octobre 2026** : main distant à
-`146e74a637bdc6c5ae200dcd3f047534d13cd28e`, fusion réelle de la PR #49.
+`394bd7cebd1ae807bdac8478c10ebc84ab3ad8f9`, fusion réelle de la PR #50.
 La branche par défaut GitHub reste dev ; les chantiers stables ciblent main.
 Ce SHA est une preuve datée, jamais une invitation à synchroniser une démo.
 
@@ -22,11 +22,12 @@ StockPilot n'est pas un SaaS prêt pour Internet ni une production commerciale.
 | V13.7.3-B1 / #47 | Catalogue/stock B2B isolés, migration Mongo0001 | [ADR B1](../security/tenant-catalogue-stock.md) |
 | V13.7.3-B2 / #48 | Commandes B2B, own=created_by, réservations/annulations atomiques, idempotence ; Mongo0002 | [ADR B2](../security/tenant-orders-atomicity.md) |
 | V13.7.3-B3 / #49 | Ajustements quantity>=reserved, mouvements et imports atomiques bornés ; Mongo0003 | [ADR B3](../security/tenant-stock-operations.md) |
+| V13.7.3-B4 / #50 | RAG, conversations privées et checkpoints B2B PostgreSQL ; aucune route métier BFF | [ADR B4](../security/tenant-rag-conversations.md) |
 
-La chaîne de fusions #44→#49 est vérifiable dans l'historique first-parent de main.
+La chaîne de fusions #44→#50 est vérifiable dans l'historique first-parent de main.
 Fusionner un port métier ne le rend pas accessible par Vue ou le BFF.
 
-## Chantier B4 — préparé pour revue, activation bloquée
+## B4 intégré — activation métier toujours bloquée
 
 [ADR RAG/conversations](../security/tenant-rag-conversations.md) :
 documents/embeddings tenant-scoped dans SQL avant tri vectoriel exact et avant
@@ -34,7 +35,7 @@ LLM, ingestion versionnée à publication atomique, conversations privées du cr
 et checkpoints dédiés, sans toucher l'historique.
 [Migration PostgreSQL explicite](../postgresql-migrations.md), aucun setup automatique
 ni migration de données existantes. [Rapport B4](../validation/v13.7.3b4-rag-conversations.md)
-et PR du chantier font autorité pour les tests réellement exécutés et la CI finale.
+et [PR #50](https://github.com/WaelOuni/stockpilot-ai/pull/50) font autorité pour les tests réellement exécutés et la CI finale.
 
 BFF auth/session uniquement ; aucune nouvelle route métier. production_saas et
 production restent fail-closed. Les ports internes B1–B4 ne constituent pas un
@@ -62,11 +63,19 @@ démo validée et autorisation explicite.
 
 ## Prochaines étapes
 
-1. Revue/CI de B4 ; aucun merge/déploiement par le chantier.
-2. Intégration HTTP B2B sécurisée et UX V13.7.4, validation synthétique E2E.
+1. Réconcilier le [kit commercial #42](../product/README.md) sans modifier les contrats B2B.
+2. Cadrer V13.8 : composition HTTP B2B sécurisée, UX Vue puis assistant et E2E.
 3. Environnement pilote distant dédié, restauration éprouvée et décision d'accès.
 4. Kubernetes/K3s seulement si justifié ; Compose reste l'hypothèse du premier pilote.
 
 [Roadmap](ROADMAP.md), [décisions durables](ARCHITECTURE_DECISIONS.md),
 [handoff court](AGENT_HANDOFF.md). Les ADR, validations et rapports historiques
 restent conservés ; ils décrivent leur date, pas automatiquement l'état déployé.
+
+## Kit commercial réconcilié — PR #42
+
+Fiche produit, messages non envoyés, proposition de pilote, entretien et indicateurs
+restent des supports de découverte, sans prix accepté ni gain client mesuré.
+Le script commercial décrit le parcours historique sur copie autorisée ; il ne
+remplace pas le guide canonique de la future démo Keycloak. Aucun contact,
+nouvelle installation ou pilote n'est réalisé par cette consolidation.

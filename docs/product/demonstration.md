@@ -1,71 +1,89 @@
-# Démonstration commerciale de 8 minutes
+# Démonstration commerciale — 9 minutes
 
-Scénario historique. Pour la future cible Keycloak/BFF/Vue, suivre le
-[guide canonique B2B](../b2b-demo.md), qui n'est pas encore un parcours opérationnel.
+Scénario **historique** (interface JWT), préparé le 19 octobre 2026.
+Pour la future cible Keycloak/BFF/Vue, suivre le [guide canonique B2B](../b2b-demo.md),
+qui n'est pas encore un parcours opérationnel.
 
-Script préparé le 17 octobre 2026. C'est une procédure à exécuter avant chaque
-présentation, pas une nouvelle preuve de validation. Utiliser uniquement la
-candidate synthétique autorisée, jamais la DEMO stable v017.
+Script à répéter sur une **installation de répétition isolée et autorisée**, avec
+données fictives. Ce document n'atteste pas une séance réalisée. Ne pas utiliser
+ni modifier les démos stable v017, candidate V13.3 ou historique 5175/8003.
 
-## Préparation du présentateur
 
-Vérifier URL, commit d'application réellement lancé, identité des deux bases,
-services et modèles. Pour la candidate V13.3 prévue : `https://localhost:5193` ;
-ce certificat local peut nécessiter une acceptation explicite pour localhost.
-Cette adresse n'est pas un accès public à transmettre à un prospect distant.
-Consulter le runbook de l'installation ; ne pas recréer ou réinitialiser ses
-données pour préparer une séance. Ne pas utiliser les scripts historiques de seed
-qui effacent une base.
+## Avant le rendez-vous : feu vert du présentateur et de l'opérateur
 
-Préparer un navigateur de présentation sans données privées, un JWT de démonstration
-valide émis par l'opérateur et une session administrateur distincte. Ne montrer ni
-jeton, mot de passe, fichier d'environnement, log brut ni terminal de génération.
-Le client utilise actuellement un panneau de jeton ; l'expliquer comme une limite
-du prototype, pas comme une connexion utilisateur commerciale aboutie.
+- Noter date, URL et commit **réellement lancé**. La base historique du script est
+  `85df5c4` ; la réconciliation documentaire du 21 octobre part de `394bd7c`.
+  Aucun de ces SHA ne prouve une installation ou une répétition commerciale.
+- L'opérateur vérifie bases isolées, sauvegarde/restauration si nécessaire,
+  catalogue, accès client et accès administrateur distincts, puis disponibilité
+  du modèle local. Une page de santé seule ne suffit pas. Aucun seed/reset sur
+  une installation existante ; aucune donnée prospect pour une découverte.
+- Répéter dans un nouveau fil les messages ci-dessous. Relever les références,
+  noms, prix et stocks réellement affichés ; adapter le script si les données
+  diffèrent. Ne jamais mélanger les valeurs d'une fixture et celles d'une DEMO.
+- Exemple de contrôle reproductible : le [catalogue synthétique de tests](../../evals/fixtures/catalogue_advice.py)
+  contient D-A à 60/stock 4, D-B à 80/stock 2, D-C à 99/stock 5, D-E à
+  100/stock 3 et D-O à 40/stock 0. Sous 100 et disponible : D-A, D-B, D-C.
+  **Ce catalogue n'est pas automatiquement celui d'une installation.**
+- Choisir un nom complet unique disponible pour la commande fictive. Remplacer
+  `NOM_COMPLET_VÉRIFIÉ` ci-dessous avant la séance ; ne pas saisir ce marqueur.
+  Relever le stock initial S ; prévoir une seule unité et conserver son identifiant.
+- Préparer accès et onglets avant partage d'écran ; masquer jetons, mots de passe,
+  logs, données privées et panneau d'accès. La connexion actuelle est technique,
+  pas un compte client commercial prêt à l'emploi.
+- Préparer hors Git une capture ou courte vidéo **issue d'une répétition autorisée**,
+  datée, avec commit et données fictives, sans secret. Ce support reste à produire :
+  aucune capture nouvelle n'est livrée par ce chantier documentaire.
 
-Dans un thread neuf, contrôler les produits synthétiques D-A, D-B, D-C et le stock
-courant de D-C. Les prix de la fixture V13.3 sont 29,90 ; 39,90 ; 49,90, mais le
-présentateur doit relire les valeurs actuelles. Le stock change après une commande.
-Prévoir un seul achat fictif de quantité 1 et noter son identifiant afin de pouvoir
-l'annuler selon le contrat ; aucune remise à zéro du catalogue.
+Si le catalogue, les accès ou les faits ne sont pas vérifiés, présenter seulement
+la [fiche produit](fiche-produit.md) et mener [l'entretien](validation-commerciale.md).
+Aucun diagnostic, redémarrage ou renouvellement d'accès sur les DEMO.
 
-## Déroulé
+## Déroulé à garder sous les yeux
 
-| Temps | Action | Message à faire comprendre / contrôle |
+Ce script décrit la sémantique du parcours historique : stock affiché S−1 après
+réservation. Le modèle B2B interne conserve le physique et augmente `reserved` ;
+son futur scénario est défini dans le guide canonique, sans assimilation des deux.
+
+Les attentes portent sur la **nouvelle réponse** ; les anciennes cartes restent
+des instantanés, pas une disponibilité actualisée. Les durées incluent l'attente.
+
+| Temps | Action / message exact | Résultat attendu et phrase à dire |
 |---|---|---|
-| 0:00–0:45 | Présenter le problème et ouvrir Catalogue | Données synthétiques ; SKU, prix, stock ; pas de caractéristiques techniques déduites |
-| 0:45–1:45 | Assistant : « Je cherche une perceuse disponible à moins de 100 euros. » | Jusqu'à trois cartes ; chaque prix `< 100`, stock positif ; tri déterministe ; aucune réservation |
-| 1:45–2:30 | « Et si je monte le budget à 150 euros ? », puis « Montre-moi seulement deux produits. » | Budget remplacé, catégorie/disponibilité conservées ; deux cartes. Un top des moins chères peut rester identique malgré le budget accru |
-| 2:30–3:00 | « Et parmi ceux-là, lequel est le moins cher ? » | Comparaison des produits présentés, pas d'une sélection inventée |
-| 3:00–4:00 | Nouveau thread : « Peux-tu me conseiller sur la Perceuse Concurrence Synthétique V017 ? », puis « Compare cette perceuse avec deux autres. » | Une fiche ciblée puis référence + deux alternatives maximum ; écart de prix, stock, disponibilité ; pas de puissance inventée |
-| 4:00–4:30 | « Compare cette perceuse avec deux autres. » après une liste de plusieurs références | Une référence non univoque doit provoquer une clarification ; le SKU ou « le premier » permet de préciser |
-| 4:30–5:45 | Nouveau thread : demander le stock du nom exact, puis « Commande-moi 1 Perceuse Concurrence Synthétique V017 » | Lire le récapitulatif : produit, quantité. Expliquer que le stock n'est pas encore réservé ; vérifier dans un autre onglet |
-| 5:45–6:30 | Cliquer une seule fois « Confirmer », ouvrir Mes commandes et le détail | Réservation uniquement après résultat confirmé ; identifiant et statut persistés ; aucune facture ou paiement |
-| 6:30–7:30 | Espace administrateur séparé : tableau de bord, commandes et catalogue | Session opérateur distincte ; l'état vient du serveur. Ajustements de stock exigent motif et confirmation |
-| 7:30–8:00 | Montrer la page Import CSV et son exemple téléchargeable, sans exécuter d'import | Aperçu ≠ création ; stock initial zéro. Conclure par les limites et le problème à mesurer avec le prospect |
+| 0:00–0:45 | Ouvrir Catalogue, montrer la référence choisie | « Nous cherchons une référence dans un catalogue fictif. Les prix et stocks viennent du catalogue ; nous ne démontrons ni paiement ni connexion ERP. » |
+| 0:45–2:00 | Nouveau fil : **« Rechercher trois perceuses disponibles sous 100 »** | Jusqu'à trois perceuses, chacune sous 100 strictement et stock positif ; moins si peu de correspondances, aucune si aucune. Pour la fixture ci-dessus : D-A, D-B, D-C, pas D-E ni D-O. « Un conseil ne réserve aucun stock. » Ne pas ajouter de devise absente du modèle. |
+| 2:00–3:00 | **« Et si je monte le budget à 150 euros ? »**, puis **« Montre-moi seulement deux produits. »** | Plafond remplacé par 150 inclusif, disponibilité conservée, puis deux résultats maximum. Les moins chers peuvent rester identiques. La mention « euros » est une formulation comprise, pas une devise garantie par le catalogue. |
+| 3:00–4:15 | Nouveau fil : **« Conseille-moi sur le SKU D-C »**, puis **« Compare cette perceuse avec deux autres disponibles. »** | Si D-C est le SKU prévalidé : une fiche ciblée puis référence + jusqu'à deux alternatives, écarts de prix/stock vérifiés. Adapter le SKU avant la séance. « Aucune puissance ou performance technique n'est déduite. » |
+| 4:15–5:15 | Nouveau fil : **« Quel est le stock de NOM_COMPLET_VÉRIFIÉ ? »**, puis **« Commande-moi 1 NOM_COMPLET_VÉRIFIÉ »** | Stock lu puis proposition avec produit et quantité 1 ; aucune réservation à ce stade. Relire les valeurs avec le prospect. Si nom ambigu ou quantité refusée, arrêter et clarifier, sans prétendre à un succès. |
+| 5:15–6:15 | Cliquer une seule fois **Confirmer**, ouvrir **Mes commandes** | Attendre le résultat définitif, noter identifiant et statut. Sur cette copie sans autre activité, stock S−1 après confirmation. « La confirmation déclenche la réservation. » Un échec ou une réponse incertaine n'est pas une commande à recommencer. |
+| 6:15–7:30 | Espace administrateur : catalogue, tableau de bord, page Import CSV ; montrer l'exemple sans importer | Données serveur ; accès distinct. L'import crée de nouveaux produits à stock zéro, après aperçu/confirmation. Pas de synchronisation Excel/ERP ni de mise à jour massive des références existantes. |
+| 7:30–9:00 | Revenir à la fiche produit et demander : « Quelle tâche voudriez-vous comparer à votre méthode actuelle ? » | Annoncer les limites, proposer un entretien puis un pilote isolé de 2–4 semaines, soumis à accord. Aucun gain ou prix annoncé comme acquis. |
 
-Après la séance, annuler uniquement la commande synthétique identifiée si elle est
-encore dans un statut annulable. Vérifier son statut CANCELLED et la restitution
-exacte du stock ; ne pas envoyer plusieurs commandes pour « réessayer » un résultat
-incertain. Conserver les reçus et l'historique, sans effacer les données.
+Option de fin si la séance reste sous 10 minutes : dans un nouveau fil,
+**« Conseille-moi sur le SKU INTROUVABLE-DEMO »**, après vérification de son absence :
+zéro fiche, aucune substitution inventée. Ne pas allonger la séance pour finir
+toutes les étapes ; garder au moins une minute pour la question métier.
 
-## Contrôles et plan de secours
+Après la séance, sur la seule copie de répétition autorisée : annuler uniquement
+la commande identifiée si son statut le permet ; vérifier CANCELLED et stock S.
+Conserver les traces, sans reset. Ne rien annuler sur une installation protégée.
 
-- Un produit inexistant doit donner zéro résultat, une référence ambiguë une
-  clarification. Tester ces deux cas avant la séance si le temps le permet.
-- Une recommandation n'est jamais une commande ; une préparation n'est jamais une
-  réservation. L'interface et le discours doivent maintenir cette distinction.
-- En cas de lenteur, attendre l'état final ; ne pas soumettre la même mutation
-  sous un nouvel identifiant. Montrer le catalogue et le statut serveur si besoin.
-- En cas de panne LLM, annoncer le mode dégradé déterministe s'il apparaît. Une
-  réponse de secours ne prouve pas une exécution Ollama réelle.
-- Une panne de catalogue interdit toute démonstration de faits supposés. Suspendre
-  le scénario concerné, conserver l'erreur contrôlée et expliquer l'incident.
-- Rafraîchir le navigateur peut perdre le JWT client et l'historique affiché en
-  mémoire. Les checkpoints serveur ne constituent pas une liste d'historique UI.
-- Pour un besoin technique (« la plus puissante »), annoncer l'absence de données
-  techniques plutôt que conclure à une supériorité.
+## Plan de secours : basculer en moins d'une minute
 
-Versionner une fiche de séance sans secrets : date, commit, étapes réellement
-exécutées, temps total, incident et résultat. Les temps et résultats des validations
-techniques antérieures ne doivent pas être présentés comme des gains client.
+| Incident | Action du présentateur | Ce qu'on peut encore montrer |
+|---|---|---|
+| Réponse trop lente pour le créneau | Attendre l'issue sans répéter une commande ; au-delà de 30 secondes de présentation, passer au support préparé | Capture/vidéo datée, annoncée comme une répétition antérieure ; latence non garantie |
+| Modèle indisponible | Dire « Le modèle local est indisponible » ; si une réponse déterministe apparaît, l'identifier comme mode dégradé | Catalogue vérifié ou support préparé ; jamais présenter ce repli comme Ollama testé en direct |
+| Base/catalogue indisponible ou faits incohérents | Suspendre conseil et commandes ; conserver l'erreur sans log privé à l'écran | Fiche produit et entretien ; aucun prix/stock supposé |
+| Accès expiré ou session perdue | Masquer l'écran privé ; laisser l'opérateur gérer l'accès sur la copie autorisée, sinon basculer | Support préparé ; un refresh peut effacer accès et historique visuel |
+| Résultat incertain après confirmation | Noter l'identifiant connu et laisser l'opérateur rapprocher l'état serveur ; aucune nouvelle préparation/confirmation | Expliquer la limite et poursuivre l'entretien, sans annoncer succès ni échec métier définitif |
+
+Fiche de répétition/séance à remplir : date, opérateur, commit lancé, catalogue,
+modèle, étapes réellement exécutées, durée, identifiant fictif de commande, stock
+avant/après, incident, support utilisé et décision de poursuivre. Garder secrets et
+identifiants personnels hors des documents partagés.
+
+Preuves techniques : [tests navigateur synthétiques](../../frontend/advice-synthetic-e2e/catalogue-advice.spec.ts),
+[recherches](../../frontend/advice-synthetic-e2e/search-language.spec.ts),
+[diagnostic réel du 19 octobre](../validation/2026-10-19-environment-language-diagnostic.md).
+Ces preuves ne remplacent pas la répétition sur le commit choisi.
