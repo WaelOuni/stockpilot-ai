@@ -130,3 +130,17 @@ données synthétiques ; il conserve des rapports privés sans credentials et ne
 uniquement ses ressources identifiées. Il ne lance, n'arrête ni ne migre une démo.
 L'option assistant ajoute la campagne V13.8.3 à la campagne navigateur V13.8.2.
 Voir [les preuves et limites](../validation/v13.8.3-unified-b2b-assistant.md).
+
+
+## V13.9.2 — disponibilité naturelle et session
+
+Les interrogations générales de disponibilité utilisent la recherche de catégorie
+et le filtre quantity-reserved ; elles ne deviennent pas une identité exacte.
+Les SKU et noms complets restent littéraux, les ambiguïtés sont refusées.
+[Diagnostic et validation](../validation/v13.9.2-natural-advice-ux.md).
+
+Vue prévient durant la dernière minute des échéances serveur. Une activité métier
+peut déclencher une relecture des dates au plus une fois par minute ; aucun poll
+ne prolonge une session inactive. Expiration absolue bornée par exp OIDC, sans refresh.
+Pour le harness jetable BFF, `B2B_TEST_PORT_SET=isolated` choisit uniquement
+59914/59915/59916/59918 ; aucun changement des ports de la démo persistante.

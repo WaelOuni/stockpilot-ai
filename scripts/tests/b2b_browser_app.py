@@ -14,6 +14,7 @@ from starlette.responses import FileResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from scripts.tests.b2b_test_ports import ORIGIN
 from stockpilot.bff import create_app as create_bff
 from stockpilot.infrastructure.config.bff_settings import BffSettings
 
@@ -26,7 +27,7 @@ def create_app():
         or not re.fullmatch(
             r"stockpilot_b2b_test_[a-f0-9]{32}", settings.mongo_database
         )
-        or settings.origin != "https://127.0.0.1:57914"
+        or settings.origin != ORIGIN
     ):
         raise RuntimeError("Disposable browser configuration required.")
     settings.validated_policy()

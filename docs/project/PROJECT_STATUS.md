@@ -131,3 +131,9 @@ hors Git, quatre volumes conservés, comptes synthétiques stables et HTTPS Wind
 persistant n’est exécuté par ce chantier : tests uniquement sur cibles temporaires.
 Matrice de permissions et migrations existantes inchangées ; aucun SaaS public,
 merge, déploiement ou promotion implicite. V13.8.4/#54 est fusionnée à 645699e.
+
+
+## V13.9.2 — stabilisation naturelle et UX ciblée
+
+Main distant vérifié à `cb0c7eb` (#55 fusionnée). Démo persistante déjà installée par une mission ultérieure, protégée : `stockpilot-b2b-local`, `~/.local/share/stockpilot/b2b-demo/`, HTTPS57914. Les anciennes mentions d’absence sont des snapshots historiques. Correctif en revue, aucun déploiement : interrogations de disponibilité, références strictes, détails accessibles et alerte session issue des dates serveur.
+[Diagnostic et validation V13.9.2](../validation/v13.9.2-natural-advice-ux.md).

@@ -18,7 +18,7 @@ const messages: Record<number, string> = {
   503: 'Service indisponible. Le résultat de la mutation doit être vérifié.',
 }
 export class StaleResponse extends Error {}
-type Hooks = { generation: () => number; invalid: (status: number) => void; csrf: () => string | undefined }
+type Hooks = { generation: () => number; invalid: (status: number) => void; csrf: () => string | undefined; activity?: () => void }
 export class BffClient {
   private controllers = new Set<AbortController>()
   constructor(private hooks: Hooks, private fetcher: typeof fetch = (...args) => fetch(...args), private timeout = 15000) {}
@@ -71,7 +71,9 @@ export class BffClient {
         if (typeof data === 'object' && data !== null && 'code' in data && typeof data.code === 'string') code = data.code
         throw new BffError(response.status, code, mutation && (response.status >= 500 || response.status === 202))
       }
-      return decode(data)
+      const decoded = decode(data)
+      if (path.startsWith('/b2b/api/')) this.hooks.activity?.()
+      return decoded
     } catch (error) {
       if (generation !== this.hooks.generation()) throw new StaleResponse()
       if (error instanceof BffError || error instanceof ContractError || error instanceof StaleResponse) throw error

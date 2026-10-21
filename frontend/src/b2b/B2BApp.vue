@@ -30,7 +30,7 @@ async function login() { await run(async () => { location.assign(await session.l
       <div v-if="current">
         <strong>{{ current.organization_name }}</strong>
         <p class="hint">
-          Utilisateur {{ current.user_id }} · {{ roleNames[current.role] }}
+          {{ roleNames[current.role] }}
         </p>
         <button
           class="secondary"
@@ -137,10 +137,10 @@ async function login() { await run(async () => { location.assign(await session.l
       <template v-else-if="current">
         <section
           v-if="expiresSoon"
-          class="b2b-notice"
+          class="b2b-notice b2b-session-warning"
           role="status"
         >
-          <p>La session arrive à expiration. Aucun brouillon n’est une commande confirmée.</p>
+          <p>Votre session expire dans moins d’une minute. Reconnectez-vous pour poursuivre.</p>
           <button
             class="secondary"
             :disabled="busy"
@@ -154,26 +154,26 @@ async function login() { await run(async () => { location.assign(await session.l
       </template>
     </main>
     <footer class="b2b-footer">
-      Espace B2B de test · Organisation vérifiée côté serveur · Assistant activé uniquement sur configuration explicite
+      StockPilot AI · Espace entreprise sécurisé
     </footer>
   </div>
 </template>
 <style>
 .b2b-shell { min-height:100vh; background:#f5f7fb; color:#17243b; }
-.b2b-header { display:flex; justify-content:space-between; gap:24px; padding:24px max(24px,calc((100vw - 1200px)/2)); background:#fff; border-bottom:1px solid #e1e6ef; }
+.b2b-header { display:flex; justify-content:space-between; gap:16px; padding:16px max(20px,calc((100vw - 1200px)/2)); background:#fff; border-bottom:1px solid #e1e6ef; }
 .b2b-brand { display:grid; gap:4px; text-decoration:none; color:inherit; align-self:center; }
 .b2b-brand strong { font-size:1.45rem; }
 .b2b-header p { margin:4px 0 12px; }
-.b2b-nav { display:flex; flex-wrap:wrap; gap:12px; max-width:1200px; margin:auto; padding:18px 24px 0; }
-.b2b-nav a { padding:12px 16px; border-radius:8px; color:#334155; text-decoration:none; font-weight:600; }
+.b2b-nav { display:flex; flex-wrap:wrap; gap:12px; max-width:1200px; margin:auto; padding:10px 20px 0; }
+.b2b-nav a { padding:10px 14px; border-radius:8px; color:#334155; text-decoration:none; font-weight:600; }
 .b2b-nav a.router-link-exact-active { background:#4338ca; color:white; }
-.b2b-content { max-width:1200px; margin:auto; padding:24px; }
-.b2b-card { overflow-wrap:anywhere; background:white; border:1px solid #dfe5ef; border-radius:12px; padding:24px; margin-bottom:20px; }
+.b2b-content { max-width:1200px; margin:auto; padding:16px 20px; }
+.b2b-card { overflow-wrap:anywhere; background:white; border:1px solid #dfe5ef; border-radius:12px; padding:18px; margin-bottom:14px; }
 .b2b-login { max-width:640px; margin:32px auto; }
 .b2b-login form { display:grid; gap:16px; margin:24px 0; }
 .b2b-login > button, .b2b-login > a { margin:8px 12px 8px 0; display:inline-block; }
 .b2b-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; }
-.b2b-actions { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:16px 0; }
+.b2b-actions { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin:12px 0; }
 .b2b-actions label { flex:1; min-width:140px; }
 .b2b-notice { background:#eef2ff; border-left:4px solid #4338ca; border-radius:6px; padding:16px; margin:16px 0; overflow-wrap:anywhere; }
 .b2b-notice h2 { font-size:1.1rem; margin-top:0; }
@@ -182,9 +182,14 @@ async function login() { await run(async () => { location.assign(await session.l
 .b2b-table table { width:100%; min-width:640px; border-collapse:collapse; }
 .b2b-table th,.b2b-table td { padding:12px; text-align:left; border-bottom:1px solid #e1e6ef; vertical-align:top; }
 .b2b-status { font-weight:700; color:#3730a3; }
-.b2b-footer { text-align:center; padding:28px; color:#526174; font-size:.875rem; }
+.b2b-footer { text-align:center; padding:18px; color:#526174; font-size:.875rem; }
 .b2b-card [role=alert] { color:#9f1239; }
 .b2b-card h2 { font-size:1.25rem; }
 .b2b-card .b2b-price { font-size:1.4rem; font-weight:700; }
+.b2b-content > section > h1, .page-heading h1 { margin:6px 0 10px; }
+.b2b-content form > label + label { margin-top:12px; }
+.b2b-session-warning { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; margin:0 0 14px; }
+.b2b-session-warning p { margin:0; }
+.b2b-shell :focus-visible { outline:3px solid #4338ca; outline-offset:3px; }
 @media(max-width:600px) { .b2b-header { padding:20px; flex-direction:column; } .b2b-content { padding:16px; } .b2b-card { padding:18px; } }
 </style>

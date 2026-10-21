@@ -113,3 +113,13 @@ it('creating from an existing conversation reloads privately; late response afte
   expect(wrapper.text()).not.toContain('Réponse tardive nouvelle conversation')
   wrapper.unmount(); vi.unstubAllGlobals()
 })
+
+it('separates user, assistant and preparation messages while preserving history', async () => {
+  const { wrapper, session } = await setup(respond)
+  expect(wrapper.get('.assistant-user').text()).toContain('question')
+  expect(wrapper.get('.assistant-answer').text()).toContain('StockPilot')
+  expect(wrapper.get('.assistant-order-summary').text()).toContain('DRILL-001')
+  expect(wrapper.find('.assistant-order').exists()).toBe(true)
+  expect(wrapper.get('option[value="conv"]').text()).not.toContain('conv')
+  wrapper.unmount(); session.dispose()
+})

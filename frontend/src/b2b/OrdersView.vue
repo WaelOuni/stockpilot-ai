@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import DetailsPanel from './DetailsPanel.vue'
 import { useB2B } from './session'
 import { buyerDecoder, orderDecoder, page, type Order } from './contracts'
 import { formatMoney } from './money'
 import { useTask } from './tasks'
 import { mutate, positiveQuantity } from './workflows'
 const session = useB2B()
+const detailTrigger = ref<HTMLElement | null>(null)
 const route = useRoute()
 const { busy, error, run } = useTask()
 const orders = ref<Order[]>([])
@@ -55,12 +57,15 @@ async function cancel() {
   await run(async () => {
     const result = await mutate(session, 'orders', 'cancel', '/b2b/api/orders/' + encodeURIComponent(selected.order_id) + '/cancel',
       id => ({ operation_id: id }), orderDecoder)
-    notice.value = 'État serveur : ' + label(result); chosen.value = result; cancelChoice.value = null
+    notice.value = 'État serveur : ' + label(result)
+    if (chosen.value?.order_id === result.order_id) chosen.value = result
+    cancelChoice.value = null
     if (prepared.value?.order_id === result.order_id) prepared.value = result
     await refresh()
   })
 }
-async function details(order: Order) {
+async function details(order: Order, event: Event) {
+  detailTrigger.value = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
   await run(async () => { chosen.value = await session.client.request('/b2b/api/orders/' + encodeURIComponent(order.order_id), orderDecoder) })
 }
 async function next(delta: number) { offset.value += delta * limit; await run(refresh) }
@@ -220,7 +225,7 @@ onMounted(() => { void run(async () => {
         Aucune commande à afficher.
       </p>
       <div
-        v-else
+        v-if="orders.length"
         class="b2b-table"
       >
         <table>
@@ -238,7 +243,7 @@ onMounted(() => { void run(async () => {
                 <button
                   class="secondary"
                   :disabled="busy"
-                  @click="details(order)"
+                  @click="details(order, $event)"
                 >
                   Voir la commande
                 </button> <button
@@ -297,12 +302,14 @@ onMounted(() => { void run(async () => {
         </button>
       </div>
     </section>
-    <section
+    <DetailsPanel
       v-if="chosen"
-      class="b2b-card"
-      aria-label="Détail de commande"
+      title="Détail de la commande"
+      :return-focus="detailTrigger"
+      label="Détail de commande"
+      @close="chosen = null"
     >
-      <h2>{{ chosen.order_id }}</h2>
+      <p>Référence : {{ chosen.order_id }}</p>
       <p>{{ label(chosen) }} · Acheteur {{ chosen.customer_id }} · Créateur {{ chosen.created_by }}</p>
       <ul>
         <li
@@ -312,12 +319,9 @@ onMounted(() => { void run(async () => {
           {{ line.sku }} · {{ line.quantity }} × {{ formatMoney(line.price_minor, line.currency) }}
         </li>
       </ul>
-      <button
-        class="secondary"
-        @click="chosen = null"
-      >
-        Fermer le détail
-      </button>
-    </section>
+      <p class="hint">
+        Créée le {{ new Date(chosen.created_at).toLocaleString('fr-FR') }}. Les prix ci-dessus sont ceux de la commande.
+      </p>
+    </DetailsPanel>
   </section>
 </template>
