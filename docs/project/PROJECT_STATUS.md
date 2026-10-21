@@ -1,7 +1,7 @@
 # StockPilot AI — état du projet
 
 État vérifié le **21 octobre 2026** : main distant à
-`b6a170974c275d2f9602f6c9bc08aca5af8d7df0`, fusion réelle de la PR #53.
+`645699e9bd976b6e1b82b0ab7c1720b92edc4a63`, fusion réelle de la PR #54.
 La branche par défaut GitHub reste dev ; les chantiers stables ciblent main.
 Ce SHA est une preuve datée, jamais une invitation à synchroniser une démo.
 
@@ -112,13 +112,22 @@ Assistant LangGraph opt-in dans b2b_business_test ; [contrat](../security/b2b-as
 vérifié, RAG SQL-scoped avant LLM, préparation B2 sans réservation et confirmation
 HTTP explicite. Journal PG0002 avant Mongo et réconciliation à clé constante.
 Aucun déploiement, migration historique ou ouverture Internet.
-Prochaine gate : V13.8.4, installation canonique isolée et backup/restore éprouvé.
+La recette canonique et le backup/restore ont ensuite été intégrés par #54.
 
-## V13.8.4 — composition et reprise en revue
+## V13.8.4 — composition et reprise intégrées (#54)
 
-[Guide canonique unique](../b2b-demo.md) : opérateur validate seulement,
+[Guide canonique unique](../b2b-demo.md) : V13.8.4 a livré la commande validate,
 proxy HTTPS, provisioning synthétique, sauvegardes Mongo/PG/Keycloak et
 restauration indépendante. [Rapport et limites](../validation/v13.8.4-canonical-b2b-demo.md).
 Aucun mode durable ou Internet n’est activé ; les garde-fous de bases de test
 restent obligatoires. Promotion et retrait des anciennes démos restent soumis
 à une décision humaine distincte.
+
+## V13.9 — cycle interactif local en revue
+
+Init/start/status/stop/resume réutilisent la composition canonique avec état privé
+hors Git, quatre volumes conservés, comptes synthétiques stables et HTTPS Windows
+à approuver manuellement. [Guide unique](../b2b-demo.md). Aucun init sur le chemin
+persistant n’est exécuté par ce chantier : tests uniquement sur cibles temporaires.
+Matrice de permissions et migrations existantes inchangées ; aucun SaaS public,
+merge, déploiement ou promotion implicite. V13.8.4/#54 est fusionnée à 645699e.

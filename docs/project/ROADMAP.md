@@ -95,7 +95,7 @@ isolation des stores restent des gates distinctes ; voir [ADR](../security/b2b-i
   commandes et administration scoped ; ni back-office global ni faux switch d'org.
 - V13.8.3 — **DONE**, #53 fusionnée àb6a1709 : assistant tenant/RAG/ORDER, opérations stables entre
   commit Mongo et checkpoint PG, campagne Ollama isolée.
-- V13.8.4 — **EN REVUE** : composition canonique et provisioning jetables,
+- V13.8.4 — **DONE**, #54 fusionnée à645699e : composition canonique et provisioning jetables,
   migrations explicites existantes, sauvegarde/restauration et E2E ;
   [guide unique](../b2b-demo.md), [preuves](../validation/v13.8.4-canonical-b2b-demo.md).
 
@@ -110,3 +110,11 @@ autorisation durable. Choisir implantation locale/serveur, capacité,
 sécurité des bases, sauvegarde externe chiffrée/rétention, responsabilités
 et autorisation d'installation. Aucun déploiement implicite.
 Kubernetes reste une option ultérieure.
+
+## V13.9 — cycle de vie local interactif : EN REVUE
+
+Un seul opérateur, composition et [guide](../b2b-demo.md). Persistance et reprise
+validées en jetable, sans installation durable ni changement Windows de confiance.
+Prochaine décision : autoriser explicitement init sur le poste choisi, approuver
+DNS/CA localement puis conduire une session manuelle. Aucun retrait des démos
+historiques ni ouverture Internet autorisé par cette PR.

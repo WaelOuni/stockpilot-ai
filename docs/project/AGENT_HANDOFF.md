@@ -70,7 +70,7 @@ automatiquement d'une autorisation d'arrêt Windows propre à un chantier termin
 Le [kit commercial #42](../product/README.md) distingue le script historique de
 la future démo canonique ; aucun prix ou pilote n'est validé par les documents.
 
-Prochaine étape : revue/CI V13.8.4, puis décision humaine d’installation
+Prochaine étape : revue/CI V13.9, puis décision humaine d’installation
 durable et de sauvegarde externe avant pilote distant. Kubernetes reste une option à arbitrer.
 
 ## V13.8.3 — assistant intégré par #53
@@ -86,9 +86,19 @@ exige une décision humaine séparée.
 ## V13.8.4 — opérateur et reprise
 
 Un seul [guide opérateur](../b2b-demo.md), une seule composition canonique,
-scripts/b2b_demo.py validate uniquement. Ne pas traiter le harness comme un
-installateur durable ; aucun --promote/--install n’existe.
+V13.8.4 utilisait scripts/b2b_demo.py validate uniquement. Ce harness reste un outil de recette, pas un
+installateur durable ; le cycle interactif V13.9 est décrit ci-dessous.
 Rapport : [V13.8.4](../validation/v13.8.4-canonical-b2b-demo.md).
 Les backups privés de recette ne sont pas des archives client chiffrées/hors site.
 Après restauration, garder issuer/sub mais tourner la clé BFF et reconnecter.
 Ne jamais réécrire les identités ni changer une clé ORDER pour masquer un pending.
+
+## V13.9 — reprise du chantier local interactif
+
+Base main 645699e (#54), branche feature/v139-interactive-b2b-demo.
+Opérateur init/start/status/stop/resume ; validate reste indépendant et jetable.
+État canonique futur ~/.local/share/stockpilot/b2b-demo/ ; ne pas initialiser sans
+autorisation. Les recettes utilisent /tmp/stockpilot-v139-test-* exclusivement.
+Compte A admin distinct pour CSV, MANAGER garde sa matrice existante.
+DNS/CA Windows restent des actions humaines ; [guide canonique](../b2b-demo.md).
+Ne pas réparer une initialisation partielle par reset, retrait de manifeste ou seed.
