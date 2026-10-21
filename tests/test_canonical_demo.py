@@ -197,9 +197,12 @@ def test_compose_has_one_private_canonical_topology():
         "bff",
         "proxy",
         "auth-mongo",
+        "operator",
     }
+    assert configuration["services"]["operator"]["profiles"] == ["operator"]
+    assert configuration["services"]["operator"]["read_only"] is True
     for name, service in configuration["services"].items():
-        if name not in {"bff", "proxy"}:
+        if name not in {"bff", "proxy", "operator"}:
             assert "@sha256:" in service["image"]
         assert service["mem_limit"] and service["cpus"]
         assert service["logging"]["options"]["max-size"] == "5m"
