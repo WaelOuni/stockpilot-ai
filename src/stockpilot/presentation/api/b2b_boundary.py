@@ -133,17 +133,22 @@ class BusinessBoundary:
             scope["state"]["tenant_context"] = TenantContext(
                 principal, session.session_hash
             )
-            if scope["method"] not in ("GET", "HEAD", "OPTIONS"):
+            mutation = scope["method"] not in ("GET", "HEAD", "OPTIONS")
+            if mutation:
                 origin(request)
-                csrf = request.headers.getlist("x-bff-csrf")
-                if (
-                    len(csrf) != 1
-                    or len(csrf[0]) > 128
-                    or not secrets.compare_digest(
-                        csrf[0].encode(), session.csrf_token.encode()
-                    )
-                ):
-                    raise BffForbidden()
+            # Vue binds reads to the session it actually restored too. A cookie
+            # changed by another tab must not return another identity's data into
+            # an old UI. Legacy HTTP consumers without a read proof retain their
+            # authenticated read contract; mutations always require the proof.
+            csrf = request.headers.getlist("x-bff-csrf")
+            if (mutation or csrf) and (
+                len(csrf) != 1
+                or len(csrf[0]) > 128
+                or not secrets.compare_digest(
+                    csrf[0].encode(), session.csrf_token.encode()
+                )
+            ):
+                raise BffForbidden()
             limit = (
                 256 * 1024 if scope["path"] == "/b2b/api/imports/preview" else 64 * 1024
             )

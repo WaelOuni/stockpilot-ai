@@ -168,8 +168,8 @@ Validation locale : [rapport V13.7.2](../validation/v13.7.2-keycloak-bff.md).
 
 V13.7.3 : définir le lien user/customer sans réattribuer l'historique ; autorisations
 jusqu'aux repositories/transactions et isolation des ressources, tests interorg.
-V13.7.4 : UX Vue et navigateur, sélection d'organisation autorisée, expiration et
-logout. Avant Internet : TLS/proxy de confiance, ACL/secrets dédiés, quotas,
+L’UX Vue et la recette navigateur sont livrées en [V13.8.2](../b2b-user-guide.md) ;
+le changement d’organisation reste non implémenté. Avant Internet : TLS/proxy de confiance, ACL/secrets dédiés, quotas,
 MFA/recours administrateur, audit, sauvegarde/restauration, révocation fournisseur
 et revue de sécurité sur une installation distincte.
 Le rollback consiste à ne pas lancer cet entrypoint et à remettre BFF_MODE=disabled.

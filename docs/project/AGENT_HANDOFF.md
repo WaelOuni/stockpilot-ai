@@ -24,18 +24,21 @@
 - ORDER : SKU/quantités exacts, préparation sans réservation, confirmation explicite,
   atomicité, idempotence, ownership et gestion des issues inconnues.
 
-## Point de reprise après B4 — 21 octobre 2026
+## Point de reprise — 21 octobre 2026
 
-Main vérifié à`b11560c`, fusion #42 après #50 ; SHA de branche distinct du SHA de fusion.
+Main vérifié à`1c9f41c`, fusion #51 ; SHA de branche distinct du SHA de fusion.
 B1/B2/B3/B4 sont intégrés, [contrats de ressources](../security/tenant-authorization-boundary.md).
 B4 : [ADR RAG/checkpoints](../security/tenant-rag-conversations.md),
 [migrations PG](../postgresql-migrations.md), [validation](../validation/v13.7.3b4-rag-conversations.md).
-Worktree /home/waelko/projects/stockpilot-v1373b4-tenant-rag-consolidation,
-branche feature/v1373b4-tenant-rag-consolidation.
+Worktree /home/waelko/projects/stockpilot-v1382-unified-b2b-frontend,
+branche feature/v1382-unified-b2b-frontend.
 
-Le mode b2b_auth_test garde auth/session uniquement. V13.8.1 prépare les routes
+Le mode b2b_auth_test garde auth/session uniquement. V13.8.1 (#51 intégrée) fournit les routes
 B1/B2/B3 via b2b_business_test, exclusivement jetable et désactivé par défaut.
 [Contrat HTTP](../security/b2b-http-api.md), [validation](../validation/v13.8.1-secure-b2b-http.md).
+Vue V13.8.2 : [guide utilisateur](../b2b-user-guide.md),
+[validation](../validation/v13.8.2-unified-b2b-frontend.md). /b2b-app/ distinct du
+JWT historique ; retours OIDC fixes et client cookie/CSRF sans token navigateur.
 production_saas reste fermé. Aucune migration historique, aucun déploiement.
 Une seule [cible de démo B2B future](../b2b-demo.md), pas encore opérationnelle.
 B4 ne remplace pas les installations existantes.
@@ -67,5 +70,5 @@ automatiquement d'une autorisation d'arrêt Windows propre à un chantier termin
 Le [kit commercial #42](../product/README.md) distingue le script historique de
 la future démo canonique ; aucun prix ou pilote n'est validé par les documents.
 
-Prochaine étape : revue/CI V13.8.1 puis UX Vue V13.8.2, puis validation
-E2E et restauration avant pilote distant. Kubernetes reste une option à arbitrer.
+Prochaine étape : revue/CI V13.8.2, assistant V13.8.3, puis validation
+E2E complète et restauration avant pilote distant. Kubernetes reste une option à arbitrer.

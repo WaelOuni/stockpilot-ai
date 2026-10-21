@@ -27,7 +27,7 @@ services:
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak_test
       KC_DB_USERNAME: keycloak_test
       KC_DB_PASSWORD: ${BFF_TEST_DB_PASSWORD:?random test password required}
-      KC_HOSTNAME: http://127.0.0.1:57915
+      KC_HOSTNAME: ${BFF_TEST_ISSUER_ORIGIN:-http://127.0.0.1:57915}
       KC_HTTP_ENABLED: "true"
       BFF_TEST_CLIENT_SECRET: ${BFF_TEST_CLIENT_SECRET:?random test secret required}
       BFF_TEST_USER_PASSWORD: ${BFF_TEST_USER_PASSWORD:?random test password required}

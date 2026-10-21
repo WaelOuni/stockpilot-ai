@@ -123,7 +123,12 @@ async def callback(request: Request):
         query.get("code"),
         "error" in query,
     )
-    response = RedirectResponse("/b2b/auth/session", status_code=303)
+    response = RedirectResponse(
+        "/b2b-app/"
+        if request.app.state.bff_settings.mode == "b2b_business_test"
+        else "/b2b/auth/session",
+        status_code=303,
+    )
     response.set_cookie(
         SESSION_COOKIE,
         token,
@@ -147,7 +152,7 @@ async def session(request: Request):
         service(request).current,
         cookie(request, SESSION_COOKIE),
     )
-    return {
+    result = {
         "user_id": principal.user_id,
         "organization_id": principal.organization_id,
         "role": principal.role.value,
@@ -155,6 +160,12 @@ async def session(request: Request):
         "csrf_token": stored.csrf_token,
         "expires_at": stored.absolute_expires_at.isoformat(),
     }
+    if request.app.state.bff_settings.mode == "b2b_business_test":
+        result["idle_expires_at"] = stored.idle_expires_at.isoformat()
+        result["organization_name"] = await auth_worker(
+            request, service(request).organization_name, principal.organization_id
+        )
+    return result
 
 
 @router.post("/logout")
@@ -177,5 +188,7 @@ async def logout(request: Request):
 
 
 @router.get("/logged-out")
-async def logged_out():
+async def logged_out(request: Request):
+    if request.app.state.bff_settings.mode == "b2b_business_test":
+        return RedirectResponse("/b2b-app/", status_code=303)
     return {"status": "signed_out"}
