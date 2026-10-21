@@ -23,6 +23,7 @@ def main():
             "preview",
             "imported",
             "expire",
+            "near_expiry",
         ],
     )
     args = parser.parse_args()
@@ -52,6 +53,15 @@ def main():
             assert db.b2b_stock_movements.count_documents(
                 {"organization_id": "fixture-org"}
             ) == (2 if args.stage == "imported" else 1)
+        if args.stage == "near_expiry":
+            db.bff_sessions.update_many(
+                {},
+                {
+                    "$set": {
+                        "absolute_expires_at": datetime.now(UTC) + timedelta(seconds=45)
+                    }
+                },
+            )
         if args.stage == "expire":
             # Explicit fault injection on owned disposable sessions, never a demo.
             db.bff_sessions.update_many(

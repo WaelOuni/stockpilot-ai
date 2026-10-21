@@ -100,6 +100,8 @@ try {
   await expect(page.getByText(/État observé : Annulée/)).toBeVisible()
   expect(await stock()).toBe(0)
   await page.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/assistant-a.png', fullPage: true })
+  await page.evaluate(() => globalThis.scrollTo(0, 0))
+  await page.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/assistant-overview.png' })
   check('B2 cancellation frees reservation exactly once')
   await page.getByRole('button', { name: 'Se déconnecter', exact: true }).click()
   await expect(page.getByLabel('Code d’entreprise')).toBeVisible()

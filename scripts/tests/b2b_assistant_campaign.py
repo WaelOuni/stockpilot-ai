@@ -167,6 +167,21 @@ def run_assistant_browser(db, env, directory, cert, passed, report):
     report["assistant_timings"] = [
         {
             "intent": row[0].get("intent"),
+            "criteria": row[0].get("criteria"),
+            "products": [
+                {
+                    key: card[key]
+                    for key in (
+                        "organization_id",
+                        "sku",
+                        "price_minor",
+                        "quantity",
+                        "reserved",
+                        "available",
+                    )
+                }
+                for card in row[0].get("products", [])
+            ],
             "timing_ms": row[0].get("timing_ms"),
             "rag_timing_ms": row[0].get("rag_timing_ms"),
         }
@@ -207,6 +222,21 @@ def run_assistant_browser(db, env, directory, cert, passed, report):
     report["assistant_timings"] = [
         {
             "intent": row[0].get("intent"),
+            "criteria": row[0].get("criteria"),
+            "products": [
+                {
+                    key: card[key]
+                    for key in (
+                        "organization_id",
+                        "sku",
+                        "price_minor",
+                        "quantity",
+                        "reserved",
+                        "available",
+                    )
+                }
+                for card in row[0].get("products", [])
+            ],
             "timing_ms": row[0].get("timing_ms"),
             "rag_timing_ms": row[0].get("rag_timing_ms"),
         }

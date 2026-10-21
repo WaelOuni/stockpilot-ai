@@ -198,6 +198,9 @@ def main():
         else (APP, OIDC, MONGO, POSTGRES)
     ):
         with socket.socket() as probe:
+            # A finished owned HTTPS campaign may leave TIME_WAIT sockets.
+            # REUSEADDR still refuses any live listener on the same address.
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(("127.0.0.1", port))
     endpoint = command(
         ["docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}"]
