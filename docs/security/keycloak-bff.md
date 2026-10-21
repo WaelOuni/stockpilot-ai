@@ -1,5 +1,9 @@
 # V13.7.2 — OIDC Keycloak et sessions BFF de test
 
+État historique V13.7.2 : le mode auth_test ci-dessous reste inchangé.
+V13.8.1 ajoute un [mode métier de test distinct](b2b-http-api.md), avec contrat
+login JSON, admission bornée et routes B1/B2/B3 ; aucune ouverture Internet.
+
 ## Frontière et limites
 
 Entrypoint séparé : `uvicorn stockpilot.bff:create_app --factory`, avec TLS.

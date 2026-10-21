@@ -12,8 +12,9 @@ membership, permissions et ownership. MongoDB replica set pour catalogue/stock/
 ORDER/imports, PostgreSQL/pgvector pour documents et checkpoints, Ollama derrière
 le réseau privé. Observabilité sans tokens, prompts ou documents sensibles.
 
-B1–B4 préparent les stores internes. Le BFF actuel expose seulement auth/session ;
-le parcours Vue B2B et la composition HTTP métier restent à implémenter et valider.
+B1–B4 fournissent les stores internes. V13.8.1 prépare une [composition HTTP de
+test B1/B2/B3](security/b2b-http-api.md), opt-in ; auth_test reste auth/session seul.
+Le parcours Vue B2B, l'assistant HTTP et la validation unifiée restent à réaliser.
 Un VPS Docker Compose isolé suffit comme première hypothèse ; Kubernetes/K3s
 nécessite un besoin mesuré et une décision séparée, pas un prérequis IAM.
 
@@ -39,7 +40,7 @@ Les tests internes de stockage ne prouvent pas ce parcours navigateur complet.
   après fusion de code.
 - Routes BFF dédiées, CSRF/Origin, quotas, autorisations et erreurs testés sans proxy
   générique vers l'API historique globale.
-- UX V13.7.4, organisation active, états de session/erreurs et tests E2E isolés.
+- UX V13.8.2, organisation active, états de session/erreurs et tests E2E isolés.
 - Fenêtres de révocation inter-stores arbitrées ; aucun rôle Keycloak implicite.
 - HTTPS/domaine, secrets dédiés, bases/Ollama non exposés, séparation des rôles DB.
 - Provisioning explicite d'identités, memberships et acheteurs, sans mapping deviné.

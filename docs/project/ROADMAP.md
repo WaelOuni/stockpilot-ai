@@ -12,7 +12,7 @@ Une proposition documentaire terminée ne rend pas sa fonctionnalité opération
 | Recherche naturelle bornée — **DONE** | Corriger les formulations couvertes et les plafonds stricts, P1 | Catalogue vérifié, gardes stock/ORDER | Matrice graphe/Mongo/navigateur et CI #39 réussies ; [V13.4.2](../validation/v13.4.2-natural-search.md), [PR #39](https://github.com/WaelOuni/stockpilot-ai/pull/39) | Toute extension linguistique doit être cadrée ; DONE ne signifie pas français universel |
 | Validation fonctionnelle Ollama réel post-#41 — **DONE sur le périmètre V13.4.3** | Vérifier compréhension, latence, ambiguïtés et suites conversationnelles, P1 | Commit et modèles identifiés, services/données jetables explicitement vérifiés | 85 assertions réussies sur catalogue synthétique isolé, conseil puis ORDER confirmé/annulé ; [V13.4.3 et limites](../validation/v13.4.3-real-user-journey.md). Campagne du 20 octobre, non rejouée par V13.6.4 | Toute extension ou répétition réelle exige un environnement isolé et une charge Ollama autorisés ; aucun accès DEMO implicite |
 | Mémoire et pilotage V13.5 — **DONE** | Quatre points d'entrée maintenables, P1 | Documentation et GitHub recoupés | Liens valides, décisions/propositions séparées, revue indépendante, PR vers main et CI ; [état](PROJECT_STATUS.md), PR de la branche `docs/v135-project-memory` | PR #40 fusionnée, commit `01f1566` vérifié ; conserver les snapshots datés |
-| Kit commercial #42 — **EN REVUE** | Réconcilier les supports de découverte, P1 | Main et contrats B2B conservés | [Kit](../product/README.md), script historique, fiche, messages, pilote et indicateurs ; revue et CI requises | Aucun contact, prix validé ou pilote implicite |
+| Kit commercial #42 — **DONE** | Réconcilier les supports de découverte, P1 | Main et contrats B2B conservés | [Kit](../product/README.md), fusion b11560c, revue favorable et cinq checks verts ; script historique, fiche, messages, pilote et indicateurs | Aucun contact, prix validé ou pilote implicite |
 | Démonstrations commerciales — **PLANNED** | Dérouler une démonstration synthétique supervisée, P1 | Commit réellement lancé confirmé, validation Ollama récente, limites exposées | Script historique de 8–10 minutes répété, conseil/préparation/confirmation distingués, aucune devise/capacité inventée ; [guide](../product/demonstration.md) | Choisir public/scénario et installation autorisée ; mise à jour candidate séparément autorisée |
 | Qualité, sauvegardes et exploitation — **PLANNED** | Prouver la reprise avant données client, P0 | Installation de répétition isolée, opérateur, politique de données | Sauvegarde/restauration appariée Mongo/PG exécutée et rapprochée, RPO/RTO mesurés, incidents et readiness documentés ; [onboarding](../product/onboarding-pilote.md), [database](../database.md), [observabilité](../observability.md) | Accepter responsabilités, rétention, support et seuils ; arbitrer HMAC dans une PR distincte |
 | Architecture SaaS V14 : conception — **DONE** | Publier une proposition et un découpage, P2 | Constats V13.2 | Proposition et dix futures PR décrites ; [V14](../security/v14-saas-design.md), [PR #36](https://github.com/WaelOuni/stockpilot-ai/pull/36) | Le document est livré, les choix proposés restent à approuver |
@@ -85,3 +85,15 @@ et exploitation). Ce cadrage reprend le besoin UX précédemment nommé V13.7.4 
 aucun développement ou environnement nouveau n'est engagé par le kit commercial.
 Ouverture distante et
 isolation des stores restent des gates distinctes ; voir [ADR](../security/b2b-identity-foundations.md).
+
+
+## Assemblage V13.8 — périmètres séparés
+
+- V13.8.1 — **EN REVUE** : [HTTP BFF tenant-scoped](../security/b2b-http-api.md),
+  mode de test opt-in, DTO exacts, CSRF et lectures manquantes ; pas de SaaS public.
+- V13.8.2 — **PLANNED** : Vue session/Keycloak, contrat de navigation, catalogue,
+  commandes et administration scoped ; ni back-office global ni faux switch d'org.
+- V13.8.3 — **PLANNED** : assistant tenant/RAG/ORDER, opérations stables entre
+  commit Mongo et checkpoint PG, campagne Ollama isolée.
+- V13.8.4 — **PLANNED** : environnement canonique autorisé séparément, provisioning,
+  migrations persistantes à concevoir, sauvegarde/restauration et E2E avant promotion.
