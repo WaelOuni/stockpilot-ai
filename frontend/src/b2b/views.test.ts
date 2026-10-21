@@ -208,3 +208,21 @@ it('opens and closes verified order details separately from the history', async 
   expect(wrapper.get('table').text()).toContain('order-a')
   wrapper.unmount(); session.dispose()
 })
+
+it('keeps the order detail trigger mounted during its asynchronous load', async () => {
+  let release!: (r: Response) => void
+  const { wrapper, session } = await setup(OrdersView, path => {
+    if (path.startsWith('/b2b/api/orders?')) return json(list([orderFixture]))
+    if (path.endsWith('/order-a')) return new Promise<Response>(resolve => { release = resolve })
+    return response(path)
+  })
+  const trigger = wrapper.findAll('button').find(b => b.text() === 'Voir la commande')!
+  await trigger.trigger('click'); await flushPromises()
+  expect(wrapper.get('table button').element).toBe(trigger.element)
+  expect(trigger.attributes('disabled')).toBeDefined()
+  release(json(orderFixture)); await flushPromises()
+  await wrapper.get('dialog').trigger('cancel')
+  expect(wrapper.get('table button').element).toBe(trigger.element)
+  expect(trigger.attributes('disabled')).toBeUndefined()
+  wrapper.unmount(); session.dispose()
+})

@@ -30,7 +30,7 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
   const pending = ref<OperationRef[]>([])
   const businessRevision = ref(0)
   const ssoLogout = ref<string | null>(null)
-  let verifiedAt = 0
+  let sessionCheckAt = 0
   let checkingDates = false
   let generation = 0
   let channel: BroadcastChannel | undefined
@@ -57,7 +57,7 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
       const session = await client.request('/b2b/auth/session', sessionDecoder)
       if (version !== generation) return
       if (Date.parse(session.expires_at) <= Date.now() || Date.parse(session.idle_expires_at) <= Date.now()) { invalidate(); return }
-      now.value = Date.now(); verifiedAt = now.value
+      now.value = Date.now(); sessionCheckAt = now.value
       current.value = session; phase.value = 'active'; notice.value = ''
       pending.value = readJournal().filter(p => p.user === session.user_id && p.organization === session.organization_id)
       persist()
@@ -72,14 +72,14 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
   // Never infer a renewed idle deadline from the browser clock.
   async function refreshDates() {
     const s = current.value
-    if (!s || checkingDates || Date.now() - verifiedAt < sessionCheckIntervalMs) return
+    if (!s || checkingDates || Date.now() - sessionCheckAt < sessionCheckIntervalMs) return
     const version = generation
-    checkingDates = true
+    checkingDates = true; sessionCheckAt = Date.now()
     try {
       const fresh = await client.request('/b2b/auth/session', sessionDecoder)
       if (version !== generation || current.value !== s) return
       if (fresh.user_id !== s.user_id || fresh.organization_id !== s.organization_id || fresh.csrf_token !== s.csrf_token) { invalidate(); return }
-      now.value = Date.now(); verifiedAt = now.value
+      now.value = Date.now(); sessionCheckAt = now.value
       if (Math.min(Date.parse(fresh.expires_at), Date.parse(fresh.idle_expires_at)) <= now.value) { invalidate(); return }
       s.expires_at = fresh.expires_at; s.idle_expires_at = fresh.idle_expires_at
     } catch { /* Keep conservative dates. 401/403 already invalidates the session. */ }

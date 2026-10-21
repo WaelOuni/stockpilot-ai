@@ -225,7 +225,7 @@ onMounted(() => { void run(async () => {
         Aucune commande à afficher.
       </p>
       <div
-        v-else
+        v-if="orders.length"
         class="b2b-table"
       >
         <table>

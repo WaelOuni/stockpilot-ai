@@ -167,3 +167,17 @@ it('ignores an expiry refresh that arrives after logout', async () => {
   expect(s.current.value).toBeNull(); expect(s.phase.value).toBe('guest')
   s.dispose()
 })
+
+it('throttles session revalidation attempts even when the server is unavailable', async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date('2099-01-01T00:07:30Z'))
+  const fetcher = vi.fn().mockResolvedValueOnce(json(sessionFixture))
+    .mockResolvedValueOnce(json({ name: 'read' })).mockResolvedValueOnce(json({}, 503))
+    .mockResolvedValueOnce(json({ name: 'next' }))
+  const s = createB2BSession(fetcher); await s.restore()
+  vi.setSystemTime(new Date('2099-01-01T00:09:00Z'))
+  await s.client.request('/b2b/api/products', object({ name: text })); await flushPromises()
+  await s.client.request('/b2b/api/products', object({ name: text })); await flushPromises()
+  expect(fetcher.mock.calls.filter(([url]) => url === '/b2b/auth/session')).toHaveLength(2)
+  expect(s.current.value?.idle_expires_at).toBe(sessionFixture.idle_expires_at)
+  s.dispose()
+})
