@@ -1,8 +1,10 @@
-"""Opt-in authentication-only ASGI factory. Does not import stockpilot.main."""
+"""Opt-in isolated BFF factory. Never imports the historical stockpilot.main."""
 
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
+from uuid import uuid4
 
+import anyio
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pymongo import MongoClient
@@ -19,11 +21,13 @@ from stockpilot.presentation.api.routes.bff_auth import (
 )
 
 
-def create_app(settings: BffSettings | None = None, *, service=None) -> FastAPI:
+def create_app(
+    settings: BffSettings | None = None, *, service=None, business=None
+) -> FastAPI:
     settings = settings or BffSettings()
     configured = False
     policy = None
-    if settings.mode == "b2b_auth_test":
+    if settings.mode in {"b2b_auth_test", "b2b_business_test"}:
         try:
             policy = settings.validated_policy()
             configured = True
@@ -53,12 +57,23 @@ def create_app(settings: BffSettings | None = None, *, service=None) -> FastAPI:
                 serverSelectionTimeoutMS=5000,
                 connectTimeoutMS=5000,
                 tz_aware=True,
+                **(
+                    {
+                        "socketTimeoutMS": 5000,
+                        "waitQueueTimeoutMS": 1000,
+                        "maxPoolSize": settings.max_inflight,
+                    }
+                    if settings.mode == "b2b_business_test"
+                    else {}
+                ),
             )
             database = mongo[settings.mongo_database]
             store = MongoBffStore(database)
             try:
-                initialize_b2b_indexes(database)
-                store.initialize()
+                if settings.mode == "b2b_auth_test":
+                    initialize_b2b_indexes(database)
+                    store.initialize()
+                # Business mode never creates schema/indexes at startup.
                 provider = OidcHttpProvider(
                     settings.issuer,
                     settings.client_id,
@@ -75,10 +90,19 @@ def create_app(settings: BffSettings | None = None, *, service=None) -> FastAPI:
                     MongoMembershipRepository(database),
                     policy,
                 )
+                if settings.mode == "b2b_business_test":
+                    from stockpilot.infrastructure.identity.bff_business import (
+                        BffBusiness,
+                    )
+
+                    app.state.bff_business = BffBusiness.compose(
+                        database, app.state.bff_service
+                    )
             except (BffUnavailable, IdentityRepositoryError, PyMongoError):
                 # Startup fails closed. Never include connection, token or exception
                 # contents in HTTP replies. No in-memory production fallback.
                 app.state.bff_service = None
+                app.state.bff_business = None
         try:
             yield
         finally:
@@ -96,18 +120,31 @@ def create_app(settings: BffSettings | None = None, *, service=None) -> FastAPI:
     )
     app.state.bff_settings = settings
     app.state.bff_service = service if configured else None
+    app.state.bff_business = (
+        business if configured and settings.mode == "b2b_business_test" else None
+    )
+    app.state.business_limiter = anyio.CapacityLimiter(settings.max_inflight)
+    if settings.mode == "b2b_business_test":
+        from stockpilot.presentation.api.b2b_boundary import install_business
+        from stockpilot.presentation.api.routes.b2b_business import (
+            router as business_router,
+        )
+
+        install_business(app, settings, business_router)
 
     @app.middleware("http")
     async def closed_boundary(request: Request, call_next):
+        request.state.request_id = uuid4().hex
         try:
             if request.url.path != "/health":
-                if settings.mode != "b2b_auth_test" or not configured:
+                if (
+                    settings.mode not in {"b2b_auth_test", "b2b_business_test"}
+                    or not configured
+                ):
                     response = JSONResponse(
                         {"detail": "BFF unavailable."}, status_code=503
                     )
-                elif request.scope.get("scheme") != "https" or request.headers.getlist(
-                    "host"
-                ) != [urlsplit(settings.origin).netloc]:
+                elif not secure_transport(request, settings):
                     response = JSONResponse(
                         {"detail": "Secure origin required."}, status_code=400
                     )
@@ -118,6 +155,7 @@ def create_app(settings: BffSettings | None = None, *, service=None) -> FastAPI:
         finally:
             # Also scrub unexpected error paths before standard ASGI access logging.
             request.scope["query_string"] = b""
+        response.headers["X-Request-ID"] = request.state.request_id
         response.headers.update(
             {
                 "Cache-Control": "no-store",
@@ -155,6 +193,33 @@ def create_app(settings: BffSettings | None = None, *, service=None) -> FastAPI:
     def health():
         return {"status": "UP"}
 
-    if settings.mode == "b2b_auth_test":
+    if settings.mode in {"b2b_auth_test", "b2b_business_test"}:
         app.include_router(router)
     return app
+
+
+def secure_transport(request, settings):
+    expected = urlsplit(settings.origin).netloc
+    if request.headers.getlist("host") != [expected]:
+        return False
+    if settings.mode == "b2b_business_test":
+        forwarded = [
+            k
+            for k in request.headers
+            if k == "forwarded" or k.startswith("x-forwarded-")
+        ]
+        if forwarded:
+            peer = request.scope.get("client")
+            if (
+                not peer
+                or peer[0] not in settings.trusted_proxy_ips
+                or "forwarded" in forwarded
+                or set(forwarded)
+                - {"x-forwarded-proto", "x-forwarded-host", "x-forwarded-for"}
+                or request.headers.getlist("x-forwarded-proto") != ["https"]
+                or request.headers.getlist("x-forwarded-host") != [expected]
+            ):
+                return False
+            # X-Forwarded-For is never an authentication or quota identity.
+            request.scope["scheme"] = "https"
+    return request.scope.get("scheme") == "https"

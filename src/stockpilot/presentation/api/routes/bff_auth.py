@@ -2,7 +2,9 @@
 
 import asyncio
 import json
+from functools import partial
 
+import anyio
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
@@ -12,6 +14,16 @@ from stockpilot.application.services.bff_sessions import BffForbidden
 SESSION_COOKIE = "__Host-stockpilot_bff"
 TRANSACTION_COOKIE = "__Host-stockpilot_oidc"
 router = APIRouter(prefix="/b2b/auth", tags=["B2B authentication"])
+
+
+async def auth_worker(request, function, *args):
+    if request.app.state.bff_settings.mode == "b2b_business_test":
+        return await anyio.to_thread.run_sync(
+            partial(function, *args),
+            abandon_on_cancel=False,
+            limiter=request.app.state.business_limiter,
+        )
+    return await asyncio.to_thread(function, *args)
 
 
 def cookie(request: Request, name: str) -> str | None:
@@ -66,12 +78,17 @@ async def login(request: Request):
     ):
         raise BffForbidden("Login CSRF refused.")
     body = await bounded_json(request)
-    provider_url, browser = await asyncio.to_thread(
+    provider_url, browser = await auth_worker(
+        request,
         service(request).begin,
         body["organization_id"],
         cookie(request, SESSION_COOKIE),
     )
-    response = RedirectResponse(provider_url, status_code=303)
+    response = (
+        JSONResponse({"authorization_url": provider_url})
+        if request.app.state.bff_settings.mode == "b2b_business_test"
+        else RedirectResponse(provider_url, status_code=303)
+    )
     response.set_cookie(
         TRANSACTION_COOKIE,
         browser,
@@ -98,7 +115,8 @@ async def callback(request: Request):
     # RFC 9207 response issuer is checked when supplied; token issuer is always checked.
     if "iss" in query and query["iss"] != request.app.state.bff_settings.issuer:
         raise BffUnauthenticated("Invalid callback issuer.")
-    token = await asyncio.to_thread(
+    token = await auth_worker(
+        request,
         service(request).complete,
         query["state"],
         cookie(request, TRANSACTION_COOKIE),
@@ -124,7 +142,8 @@ async def callback(request: Request):
 @router.get("/session")
 @router.get("/me")
 async def session(request: Request):
-    stored, principal = await asyncio.to_thread(
+    stored, principal = await auth_worker(
+        request,
         service(request).current,
         cookie(request, SESSION_COOKIE),
     )
@@ -144,7 +163,8 @@ async def logout(request: Request):
     csrf = request.headers.getlist("x-bff-csrf")
     if len(csrf) != 1 or len(csrf[0]) > 128:
         raise BffForbidden("CSRF refused.")
-    target = await asyncio.to_thread(
+    target = await auth_worker(
+        request,
         service(request).logout,
         cookie(request, SESSION_COOKIE),
         csrf[0],

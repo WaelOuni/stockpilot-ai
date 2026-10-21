@@ -2,7 +2,10 @@
 
 from typing import Protocol
 
-from stockpilot.domain.entities.tenant_authorization import TenantContext
+from stockpilot.domain.entities.tenant_authorization import (
+    BuyerAssociation,
+    TenantContext,
+)
 from stockpilot.domain.entities.tenant_order import (
     CancelTenantOrder,
     ConfirmTenantOrder,
@@ -39,4 +42,16 @@ class TenantOrdersPort(Protocol):
     ) -> TenantOrder: ...
     def get(
         self, request: object, context: TenantContext, order_id: str
+    ) -> TenantOrder: ...
+
+    def list(
+        self, request: object, context: TenantContext, limit: int = 20, offset: int = 0
+    ) -> tuple[TenantOrder, ...]: ...
+
+    def buyers(
+        self, request: object, context: TenantContext, limit: int = 20, offset: int = 0
+    ) -> tuple[BuyerAssociation, ...]: ...
+
+    def result(
+        self, request: object, context: TenantContext, namespace: str, operation_id: str
     ) -> TenantOrder: ...
