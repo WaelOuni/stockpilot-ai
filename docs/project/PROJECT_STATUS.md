@@ -1,7 +1,7 @@
 # StockPilot AI — état du projet
 
 État vérifié le **21 octobre 2026** : main distant à
-`1c9f41c24da8689d77f156c3f7cad41b13b0299c`, fusion réelle de la PR #51.
+`9e769360a0d53f2522df84eecc5ffc7bd2fe67f0`, fusion réelle de la PR #52.
 La branche par défaut GitHub reste dev ; les chantiers stables ciblent main.
 Ce SHA est une preuve datée, jamais une invitation à synchroniser une démo.
 
@@ -66,7 +66,7 @@ démo validée et autorisation explicite.
 ## Prochaines étapes
 
 1. Kit commercial #42 fusionné à b11560c, sans changement des contrats B2B.
-2. Revoir/valider V13.8.2 après #51 intégrée, puis assistant V13.8.3 et E2E.
+2. V13.8.2/#52 intégrée ; revoir V13.8.3 puis préparer V13.8.4 et la restauration.
 3. Environnement pilote distant dédié, restauration éprouvée et décision d'accès.
 4. Kubernetes/K3s seulement si justifié ; Compose reste l'hypothèse du premier pilote.
 
@@ -92,7 +92,7 @@ scoppée, réconciliation sans nouvelle clé, prix minor-unit exacts.
 Aucune route assistant/RAG, migration historique ou activation publique.
 La démonstration officielle unifiée n’est toujours ni opérationnelle ni promue.
 
-## V13.8.2 — interface entreprise en préparation de revue
+## V13.8.2 — interface entreprise intégrée (#52)
 
 Base distante et fusion #51 vérifiées à1c9f41c (21 octobre2026), V13.8.1 intégrée.
 Vue /b2b-app/ séparée du parcours JWT historique : session/Keycloak, catalogue,
@@ -102,3 +102,12 @@ Aucun token OIDC browser ; BFF et données d’autorisation restent l’autorit�
 Campagne Chromium/Keycloak/BFF/Mongo HTTPS jetable, sans installation ni déploiement.
 L’assistant B2B est réservé àV13.8.3 ; la [démo canonique](../b2b-demo.md) n’est
 pas promue, aucun SaaS public/multi-tenant prêt pour Internet n’est annoncé.
+
+## V13.8.3 — assistant en revue
+
+Assistant LangGraph opt-in dans b2b_business_test ; [contrat](../security/b2b-assistant.md),
+[validation](../validation/v13.8.3-unified-b2b-assistant.md). Vue privée, catalogue
+vérifié, RAG SQL-scoped avant LLM, préparation B2 sans réservation et confirmation
+HTTP explicite. Journal PG0002 avant Mongo et réconciliation à clé constante.
+Aucun déploiement, migration historique ou ouverture Internet.
+Prochaine gate : V13.8.4, installation canonique isolée et backup/restore éprouvé.

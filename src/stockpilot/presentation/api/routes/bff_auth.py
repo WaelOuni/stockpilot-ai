@@ -161,6 +161,9 @@ async def session(request: Request):
         "expires_at": stored.absolute_expires_at.isoformat(),
     }
     if request.app.state.bff_settings.mode == "b2b_business_test":
+        result["assistant_available"] = (
+            getattr(request.app.state, "bff_assistant", None) is not None
+        )
         result["idle_expires_at"] = stored.idle_expires_at.isoformat()
         result["organization_name"] = await auth_worker(
             request, service(request).organization_name, principal.organization_id

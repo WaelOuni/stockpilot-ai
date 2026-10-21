@@ -15,8 +15,9 @@ le réseau privé. Observabilité sans tokens, prompts ou documents sensibles.
 B1–B4 fournissent les stores internes. V13.8.1 fournit une [composition HTTP de
 test B1/B2/B3](security/b2b-http-api.md), opt-in ; auth_test reste auth/session seul.
 V13.8.2 ajoute un [parcours Vue B2B](b2b-user-guide.md) validé sur services
-jetables pour catalogue/commandes/stock/imports. L’assistant HTTP V13.8.3 et la
-validation unifiée avec RAG/Ollama/restauration restent à réaliser.
+jetables pour catalogue/commandes/stock/imports. L’[assistant HTTP/Vue V13.8.3](security/b2b-assistant.md) est proposé en revue,
+avec validation jetable distincte de la promotion. La restauration et l’installation
+canonique V13.8.4 restent à démontrer.
 Un VPS Docker Compose isolé suffit comme première hypothèse ; Kubernetes/K3s
 nécessite un besoin mesuré et une décision séparée, pas un prérequis IAM.
 

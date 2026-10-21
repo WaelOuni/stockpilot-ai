@@ -23,7 +23,7 @@ export class BffClient {
   private controllers = new Set<AbortController>()
   constructor(private hooks: Hooks, private fetcher: typeof fetch = (...args) => fetch(...args), private timeout = 15000) {}
   abort() { for (const c of this.controllers) c.abort(); this.controllers.clear() }
-  async request<T>(path: string, decode: Decoder<T>, options: { body?: unknown; csv?: string; login?: boolean; csrf?: string; method?: 'POST'; signal?: AbortSignal } = {}): Promise<T> {
+  async request<T>(path: string, decode: Decoder<T>, options: { body?: unknown; csv?: string; login?: boolean; csrf?: string; method?: 'POST'; signal?: AbortSignal; timeoutMs?: number } = {}): Promise<T> {
     // The historical API and absolute/protocol-relative URLs cannot enter this transport.
     if (!/^\/b2b\/(auth|api)\/[a-z]/.test(path) || /[\r\n#\\]/.test(path)) throw new ContractError()
     const normalized = new URL(path, location.origin)
@@ -34,7 +34,7 @@ export class BffClient {
     const abort = () => controller.abort()
     options.signal?.addEventListener('abort', abort, { once: true })
     if (options.signal?.aborted) abort()
-    const timer = setTimeout(abort, this.timeout)
+    const timer = setTimeout(abort, Math.min(options.timeoutMs ?? this.timeout, 90000))
     const mutation = options.method === 'POST'
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (!mutation && path.startsWith('/b2b/api/')) {

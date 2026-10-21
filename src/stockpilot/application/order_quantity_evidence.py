@@ -6,10 +6,10 @@ Other standalone numbers are ambiguous, not additional inferred counts.
 Unsupported request grammar requires clarification rather than a guessed count.
 """
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
-from stockpilot.application.use_cases.resolve_product import SKU_PATTERN
+from stockpilot.application.product_reference import SKU_PATTERN
 
 _ACTION = r"(?:commander|acheter|r[eé]server)"
 _PREFIX = re.compile(

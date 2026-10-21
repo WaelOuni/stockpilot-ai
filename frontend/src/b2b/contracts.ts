@@ -56,6 +56,7 @@ export function page<T>(decode: Decoder<T>) {
 export const sessionDecoder = object({
   user_id: text, organization_id: text, organization_name: text,
   role: oneOf('READ_ONLY', 'USER', 'MANAGER', 'ORGANIZATION_ADMIN'),
+  assistant_available: (v: unknown) => v === undefined ? false : boolean(v),
   permissions: array(text, 50), csrf_token: text, expires_at: date, idle_expires_at: date,
 })
 export type Session = ReturnType<typeof sessionDecoder>

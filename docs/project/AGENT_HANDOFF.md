@@ -26,12 +26,12 @@
 
 ## Point de reprise — 21 octobre 2026
 
-Main vérifié à`1c9f41c`, fusion #51 ; SHA de branche distinct du SHA de fusion.
+Main vérifié à`9e76936`, fusion #52 ; SHA de branche distinct du SHA de fusion.
 B1/B2/B3/B4 sont intégrés, [contrats de ressources](../security/tenant-authorization-boundary.md).
 B4 : [ADR RAG/checkpoints](../security/tenant-rag-conversations.md),
 [migrations PG](../postgresql-migrations.md), [validation](../validation/v13.7.3b4-rag-conversations.md).
-Worktree /home/waelko/projects/stockpilot-v1382-unified-b2b-frontend,
-branche feature/v1382-unified-b2b-frontend.
+Worktree /home/waelko/projects/stockpilot-v1383-unified-b2b-assistant,
+branche feature/v1383-unified-b2b-assistant.
 
 Le mode b2b_auth_test garde auth/session uniquement. V13.8.1 (#51 intégrée) fournit les routes
 B1/B2/B3 via b2b_business_test, exclusivement jetable et désactivé par défaut.
@@ -70,5 +70,14 @@ automatiquement d'une autorisation d'arrêt Windows propre à un chantier termin
 Le [kit commercial #42](../product/README.md) distingue le script historique de
 la future démo canonique ; aucun prix ou pilote n'est validé par les documents.
 
-Prochaine étape : revue/CI V13.8.2, assistant V13.8.3, puis validation
+Prochaine étape : revue/CI assistant V13.8.3, puis validation
 E2E complète et restauration avant pilote distant. Kubernetes reste une option à arbitrer.
+
+## V13.8.3 — assistant en revue
+
+Assistant LangGraph opt-in dans b2b_business_test ; [contrat](../security/b2b-assistant.md),
+[validation](../validation/v13.8.3-unified-b2b-assistant.md). Vue privée, catalogue
+vérifié, RAG SQL-scoped avant LLM, préparation B2 sans réservation et confirmation
+HTTP explicite. Journal PG0002 avant Mongo et réconciliation à clé constante.
+Aucun déploiement, migration historique ou ouverture Internet.
+Prochaine gate : V13.8.4, installation canonique isolée et backup/restore éprouvé.

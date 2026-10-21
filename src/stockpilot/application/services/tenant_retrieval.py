@@ -1,9 +1,16 @@
 """Scoped passages are the only knowledge sent to the injected generator."""
 
+from time import perf_counter
+
 import httpx
 
 from stockpilot.application.ports.tenant_knowledge import TenantDataUnavailable
-from stockpilot.domain.entities.tenant_knowledge import text
+from stockpilot.application.resource_errors import (
+    ModelInputLimitError,
+    ModelTimeoutError,
+    ModelUnavailableError,
+)
+from stockpilot.domain.entities.tenant_knowledge import text, vector
 from stockpilot.domain.enums.permission import Permission
 
 
@@ -16,16 +23,33 @@ class TenantRetrieval:
         )
         self.model, self.version = model, version
 
-    async def execute(self, request, context, question):
+    async def execute(self, request, context, question, *, timings=None):
         text(question, 4000)
         self.repository.current(request, context, Permission.RAG_READ)
+        started = perf_counter()
         try:
-            embedding = await self.embeddings.embed(question)
-        except (TimeoutError, ConnectionError, httpx.HTTPError, ValueError):
+            embedding = vector(await self.embeddings.embed(question))
+        except (
+            TimeoutError,
+            ConnectionError,
+            httpx.HTTPError,
+            ValueError,
+            TypeError,
+            KeyError,
+            IndexError,
+            ModelInputLimitError,
+            ModelTimeoutError,
+            ModelUnavailableError,
+        ):
             raise TenantDataUnavailable("Embedding dependency unavailable.") from None
+        if timings is not None:
+            timings["embedding"] = round((perf_counter() - started) * 1000, 2)
+        started = perf_counter()
         passages = self.repository.search(
             request, context, embedding, model=self.model, version=self.version
         )
+        if timings is not None:
+            timings["retrieval"] = round((perf_counter() - started) * 1000, 2)
         # Retrieval and the external embedding call do not confer continuing rights.
         self.repository.current(request, context, Permission.RAG_READ)
         if any(p.organization_id != context.organization_id for p in passages):
@@ -43,7 +67,23 @@ class TenantRetrieval:
             + question
             + "\n</question>"
         )
+        started = perf_counter()
         try:
-            return await self.generator.generate(prompt=prompt)
-        except (TimeoutError, ConnectionError, httpx.HTTPError, ValueError):
+            result = await self.generator.generate(prompt=prompt)
+            text(result, 8000)
+            if timings is not None:
+                timings["generation"] = round((perf_counter() - started) * 1000, 2)
+            return result
+        except (
+            TimeoutError,
+            ConnectionError,
+            httpx.HTTPError,
+            ValueError,
+            TypeError,
+            KeyError,
+            IndexError,
+            ModelInputLimitError,
+            ModelTimeoutError,
+            ModelUnavailableError,
+        ):
             raise TenantDataUnavailable("Generation dependency unavailable.") from None

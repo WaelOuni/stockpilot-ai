@@ -1,12 +1,21 @@
+import httpx  # noqa: F401 - preserve established adapter transport injection boundary
+
 from stockpilot.application.dto.intent_result import IntentResult
 from stockpilot.infrastructure.config.settings import Settings
-from stockpilot.observability import observe_llm
 from stockpilot.infrastructure.llm.resource_limits import post_ollama
+from stockpilot.observability import observe_llm
 
 
 class OllamaAdapter:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self, settings: Settings, *, max_output_tokens: int | None = None
+    ) -> None:
         self._settings = settings
+        if max_output_tokens is not None and (
+            type(max_output_tokens) is not int or not 32 <= max_output_tokens <= 1024
+        ):
+            raise ValueError("Bounded output token limit required.")
+        self._max_output_tokens = max_output_tokens
 
     @observe_llm("generation")
     async def generate(
@@ -22,6 +31,11 @@ class OllamaAdapter:
         if response_format is not None:
             payload["format"] = response_format
 
+        if self._max_output_tokens is not None:
+            payload["options"] = {
+                "num_predict": self._max_output_tokens,
+                "temperature": 0,
+            }
         response = await post_ollama(self._settings, "/api/generate", payload, prompt)
         return response["response"]
 
@@ -197,7 +211,8 @@ User message:
 """
 
         response = await post_ollama(
-            self._settings, "/api/generate",
+            self._settings,
+            "/api/generate",
             {
                 "model": self._settings.ollama_model,
                 "prompt": prompt,
@@ -205,8 +220,13 @@ User message:
                 "format": IntentResult.model_json_schema(),
                 "options": {
                     "temperature": 0,
+                    **(
+                        {"num_predict": self._max_output_tokens}
+                        if self._max_output_tokens is not None
+                        else {}
+                    ),
                 },
-            }, prompt,
+            },
+            prompt,
         )
         return IntentResult.model_validate_json(response["response"])
-import httpx  # Preserve the established adapter transport injection boundary.
