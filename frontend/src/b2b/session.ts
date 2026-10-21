@@ -6,6 +6,8 @@ export type OperationRef = {
   user: string; organization: string; family: 'orders' | 'stock'
   namespace: 'prepare' | 'confirm' | 'cancel' | 'adjust' | 'import'; id: string
 }
+export const sessionWarningMs = 60000
+const sessionCheckIntervalMs = 60000
 const journalKey = 'stockpilot.b2b.pending.v1'
 // References only: no tokens, payloads, prices, CSV, buyer or order documents persisted.
 function readJournal(): OperationRef[] {
@@ -28,6 +30,8 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
   const pending = ref<OperationRef[]>([])
   const businessRevision = ref(0)
   const ssoLogout = ref<string | null>(null)
+  let verifiedAt = 0
+  let checkingDates = false
   let generation = 0
   let channel: BroadcastChannel | undefined
   let timer: ReturnType<typeof setInterval> | undefined
@@ -44,7 +48,7 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     notice.value = status === 403 ? 'Accès refusé. Vérifiez votre appartenance et vos droits auprès de votre administrateur.' : 'Votre session a expiré. Reconnectez-vous ; aucune mutation ne sera relancée automatiquement.'
     // Pending references remain quarantined. Business views unmount immediately.
   }
-  const client = new BffClient({ generation: () => generation, csrf: () => current.value?.csrf_token, invalid: invalidate }, fetcher, timeout)
+  const client = new BffClient({ generation: () => generation, csrf: () => current.value?.csrf_token, invalid: invalidate, activity: () => { void refreshDates() } }, fetcher, timeout)
   const has = (permission: string) => current.value?.permissions.includes(permission) === true
   async function restore() {
     const version = ++generation; client.abort(); current.value = null; phase.value = 'loading'
@@ -53,6 +57,7 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
       const session = await client.request('/b2b/auth/session', sessionDecoder)
       if (version !== generation) return
       if (Date.parse(session.expires_at) <= Date.now() || Date.parse(session.idle_expires_at) <= Date.now()) { invalidate(); return }
+      now.value = Date.now(); verifiedAt = now.value
       current.value = session; phase.value = 'active'; notice.value = ''
       pending.value = readJournal().filter(p => p.user === session.user_id && p.organization === session.organization_id)
       persist()
@@ -62,6 +67,23 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
         phase.value = 'unavailable'; notice.value = 'Session impossible à vérifier. Aucune donnée métier ne sera chargée.'
       }
     }
+  }
+  // Revalidate after real business activity only; no keep-alive polling.
+  // Never infer a renewed idle deadline from the browser clock.
+  async function refreshDates() {
+    const s = current.value
+    if (!s || checkingDates || Date.now() - verifiedAt < sessionCheckIntervalMs) return
+    const version = generation
+    checkingDates = true
+    try {
+      const fresh = await client.request('/b2b/auth/session', sessionDecoder)
+      if (version !== generation || current.value !== s) return
+      if (fresh.user_id !== s.user_id || fresh.organization_id !== s.organization_id || fresh.csrf_token !== s.csrf_token) { invalidate(); return }
+      now.value = Date.now(); verifiedAt = now.value
+      if (Math.min(Date.parse(fresh.expires_at), Date.parse(fresh.idle_expires_at)) <= now.value) { invalidate(); return }
+      s.expires_at = fresh.expires_at; s.idle_expires_at = fresh.idle_expires_at
+    } catch { /* Keep conservative dates. 401/403 already invalidates the session. */ }
+    finally { checkingDates = false }
   }
   async function login(organization: string) {
     notice.value = ''
@@ -118,7 +140,7 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     timer = setInterval(tick, 1000); return restore()
   }
   function dispose() { channel?.close(); clearInterval(timer); generation++; client.abort(); current.value = null }
-  const expiresSoon = computed(() => current.value && Math.min(Date.parse(current.value.expires_at), Date.parse(current.value.idle_expires_at)) - now.value < 120000)
+  const expiresSoon = computed(() => current.value && Math.min(Date.parse(current.value.expires_at), Date.parse(current.value.idle_expires_at)) - now.value <= sessionWarningMs)
   return { businessRevision, current, phase, notice, ssoLogout, pending, client, has, restore, login, logout, remember, resolve, start, dispose, expiresSoon, tick }
 }
 export type B2BSession = ReturnType<typeof createB2BSession>

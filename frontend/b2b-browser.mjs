@@ -5,7 +5,8 @@ import { Buffer } from 'node:buffer'
 import { chromium, expect } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
-const origin = 'https://127.0.0.1:57914'
+import path from 'node:path'
+const origin = process.env.B2B_TEST_ORIGIN || 'https://127.0.0.1:57914'
 const issuerOrigin = process.env.B2B_TEST_ISSUER_ORIGIN || 'http://localhost:57915'
 const dnsArgs = process.env.B2B_TEST_ISSUER_ORIGIN ? ['--host-resolver-rules=MAP auth.stockpilot.test 127.0.0.1'] : []
 const checks = []
@@ -50,7 +51,32 @@ try {
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Perceuse A', exact: true })).toBeVisible()
   check('reload restores server session')
+  if (process.env.B2B_BEFORE_DIST) {
+    const before = await context.newPage()
+    await before.setViewportSize({ width: 1280, height: 900 })
+    await before.route(origin + '/b2b-app/**', route => route.fulfill({ path: path.join(process.env.B2B_BEFORE_DIST, 'index.html'), contentType: 'text/html' }))
+    await before.route(origin + '/assets/**', route => route.fulfill({ path: path.join(process.env.B2B_BEFORE_DIST, new globalThis.URL(route.request().url()).pathname) }))
+    await before.goto(origin + '/b2b-app/')
+    await expect(before.getByRole('heading', { name: 'Perceuse A', exact: true })).toBeVisible()
+    await before.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/catalogue-before.png', fullPage: true })
+    await before.getByRole('button', { name: 'Voir le produit', exact: true }).click()
+    await expect(before.getByRole('region', { name: 'Détail produit' })).toBeVisible()
+    await before.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/product-before.png', fullPage: true })
+    await before.close()
+  }
+  await page.setViewportSize({ width: 1280, height: 900 })
   await page.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/catalogue-desktop.png', fullPage: true })
+  const detailButton = page.getByRole('button', { name: 'Voir le produit', exact: true })
+  await detailButton.focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog', { name: 'Détail produit' })).toBeVisible()
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Fermer le détail' })).toBeFocused()
+  await page.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/product-after.png', fullPage: true })
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(detailButton).toBeFocused()
+  await expect(page.getByText(/Votre session expire dans moins/)).toHaveCount(0)
+  check('product detail dialog: Enter, visible initial focus, Escape and restored trigger; valid session has no warning')
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByRole('heading', { name: 'Perceuse A', exact: true })).toBeVisible()
   expect(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.window.innerWidth)).toBe(true)
@@ -64,6 +90,18 @@ try {
   await page.getByRole('button', { name: 'Préparer la commande', exact: true }).click()
   await expect(page.getByRole('heading', { name: /^Récapitulatif/ })).toBeVisible()
   probe('prepared')
+  const orderDetail = page.getByRole('button', { name: 'Voir la commande', exact: true }).first()
+  await orderDetail.focus(); await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog', { name: 'Détail de commande' })).toBeVisible()
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Fermer le détail' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(orderDetail).not.toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Fermer le détail' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(orderDetail).toBeFocused()
+  check('order details use the same keyboard-accessible dialog and restore focus')
   await page.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/order-prepared.png', fullPage: true })
   const confirmationButton = page.getByRole('button', { name: 'Confirmer et réserver', exact: true })
   await expect(confirmationButton).toBeDisabled()

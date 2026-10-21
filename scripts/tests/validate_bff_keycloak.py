@@ -33,8 +33,9 @@ from cryptography.x509.oid import NameOID
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 COMPOSE = ROOT / "docker/compose.bff-test.yml"
-ORIGIN = "https://127.0.0.1:57914"
-ISSUER = "http://127.0.0.1:57915/realms/stockpilot-dev"
+from scripts.tests.b2b_test_ports import APP, MONGO, OIDC, ORIGIN, POSTGRES, preset
+
+ISSUER = f"http://127.0.0.1:{OIDC}/realms/stockpilot-dev"
 COOKIE = "__Host-stockpilot_bff"
 
 
@@ -171,6 +172,10 @@ def main():
         help="Canonical container composition and recovery campaign",
     )
     args = parser.parse_args()
+    if args.canonical and preset != "default":
+        parser.error(
+            "Canonical harness keeps its own fixed ports; use the BFF harness for isolated ports."
+        )
     if args.canonical and not args.assistant:
         parser.error("Canonical validation requires --assistant.")
     if args.assistant:
@@ -178,7 +183,7 @@ def main():
     if args.frontend:
         args.business = True
         global ISSUER
-        ISSUER = "http://localhost:57915/realms/stockpilot-dev"
+        ISSUER = f"http://localhost:{OIDC}/realms/stockpilot-dev"
     if args.canonical:
         global COMPOSE
         from scripts.tests.canonical_demo import COMPOSE, CanonicalDemo, local_dns
@@ -188,9 +193,9 @@ def main():
         local_dns()
     os.umask(0o077)
     for port in (
-        (57914, 57915, 57916, 57918, 57919)
+        (APP, OIDC, MONGO, POSTGRES, 57919)
         if args.canonical and args.regressions
-        else (57914, 57915, 57916, 57918)
+        else (APP, OIDC, MONGO, POSTGRES)
     ):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", port))
@@ -206,13 +211,18 @@ def main():
     env.update(
         {
             "BFF_TEST_PROJECT": project,
+            "BFF_TEST_KEYCLOAK_PORT": str(OIDC),
+            "BFF_TEST_MONGO_PORT": str(MONGO),
+            "BFF_TEST_POSTGRES_PORT": str(POSTGRES),
+            "B2B_TEST_ORIGIN": ORIGIN,
             "BFF_TEST_CLIENT_SECRET": secrets.token_urlsafe(36),
             "BFF_TEST_USER_PASSWORD": secrets.token_urlsafe(30),
             "BFF_TEST_DB_PASSWORD": secrets.token_urlsafe(30),
         }
     )
     if args.frontend:
-        env["BFF_TEST_ISSUER_ORIGIN"] = "http://localhost:57915"
+        env["BFF_TEST_ISSUER_ORIGIN"] = f"http://localhost:{OIDC}"
+        env["B2B_TEST_ISSUER_ORIGIN"] = env["BFF_TEST_ISSUER_ORIGIN"]
     baseline = docker_snapshot()
     baseline_volumes = set(command(["docker", "volume", "ls", "-q"]).split())
     if command(
@@ -231,6 +241,13 @@ def main():
             prefix="v1384-" if args.canonical else "v1372-", dir=ROOT / "tmp"
         )
     )
+    realm = directory / "realm.json"
+    realm.write_text(
+        (ROOT / "docker/keycloak/stockpilot-dev-realm.json")
+        .read_text()
+        .replace("https://127.0.0.1:57914", ORIGIN)
+    )
+    env["BFF_TEST_REALM_FILE"] = str(realm)
     report = {
         "project": project,
         "keycloak_version": "26.8.1",
@@ -255,7 +272,7 @@ def main():
     context = ssl.create_default_context(cafile=str(cert))
     if args.canonical:
         canonical = CanonicalDemo(directory, env, compose, command, cert, key)
-        env["B2B_TEST_ISSUER_ORIGIN"] = "https://auth.stockpilot.test:57915"
+        env["B2B_TEST_ISSUER_ORIGIN"] = f"https://auth.stockpilot.test:{OIDC}"
         env["BFF_TEST_ISSUER_ORIGIN"] = env["B2B_TEST_ISSUER_ORIGIN"]
 
     def passed(name):
@@ -278,12 +295,7 @@ def main():
                     continue
                 assert mount["Type"] in {"tmpfs", "bind"}
                 if mount["Type"] == "bind":
-                    assert (
-                        Path(mount["Source"]).resolve()
-                        == (
-                            ROOT / "docker/keycloak/stockpilot-dev-realm.json"
-                        ).resolve()
-                    )
+                    assert Path(mount["Source"]).resolve() == realm.resolve()
                     assert mount["RW"] is False
             for bindings in (record["HostConfig"].get("PortBindings") or {}).values():
                 assert all(b["HostIp"] == "127.0.0.1" for b in bindings)
@@ -321,7 +333,7 @@ def main():
                 "--host",
                 "127.0.0.1",
                 "--port",
-                "57914",
+                str(APP),
                 "--no-access-log",
                 "--no-proxy-headers",
                 "--ssl-certfile",
@@ -376,7 +388,7 @@ def main():
         assert discovery.json()["issuer"] == ISSUER
         passed("real Keycloak discovery")
         dbname = "stockpilot_b2b_test_" + uuid4().hex
-        mongo_uri = "mongodb://127.0.0.1:57916/?replicaSet=rs0&directConnection=true"
+        mongo_uri = f"mongodb://127.0.0.1:{MONGO}/?replicaSet=rs0&directConnection=true"
         sys.path.insert(0, str(ROOT / "tests"))
         from integration_targets import mongo_test_client
 
@@ -484,7 +496,7 @@ def main():
             pg_uri = (
                 "postgresql://ci:"
                 + env["BFF_TEST_DB_PASSWORD"]
-                + "@127.0.0.1:57918/stockpilot_ci"
+                + f"@127.0.0.1:{POSTGRES}/stockpilot_ci"
             )
             runner = PostgresTenantMigrations(pg_uri)
             with psycopg.connect(pg_uri) as connection:
@@ -962,7 +974,7 @@ def main():
                 "MONGO_TEST_URI": mongo_uri,
                 "POSTGRES_TEST_URI": "postgresql://ci:"
                 + env["BFF_TEST_DB_PASSWORD"]
-                + "@127.0.0.1:57918/stockpilot_ci",
+                + f"@127.0.0.1:{POSTGRES}/stockpilot_ci",
                 "PYTHONDONTWRITEBYTECODE": "1",
             }
             if canonical:

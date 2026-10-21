@@ -245,22 +245,33 @@ class TenantAssistant:
                         and state.get("preparation_armed")
                     ),
                 )
-            if explicit_order_request(question):
+            # A complete generic buying enquiry has no exact identity or ORDER
+            # quantity. Only this bounded category phrase is routed to discovery.
+            purchase = re.fullmatch(
+                r"(?:je (?:voudrais|souhaite|veux)|j'aimerais) acheter "
+                r"(?:une?|des) (perceuses?|visseuses?|scies?|ponceuses?)[?!.]?",
+                value,
+            )
+            catalogue_question = "Je cherche " + purchase[1] if purchase else question
+            if explicit_order_request(question) and not purchase:
                 product = await self.catalogue.resolve(
                     request, context, question, order=True
                 )
-                name_proof = (
-                    product.name
-                    if re.search(r"\d$", product.name)
-                    and re.search(
-                        re.escape(product.name) + r"\s*[?!.]?\s*$",
-                        question,
-                        re.IGNORECASE,
-                    )
-                    else None
+                # Bind the complete literal catalogue name before treating its
+                # numeric model tokens as identity. The untouched quantity prefix
+                # still goes through the shared strict evidence parser.
+                named = re.search(
+                    r"(?<![\w-])" + re.escape(product.name) + r"\s*[?!.]?\s*$",
+                    question,
+                    re.IGNORECASE,
+                )
+                quantity_question = (
+                    question[: named.start()] + "SKU " + product.sku
+                    if named and re.match(r"[^\W\d_]", product.name)
+                    else question
                 )
                 evidence = concordant_quantity(
-                    question, classification.get("quantity"), product_name=name_proof
+                    quantity_question, classification.get("quantity")
                 )
                 if P.ORDER_CREATE not in context.principal.permissions:
                     raise AuthorizationDenied("Order creation permission required.")
@@ -300,27 +311,42 @@ class TenantAssistant:
             )
 
             try:
-                lexical = extract_criteria(question) if len(question) <= 256 else None
+                lexical = (
+                    extract_criteria(catalogue_question)
+                    if len(catalogue_question) <= 256
+                    else None
+                )
             except ClarificationRequired:
                 lexical = None
             if (
-                is_catalogue_advice(question)
+                purchase is not None
+                or is_catalogue_advice(catalogue_question)
                 or is_advice_followup(question)
                 or (lexical is not None and lexical.category_explicit)
                 or (lexical is not None and lexical.maximum is not None)
                 or (lexical is not None and lexical.minimum is not None)
                 or classification["intent"] == "PRODUCT_ADVICE"
             ):
-                result = await self.catalogue.advice(request, context, question, state)
+                result = await self.catalogue.advice(
+                    request, context, catalogue_question, state
+                )
                 return self._reply(
                     result["intent"],
                     result["text"],
                     **{k: v for k, v in result.items() if k not in {"intent", "text"}},
                 )
-            if classification["intent"] == "STOCK_CHECK":
+            if classification["intent"] == "STOCK_CHECK" or (
+                lexical is not None
+                and lexical.reference
+                and lexical.available is not None
+            ):
                 # A model name is a hint only; exact literal resolution still uses the user phrase.
-                reference = classification.get("product_name")
-                if not reference or normalize(reference) not in value:
+                reference = lexical.reference if lexical is not None else None
+                if not reference:
+                    reference = classification.get("product_name")
+                    if reference and normalize(reference) not in value:
+                        reference = None
+                if not reference:
                     raise ClarificationRequired(
                         "Précisez le SKU exact pour vérifier le stock."
                     )

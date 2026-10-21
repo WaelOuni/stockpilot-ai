@@ -5,16 +5,21 @@ import re
 import unicodedata
 from dataclasses import asdict, replace
 from decimal import Decimal
+
 from stockpilot.application.dto.advice_criteria import AdviceCriteria
 from stockpilot.application.use_cases.advice_presentation import (
-    advice_summary, catalogue_number, no_results_summary, relevance_reasons,
+    advice_summary,
+    catalogue_number,
+    no_results_summary,
+    relevance_reasons,
 )
-
 from stockpilot.domain.enums.product_category import ProductCategory
-
 
 # One bounded request prefix, shared by routing and identity extraction.
 _ASK_ADVICE_PREFIX = re.compile(r'^demander\s+conseil\s+sur\b\s*')
+# Availability scaffolding is anchored; model/name suffixes remain literal evidence.
+_AVAILABILITY_PREFIX = re.compile(
+    r'^(?:y a(?:[- ]t)?[- ]il|avez[- ]vous|est[- ]ce que)\s+')
 # Bounded lexical grammar shared by routing and reference extraction. An unknown
 # model/name suffix must survive; these are request words, not fuzzy identity rules.
 _SEARCH_ACTION = r'(?:(?:re)?cherche(?:r)?|trouve(?:r)?)'
@@ -44,6 +49,7 @@ def is_advice_followup(text: str) -> bool:
         r"^(?:et (?:si .*\b(?:budget|monte|descends|perceuse|visseuse|scie|ponceuse)|"
         r"pour |avec un budget |sans (?:plafond|budget|(?:contrainte de )?disponibilite)|parmi )|compare\b|"
         r"(?:sans (?:plafond|budget)|retire le budget)|"
+        r"seulement (?:celles|ceux) qui sont (?:disponibles?|indisponibles?|en stock)\b|"
         r"(?:montre|donne|affiche)(?:[- ]moi)? (?:seulement )?(?:[1-5]|deux|trois|quatre|cinq) produits?\b|"
         r"montre[- ]moi (?:seulement |\w+ alternatives)|"
         r"(?:propose|recommande)[- ]moi .*mon budget)|"
@@ -60,7 +66,9 @@ def is_catalogue_advice(text: str) -> bool:
             and re.search(r'\b(disponibles?|stocks?)\b', value)
             and not (_REQUEST_CUE.search(value) or re.search(r'\b(compare|alternatives?)\b', value))):
         return False
-    return bool(targeted or is_advice_followup(text) or re.search(r'\bcompare\b|\balternatives?\b', value)
+    return bool(targeted or (_AVAILABILITY_PREFIX.match(value.strip()) and re.search(
+                    r'\b(perceuses?|visseuses?|scies?|ponceuses?|produits?|outils?)\b', value))
+                or is_advice_followup(text) or re.search(r'\bcompare\b|\balternatives?\b', value)
                 or (_ADVICE_CUE.search(value)
                     and re.search(r'\b(perceuses?|visseuses?|scies?|ponceuses?|produits?|outils?|sku|[a-z]+\d+[a-z0-9-]*)\b', value)))
 
@@ -182,6 +190,7 @@ def extract_reference(question: str) -> str | None:
     if prefix:
         text = text[prefix.end():]
     else:
+        text = _AVAILABILITY_PREFIX.sub('', text, count=1)
         text = _REQUEST_PREFIX.sub('', text, count=1)
         text = re.sub(r'^compare(?:[- ]moi)?\b\s*(?:(?:sur|pour)\s+)?', '', text, count=1)
     text = re.split(r'\s+(?:avec|a)\s+(?:(?:\d+|deux|trois|quatre|cinq)\s+)?(?:autres|alternatives)\b', text, maxsplit=1)[0]
@@ -189,18 +198,18 @@ def extract_reference(question: str) -> str | None:
     # and unknown model suffixes remain identity evidence when no amount follows.
     amount = r'\d+(?:[.,]\d{1,2})?'
     currency = r'(?:€|euros?\b|eur\b)'
-    budget_suffix = (rf'[\s,;]+(?:(?:(?:a|pour) )?(?:{_STRICT_BUDGET}|maximum|maxi|max|'
+    budget_suffix = (rf'[\s,;]+(?:(?:(?:a|pour|coutent|coute) )?(?:{_STRICT_BUDGET}|maximum|maxi|max|'
                      r'(?:avec un )?budget|plafond)(?:\s+(?:de|a))?\s*:?\s*'
                      + amount + r'(?:\s*' + currency + r')?|(?:a )?'
                      + amount + r'\s*' + currency + r')(?:\s+maximum)?$')
     for _ in range(3):
         text = re.sub(budget_suffix, '', text).rstrip(' ,;')
-        text = re.sub(r'[\s,;]+(?:(?:et|sont) )?(?:(?:non|pas) )?(?:disponibles?|indisponibles?|en stock|en rupture)$', '', text).rstrip(' ,;')
+        text = re.sub(r'[\s,;]+(?:(?:et|sont|est|est[- ](?:elle|il)|sont[- ](?:elles|ils)) )?(?:(?:non|pas) )?(?:disponibles?|indisponibles?|en stock|en rupture)$', '', text).rstrip(' ,;')
 
     text = re.sub(r'^(?:(?:exactement|seulement)\s+)?(?:un|une|la|le|les|des|du|deux|trois|quatre|cinq|\d+)\s+(?:seule?\s+)?', '', text)
     if re.fullmatch(r'(?:quelles? |quels? )?(?:perceuses?|visseuses?|scies?|ponceuses?|produits?|outils?)(?: (?:est|sont))?', text):
         return None
-    if not text or re.fullmatch(r'(?:et .*|pour .*|.*mon budget)', text):
+    if not text or re.fullmatch(r'(?:et(?: .*)?|pour .*|.*mon budget)', text):
         return None
     text = text.strip('"«» ')
     if len(text) > 256:
@@ -239,7 +248,9 @@ class CatalogueAdviceUseCase:
         context = {'advice_criteria': criteria_context(criteria), 'advice_skus': []}
         try:
             if criteria.reference:
-                from stockpilot.application.use_cases.resolve_product import ResolutionStatus
+                from stockpilot.application.use_cases.resolve_product import (
+                    ResolutionStatus,
+                )
                 resolution = await resolve_advice_reference(self.products, criteria.reference)
                 if resolution.status == ResolutionStatus.AMBIGUOUS:
                     return {**empty, 'response': 'Plusieurs produits correspondent à cette référence. Précisez le nom complet ou le SKU.'}
@@ -353,8 +364,12 @@ def criteria_context(criteria: AdviceCriteria) -> dict:
 async def resolve_advice_reference(products, reference: str):
     """Reuse identity resolution; allow two literal discriminants only for read-only advice."""
     from stockpilot.application.use_cases.resolve_product import (
-        CANDIDATE_LIMIT, ProductResolution, ResolveProductUseCase, ResolutionStatus,
-        explicit_skus, normalize_name,
+        CANDIDATE_LIMIT,
+        ProductResolution,
+        ResolutionStatus,
+        ResolveProductUseCase,
+        explicit_skus,
+        normalize_name,
     )
     resolution = await ResolveProductUseCase(products).execute(reference)
     if resolution.status != ResolutionStatus.NOT_FOUND or explicit_skus(reference):

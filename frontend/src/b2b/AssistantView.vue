@@ -156,7 +156,7 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
               :key="conversation.conversation_id"
               :value="conversation.conversation_id"
             >
-              {{ new Date(conversation.created_at).toLocaleString('fr-FR') }} · {{ conversation.conversation_id.slice(0, 8) }}
+              Conversation du {{ new Date(conversation.created_at).toLocaleString('fr-FR') }}
             </option>
           </select>
         </label>
@@ -204,19 +204,27 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
           <article
             v-for="turn in turns"
             :key="turn.turn_id"
-            class="b2b-card"
+            class="b2b-card assistant-turn"
+            :class="{ 'assistant-order': !!turn.reply?.order, 'assistant-error': turn.reply?.intent === 'CLARIFICATION_REQUIRED' || turn.reply?.intent === 'ORDER_REFUSED' }"
           >
             <p class="hint">
               {{ new Date(turn.created_at).toLocaleString('fr-FR') }} · {{ kindLabels[turn.kind] }}
             </p>
-            <p v-if="turn.message">
+            <p
+              v-if="turn.message"
+              class="assistant-user"
+            >
               <strong>Vous :</strong> {{ turn.message }}
             </p>
             <template v-if="turn.reply">
               <p class="assistant-answer">
+                <strong>StockPilot</strong><br />
                 {{ turn.reply.text }}
               </p>
-              <div class="b2b-grid">
+              <div
+                class="b2b-grid assistant-results"
+                aria-label="Produits vérifiés"
+              >
                 <article
                   v-for="product in turn.reply.products"
                   :key="product.product_id"
@@ -230,7 +238,10 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
                   </p>
                 </article>
               </div>
-              <div v-if="turn.reply.order">
+              <div
+                v-if="turn.reply.order"
+                class="assistant-order-summary"
+              >
                 <p>Commande {{ turn.reply.order.order_id }} · État observé : {{ statusLabels[turn.reply.order.status] }}</p>
                 <ul>
                   <li
@@ -274,7 +285,10 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
           class="b2b-card"
           aria-label="Action sur la commande"
         >
-          <h2>Action explicite sur {{ order.order_id }}</h2>
+          <h2>{{ canConfirm ? 'Confirmer la préparation' : 'Suivi de la commande' }}</h2>
+          <p class="hint">
+            Référence : {{ order.order_id }}
+          </p>
           <template v-if="canConfirm && session.has('order:create')">
             <label><span><input
               v-model="confirmation"
@@ -342,7 +356,17 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
   </section>
 </template>
 <style scoped>
-.assistant-answer { white-space:pre-wrap; line-height:1.6; }
+.assistant-turn { border-left:4px solid #94a3b8; }
+.assistant-turn > .hint { margin-top:0; font-size:.8rem; }
+.assistant-user { margin:8px 0 12px auto; padding:10px 14px; max-width:85%; border-radius:10px 10px 0 10px; background:#eef2ff; white-space:pre-wrap; }
+.assistant-answer { white-space:pre-wrap; line-height:1.5; margin:10px 0; }
+.assistant-order { border-left-color:#4338ca; }
+.assistant-error { border-left-color:#9f1239; }
+.assistant-order-summary { padding:12px; background:#f5f3ff; border:1px solid #c4b5fd; border-radius:8px; }
+.assistant-results { margin:12px 0; }
+.assistant-product h2 { margin:0 0 8px; font-size:1.05rem; }
+.assistant-product p { margin:8px 0; }
+@media(max-width:600px) { .assistant-user { max-width:100%; } }
 .assistant-product { padding:16px; border:1px solid #e1e6ef; border-radius:8px; }
 textarea { width:100%; box-sizing:border-box; resize:vertical; }
 </style>

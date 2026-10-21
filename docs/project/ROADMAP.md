@@ -118,3 +118,9 @@ validées en jetable, sans installation durable ni changement Windows de confian
 Prochaine décision : autoriser explicitement init sur le poste choisi, approuver
 DNS/CA localement puis conduire une session manuelle. Aucun retrait des démos
 historiques ni ouverture Internet autorisé par cette PR.
+
+
+## V13.9.2 — IN_PROGRESS / validation isolée
+
+Stabiliser la grammaire disponibilité/catégorie sans assouplir identité/quantités/tenant, puis ergonomie ciblée Vue. #55 est fusionnée ; la démo locale existante reste protégée. Promotion/mise à jour persistante exige une décision séparée après sauvegarde/restauration, sans reset.
+[Diagnostic et validation V13.9.2](../validation/v13.9.2-natural-advice-ux.md).

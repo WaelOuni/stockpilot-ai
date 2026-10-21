@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import DetailsPanel from './DetailsPanel.vue'
 import { useB2B } from './session'
 import { productDecoder, productsDecoder, stockDecoder, type Product, type Stock } from './contracts'
 import { formatMoney } from './money'
 import { useTask } from './tasks'
 const session = useB2B()
+const detailTrigger = ref<HTMLElement | null>(null)
 const { busy, error, run } = useTask()
 const products = ref<Product[]>([])
 const stocks = ref<Record<string, Stock>>({})
@@ -44,7 +46,8 @@ async function load(reset = false) {
   })
 }
 async function navigate(delta: number) { offset.value += delta * limit; await load() }
-async function detail(product: Product) {
+async function detail(product: Product, event: Event) {
+  detailTrigger.value = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
   await run(async () => { selected.value = await session.client.request('/b2b/api/products/' + encodeURIComponent(product.product_id), productDecoder) })
 }
 onMounted(() => { void load() })
@@ -137,7 +140,7 @@ onMounted(() => { void load() })
           <button
             class="secondary"
             :disabled="busy"
-            @click="detail(product)"
+            @click="detail(product, $event)"
           >
             Voir le produit
           </button>
@@ -170,15 +173,19 @@ onMounted(() => { void load() })
         Suivant
       </button>
     </nav>
-    <section
+    <DetailsPanel
       v-if="selected"
-      class="b2b-card"
-      aria-label="Détail produit"
+      :title="selected.name"
+      :return-focus="detailTrigger"
+      label="Détail produit"
+      @close="selected = null"
     >
-      <h2>{{ selected.name }}</h2>
-      <p>SKU {{ selected.sku }} · {{ selected.category }} · {{ selected.status }}</p>
+      <p class="eyebrow">
+        Informations complémentaires · {{ selected.sku }}
+      </p>
+      <p>Catégorie : {{ selected.category }} · {{ selected.status === 'active' ? 'Au catalogue' : 'Retiré du catalogue' }}</p>
       <p>{{ selected.description || 'Description non renseignée.' }}</p>
-      <p>{{ formatMoney(selected.price_minor, selected.currency) }}</p>
+
       <ul>
         <li
           v-for="attribute in selected.attributes"
@@ -187,12 +194,12 @@ onMounted(() => { void load() })
           {{ attribute }}
         </li>
       </ul>
-      <button
-        class="secondary"
-        @click="selected = null"
+      <p
+        v-if="!selected.attributes.length"
+        class="hint"
       >
-        Fermer le détail
-      </button>
-    </section>
+        Aucune caractéristique complémentaire renseignée.
+      </p>
+    </DetailsPanel>
   </section>
 </template>

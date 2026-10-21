@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 import { createB2BSession } from './session'
 import { object, text } from './contracts'
 import { json, orderFixture, resultFixture, sessionFixture } from './fixtures'
@@ -124,4 +125,45 @@ describe('server session lifecycle and tenant state', () => {
     expect(s.pending.value).toHaveLength(0)
     s.dispose()
   })
+})
+
+it('warns only within the final documented minute', async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date('2099-01-01T00:08:30Z'))
+  const s = createB2BSession(vi.fn().mockResolvedValue(json(sessionFixture))); await s.restore()
+  expect(s.expiresSoon.value).toBe(false)
+  vi.setSystemTime(new Date('2099-01-01T00:09:00Z')); s.tick()
+  expect(s.expiresSoon.value).toBe(true)
+  vi.setSystemTime(new Date('2099-01-01T00:10:00Z')); s.tick()
+  expect(s.current.value).toBeNull()
+  await expect(mutate(s, 'orders', 'prepare', '/b2b/api/orders/prepare', () => ({}), orderDecoder)).rejects.toThrow()
+  s.dispose()
+})
+it('uses refreshed server dates after business activity without keepalive polling', async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date('2099-01-01T00:07:30Z'))
+  const fetcher = vi.fn().mockResolvedValueOnce(json(sessionFixture))
+    .mockResolvedValueOnce(json({ name: 'read' }))
+    .mockResolvedValueOnce(json({ ...sessionFixture, idle_expires_at: '2099-01-01T00:19:00Z' }))
+  const s = createB2BSession(fetcher); await s.restore()
+  vi.setSystemTime(new Date('2099-01-01T00:09:00Z')); s.tick()
+  expect(s.expiresSoon.value).toBe(true)
+  await s.client.request('/b2b/api/products', object({ name: text }))
+  await flushPromises()
+  expect(s.current.value?.idle_expires_at).toBe('2099-01-01T00:19:00Z')
+  expect(s.expiresSoon.value).toBe(false)
+  expect(fetcher).toHaveBeenCalledTimes(3)
+  s.dispose()
+})
+it('ignores an expiry refresh that arrives after logout', async () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date('2099-01-01T00:07:30Z'))
+  let release!: (r: Response) => void
+  const fetcher = vi.fn().mockResolvedValueOnce(json(sessionFixture))
+    .mockResolvedValueOnce(json({ name: 'read' }))
+    .mockImplementationOnce(() => new Promise<Response>(resolve => { release = resolve }))
+    .mockResolvedValueOnce(json({ provider_logout_url: 'https://keycloak.test/logout' }))
+  const s = createB2BSession(fetcher); await s.restore()
+  vi.setSystemTime(new Date('2099-01-01T00:09:00Z'))
+  await s.client.request('/b2b/api/products', object({ name: text }))
+  await s.logout(); release(json(sessionFixture)); await flushPromises()
+  expect(s.current.value).toBeNull(); expect(s.phase.value).toBe('guest')
+  s.dispose()
 })

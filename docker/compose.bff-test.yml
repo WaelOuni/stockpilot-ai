@@ -21,7 +21,7 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
-    ports: ["127.0.0.1:57915:8080"]
+    ports: ["127.0.0.1:${BFF_TEST_KEYCLOAK_PORT:-57915}:8080"]
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak_test
@@ -34,13 +34,13 @@ services:
       JAVA_OPTS_APPEND: "-Xms128m -Xmx512m"
     tmpfs: [/opt/keycloak/data]
     volumes:
-      - ./keycloak/stockpilot-dev-realm.json:/opt/keycloak/data/import/stockpilot-dev-realm.json:ro
+      - ${BFF_TEST_REALM_FILE:-./keycloak/stockpilot-dev-realm.json}:/opt/keycloak/data/import/stockpilot-dev-realm.json:ro
     labels:
       stockpilot.audit.purpose: v1372-ephemeral
   mongo:
     image: mongo:8
     command: [mongod, --replSet, rs0, --bind_ip_all]
-    ports: ["127.0.0.1:57916:27017"]
+    ports: ["127.0.0.1:${BFF_TEST_MONGO_PORT:-57916}:27017"]
     tmpfs: [/data/db, /data/configdb]
     labels:
       stockpilot.audit.purpose: v1372-ephemeral
@@ -51,7 +51,7 @@ services:
       retries: 60
   test-postgres:
     image: pgvector/pgvector:pg16
-    ports: ["127.0.0.1:57918:5432"]
+    ports: ["127.0.0.1:${BFF_TEST_POSTGRES_PORT:-57918}:5432"]
     environment:
       POSTGRES_USER: ci
       POSTGRES_PASSWORD: ${BFF_TEST_DB_PASSWORD:?random test password required}

@@ -9,7 +9,11 @@ import { createB2BSession, sessionKey } from './session'
 import { buyerFixture, json, list, orderFixture, previewFixture, productFixture, sessionFixture, stockFixture } from './fixtures'
 import type { Component } from 'vue'
 
-beforeEach(() => sessionStorage.clear())
+beforeEach(() => {
+  sessionStorage.clear()
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value(this: HTMLDialogElement) { this.setAttribute('open', '') } })
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value(this: HTMLDialogElement) { this.removeAttribute('open') } })
+})
 async function setup(component: Component, responder: (path: string, init?: RequestInit) => Response | Promise<Response>, permissions = sessionFixture.permissions) {
   const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input)
@@ -174,4 +178,33 @@ describe('B2B views use strict wire contracts', () => {
     expect(wrapper.text()).not.toContain('Commande order-a : réservée')
     wrapper.unmount(); session.dispose()
   })
+})
+
+it('opens supplementary product details and closes by keyboard without repeating price', async () => {
+  const { wrapper, session } = await setup(CatalogueView, path => {
+    if (path.endsWith('/stock')) return json(stockFixture)
+    if (path.endsWith('/product-a')) return json(productFixture)
+    return json({ ...list([productFixture]), total: 1, has_more: false })
+  })
+  await wrapper.findAll('button').find(b => b.text() === 'Voir le produit')!.trigger('click'); await flushPromises()
+  const detail = wrapper.get('dialog[aria-label="Détail produit"]')
+  expect(detail.attributes('open')).toBeDefined()
+  expect(detail.text()).toContain(productFixture.description)
+  expect(detail.text()).not.toContain('90 071 992 547 409,93')
+  await detail.trigger('cancel')
+  expect(wrapper.find('dialog').exists()).toBe(false)
+  wrapper.unmount(); session.dispose()
+})
+it('opens and closes verified order details separately from the history', async () => {
+  const { wrapper, session } = await setup(OrdersView, path => {
+    if (path.startsWith('/b2b/api/orders?')) return json(list([orderFixture]))
+    if (path.endsWith('/order-a')) return json(orderFixture)
+    return response(path)
+  })
+  await wrapper.findAll('button').find(b => b.text() === 'Voir la commande')!.trigger('click'); await flushPromises()
+  expect(wrapper.get('dialog').text()).toContain('DRILL-001')
+  await wrapper.get('dialog button').trigger('click')
+  expect(wrapper.find('dialog').exists()).toBe(false)
+  expect(wrapper.get('table').text()).toContain('order-a')
+  wrapper.unmount(); session.dispose()
 })

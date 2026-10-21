@@ -102,3 +102,9 @@ autorisation. Les recettes utilisent /tmp/stockpilot-v139-test-* exclusivement.
 Compte A admin distinct pour CSV, MANAGER garde sa matrice existante.
 DNS/CA Windows restent des actions humaines ; [guide canonique](../b2b-demo.md).
 Ne pas réparer une initialisation partielle par reset, retrait de manifeste ou seed.
+
+
+## Reprise V13.9.2
+
+Base distante réelle `cb0c7eb` (#55), branche `fix/v1392-b2b-advice-ux-stabilization`, worktree `/tmp/stockpilot-v1392`. La démo persistante existe : ne pas init/start/stop/migrer/modifier stockpilot-b2b-local ou son état privé. Tests BFF jetables avec `B2B_TEST_PORT_SET=isolated` sur59914/59915/59916/59918, car57914/57915 sont protégés. Relire diagnostic, preuves et limites avant toute reprise.
+[Diagnostic et validation V13.9.2](../validation/v13.9.2-natural-advice-ux.md).
