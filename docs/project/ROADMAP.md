@@ -89,11 +89,15 @@ isolation des stores restent des gates distinctes ; voir [ADR](../security/b2b-i
 
 ## Assemblage V13.8 — périmètres séparés
 
-- V13.8.1 — **EN REVUE** : [HTTP BFF tenant-scoped](../security/b2b-http-api.md),
+- V13.8.1 — **DONE**, #51 fusionnée à1c9f41c : [HTTP BFF tenant-scoped](../security/b2b-http-api.md),
   mode de test opt-in, DTO exacts, CSRF et lectures manquantes ; pas de SaaS public.
-- V13.8.2 — **PLANNED** : Vue session/Keycloak, contrat de navigation, catalogue,
+- V13.8.2 — **EN REVUE** : Vue session/Keycloak, contrat de navigation, catalogue,
   commandes et administration scoped ; ni back-office global ni faux switch d'org.
 - V13.8.3 — **PLANNED** : assistant tenant/RAG/ORDER, opérations stables entre
   commit Mongo et checkpoint PG, campagne Ollama isolée.
 - V13.8.4 — **PLANNED** : environnement canonique autorisé séparément, provisioning,
   migrations persistantes à concevoir, sauvegarde/restauration et E2E avant promotion.
+
+V13.8.2 : [UX et contrats](../b2b-user-guide.md), campagne réelle jetable et
+[preuves](../validation/v13.8.2-unified-b2b-frontend.md). L’acceptation de cette PR
+ne promeut aucune installation et ne remplace pas la campagne assistant V13.8.3.

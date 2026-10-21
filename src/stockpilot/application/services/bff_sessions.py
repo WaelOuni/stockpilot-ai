@@ -188,6 +188,16 @@ class BffSessionService:
             raise
         return session, principal
 
+    def organization_name(self, organization_id: str) -> str:
+        """Display metadata from the same trusted store, never from browser claims."""
+        try:
+            organization = self.organizations.get(organization_id)
+        except IdentityRepositoryError:
+            raise BffUnavailable("Identity storage unavailable.") from None
+        if organization is None:
+            raise BffForbidden("Active provisioned organization required.")
+        return organization.name
+
     def logout(self, cookie: str | None, csrf: str) -> str:
         session, _ = self.current(cookie)
         if not secrets.compare_digest(csrf.encode(), session.csrf_token.encode()):

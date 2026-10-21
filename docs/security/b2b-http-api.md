@@ -43,6 +43,11 @@ GET /logged-out (les suffixes sont sous /b2b/auth).
 Toutes les routes ci-dessous sont sous /b2b/api, avec session obligatoire.
 Toutes les mutations exigent Origin exacte et X-BFF-CSRF lié à la session,
 avant lecture du corps. Les permissions ne remplacent jamais ownership/filtrage.
+V13.8.2 envoie aussi X-BFF-CSRF sur les GET métier afin de lier une lecture
+à la session restaurée par Vue : si un autre onglet change le cookie, une preuve
+différente produit403 avant récupération. Les consommateurs HTTP existants
+sans preuve de lecture conservent leur contrat authentifié ; toute mutation
+exige toujours la preuve.
 
 | Méthode | Chemin | Permission / règle |
 |---|---|---|
@@ -111,11 +116,19 @@ Un mouvement delta=0 est valide. Aucun ajustement administratif de reserved.
    Secure, HttpOnly, SameSite=Lax. URL produite par l'adaptateur OIDC configuré.
 3. Vue effectue une navigation top-level vers cette URL. Aucun token localStorage.
 4. Callback GET public exact /b2b/auth/callback : state/nonce/PKCE inchangés.
-   Retour303 fixe vers /b2b/auth/session, sans return_url arbitraire.
-   La future UX devra lire cette session et définir son retour fixe côté serveur.
-5. GET session/me renvoie utilisateur/org/permissions/CSRF/expiration.
+   Retour303 fixe vers /b2b-app/ en mode b2b_business_test, sans return_url
+   arbitraire. Le mode b2b_auth_test conserve /b2b/auth/session.
+5. GET session/me renvoie utilisateur/org/permissions/CSRF/expiration. Le mode
+   métier ajoute organization_name depuis le repository et idle_expires_at
+   (snapshot conservateur) ; aucun nom utilisateur humain n’est inventé.
    Mutations suivantes : cookies same-origin et X-BFF-CSRF courant.
 6. Logout local révoque puis renvoie provider_logout_url ; fermeture SSO séparée.
+   Le retour /b2b/auth/logged-out redirige uniquement vers /b2b-app/ dans le mode
+   métier ; auth_test conserve son JSON historique.
+
+Vue V13.8.2 est servie sur /b2b-app/, assets sur /assets, et appelle le BFF sous
+/b2b/ au même origin HTTPS. Une composition ASGI jetable existe pour la recette,
+pas un proxy de production. [Guide utilisateur](../b2b-user-guide.md).
 
 Réauthentification : cookie et CSRF changent. Purger les réponses/états d'ancienne
 session dans Vue. Une première confirmation/apply ne transfère pas une préparation

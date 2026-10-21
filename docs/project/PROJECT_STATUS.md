@@ -1,7 +1,7 @@
 # StockPilot AI — état du projet
 
 État vérifié le **21 octobre 2026** : main distant à
-`b11560cca926168f646c768141184951f05be1ec`, fusion réelle de la PR #42 après #50.
+`1c9f41c24da8689d77f156c3f7cad41b13b0299c`, fusion réelle de la PR #51.
 La branche par défaut GitHub reste dev ; les chantiers stables ciblent main.
 Ce SHA est une preuve datée, jamais une invitation à synchroniser une démo.
 
@@ -23,8 +23,9 @@ StockPilot n'est pas un SaaS prêt pour Internet ni une production commerciale.
 | V13.7.3-B2 / #48 | Commandes B2B, own=created_by, réservations/annulations atomiques, idempotence ; Mongo0002 | [ADR B2](../security/tenant-orders-atomicity.md) |
 | V13.7.3-B3 / #49 | Ajustements quantity>=reserved, mouvements et imports atomiques bornés ; Mongo0003 | [ADR B3](../security/tenant-stock-operations.md) |
 | V13.7.3-B4 / #50 | RAG, conversations privées et checkpoints B2B PostgreSQL ; aucune route métier BFF | [ADR B4](../security/tenant-rag-conversations.md) |
+| V13.8.1 / #51 | BFF métier de test opt-in, sessions/CSRF/permissions et API B1/B2/B3 | [Contrat HTTP](../security/b2b-http-api.md) |
 
-La chaîne de fusions #44→#50 est vérifiable dans l'historique first-parent de main.
+La chaîne de fusions #44→#51 est vérifiable dans l'historique first-parent de main.
 Fusionner un port métier ne le rend pas accessible par Vue ou le BFF.
 
 ## B4 intégré — activation métier toujours bloquée
@@ -65,7 +66,7 @@ démo validée et autorisation explicite.
 ## Prochaines étapes
 
 1. Kit commercial #42 fusionné à b11560c, sans changement des contrats B2B.
-2. Revoir/valider V13.8.1, puis UX Vue V13.8.2, assistant et E2E.
+2. Revoir/valider V13.8.2 après #51 intégrée, puis assistant V13.8.3 et E2E.
 3. Environnement pilote distant dédié, restauration éprouvée et décision d'accès.
 4. Kubernetes/K3s seulement si justifié ; Compose reste l'hypothèse du premier pilote.
 
@@ -82,11 +83,22 @@ remplace pas le guide canonique de la future démo Keycloak. Aucun contact,
 nouvelle installation ou pilote n'est réalisé par cette consolidation.
 
 
-## V13.8.1 — composition HTTP préparée pour revue
+## V13.8.1 — composition HTTP intégrée (#51)
 
 Mode b2b_business_test distinct, disabled par défaut : sessions/CSRF/Origin,
 TenantContext serveur et routes dédiées B1/B2/B3. Liste des commandes et acheteurs
 scoppée, réconciliation sans nouvelle clé, prix minor-unit exacts.
 [Contrat API](../security/b2b-http-api.md), [preuves](../validation/v13.8.1-secure-b2b-http.md).
 Aucune route assistant/RAG, migration historique ou activation publique.
-La future démo Vue n'est toujours ni opérationnelle ni promue.
+La démonstration officielle unifiée n’est toujours ni opérationnelle ni promue.
+
+## V13.8.2 — interface entreprise en préparation de revue
+
+Base distante et fusion #51 vérifiées à1c9f41c (21 octobre2026), V13.8.1 intégrée.
+Vue /b2b-app/ séparée du parcours JWT historique : session/Keycloak, catalogue,
+commandes explicites, réconciliation, stocks/mouvements/CSV selon permissions.
+[Guide utilisateur](../b2b-user-guide.md), [validation](../validation/v13.8.2-unified-b2b-frontend.md).
+Aucun token OIDC browser ; BFF et données d’autorisation restent l’autorité.
+Campagne Chromium/Keycloak/BFF/Mongo HTTPS jetable, sans installation ni déploiement.
+L’assistant B2B est réservé àV13.8.3 ; la [démo canonique](../b2b-demo.md) n’est
+pas promue, aucun SaaS public/multi-tenant prêt pour Internet n’est annoncé.

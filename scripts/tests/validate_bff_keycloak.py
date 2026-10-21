@@ -31,6 +31,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 COMPOSE = ROOT / "docker/compose.bff-test.yml"
 ORIGIN = "https://127.0.0.1:57914"
 ISSUER = "http://127.0.0.1:57915/realms/stockpilot-dev"
@@ -149,7 +150,16 @@ def main():
     parser.add_argument(
         "--business", action="store_true", help="Exercise opt-in V13.8.1 business mode"
     )
+    parser.add_argument(
+        "--frontend",
+        action="store_true",
+        help="Real HTTPS Vue/Chromium campaign, implies business mode",
+    )
     args = parser.parse_args()
+    if args.frontend:
+        args.business = True
+        global ISSUER
+        ISSUER = "http://localhost:57915/realms/stockpilot-dev"
     os.umask(0o077)
     for port in (57914, 57915, 57916, 57918):
         with socket.socket() as probe:
@@ -171,6 +181,8 @@ def main():
             "BFF_TEST_DB_PASSWORD": secrets.token_urlsafe(30),
         }
     )
+    if args.frontend:
+        env["BFF_TEST_ISSUER_ORIGIN"] = "http://localhost:57915"
     baseline = docker_snapshot()
     baseline_volumes = set(command(["docker", "volume", "ls", "-q"]).split())
     if command(
@@ -188,7 +200,9 @@ def main():
     report = {
         "project": project,
         "keycloak_version": "26.8.1",
-        "kind": "real HTTP OIDC",
+        "kind": "real HTTP OIDC + HTTPS Vue/Chromium"
+        if args.frontend
+        else "real HTTP OIDC",
         "checks": [],
         "passed": False,
         "cleanup": False,
@@ -242,7 +256,9 @@ def main():
                 sys.executable,
                 "-m",
                 "uvicorn",
-                "stockpilot.bff:create_app",
+                "scripts.tests.b2b_browser_app:create_app"
+                if args.frontend
+                else "stockpilot.bff:create_app",
                 "--factory",
                 "--host",
                 "127.0.0.1",
@@ -392,6 +408,8 @@ def main():
                         "revision": 1,
                     }
                 )
+        if args.frontend:
+            bff_env["B2B_BROWSER_TEST"] = "isolated"
         start_bff(bff_env, cert, key, context)
 
         def browser():
@@ -424,7 +442,10 @@ def main():
             if page.status_code == 200:
                 form = LoginForm()
                 form.feed(page.text)
-                assert form.action and urlsplit(form.action).netloc == "127.0.0.1:57915"
+                assert (
+                    form.action
+                    and urlsplit(form.action).netloc == urlsplit(ISSUER).netloc
+                )
                 # Keycloak treats loopback as a browser secure context. HTTPX
                 # omits its Secure cookies over HTTP, unlike that local browser
                 # flow. Forward only the provider's path-scoped cookies to its
@@ -432,7 +453,8 @@ def main():
                 provider_cookies = "; ".join(
                     f"{item.name}={item.value}"
                     for item in client.cookies.jar
-                    if item.domain == "127.0.0.1"
+                    if item.domain
+                    in {urlsplit(ISSUER).hostname, urlsplit(ISSUER).hostname + ".local"}
                     and item.path.startswith("/realms/stockpilot-dev")
                     and urlsplit(form.action).path.startswith(item.path)
                 )
@@ -440,7 +462,7 @@ def main():
                     form.action,
                     headers={
                         "Cookie": provider_cookies,
-                        "Origin": "http://127.0.0.1:57915",
+                        "Origin": "http://" + urlsplit(ISSUER).netloc,
                     },
                     data=form.hidden
                     | {
@@ -644,6 +666,10 @@ def main():
             passed(
                 "two explicitly provisioned organizations with real Keycloak identities and isolated HTTP reads"
             )
+        if args.frontend:
+            from scripts.tests.b2b_browser_campaign import run_browser
+
+            run_browser(db, bff_env, directory, cert, passed)
         db.b2b_organizations.update_one(
             {"organization_id": "fixture-org"}, {"$set": {"status": "suspended"}}
         )

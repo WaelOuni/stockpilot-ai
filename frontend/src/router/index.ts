@@ -17,6 +17,12 @@ import { protectAdminRoutes } from './adminGuard'
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    { path: "/b2b-app/", meta: { b2b: true }, component: () => import("../b2b/B2BApp.vue"), children: [
+      { path: "", component: () => import("../b2b/CatalogueView.vue") },
+      { path: "orders", component: () => import("../b2b/OrdersView.vue") },
+      { path: "stock", component: () => import("../b2b/StockView.vue") },
+      { path: ":pathMatch(.*)*", redirect: "/b2b-app/" },
+    ] },
     { path: '/admin/login', component: AdminLoginPage },
     { path: '/admin/dashboard', component: AdminDashboardPage, meta: { admin: true } },
     { path: '/admin/orders', component: AdminOrdersPage, meta: { admin: true } },
