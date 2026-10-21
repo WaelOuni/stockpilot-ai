@@ -37,4 +37,5 @@ markers = [
 ]
 
 [tool.setuptools.package-data]
-stockpilot = ["infrastructure/persistence/mongodb/migrations/*.json"]
+stockpilot = ["infrastructure/persistence/mongodb/migrations/*.json",
+             "infrastructure/persistence/postgres/migrations/*.sql"]
