@@ -98,3 +98,36 @@ def test_assistant_incomplete_or_protected_configuration_refused(changes):
     values.update(changes)
     with pytest.raises(BffUnavailable):
         BffSettings(**values).validate_assistant()
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [None, [1.0, 2.0], [0.0] * 768, {"embedding": [1.0]}, KeyError("private")],
+)
+def test_invalid_provider_embedding_is_dependency_failure_before_retrieval(invalid):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+
+    from stockpilot.application.ports.tenant_knowledge import TenantDataUnavailable
+    from stockpilot.application.services.tenant_retrieval import TenantRetrieval
+
+    repo = SimpleNamespace(current=Mock(), search=Mock())
+    embeddings = SimpleNamespace(embed=AsyncMock())
+    if isinstance(invalid, Exception):
+        embeddings.embed.side_effect = invalid
+    else:
+        embeddings.embed.return_value = invalid
+    generator = SimpleNamespace(generate=AsyncMock())
+    retrieval = TenantRetrieval(
+        repo, embeddings, generator, model="synthetic", version="v1"
+    )
+    with pytest.raises(TenantDataUnavailable) as error:
+        asyncio.run(
+            retrieval.execute(
+                object(), SimpleNamespace(organization_id="org-a"), "question"
+            )
+        )
+    assert "private" not in str(error.value)
+    repo.search.assert_not_called()
+    generator.generate.assert_not_awaited()

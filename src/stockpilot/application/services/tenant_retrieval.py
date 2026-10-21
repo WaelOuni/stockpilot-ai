@@ -5,7 +5,12 @@ from time import perf_counter
 import httpx
 
 from stockpilot.application.ports.tenant_knowledge import TenantDataUnavailable
-from stockpilot.domain.entities.tenant_knowledge import text
+from stockpilot.application.resource_errors import (
+    ModelInputLimitError,
+    ModelTimeoutError,
+    ModelUnavailableError,
+)
+from stockpilot.domain.entities.tenant_knowledge import text, vector
 from stockpilot.domain.enums.permission import Permission
 
 
@@ -23,8 +28,19 @@ class TenantRetrieval:
         self.repository.current(request, context, Permission.RAG_READ)
         started = perf_counter()
         try:
-            embedding = await self.embeddings.embed(question)
-        except (TimeoutError, ConnectionError, httpx.HTTPError, ValueError):
+            embedding = vector(await self.embeddings.embed(question))
+        except (
+            TimeoutError,
+            ConnectionError,
+            httpx.HTTPError,
+            ValueError,
+            TypeError,
+            KeyError,
+            IndexError,
+            ModelInputLimitError,
+            ModelTimeoutError,
+            ModelUnavailableError,
+        ):
             raise TenantDataUnavailable("Embedding dependency unavailable.") from None
         if timings is not None:
             timings["embedding"] = round((perf_counter() - started) * 1000, 2)
@@ -54,8 +70,20 @@ class TenantRetrieval:
         started = perf_counter()
         try:
             result = await self.generator.generate(prompt=prompt)
+            text(result, 8000)
             if timings is not None:
                 timings["generation"] = round((perf_counter() - started) * 1000, 2)
             return result
-        except (TimeoutError, ConnectionError, httpx.HTTPError, ValueError):
+        except (
+            TimeoutError,
+            ConnectionError,
+            httpx.HTTPError,
+            ValueError,
+            TypeError,
+            KeyError,
+            IndexError,
+            ModelInputLimitError,
+            ModelTimeoutError,
+            ModelUnavailableError,
+        ):
             raise TenantDataUnavailable("Generation dependency unavailable.") from None

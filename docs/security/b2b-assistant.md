@@ -60,7 +60,9 @@ service ; ORDER vérifie en plus ses permissions, le créateur et l'association 
 | POST /conversations/{id}/close | Clôture privée réversible seulement par intervention ultérieure ; refuse un tour pending |
 
 Pas de streaming, proxy historique, ingestion publique ou exposition de prompts.
-401/403/404/409/422/429/503 gardent le sens du contrat BFF.
+401/403/404/409/422/429/503 gardent le sens du contrat BFF. Un embedding ou
+texte fournisseur malformé est une erreur503 de dépendance, sans retrieval
+avec un vecteur invalide ni détail sensible dans la réponse.
 Une ressource étrangère et une ressource absente restent indistinguables.
 
 Les réponses sont une liste bornée de tours : message, statut, réponse,
