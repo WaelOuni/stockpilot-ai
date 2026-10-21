@@ -1,5 +1,11 @@
 # V13.2 — Matrice d’accès et frontière HTTP
 
+**Lecture courante :** ce qui suit conserve une preuve pré-V13.2 datée.
+Aujourd'hui, /chat, /classify et /products exigent le JWT client historique ;
+production_saas reste fermé. Les nouveaux ports B2B ne sont pas des routes.
+Voir [contrat courant](#contrat-courant-vérifié-v1371-base-3eba881) et
+[ADR B4](tenant-rag-conversations.md) avant d'interpréter les constats historiques.
+
 Audit indépendant en lecture seule, 16 octobre 2026. Baseline : `6f0949676e33a21c640b2ccc2f5877368a4dd0cb` (avant changements V13.2). Aucun accès ni changement à la DEMO v017. Ce document décrit la baseline, avant les correctifs V13.2.
 
 ## Conclusion et limites
@@ -121,3 +127,13 @@ Résultat d'opération : permission du namespace et acteur identique.
 Toute lecture/écriture est scoppée à l'organisation active revalidée. Aucun rôle
 Keycloak, header ou CSV n'accorde de droit. ORGANIZATION_ADMIN n'est jamais global.
 Ces ports restent internes ; ils n'ouvrent pas les routes historiques ou BFF.
+
+## Contrats internes B4
+
+rag:read et conversation:own sont attribués aux rôles existants ; rag:manage
+uniquement à ORGANIZATION_ADMIN. Une conversation reste privée à son créateur,
+sans partage implicite pour manager/admin. L'organisation et les droits viennent
+du contexte StockPilot revalidé, pas de Keycloak, du prompt ou de headers.
+Lecture/ingestion/suppression RAG et toutes les opérations checkpoint restent
+internes, scoppées dans SQL, sans nouveau endpoint BFF.
+[Garanties et limites](tenant-rag-conversations.md).

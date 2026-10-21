@@ -1,5 +1,9 @@
 # Product-document RAG
 
+This page describes the historical global adapter. The separate internal
+[B2B RAG/conversation boundary](security/tenant-rag-conversations.md) uses explicit
+[PostgreSQL migrations](postgresql-migrations.md); it does not migrate this corpus.
+
 [Back to README](../README.md) · [Database](database.md) · [AI evals](ai-evals.md)
 
 ## Corpus and ingestion

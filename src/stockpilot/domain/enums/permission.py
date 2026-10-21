@@ -2,6 +2,9 @@ from enum import StrEnum
 
 
 class Permission(StrEnum):
+    RAG_READ = "rag:read"
+    RAG_MANAGE = "rag:manage"
+    CONVERSATION_OWN = "conversation:own"
     CATALOGUE_READ = "catalogue:read"
     STOCK_READ = "stock:read"
     STOCK_ADJUST = "stock:adjust"

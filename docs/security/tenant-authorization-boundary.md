@@ -234,3 +234,16 @@ et synchronisent révocation user/org/membership par les fences B2 partagées.
 stock:read, stock:adjust et import:execute restent les seules permissions utilisées.
 Les résultats pending/terminaux et previews sont scoppés ; aucun accès HTTP ajouté.
 La frontière RAG/conversations/checkpoints reste à implémenter dans B4.
+
+Cette phrase décrit la limite de B3. Complément B4 en revue :
+[ADR dédié](tenant-rag-conversations.md), aucun accès HTTP métier.
+
+| Ressource B4 | Ownership persistant | Filtrage livré | Index / limite | Risque restant avant activation |
+|---|---|---|---|---|
+| Document/chunk | Organisation + document + génération | SQL org + génération ready + modèle/version, avant distance/LIMIT | PK composites, recherche exacte ; ANN non activé | Quotas/corpus et révocation inter-stores à qualifier |
+| Conversation | Organisation + humain créateur + identifiant serveur | SQL org/user/conversation actif, jamais raw thread seul | Thread externe unique par org/user | Partage non livré ; UX/HTTP restent fermés |
+| Checkpoint / writes | Même ownership, clés composites et FK conversation | get/list/put/writes/delete avec scope complet et verrou propriétaire | Historique borné, snapshots complets, graphe racine | Pas de transaction distribuée Mongo/PG ; coût et rétention à mesurer |
+
+Aucun mapping customer_id/org n'est ajouté ; les anciens documents/threads ne
+sont pas attribués à une organisation. Les preuves mémoire A ne sont pas utilisées
+pour revendiquer les garanties réelles PG : voir le rapport B4 et les tests jetables.

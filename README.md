@@ -54,6 +54,10 @@ Local services: [docker-compose.yml](docker-compose.yml).
 
 ## Démo locale persistante
 
+Cette section décrit le parcours historique. La cible produit future unique est
+[StockPilot AI B2B Demo](docs/b2b-demo.md), **pas encore opérationnelle** via Vue/BFF.
+Elle ne remplace ni ne supprime les installations locales existantes.
+
 ```sh
 bash scripts/run-demo.sh
 # Ctrl+C pour arrêter ; la même commande reprend les données.
