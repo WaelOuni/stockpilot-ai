@@ -5,7 +5,7 @@ x-common: &common
   logging:
     driver: json-file
     options: {max-size: "5m", max-file: "2"}
-  labels: {stockpilot.audit.purpose: v1384-ephemeral}
+  labels: {stockpilot.audit.purpose: "${SP_DEMO_PURPOSE:-v1384-ephemeral}"}
   security_opt: [no-new-privileges:true]
 services:
   keycloak-db:
@@ -140,6 +140,21 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  operator:
+    <<: *common
+    profiles: [operator]
+    image: ${SP_DEMO_API_IMAGE:?explicit built revision required}
+    command: [python, -m, stockpilot.infrastructure.config.b2b_demo_worker, check]
+    group_add: ["${SP_DEMO_GID}"]
+    volumes:
+      - ${SP_DEMO_RUNTIME}/operator.json:/run/stockpilot/operator.json:ro
+    networks: [application, egress]
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 512m
+    cpus: 1
+    cap_drop: [ALL]
+
 networks:
   edge:
     ipam:
@@ -150,7 +165,7 @@ networks:
   identity: {internal: true}
   egress: {}
 volumes:
-  mongo-data: {labels: {stockpilot.audit.purpose: v1384-ephemeral}}
-  mongo-config: {labels: {stockpilot.audit.purpose: v1384-ephemeral}}
-  postgres-data: {labels: {stockpilot.audit.purpose: v1384-ephemeral}}
-  keycloak-data: {labels: {stockpilot.audit.purpose: v1384-ephemeral}}
+  mongo-data: {labels: {stockpilot.audit.purpose: "${SP_DEMO_PURPOSE:-v1384-ephemeral}"}}
+  mongo-config: {labels: {stockpilot.audit.purpose: "${SP_DEMO_PURPOSE:-v1384-ephemeral}"}}
+  postgres-data: {labels: {stockpilot.audit.purpose: "${SP_DEMO_PURPOSE:-v1384-ephemeral}"}}
+  keycloak-data: {labels: {stockpilot.audit.purpose: "${SP_DEMO_PURPOSE:-v1384-ephemeral}"}}

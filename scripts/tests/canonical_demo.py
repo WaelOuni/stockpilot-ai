@@ -29,6 +29,68 @@ def local_dns():
     socket.getaddrinfo = resolve
 
 
+def available_subnet(command):
+    networks = json.loads(
+        command(
+            [
+                "docker",
+                "network",
+                "inspect",
+                *command(["docker", "network", "ls", "-q"]).split(),
+            ]
+        )
+    )
+    occupied = [
+        ipaddress.ip_network(c["Subnet"])
+        for n in networks
+        for c in (n.get("IPAM", {}).get("Config") or [])
+        if c.get("Subnet")
+    ]
+    route_rows = json.loads(
+        command(["ip", "-j", "-4", "route", "show", "table", "all"])
+    )
+    routes = [
+        r["dst"]
+        for r in route_rows
+        if r.get("dst") not in {None, "default", "0.0.0.0/0"}
+    ]
+    powershell = Path("/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe")
+    if powershell.is_file():
+        windows_env = os.environ.copy()
+        for key in list(windows_env):
+            if key.lower() == "psmodulepath":
+                windows_env.pop(key)
+        windows_routes = json.loads(
+            command(
+                [
+                    str(powershell),
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-Command",
+                    "$ErrorActionPreference='Stop'; ConvertTo-Json -Compress -InputObject @((Get-NetRoute -AddressFamily IPv4 -ErrorAction Stop).DestinationPrefix)",
+                ],
+                env=windows_env,
+            )
+        )
+        routes += [value for value in windows_routes if value != "0.0.0.0/0"]
+    occupied += [ipaddress.ip_network(value, strict=False) for value in routes]
+    candidate = next(
+        (
+            ipaddress.ip_network("172.30." + str(i) + ".0/24")
+            for i in range(100, 250)
+            if not any(
+                ipaddress.ip_network("172.30." + str(i) + ".0/24").overlaps(n)
+                for n in occupied
+                if n.version == 4
+            )
+        ),
+        None,
+    )
+    if candidate is None:
+        raise RuntimeError("No unused validation subnet.")
+    return candidate
+
+
 class CanonicalDemo:
     def __init__(self, directory, env, compose, command, cert, key, *, build=True):
         expected_ports = ("57916", "57918") if build else ("57926", "57928")
@@ -55,61 +117,7 @@ class CanonicalDemo:
             "ubuntu_free": shutil.disk_usage(ROOT).free,
             "windows_c_free": shutil.disk_usage("/mnt/c").free,
         }
-        networks = json.loads(
-            command(
-                [
-                    "docker",
-                    "network",
-                    "inspect",
-                    *command(["docker", "network", "ls", "-q"]).split(),
-                ]
-            )
-        )
-        occupied = [
-            ipaddress.ip_network(c["Subnet"])
-            for n in networks
-            for c in (n.get("IPAM", {}).get("Config") or [])
-            if c.get("Subnet")
-        ]
-        route_rows = json.loads(
-            command(["ip", "-j", "-4", "route", "show", "table", "all"])
-        )
-        routes = [
-            r["dst"]
-            for r in route_rows
-            if r.get("dst") not in {None, "default", "0.0.0.0/0"}
-        ]
-        powershell = Path(
-            "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
-        )
-        if powershell.is_file():
-            windows_routes = json.loads(
-                command(
-                    [
-                        str(powershell),
-                        "-NoProfile",
-                        "-NonInteractive",
-                        "-Command",
-                        "ConvertTo-Json -Compress -InputObject @((Get-NetRoute -AddressFamily IPv4 -ErrorAction Stop).DestinationPrefix)",
-                    ]
-                )
-            )
-            routes += [value for value in windows_routes if value != "0.0.0.0/0"]
-        occupied += [ipaddress.ip_network(value, strict=False) for value in routes]
-        candidate = next(
-            (
-                ipaddress.ip_network("172.30." + str(i) + ".0/24")
-                for i in range(100, 250)
-                if not any(
-                    ipaddress.ip_network("172.30." + str(i) + ".0/24").overlaps(n)
-                    for n in occupied
-                    if n.version == 4
-                )
-            ),
-            None,
-        )
-        if candidate is None:
-            raise RuntimeError("No unused validation subnet.")
+        candidate = available_subnet(command)
         env.update(
             SP_DEMO_RUNTIME=str(directory),
             SP_DEMO_GID=str(os.getgid()),
