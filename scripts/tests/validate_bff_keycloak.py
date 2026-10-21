@@ -146,6 +146,9 @@ def main():
         action="store_true",
         help="Run guarded integration suite before cleanup",
     )
+    parser.add_argument(
+        "--business", action="store_true", help="Exercise opt-in V13.8.1 business mode"
+    )
     args = parser.parse_args()
     os.umask(0o077)
     for port in (57914, 57915, 57916, 57918):
@@ -246,6 +249,7 @@ def main():
                 "--port",
                 "57914",
                 "--no-access-log",
+                "--no-proxy-headers",
                 "--ssl-certfile",
                 str(cert),
                 "--ssl-keyfile",
@@ -338,7 +342,7 @@ def main():
         )
         passed("explicit provisioning in Docker-verified disposable Mongo database")
         bff_env = env | {
-            "BFF_MODE": "b2b_auth_test",
+            "BFF_MODE": "b2b_business_test" if args.business else "b2b_auth_test",
             "BFF_ORIGIN": ORIGIN,
             "BFF_ISSUER": ISSUER,
             "BFF_CLIENT_ID": "stockpilot-bff",
@@ -348,6 +352,46 @@ def main():
             "BFF_MONGO_DATABASE": dbname,
             "BFF_CONFIGURATION_KEY": secrets.token_urlsafe(36),
         }
+        if args.business:
+            from bson import ObjectId
+
+            from stockpilot.infrastructure.persistence.mongodb.bff_store import (
+                MongoBffStore,
+            )
+            from stockpilot.infrastructure.persistence.mongodb.schema_migrations import (
+                MigrationRunner,
+            )
+
+            MigrationRunner(db).apply(confirmation=dbname)
+            MongoBffStore(db).initialize()
+            db.b2b_buyers.insert_one(
+                {
+                    "association_id": "fixture-buyer",
+                    "organization_id": "fixture-org",
+                    "user_id": "fixture-user",
+                    "customer_id": "fixture-customer",
+                    "status": "active",
+                    "revision": 1,
+                }
+            )
+            for org, quantity in (("fixture-org", 10), ("fixture-other", 2)):
+                db.b2b_products.insert_one(
+                    {
+                        "_id": ObjectId(),
+                        "organization_id": org,
+                        "sku": "DRILL-001",
+                        "name": "Synthetic drill",
+                        "description": "Disposable HTTP fixture",
+                        "category": "drill",
+                        "price_minor": 4900,
+                        "currency": "EUR",
+                        "status": "active",
+                        "attributes": [],
+                        "quantity": quantity,
+                        "reserved": 0,
+                        "revision": 1,
+                    }
+                )
         start_bff(bff_env, cert, key, context)
 
         def browser():
@@ -366,8 +410,12 @@ def main():
                 json={"organization_id": organization},
                 headers={"Origin": ORIGIN, "X-BFF-CSRF": "login"},
             )
-            assert response.status_code == 303
-            auth_url = response.headers["location"]
+            assert response.status_code == (200 if args.business else 303)
+            auth_url = (
+                response.json()["authorization_url"]
+                if args.business
+                else response.headers["location"]
+            )
             query = parse_qs(urlsplit(auth_url).query)
             assert query["code_challenge_method"] == ["S256"]
             assert query["nonce"] and query["state"] and query["code_challenge"]
@@ -436,6 +484,73 @@ def main():
             passed(
                 "confidential code exchange, S256/state/nonce, verified identity and opaque HTTPS session"
             )
+            if args.business:
+                before = db.b2b_products.find_one({"organization_id": "fixture-other"})
+                h = {"Origin": ORIGIN, "X-BFF-CSRF": info.json()["csrf_token"]}
+                page = client.get(ORIGIN + "/b2b/api/products").json()
+                assert (
+                    len(page["items"]) == 1
+                    and page["items"][0]["organization_id"] == "fixture-org"
+                )
+                prepared = client.post(
+                    ORIGIN + "/b2b/api/orders/prepare",
+                    headers=h,
+                    json={
+                        "operation_id": "real-prepare",
+                        "customer_id": "fixture-customer",
+                        "lines": [{"sku": "DRILL-001", "quantity": 1}],
+                    },
+                )
+                assert prepared.status_code == 200
+                order = prepared.json()
+                assert (
+                    db.b2b_products.find_one({"organization_id": "fixture-org"})[
+                        "reserved"
+                    ]
+                    == 0
+                )
+                url = ORIGIN + "/b2b/api/orders/" + order["order_id"]
+                confirm_body = {
+                    "operation_id": "real-confirm",
+                    "preparation_digest": order["preparation_digest"],
+                    "confirmed": True,
+                }
+                for _ in range(2):
+                    assert (
+                        client.post(
+                            url + "/confirm", headers=h, json=confirm_body
+                        ).status_code
+                        == 200
+                    )
+                assert (
+                    db.b2b_products.find_one({"organization_id": "fixture-org"})[
+                        "reserved"
+                    ]
+                    == 1
+                )
+                for _ in range(2):
+                    assert (
+                        client.post(
+                            url + "/cancel",
+                            headers=h,
+                            json={"operation_id": "real-cancel"},
+                        ).status_code
+                        == 200
+                    )
+                assert (
+                    db.b2b_products.find_one({"organization_id": "fixture-org"})[
+                        "reserved"
+                    ]
+                    == 0
+                )
+                assert (
+                    db.b2b_products.find_one({"organization_id": "fixture-other"})
+                    == before
+                )
+                assert client.get(ORIGIN + "/products").status_code == 404
+                passed(
+                    "business mode: JSON login navigation, scoped catalogue, real atomic order/replays/cancel; foreign Mongo unchanged"
+                )
             assert client.get(callback).status_code == 401
             passed("real callback replay refused")
         with browser() as client:
@@ -471,6 +586,64 @@ def main():
             assert client.get(auth_code(client, "bff-unprovisioned")).status_code == 403
             assert db.b2b_users.count_documents({}) == 1
             passed("unknown user refused without automatic provisioning")
+        if args.business:
+            # Only after proving refusal, explicitly provision the second synthetic
+            # human. No callback ever creates this association.
+            db.b2b_organizations.insert_one(
+                {
+                    "organization_id": "fixture-other",
+                    "name": "Second synthetic org",
+                    "status": "active",
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+            db.b2b_users.insert_one(
+                {
+                    "user_id": "fixture-other-user",
+                    "external_identity": {
+                        "issuer": ISSUER,
+                        "subject": "00000000-0000-4000-8000-000000000002",
+                    },
+                    "status": "active",
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+            db.b2b_memberships.insert_one(
+                {
+                    "membership_id": "fixture-other-membership",
+                    "user_id": "fixture-other-user",
+                    "organization_id": "fixture-other",
+                    "role": "MANAGER",
+                    "status": "active",
+                    "created_at": now,
+                    "updated_at": now,
+                }
+            )
+            with browser() as second:
+                assert (
+                    second.get(
+                        auth_code(second, "bff-unprovisioned", "fixture-other")
+                    ).status_code
+                    == 303
+                )
+                page = second.get(ORIGIN + "/b2b/api/products").json()
+                assert (
+                    len(page["items"]) == 1
+                    and page["items"][0]["organization_id"] == "fixture-other"
+                )
+                assert second.get(ORIGIN + "/b2b/api/orders").json()["items"] == []
+                foreign = str(
+                    db.b2b_products.find_one({"organization_id": "fixture-org"})["_id"]
+                )
+                assert (
+                    second.get(ORIGIN + "/b2b/api/products/" + foreign).status_code
+                    == 404
+                )
+            passed(
+                "two explicitly provisioned organizations with real Keycloak identities and isolated HTTP reads"
+            )
         db.b2b_organizations.update_one(
             {"organization_id": "fixture-org"}, {"$set": {"status": "suspended"}}
         )

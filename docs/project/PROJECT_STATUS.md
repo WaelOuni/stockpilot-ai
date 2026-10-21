@@ -1,7 +1,7 @@
 # StockPilot AI — état du projet
 
 État vérifié le **21 octobre 2026** : main distant à
-`394bd7cebd1ae807bdac8478c10ebc84ab3ad8f9`, fusion réelle de la PR #50.
+`b11560cca926168f646c768141184951f05be1ec`, fusion réelle de la PR #42 après #50.
 La branche par défaut GitHub reste dev ; les chantiers stables ciblent main.
 Ce SHA est une preuve datée, jamais une invitation à synchroniser une démo.
 
@@ -37,7 +37,8 @@ et checkpoints dédiés, sans toucher l'historique.
 ni migration de données existantes. [Rapport B4](../validation/v13.7.3b4-rag-conversations.md)
 et [PR #50](https://github.com/WaelOuni/stockpilot-ai/pull/50) font autorité pour les tests réellement exécutés et la CI finale.
 
-BFF auth/session uniquement ; aucune nouvelle route métier. production_saas et
+À la livraison B4, BFF auth/session uniquement. V13.8.1 ci-dessous prépare une
+composition métier de test séparée ; production_saas et
 production restent fail-closed. Les ports internes B1–B4 ne constituent pas un
 parcours SaaS complet. Fenêtres de révocation inter-stores, sauvegarde/restauration,
 quotas, exploitation, composition HTTP et UX Vue restent des gates distinctes.
@@ -63,8 +64,8 @@ démo validée et autorisation explicite.
 
 ## Prochaines étapes
 
-1. Réconcilier le [kit commercial #42](../product/README.md) sans modifier les contrats B2B.
-2. Cadrer V13.8 : composition HTTP B2B sécurisée, UX Vue puis assistant et E2E.
+1. Kit commercial #42 fusionné à b11560c, sans changement des contrats B2B.
+2. Revoir/valider V13.8.1, puis UX Vue V13.8.2, assistant et E2E.
 3. Environnement pilote distant dédié, restauration éprouvée et décision d'accès.
 4. Kubernetes/K3s seulement si justifié ; Compose reste l'hypothèse du premier pilote.
 
@@ -79,3 +80,13 @@ restent des supports de découverte, sans prix accepté ni gain client mesuré.
 Le script commercial décrit le parcours historique sur copie autorisée ; il ne
 remplace pas le guide canonique de la future démo Keycloak. Aucun contact,
 nouvelle installation ou pilote n'est réalisé par cette consolidation.
+
+
+## V13.8.1 — composition HTTP préparée pour revue
+
+Mode b2b_business_test distinct, disabled par défaut : sessions/CSRF/Origin,
+TenantContext serveur et routes dédiées B1/B2/B3. Liste des commandes et acheteurs
+scoppée, réconciliation sans nouvelle clé, prix minor-unit exacts.
+[Contrat API](../security/b2b-http-api.md), [preuves](../validation/v13.8.1-secure-b2b-http.md).
+Aucune route assistant/RAG, migration historique ou activation publique.
+La future démo Vue n'est toujours ni opérationnelle ni promue.

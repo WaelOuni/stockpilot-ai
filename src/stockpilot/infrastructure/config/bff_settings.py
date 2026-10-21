@@ -15,7 +15,11 @@ from stockpilot.application.services.bff_sessions import BffPolicy
 
 class BffSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="BFF_", env_file=None, extra="ignore")
-    mode: Literal["disabled", "b2b_auth_test"] = "disabled"
+    mode: Literal["disabled", "b2b_auth_test", "b2b_business_test"] = "disabled"
+    max_inflight: int = Field(default=8, ge=1, le=32)
+    requests_per_minute: int = Field(default=600, ge=1, le=10000)
+    body_timeout_seconds: float = Field(default=5, gt=0, le=10)
+    trusted_proxy_ips: list[str] = Field(default_factory=list)
     origin: str | None = None
     issuer: str | None = None
     client_id: str | None = None
@@ -92,6 +96,14 @@ class BffSettings(BaseSettings):
                 r"stockpilot_b2b_[A-Za-z0-9_]{1,48}", self.mongo_database
             ):
                 raise ValueError
+            import ipaddress
+
+            for peer in self.trusted_proxy_ips:
+                ipaddress.ip_address(peer)  # Exact peers only, no wildcard/CIDR.
+            if self.mode == "b2b_business_test" and not re.fullmatch(
+                r"stockpilot_b2b_test_[0-9a-f]{32}", self.mongo_database
+            ):
+                raise ValueError
             if self.session_idle_seconds > self.session_absolute_seconds:
                 raise ValueError
         except (ValueError, TypeError):
@@ -113,6 +125,8 @@ class BffSettings(BaseSettings):
             ],
             separators=(",", ":"),
         )
+        if self.mode == "b2b_business_test":
+            context += json.dumps([self.mode, self.trusted_proxy_ips])
         fingerprint = hmac.new(
             self.configuration_key.get_secret_value().encode(),
             context.encode(),

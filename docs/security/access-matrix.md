@@ -2,7 +2,8 @@
 
 **Lecture courante :** ce qui suit conserve une preuve pré-V13.2 datée.
 Aujourd'hui, /chat, /classify et /products exigent le JWT client historique ;
-production_saas reste fermé. Les nouveaux ports B2B ne sont pas des routes.
+production_saas reste fermé. Le mode b2b_auth_test ne compose pas de métier. Les routes B1/B2/B3 de test
+V13.8.1 sont décrites dans la [matrice HTTP B2B](b2b-http-api.md) distincte.
 Voir [contrat courant](#contrat-courant-vérifié-v1371-base-3eba881) et
 [ADR B4](tenant-rag-conversations.md) avant d'interpréter les constats historiques.
 

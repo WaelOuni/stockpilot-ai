@@ -177,6 +177,16 @@ class MongoTenantCatalogue:
                 filters[key] = getattr(query, key)
         if query.attribute is not None:
             filters["attributes"] = query.attribute
+        if query.available is not None:
+            availability = {
+                "$and": [
+                    {"$eq": ["$status", "active"]},
+                    {"$gt": [{"$subtract": ["$quantity", "$reserved"]}, 0]},
+                ]
+            }
+            filters["$expr"] = (
+                availability if query.available else {"$not": [availability]}
+            )
         prices = {}
         if query.minimum_price_minor is not None:
             prices["$gte"] = query.minimum_price_minor

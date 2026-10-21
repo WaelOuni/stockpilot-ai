@@ -94,8 +94,11 @@ class TenantProductQuery:
     maximum_price_minor: int | None = None
     currency: str | None = None
     status: str | None = None
+    available: bool | None = None
 
     def __post_init__(self):
+        if self.available is not None and type(self.available) is not bool:
+            raise ValueError("Boolean availability required.")
         if (
             type(self.limit) is not int
             or not 1 <= self.limit <= 100

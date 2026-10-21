@@ -518,3 +518,121 @@ class MongoTenantOrders(MongoTenantUnitOfWork):
             return _decode(row, principal.organization_id)
 
         return self._transaction(request, context, read)
+
+    @staticmethod
+    def _pagination(limit, offset):
+        if (
+            type(limit) is not int
+            or not 1 <= limit <= 100
+            or type(offset) is not int
+            or not 0 <= offset <= 10000
+        ):
+            raise ValueError("Bounded pagination required.")
+
+    def list(self, request, context, limit=20, offset=0):
+        self._pagination(limit, offset)
+
+        def read(principal, session):
+            org = principal.organization_id
+            query = {"organization_id": org}
+            if P.ORDER_READ_ORGANIZATION not in principal.permissions:
+                if P.ORDER_READ_OWN not in principal.permissions:
+                    raise AuthorizationDenied("Order reading denied.")
+                query["created_by"] = principal.user_id
+            # Grant and tenant filtering precede sorting/pagination, not Python.
+            pipeline = [
+                {"$match": query},
+                {
+                    "$lookup": {
+                        "from": "b2b_buyers",
+                        "let": {"owner": "$created_by", "buyer": "$customer_id"},
+                        "pipeline": [
+                            {
+                                "$match": {
+                                    "organization_id": org,
+                                    "status": "active",
+                                    "$expr": {
+                                        "$and": [
+                                            {"$eq": ["$user_id", "$$owner"]},
+                                            {"$eq": ["$customer_id", "$$buyer"]},
+                                        ]
+                                    },
+                                }
+                            }
+                        ],
+                        "as": "_grants",
+                    }
+                },
+                {"$match": {"_grants.0": {"$exists": True}}},
+                {"$sort": {"created_at": -1, "order_id": -1}},
+                {"$skip": offset},
+                {"$limit": limit},
+                {"$project": {"_grants": 0}},
+            ]
+            rows = list(self.db.b2b_orders.aggregate(pipeline, session=session))
+            for row in rows:
+                self._permission(principal, "get", row)
+                self._buyer(org, row["created_by"], row["customer_id"], session)
+            return tuple(_decode(row, org) for row in rows)
+
+        return self._transaction(request, context, read)
+
+    def buyers(self, request, context, limit=20, offset=0):
+        self._pagination(limit, offset)
+
+        def read(principal, session):
+            self._permission(principal, "prepare")
+            org, user = principal.organization_id, principal.user_id
+            rows = (
+                self.db.b2b_buyers.find(
+                    {
+                        "organization_id": org,
+                        "user_id": user,
+                        "status": "active",
+                    },
+                    session=session,
+                )
+                .sort("customer_id", 1)
+                .skip(offset)
+                .limit(limit)
+            )
+            return tuple(
+                BuyerAssociation(
+                    r["association_id"],
+                    org,
+                    user,
+                    r["customer_id"],
+                    BuyerAssociationStatus(r["status"]),
+                    str(_integer(r["revision"])),
+                )
+                for r in rows
+            )
+
+        return self._transaction(request, context, read)
+
+    def result(self, request, context, namespace, operation_id):
+        if namespace not in ("prepare", "confirm", "cancel"):
+            raise ValueError("Known operation namespace required.")
+        identifier(operation_id)
+
+        def read(principal, session):
+            org = principal.organization_id
+            operation = self.db.b2b_order_operations.find_one(
+                {
+                    "organization_id": org,
+                    "namespace": namespace,
+                    "operation_id": operation_id,
+                    "user_id": principal.user_id,
+                },
+                session=session,
+            )
+            if operation is None:
+                raise TenantOrderNotFound(
+                    "Operation unavailable; absence is not abort."
+                )
+            row = self._load(org, operation["order_id"], session)
+            self._permission(principal, namespace, row)
+            self._buyer(org, row["created_by"], row["customer_id"], session)
+            return _decode(row, org)
+
+        return self._transaction(request, context, read)
