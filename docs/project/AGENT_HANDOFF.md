@@ -108,3 +108,15 @@ Ne pas réparer une initialisation partielle par reset, retrait de manifeste ou 
 
 Base distante réelle `cb0c7eb` (#55), branche `fix/v1392-b2b-advice-ux-stabilization`, worktree `/tmp/stockpilot-v1392`. La démo persistante existe : ne pas init/start/stop/migrer/modifier stockpilot-b2b-local ou son état privé. Tests BFF jetables avec `B2B_TEST_PORT_SET=isolated` sur59914/59915/59916/59918, car57914/57915 sont protégés. Relire diagnostic, preuves et limites avant toute reprise.
 [Diagnostic et validation V13.9.2](../validation/v13.9.2-natural-advice-ux.md).
+
+## Préparation V13.9.3 — 22 octobre 2026
+
+Main vérifié à d36d658 (#56), installation déclarée à cb0c7eb ; moteur Docker
+inaccessible lors de l'audit, version des conteneurs non confirmée. Verdict
+**BLOCKED**, aucun arrêt/upgrade/migration. Configuration privée sauvegardée et
+relue, sans données de bases ; aucune restauration locale démontrée.
+[Rapport](../reports/v13.9.3-persistent-upgrade-readiness.md),
+[runbook proposé](../runbooks/v13.9.3-persistent-upgrade.md).
+Le préparateur stage/plan écrit uniquement des candidats hors état canonique.
+Avant reprise : inventaire vivant, fenêtre autorisée, backup apparié et restore
+isolé, puis décision distincte d'upgrade. Préserver les deux checkouts protégés.

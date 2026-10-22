@@ -390,6 +390,11 @@ logout SSO Keycloak. Les droits et ownership sont toujours revalidés côté ser
 
 ### Persistance, sauvegarde et incident
 
+Préparation de mise à jour V13.9.3 : [audit daté et verdict BLOCKED](reports/v13.9.3-persistent-upgrade-readiness.md),
+[runbook proposé](runbooks/v13.9.3-persistent-upgrade.md). La sauvegarde privée
+de configuration réalisée par cet audit ne contient pas les bases. Ces documents
+n'autorisent aucun arrêt, redémarrage ou upgrade de l'installation persistante.
+
 Les quatre volumes, tous les secrets/certificats et les clés d’opération restent
 identiques lors de stop/resume. Retrouver commandes, reserved, conversations,
 checkpoints et comptes est vérifié sur installations **temporaires**.
