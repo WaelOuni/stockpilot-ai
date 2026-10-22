@@ -120,3 +120,13 @@ relue, sans données de bases ; aucune restauration locale démontrée.
 Le préparateur stage/plan écrit uniquement des candidats hors état canonique.
 Avant reprise : inventaire vivant, fenêtre autorisée, backup apparié et restore
 isolé, puis décision distincte d'upgrade. Préserver les deux checkouts protégés.
+
+### Reprise Docker V13.9.3 — 22 octobre, 18:22 UTC
+
+PR #57 fusionnée extérieurement à cette mission à `3545b8e`, contenu identique à `2e8c036`.
+Docker accessible ; six conteneurs B2B arrêtés/sortie255, identités conformes.
+Backend embarqué : 206/206 fichiers cb0c7eb, V13.9.2 absent. Pas de démarrage,
+dump ou récupération : schémas vivants/pending non vérifiés. READY FOR BACKUP
+APPROVAL limité à une conservation physique à froid non validée ; upgrade et
+backup logique restent BLOCKED. [Rapport réel](../reports/v13.9.3-docker-readonly-resumption.md),
+[commandes proposées](../runbooks/v13.9.3-cold-preservation.md).
