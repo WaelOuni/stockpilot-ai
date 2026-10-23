@@ -14,7 +14,7 @@ from datetime import datetime, UTC
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / 'src')]
-WSL = '/mnt/c/Windows/System32/wsl.exe'
+from scripts.wsl_launcher import WSL, WINDOWS_CWD, WslLaunchError, run_wsl, list_running
 CSCRIPT = '/mnt/c/Windows/System32/cscript.exe'
 SERVICES = {'mongo', 'test-postgres', 'keycloak-db', 'keycloak', 'bff', 'proxy'}
 VOLUMES = {'mongo': {'stockpilot-b2b-local_mongo-data': '/data/db', 'stockpilot-b2b-local_mongo-config': '/data/configdb'},
@@ -35,6 +35,18 @@ def command(args):
         raise Refused('command_unavailable_or_timeout') from None
     need(result.returncode == 0, 'command_failed')
     return result.stdout
+
+def wsl_command(distribution, args):
+    try:
+        return run_wsl(distribution, args)
+    except WslLaunchError as exc:
+        raise Refused(exc.reason) from None
+
+def running_distributions():
+    try:
+        return list_running()
+    except WslLaunchError as exc:
+        raise Refused(exc.reason) from None
 
 def data(args):
     try:
@@ -64,7 +76,7 @@ def validate_windows(value, minimum):
 def windows(minimum):
     path = command(['wslpath', '-w', str(ROOT / 'scripts/b2b_windows_preflight.js')]).decode().strip()
     try:
-        result = subprocess.run([CSCRIPT, '//nologo', path, uuid.uuid4().hex, str(minimum)], capture_output=True, timeout=60)
+        result = subprocess.run([CSCRIPT, '//nologo', path, uuid.uuid4().hex, str(minimum)], capture_output=True, timeout=60, cwd=str(WINDOWS_CWD))
     except (OSError, subprocess.SubprocessError):
         raise Refused('windows_helper_unavailable_or_timeout') from None
     if result.returncode != 0 or result.stderr:
@@ -145,7 +157,7 @@ def validate_cgroups(text, source_ids, live):
 def cgroups(source_ids, live):
     # A partial /proc read must fail even if a positive control is found elsewhere.
     script = 'bad=0; for f in /proc/[0-9]*/cgroup; do content=$(cat "$f" 2>/dev/null) || { test ! -e "$f" || bad=1; continue; }; printf "%s\\n" "$content"; done; exit "$bad"'
-    result = command([WSL, '-d', 'docker-desktop', '--exec', 'sh', '-c', script]).decode()
+    result = wsl_command('docker-desktop', ['sh', '-c', script]).decode()
     validate_cgroups(result, source_ids, live)
     return {'source_processes': 0, 'positive_controls': len(live), 'all_live_controls_present': True, 'proc_read_complete': True}
 
@@ -202,6 +214,9 @@ def run(evidence, destination):
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise Refused('cooperative_operation_already_active') from None
+        distros = active_distros(running_distributions())
+        linux = linux_administration()
+        native = windows(36 * 1024**3)
         endpoint = command(['docker', 'context', 'inspect', '--format', '{{.Endpoints.docker.Host}}']).decode().strip()
         need(endpoint == 'unix:///var/run/docker.sock' and os.environ.get('DOCKER_HOST', endpoint) == endpoint, 'local_desktop_socket_required')
         d.load(); d.attest()
@@ -212,19 +227,16 @@ def run(evidence, destination):
         record('before.json', before)
         record('private-file-hashes.json', files_before)
         source_ids, live = validate_sources(rows, d.manifest)
-        distros = active_distros(command([WSL, '--list', '--running', '--quiet']))
-        linux = linux_administration()
-        native = windows(36 * 1024**3)
         process = cgroups(source_ids, live)
         free = {'windows': native['free_bytes'], 'ubuntu': shutil.disk_usage(d.state).free,
-                'docker': int(command([WSL, '-d', 'docker-desktop', '--exec', 'df', '-B1', '/mnt/docker-desktop-disk']).decode().splitlines()[-1].split()[3])}
+                'docker': int(wsl_command('docker-desktop', ['df', '-B1', '/mnt/docker-desktop-disk']).decode().splitlines()[-1].split()[3])}
         need(min(free.values()) >= 36 * 1024**3, 'physical_capacity_and_reserve')
         d.load(); d.attest()
         rows_after, after = snapshot()
         record('after.json', after)
         validate_sources(rows_after, d.manifest)
         cgroups(source_ids, live)
-        active_distros(command([WSL, '--list', '--running', '--quiet']))
+        active_distros(running_distributions())
         linux_administration()
         windows(36 * 1024**3)
         need(before == after, 'docker_metadata_changed')
