@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 from pathlib import Path
 import subprocess
 import tempfile
@@ -10,29 +11,36 @@ from scripts import wsl_launcher as w
 from scripts import b2b_cold_preflight as p
 
 class LauncherTests(unittest.TestCase):
+    @contextmanager
+    def available_host(self):
+        # These argv/error unit tests must also run on native Linux CI, which
+        # has no Windows System32 mount. Real cwd refusal tests stay unmocked.
+        with patch.object(w.Path, 'is_dir', return_value=True), patch.object(w.os, 'access', return_value=True):
+            yield
+
     def result(self, rc=0, out=b'/home/waelko\n', err=b''):
         return subprocess.CompletedProcess([],rc,out,err)
 
     def test_explicit_ubuntu_argv_and_host_cwd(self):
-        with patch.object(w.subprocess,'run',return_value=self.result()) as run:
+        with self.available_host(), patch.object(w.subprocess,'run',return_value=self.result()) as run:
             self.assertEqual(w.run_wsl('Ubuntu',['/usr/bin/pwd']),b'/home/waelko\n')
         self.assertEqual(run.call_args.args[0],[w.WSL,'--distribution','Ubuntu','--cd','/home/waelko','--exec','/usr/bin/pwd'])
         self.assertEqual(run.call_args.kwargs['cwd'],str(w.WINDOWS_CWD))
         self.assertIs(run.call_args.kwargs['shell'],False)
 
     def test_desktop_fixed_root(self):
-        with patch.object(w.subprocess,'run',return_value=self.result()) as run:
+        with self.available_host(), patch.object(w.subprocess,'run',return_value=self.result()) as run:
             w.run_wsl('docker-desktop',['df','-B1','/mnt/docker-desktop-disk'])
         self.assertEqual(run.call_args.args[0][1:6],['--distribution','docker-desktop','--cd','/','--exec'])
 
     def test_list_has_representable_host_cwd(self):
-        with patch.object(w.subprocess,'run',return_value=self.result()) as run:w.list_running()
+        with self.available_host(), patch.object(w.subprocess,'run',return_value=self.result()) as run:w.list_running()
         self.assertEqual(run.call_args.args[0],[w.WSL,'--list','--running','--quiet'])
         self.assertEqual(run.call_args.kwargs['cwd'],str(w.WINDOWS_CWD))
 
     def test_special_characters_remain_argv(self):
         args=['/usr/bin/printf','%s','spaces & ; $ ( ) " \\ é']
-        with patch.object(w.subprocess,'run',return_value=self.result()) as run:w.run_wsl('Ubuntu',args)
+        with self.available_host(), patch.object(w.subprocess,'run',return_value=self.result()) as run:w.run_wsl('Ubuntu',args)
         self.assertEqual(run.call_args.args[0][6:],args)
 
     def test_host_cwd_with_spaces(self):
@@ -47,19 +55,19 @@ class LauncherTests(unittest.TestCase):
         run.assert_not_called()
 
     def test_inaccessible_host_cwd_does_not_launch(self):
-        with patch.object(w.os,'access',return_value=False),patch.object(w.subprocess,'run') as run:
+        with patch.object(w.Path,'is_dir',return_value=True),patch.object(w.os,'access',return_value=False),patch.object(w.subprocess,'run') as run:
             with self.assertRaisesRegex(w.WslLaunchError,'host_cwd_unavailable'):w.run_wsl('Ubuntu',['/usr/bin/pwd'])
         run.assert_not_called()
 
     def test_nonzero_and_stderr_refuse_without_losing_raw_diagnostics(self):
         for rc,err,reason in [(4,b'', 'nonzero_exit'),(0,b'unexpected warning\n','unexpected_stderr'),(0,b'wsl: Failed to translate UNC\n','unexpected_stderr')]:
-            with self.subTest(rc=rc,err=err),patch.object(w.subprocess,'run',return_value=self.result(rc=rc,err=err)):
+            with self.subTest(rc=rc,err=err),self.available_host(),patch.object(w.subprocess,'run',return_value=self.result(rc=rc,err=err)):
                 with self.assertRaisesRegex(w.WslLaunchError,reason) as caught:w.run_wsl('Ubuntu',['/usr/bin/pwd'])
                 self.assertEqual(caught.exception.result.stderr,err)
 
     def test_unavailable_or_timeout(self):
         for exc in [FileNotFoundError(),PermissionError(),subprocess.TimeoutExpired('wsl',1)]:
-            with patch.object(w.subprocess,'run',side_effect=exc):
+            with self.available_host(),patch.object(w.subprocess,'run',side_effect=exc):
                 with self.assertRaisesRegex(w.WslLaunchError,'unavailable_or_timeout'):w.run_wsl('Ubuntu',['/usr/bin/pwd'])
 
     def test_unknown_distribution_cwd_and_arguments(self):
