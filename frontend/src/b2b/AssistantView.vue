@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, dateLabel } from './preferences'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useB2B } from './session'
@@ -8,6 +9,11 @@ import { StaleResponse } from './client'
 import { formatMoney } from './money'
 import { useTask } from './tasks'
 import { mutate } from './workflows'
+import ComparisonPanel from './ComparisonPanel.vue'
+
+const props = defineProps<{ embedded?: boolean }>()
+const localConversation = ref('')
+const comparison = ref<string[]>([])
 
 const statusLabels = { prepared: 'Préparée — aucun stock réservé', reserved: 'Réservée', cancelled: 'Annulée' }
 const kindLabels = { message: 'Message', confirm: 'Confirmation', cancel: 'Annulation' }
@@ -27,7 +33,11 @@ const historyOffset = ref(0)
 const hasMore = ref(false)
 let epoch = 0
 let disposed = false
-const id = computed(() => typeof route.params.conversationId === 'string' ? route.params.conversationId : '')
+const id = computed(() => props.embedded ? localConversation.value : typeof route.params.conversationId === 'string' ? route.params.conversationId : '')
+async function selectConversation(value: string) {
+  if (props.embedded) localConversation.value = value
+  else await router.push('/b2b-app/assistant/' + encodeURIComponent(value))
+}
 const base = computed(() => '/b2b/api/assistant/conversations/' + encodeURIComponent(id.value))
 const globallyPending = computed(() => session.pending.value.length > 0)
 const pending = computed(() => turns.value.find(t => t.status === 'pending'))
@@ -57,7 +67,7 @@ async function create() {
     const result = await session.client.request('/b2b/api/assistant/conversations', object({ conversation_id: text }), {
       method: 'POST', body: { thread_id: crypto.randomUUID() },
     })
-    current(version); await router.push('/b2b-app/assistant/' + encodeURIComponent(result.conversation_id))
+    current(version); await selectConversation(result.conversation_id)
   })
 }
 async function send() {
@@ -113,15 +123,15 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
 <template>
   <section>
     <p class="eyebrow">
-      Conseil et commandes de votre entreprise
+      {{ t("Conseil et commandes de votre entreprise") }}
     </p>
-    <h1>Assistant StockPilot</h1>
-    <p>Les recherches utilisent votre catalogue et vos documents. Une conversation ne confirme jamais une réservation.</p>
+    <h1>{{ t("Assistant StockPilot") }}</h1>
+    <p>{{ t("Les recherches utilisent votre catalogue et vos documents. Une conversation ne confirme jamais une réservation.") }}</p>
     <p
       v-if="!enabled"
       role="status"
     >
-      L’assistant n’est pas activé dans cet environnement.
+      {{ t("L’assistant n’est pas activé dans cet environnement.") }}
     </p>
     <template v-else>
       <p
@@ -129,34 +139,34 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
         class="b2b-notice"
         role="status"
       >
-        Une opération métier reste à vérifier dans le panneau de réconciliation. Aucune nouvelle préparation ou confirmation ne sera envoyée.
+        {{ t("Une opération métier reste à vérifier dans le panneau de réconciliation. Aucune nouvelle préparation ou confirmation ne sera envoyée.") }}
       </p>
       <p
         v-if="error"
         role="alert"
       >
-        {{ error }}
+        {{ t(error) }}
       </p>
       <div class="b2b-actions">
         <button
           :disabled="busy"
           @click="create"
         >
-          Nouvelle conversation
+          {{ t("Nouvelle conversation") }}
         </button>
-        <label>Mes conversations
+        <label>{{ t("Mes conversations") }}
           <select
             :value="id"
             :disabled="busy"
-            @change="router.push('/b2b-app/assistant/' + encodeURIComponent(($event.target as HTMLSelectElement).value))"
+            @change="selectConversation(($event.target as HTMLSelectElement).value)"
           >
-            <option value="">Choisir une conversation</option>
+            <option value="">{{ t("Choisir une conversation") }}</option>
             <option
               v-for="conversation in conversations"
               :key="conversation.conversation_id"
               :value="conversation.conversation_id"
             >
-              Conversation du {{ new Date(conversation.created_at).toLocaleString('fr-FR') }}
+              {{ t("Conversation du") }} {{ dateLabel(conversation.created_at) }}
             </option>
           </select>
         </label>
@@ -166,7 +176,7 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
           :disabled="busy"
           @click="run(() => history(true))"
         >
-          Reprendre et vérifier
+          {{ t("Reprendre et vérifier") }}
         </button>
       </div>
       <template v-if="id">
@@ -174,19 +184,19 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
           v-if="busy"
           role="status"
         >
-          Traitement en cours… Aucun nouvel essai automatique.
+          {{ t("Traitement en cours… Aucun nouvel essai automatique.") }}
         </p>
         <aside
           v-if="unknown || pending"
           class="b2b-notice"
           role="status"
         >
-          <p>Une réponse reste à vérifier. Le délai réseau ne prouve ni un échec ni une annulation.</p>
+          <p>{{ t("Une réponse reste à vérifier. Le délai réseau ne prouve ni un échec ni une annulation.") }}</p>
           <button
             :disabled="busy"
             @click="run(() => history(true))"
           >
-            Vérifier le résultat durable
+            {{ t("Vérifier le résultat durable") }}
           </button>
           <button
             v-if="pending"
@@ -194,11 +204,11 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
             :disabled="busy"
             @click="retry"
           >
-            Rejouer explicitement la même demande
+            {{ t("Rejouer explicitement la même demande") }}
           </button>
         </aside>
         <div
-          aria-label="Historique de conversation"
+          :aria-label="t('Historique de conversation')"
           aria-live="polite"
         >
           <article
@@ -208,13 +218,13 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
             :class="{ 'assistant-order': !!turn.reply?.order, 'assistant-error': turn.reply?.intent === 'CLARIFICATION_REQUIRED' || turn.reply?.intent === 'ORDER_REFUSED' }"
           >
             <p class="hint">
-              {{ new Date(turn.created_at).toLocaleString('fr-FR') }} · {{ kindLabels[turn.kind] }}
+              {{ dateLabel(turn.created_at) }} · {{ t(kindLabels[turn.kind]) }}
             </p>
             <p
               v-if="turn.message"
               class="assistant-user"
             >
-              <strong>Vous :</strong> {{ turn.message }}
+              <strong>{{ t("Vous :") }}</strong> {{ turn.message }}
             </p>
             <template v-if="turn.reply">
               <p class="assistant-answer">
@@ -223,7 +233,7 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
               </p>
               <div
                 class="b2b-grid assistant-results"
-                aria-label="Produits vérifiés"
+                :aria-label="t('Produits vérifiés')"
               >
                 <article
                   v-for="product in turn.reply.products"
@@ -232,74 +242,81 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
                 >
                   <h2>{{ product.name }}</h2>
                   <p>{{ product.sku }} · {{ formatMoney(product.price_minor, product.currency) }}</p>
-                  <p>Physique {{ product.quantity }} · Réservé {{ product.reserved }} · Disponible {{ product.available }}</p>
+                  <p>{{ t("Physique") }} {{ product.quantity }} {{ t("· Réservé") }} {{ product.reserved }} {{ t("· Disponible") }} {{ product.available }}</p>
                   <p class="hint">
-                    Observation du {{ new Date(product.observed_at).toLocaleString('fr-FR') }}. Ce message conserve ses données d’origine.
+                    {{ t("Observation du") }} {{ dateLabel(product.observed_at) }}{{ t(". Ce message conserve ses données d’origine.") }}
                   </p>
                 </article>
               </div>
+              <button
+                v-if="turn.reply.products.length > 1"
+                class="secondary"
+                @click="comparison = turn.reply.products.slice(0, 4).map(product => product.product_id)"
+              >
+                {{ t("Comparer ces produits") }}
+              </button>
               <div
                 v-if="turn.reply.order"
                 class="assistant-order-summary"
               >
-                <p>Commande {{ turn.reply.order.order_id }} · État observé : {{ statusLabels[turn.reply.order.status] }}</p>
+                <p>{{ t("Commande") }} {{ turn.reply.order.order_id }} {{ t("· État observé :") }} {{ t(statusLabels[turn.reply.order.status]) }}</p>
                 <ul>
                   <li
                     v-for="line in turn.reply.order.lines"
                     :key="line.product_id"
                   >
-                    {{ line.sku }} · quantité {{ line.quantity }} · {{ formatMoney(line.price_minor, line.currency) }}
+                    {{ line.sku }} {{ t("· quantité") }} {{ line.quantity }} · {{ formatMoney(line.price_minor, line.currency) }}
                   </li>
                 </ul>
               </div>
             </template>
             <p v-else>
-              Demande enregistrée, résultat à vérifier.
+              {{ t("Demande enregistrée, résultat à vérifier.") }}
             </p>
           </article>
           <p v-if="!turns.length && !busy">
-            Posez une question ou recherchez un produit par son SKU.
+            {{ t("Posez une question ou recherchez un produit par son SKU.") }}
           </p>
         </div>
         <nav
           class="b2b-actions"
-          aria-label="Pages de conversation"
+          :aria-label="t('Pages de conversation')"
         >
           <button
             class="secondary"
             :disabled="busy || !hasMore"
             @click="older(1)"
           >
-            Messages plus anciens
+            {{ t("Messages plus anciens") }}
           </button>
           <button
             class="secondary"
             :disabled="busy || historyOffset === 0"
             @click="older(-1)"
           >
-            Messages plus récents
+            {{ t("Messages plus récents") }}
           </button>
         </nav>
         <section
           v-if="order && historyOffset === 0"
           class="b2b-card"
-          aria-label="Action sur la commande"
+          :aria-label="t('Action sur la commande')"
         >
-          <h2>{{ canConfirm ? 'Confirmer la préparation' : 'Suivi de la commande' }}</h2>
+          <h2>{{ canConfirm ? t("Confirmer la préparation") : t("Suivi de la commande") }}</h2>
           <p class="hint">
-            Référence : {{ order.order_id }}
+            {{ t("Référence :") }} {{ order.order_id }}
           </p>
           <template v-if="canConfirm && session.has('order:create')">
             <label><span><input
               v-model="confirmation"
               :disabled="busy || !!pending || unknown || globallyPending"
               type="checkbox"
-            /> Je confirme les SKU, quantités et prix du dernier récapitulatif.</span></label>
+            /> {{ t("Je confirme les SKU, quantités et prix du dernier récapitulatif.") }}</span></label>
             <button
               :disabled="busy || !!pending || unknown || globallyPending || !confirmation"
               @click="action('confirm')"
             >
-              Confirmer et réserver
+              {{ t("Confirmer et réserver") }}
             </button>
           </template>
           <template v-if="order.status === 'reserved' && (session.has('order:cancel_own') || session.has('order:cancel_organization'))">
@@ -307,16 +324,16 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
               v-model="cancelConfirmation"
               :disabled="busy || !!pending || unknown || globallyPending"
               type="checkbox"
-            /> Je demande l’annulation de cette commande.</span></label>
+            /> {{ t("Je demande l’annulation de cette commande.") }}</span></label>
             <button
               :disabled="busy || !!pending || unknown || globallyPending || !cancelConfirmation"
               @click="action('cancel')"
             >
-              Confirmer l’annulation
+              {{ t("Confirmer l’annulation") }}
             </button>
           </template>
           <p v-if="order.status === 'prepared' && !canConfirm">
-            Cette préparation ne peut plus être confirmée ici. Vérifiez son état et préparez à nouveau si nécessaire.
+            {{ t("Cette préparation ne peut plus être confirmée ici. Vérifiez son état et préparez à nouveau si nécessaire.") }}
           </p>
         </section>
         <form
@@ -324,12 +341,12 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
           class="b2b-card"
           @submit.prevent="send"
         >
-          <label v-if="session.has('order:create')">Acheteur pour une préparation
+          <label v-if="session.has('order:create')">{{ t("Acheteur pour une préparation") }}
             <select
               v-model="buyer"
               :disabled="busy"
             >
-              <option value="">Aucun acheteur sélectionné</option>
+              <option value="">{{ t("Aucun acheteur sélectionné") }}</option>
               <option
                 v-for="association in buyers"
                 :key="association.association_id"
@@ -337,22 +354,27 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
               >{{ association.customer_id }}</option>
             </select>
           </label>
-          <label>Votre message
+          <label>{{ t("Votre message") }}
             <textarea
               v-model="message"
               required
               maxlength="4000"
               rows="3"
               :disabled="busy || !!pending || unknown || globallyPending"
-              placeholder="Ex. Des perceuses disponibles à moins de 50 €"
+              :placeholder="t('Ex. Des perceuses disponibles à moins de 50 €')"
             ></textarea>
           </label>
           <button :disabled="busy || !!pending || unknown || globallyPending || !message.trim()">
-            Envoyer le message
+            {{ t("Envoyer le message") }}
           </button>
         </form>
       </template>
     </template>
+    <ComparisonPanel
+      v-if="comparison.length > 1"
+      :ids="comparison"
+      @close="comparison = []"
+    />
   </section>
 </template>
 <style scoped>

@@ -159,6 +159,44 @@ class MongoTenantCatalogue:
         except (MigrationError, PyMongoError, ValueError):
             raise TenantCatalogueUnavailable("B2B schema unavailable.") from None
 
+    def export_rows(self, request, context, mode, category=None):
+        from stockpilot.domain.entities.tenant_stock_operation import ImportMode
+
+        if not isinstance(mode, ImportMode):
+            raise ValueError("Explicit export mode required.")
+        org = self._scope(request, context, O.CATALOGUE_READ)
+        if mode is not ImportMode.METADATA_ONLY:
+            self._scope(request, context, O.STOCK_READ)
+        filters = {"organization_id": org, "status": "active"}
+        if category is not None:
+            if type(category) is not str or not 1 <= len(category) <= 128:
+                raise ValueError("Bounded category required.")
+            filters["category"] = category
+        try:
+            rows = list(self.collection.find(filters).sort("sku", 1).limit(1001).max_time_ms(2000))
+            if len(rows) > 1000:
+                raise ValueError("Export limited to 1000 products; select a category.")
+            headers = ["sku", "quantity"] if mode is ImportMode.STOCK_ONLY else [
+                "sku", "name", "description", "category", "price_minor", "currency"
+            ] + (["quantity"] if mode is ImportMode.CREATE_ONLY else [])
+            exported = []
+            size = 0
+            for row in rows:
+                _product(row, org)
+                if mode is not ImportMode.METADATA_ONLY:
+                    _stock(row, org)
+                values = [str(row[field]) for field in headers]
+                size += sum(len(value.encode("utf-8")) for value in values)
+                if size > 4 * 1024 * 1024:
+                    raise ValueError("Export size limit exceeded; select a category.")
+                exported.append(values)
+            self._scope(request, context, O.CATALOGUE_READ)
+            if mode is not ImportMode.METADATA_ONLY:
+                self._scope(request, context, O.STOCK_READ)
+            return {"headers": headers, "rows": exported}
+        except (PyMongoError, KeyError, TypeError):
+            raise TenantCatalogueUnavailable("Scoped catalogue export unavailable.") from None
+
     def resolution_candidates(
         self, request, context, reference, *, exact=False, limit=21
     ):

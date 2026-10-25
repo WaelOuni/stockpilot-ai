@@ -49,6 +49,37 @@ REQUESTS = {"org-a": object(), "org-b": object()}
 ISSUER = "https://synthetic.example/realms/test"
 
 
+def test_export_is_scoped_exact_and_does_not_include_inactive_products(catalogue, db):
+    from stockpilot.domain.entities.tenant_stock_operation import ImportMode
+    from bson.int64 import Int64
+
+    repo, contexts, docs, _ = catalogue
+    db.b2b_products.update_one({"_id": docs[0]["_id"]}, {"$set": {"price_minor": Int64(9223372036854775807), "name": '=formula, "quoted"'}})
+    db.b2b_products.update_one({"_id": docs[1]["_id"]}, {"$set": {"status": "inactive"}})
+    exported = repo.export_rows(REQUESTS["org-a"], contexts["org-a"], ImportMode.CREATE_ONLY)
+    assert exported["headers"] == ["sku", "name", "description", "category", "price_minor", "currency", "quantity"]
+    assert len(exported["rows"]) == 1
+    assert exported["rows"][0][0] == "DRILL-001"
+    assert exported["rows"][0][1] == '=formula, "quoted"'
+    assert exported["rows"][0][4] == "9223372036854775807"
+    assert exported["rows"][0][6] == "10"
+    assert repo.export_rows(REQUESTS["org-a"], contexts["org-a"], ImportMode.METADATA_ONLY, "saw")["rows"] == []
+    assert repo.export_rows(REQUESTS["org-b"], contexts["org-b"], ImportMode.STOCK_ONLY)["rows"] == [["DRILL-001", "2"], ["SAW-002", "7"]]
+    with pytest.raises(AuthorizationDenied):
+        repo.export_rows(REQUESTS["org-b"], contexts["org-a"], ImportMode.CREATE_ONLY)
+
+
+def test_export_refuses_truncation_and_revoked_membership(catalogue, db):
+    from stockpilot.domain.entities.tenant_stock_operation import ImportMode
+    repo, contexts, _, _ = catalogue
+    db.b2b_products.insert_many([document(sku=f"EXTRA-{i:04}") for i in range(1000)])
+    with pytest.raises(ValueError, match="1000"):
+        repo.export_rows(REQUESTS["org-a"], contexts["org-a"], ImportMode.METADATA_ONLY)
+    db.b2b_memberships.update_one({"membership_id": "m-org-a"}, {"$set": {"status": "suspended"}})
+    with pytest.raises(AuthorizationDenied):
+        repo.export_rows(REQUESTS["org-a"], contexts["org-a"], ImportMode.STOCK_ONLY)
+
+
 class SyntheticAuthentication:
     """Test-only authentication for independent, explicitly provisioned humans."""
 

@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { t } from './preferences'
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import DetailsPanel from './DetailsPanel.vue'
+import ProductEditor from './ProductEditor.vue'
+import ProductVisual from './ProductVisual.vue'
+import ComparisonPanel from './ComparisonPanel.vue'
+import ExportPanel from './ExportPanel.vue'
 import { useB2B } from './session'
 import { productDecoder, productsDecoder, stockDecoder, type Product, type Stock } from './contracts'
 import { formatMoney } from './money'
@@ -18,6 +23,13 @@ const sku = ref('')
 const category = ref('')
 const available = ref(false)
 const selected = ref<Product | null>(null)
+const editor = ref<'create' | 'edit' | 'remove' | null>(null)
+const edited = ref<Product>()
+const exportOpen = ref(false)
+const compared = ref<string[]>([])
+const comparisonOpen = ref(false)
+function edit(product: Product, remove = false) { edited.value = product; editor.value = remove ? 'remove' : 'edit' }
+async function saved() { editor.value = null; compared.value = []; await load() }
 const limit = 12
 async function load(reset = false) {
   await run(async () => {
@@ -57,17 +69,31 @@ onMounted(() => { void load() })
   <section>
     <div class="page-heading">
       <p class="eyebrow">
-        Votre organisation
+        {{ t("Votre organisation") }}
       </p>
-      <h1>Catalogue</h1>
-      <p>Prix et disponibilités issus de votre catalogue. Une consultation ne réserve aucun stock.</p>
+      <h1>{{ t("Catalogue") }}</h1>
+      <p>{{ t("Prix et disponibilités issus de votre catalogue. Une consultation ne réserve aucun stock.") }}</p>
+      <div class="b2b-actions">
+        <button
+          v-if="session.has('import:execute')"
+          @click="edited = undefined; editor = 'create'"
+        >
+          {{ t("Ajouter un produit") }}
+        </button>
+        <button
+          class="secondary"
+          @click="exportOpen = true"
+        >
+          {{ t("Exporter CSV") }}
+        </button>
+      </div>
     </div>
     <form
       class="b2b-card"
       @submit.prevent="load(true)"
     >
       <div class="b2b-actions">
-        <label>SKU exact
+        <label>{{ t("SKU exact") }}
           <input
             v-model="sku"
             maxlength="128"
@@ -75,48 +101,48 @@ onMounted(() => { void load() })
             placeholder="Ex. DRILL-001"
           />
         </label>
-        <label>Catégorie exacte
+        <label>{{ t("Catégorie exacte") }}
           <input
             v-model="category"
             maxlength="128"
             :disabled="busy || !!sku.trim()"
           />
         </label>
-        <label><span>Disponibilité</span>
+        <label><span>{{ t("Disponibilité") }}</span>
           <span><input
             v-model="available"
             type="checkbox"
             :disabled="busy || !!sku.trim()"
-          /> En stock uniquement</span>
+          /> {{ t("En stock uniquement") }}</span>
         </label>
         <button :disabled="busy">
-          Rechercher
+          {{ t("Rechercher") }}
         </button>
       </div>
       <p class="hint">
-        Le SKU est une recherche exacte ; les autres filtres s’appliquent à la liste paginée.
+        {{ t("Le SKU est une recherche exacte ; les autres filtres s’appliquent à la liste paginée.") }}
       </p>
     </form>
     <p
       v-if="error"
       role="alert"
     >
-      {{ error }}
+      {{ t(error) }}
     </p>
     <p
       v-if="busy"
       role="status"
     >
-      Chargement du catalogue…
+      {{ t("Chargement du catalogue…") }}
     </p>
     <p
       v-else-if="!products.length"
       role="status"
     >
-      Aucun produit trouvé dans votre organisation.
+      {{ t("Aucun produit trouvé dans votre organisation.") }}
     </p>
     <p v-else>
-      {{ total }} produit(s) · page {{ Math.floor(offset / limit) + 1 }}
+      {{ total }} {{ t("produit(s) · page") }} {{ Math.floor(offset / limit) + 1 }}
     </p>
     <div class="b2b-grid">
       <article
@@ -124,17 +150,22 @@ onMounted(() => { void load() })
         :key="product.product_id"
         class="b2b-card"
       >
+        <ProductVisual :category="product.category" />
         <p class="eyebrow">
           {{ product.sku }}
         </p>
         <h2>{{ product.name }}</h2>
+        <span class="category-tag">{{ product.category }}</span>
+        <p class="product-summary">
+          {{ product.description }}
+        </p>
         <p class="b2b-price">
           {{ formatMoney(product.price_minor, product.currency) }}
         </p>
         <p v-if="stocks[product.product_id]">
-          Disponible : <strong>{{ stocks[product.product_id]?.available }}</strong>
-          · Réservé : {{ stocks[product.product_id]?.reserved }}
-          · Physique : {{ stocks[product.product_id]?.quantity }}
+          {{ t("Disponible :") }} <strong>{{ stocks[product.product_id]?.available }}</strong>
+          {{ t("· Réservé :") }} {{ stocks[product.product_id]?.reserved }}
+          {{ t("· Physique :") }} {{ stocks[product.product_id]?.quantity }}
         </p>
         <div class="b2b-actions">
           <button
@@ -142,49 +173,111 @@ onMounted(() => { void load() })
             :disabled="busy"
             @click="detail(product, $event)"
           >
-            Voir le produit
+            {{ t("Voir le produit") }}
           </button>
           <RouterLink
             v-if="session.has('order:create') && product.status === 'active'"
             :to="{ path: '/b2b-app/orders', query: { sku: product.sku } }"
           >
-            Préparer une commande
+            {{ t("Préparer une commande") }}
           </RouterLink>
+        </div>
+        <div class="product-card-footer">
+          <label class="check-label"><input
+            v-model="compared"
+            type="checkbox"
+            :value="product.product_id"
+            :disabled="compared.length >= 4 && !compared.includes(product.product_id)"
+          /> {{ t("Comparer") }}</label>
+          <div
+            v-if="session.has('import:execute')"
+            class="b2b-actions"
+          >
+            <button
+              class="secondary"
+              :disabled="busy"
+              @click="edit(product)"
+            >
+              {{ t("Modifier") }}
+            </button>
+            <button
+              class="secondary danger-link"
+              :disabled="busy"
+              @click="edit(product, true)"
+            >
+              {{ t("Retirer") }}
+            </button>
+          </div>
         </div>
       </article>
     </div>
+    <div
+      v-if="compared.length"
+      class="comparison-bar"
+      role="status"
+    >
+      <span>{{ compared.length }} {{ t("/ 4 produits sélectionnés") }}</span>
+      <button
+        :disabled="compared.length < 2"
+        @click="comparisonOpen = true"
+      >
+        {{ t("Comparer les produits") }}
+      </button>
+      <button
+        class="secondary"
+        @click="compared = []"
+      >
+        {{ t("Effacer la sélection") }}
+      </button>
+    </div>
+    <ProductEditor
+      v-if="editor"
+      :product="edited"
+      :remove="editor === 'remove'"
+      @close="editor = null"
+      @saved="saved"
+    />
+    <ExportPanel
+      v-if="exportOpen"
+      @close="exportOpen = false"
+    />
+    <ComparisonPanel
+      v-if="comparisonOpen"
+      :ids="compared"
+      @close="comparisonOpen = false"
+    />
     <nav
       v-if="!sku.trim()"
       class="b2b-actions"
-      aria-label="Pages du catalogue"
+      :aria-label="t('Pages du catalogue')"
     >
       <button
         class="secondary"
         :disabled="busy || offset === 0"
         @click="navigate(-1)"
       >
-        Précédent
+        {{ t("Précédent") }}
       </button>
       <button
         class="secondary"
         :disabled="busy || !more || offset + limit > 10000"
         @click="navigate(1)"
       >
-        Suivant
+        {{ t("Suivant") }}
       </button>
     </nav>
     <DetailsPanel
       v-if="selected"
       :title="selected.name"
       :return-focus="detailTrigger"
-      label="Détail produit"
+      :label="t('Détail produit')"
       @close="selected = null"
     >
       <p class="eyebrow">
-        Informations complémentaires · {{ selected.sku }}
+        {{ t("Informations complémentaires ·") }} {{ selected.sku }}
       </p>
-      <p>Catégorie : {{ selected.category }} · {{ selected.status === 'active' ? 'Au catalogue' : 'Retiré du catalogue' }}</p>
-      <p>{{ selected.description || 'Description non renseignée.' }}</p>
+      <p>{{ t("Catégorie :") }} {{ selected.category }} · {{ selected.status === 'active' ? t("Au catalogue") : t("Retiré du catalogue") }}</p>
+      <p>{{ selected.description || t("Description non renseignée.") }}</p>
 
       <ul>
         <li
@@ -198,7 +291,7 @@ onMounted(() => { void load() })
         v-if="!selected.attributes.length"
         class="hint"
       >
-        Aucune caractéristique complémentaire renseignée.
+        {{ t("Aucune caractéristique complémentaire renseignée.") }}
       </p>
     </DetailsPanel>
   </section>

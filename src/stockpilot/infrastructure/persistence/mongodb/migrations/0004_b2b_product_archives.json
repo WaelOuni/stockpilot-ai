@@ -1,0 +1,124 @@
+{
+  "version": 4,
+  "id": "0004_b2b_product_archives",
+  "description": "Add isolated durable product withdrawal receipts without changing historical stock schemas",
+  "collections": [
+    {
+      "collection": "b2b_product_archives",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "namespace",
+              "operation_id",
+              "actor_user_id",
+              "fingerprint",
+              "status",
+              "code",
+              "movement_ids",
+              "import_id",
+              "created_at",
+              "finished_at"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "namespace": {
+                "enum": [
+                  "archive"
+                ]
+              },
+              "operation_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "actor_user_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "fingerprint": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "status": {
+                "enum": [
+                  "pending",
+                  "succeeded",
+                  "rejected"
+                ]
+              },
+              "code": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "movement_ids": {
+                "bsonType": "array",
+                "maxItems": 100,
+                "uniqueItems": true,
+                "items": {
+                  "bsonType": "string",
+                  "pattern": "^\\S(?:.*\\S)?$",
+                  "maxLength": 128
+                }
+              },
+              "import_id": {
+                "bsonType": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 128
+              },
+              "created_at": {
+                "bsonType": "date"
+              },
+              "finished_at": {
+                "bsonType": [
+                  "date",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_archive_operation_id",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "namespace",
+              1
+            ],
+            [
+              "operation_id",
+              1
+            ]
+          ],
+          "unique": true
+        }
+      ]
+    }
+  ]
+}

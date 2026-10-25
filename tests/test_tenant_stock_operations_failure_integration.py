@@ -328,7 +328,7 @@ def test_upgrade0002_to0003_preserves_checksums_and_b2_collections(db):
     checksums = [
         r["checksum"] for r in db.stockpilot_schema_migrations.find().sort("_id", 1)
     ]
-    runner = MigrationRunner(db)
+    runner = MigrationRunner(db, registry()[:3])
     assert [m.version for m in runner.plan()] == [3]
     runner.apply(confirmation=db.name)
     for version in (1, 2, 3):
@@ -339,6 +339,24 @@ def test_upgrade0002_to0003_preserves_checksums_and_b2_collections(db):
     ][:2] == checksums
     for name in ("b2b_stock_operations", "b2b_imports", "b2b_stock_movements"):
         assert all("expireAfterSeconds" not in i for i in db[name].list_indexes())
+
+
+def test_upgrade0003_to0004_is_additive_and_keeps_historical_validators(db):
+    from test_tenant_catalogue_mongo_integration import document
+    MigrationRunner(db, registry()[:3]).apply(confirmation=db.name)
+    row = document()
+    db.b2b_products.insert_one(row)
+    names = db.list_collection_names()
+    options = {name: db[name].options() for name in names}
+    history = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
+    runner = MigrationRunner(db)
+    assert [m.version for m in runner.plan()] == [4]
+    runner.apply(confirmation=db.name)
+    runner.require_version(4)
+    assert {name: db[name].options() for name in names} == options
+    assert list(db.stockpilot_schema_migrations.find().sort("_id", 1))[:3] == history
+    assert db.b2b_products.find_one({"_id": row["_id"]}) == row
+    assert db.b2b_product_archives.count_documents({}) == 0
 
 
 def test_partial0003_blocks_all_gates_without_destructive_rollback(db):

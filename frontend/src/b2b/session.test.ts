@@ -9,6 +9,30 @@ import { orderDecoder, resultDecoder } from './contracts'
 beforeEach(() => sessionStorage.clear())
 afterEach(() => vi.useRealTimers())
 describe('server session lifecycle and tenant state', () => {
+  it('does not show an expired-session warning to a first-time visitor', async () => {
+    const s = createB2BSession(vi.fn().mockResolvedValue(json({}, 401)))
+    await s.restore()
+    expect(s.phase.value).toBe('guest')
+    expect(s.notice.value).toBe('')
+    s.dispose()
+  })
+  it('purges the old principal and pending references on a different account broadcast', async () => {
+    let receive!: (event: { data: unknown }) => void
+    const channel = { postMessage: vi.fn(), close: vi.fn(), set onmessage(value: typeof receive) { receive = value } }
+    vi.stubGlobal('BroadcastChannel', class { constructor() { return channel } })
+    const s = createB2BSession(vi.fn().mockResolvedValue(json(sessionFixture)))
+    try {
+      await s.start()
+      s.remember('orders', 'confirm')
+      receive({ data: { type: 'identity', user: sessionFixture.user_id, organization: sessionFixture.organization_id } })
+      expect(s.current.value).not.toBeNull()
+      receive({ data: { type: 'identity', user: 'manager-same-org', organization: sessionFixture.organization_id } })
+      expect(s.current.value).toBeNull()
+      expect(s.pending.value).toEqual([])
+      expect(sessionStorage.length).toBe(0)
+      expect(s.notice.value).toContain('compte a changé')
+    } finally { s.dispose(); vi.unstubAllGlobals() }
+  })
   it('restores the validated organization and permissions', async () => {
     const s = createB2BSession(vi.fn().mockResolvedValue(json(sessionFixture)))
     await s.restore()

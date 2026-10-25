@@ -18,6 +18,7 @@ from stockpilot.domain.entities.tenant_order import (
 from stockpilot.domain.entities.tenant_product import TenantProductQuery
 from stockpilot.domain.entities.tenant_stock_operation import (
     AdjustTenantStock,
+    ArchiveTenantProduct,
     ApplyTenantImport,
     ImportMode,
 )
@@ -25,6 +26,7 @@ from stockpilot.domain.enums.permission import Permission as P
 from stockpilot.presentation.api.b2b_boundary import worker
 from stockpilot.presentation.api.schemas.b2b import (
     AdjustmentIn,
+    ArchiveIn,
     ApplyIn,
     BuyerOut,
     CancelIn,
@@ -130,6 +132,12 @@ async def product_sku_query(request: Request, sku: Identifier):
     return await product_sku(request, sku)
 
 
+@router.get("/products/export")
+async def export_products(request: Request, mode: ImportMode, category: str | None = None):
+    exact_query(request, {"mode"} | ({"category"} if "category" in request.query_params else set()))
+    return await invoke(request, P.CATALOGUE_READ, "catalogue", "export_rows", mode, category)
+
+
 @router.get("/products/by-sku/{sku:path}")
 async def product_sku(request: Request, sku: Identifier):
     return checked(
@@ -154,6 +162,16 @@ async def stock(request: Request, product_id: Identifier):
         StockOut,
         found(await invoke(request, P.STOCK_READ, "catalogue", "stock", product_id)),
     )
+
+
+@router.post("/products/{product_id}/archive")
+async def archive_product(request: Request, product_id: Identifier, body: ArchiveIn):
+    result = await invoke(
+        request, P.IMPORT_EXECUTE, "stock", "archive",
+        ArchiveTenantProduct(body.operation_id, product_id, body.expected_revision, body.confirmed),
+        operation=reference("archive", body.operation_id),
+    )
+    return checked(OperationOut, result)
 
 
 @router.get("/buyers")
@@ -352,7 +370,7 @@ async def imports(request: Request):
 @router.get("/stock/operations")
 async def stock_result_query(
     request: Request,
-    namespace: Literal["adjust", "import"],
+    namespace: Literal["adjust", "import", "archive"],
     operation_id: Identifier,
 ):
     exact_query(request, {"namespace", "operation_id"})
@@ -361,7 +379,7 @@ async def stock_result_query(
 
 @router.get("/stock/operations/{namespace}/{operation_id:path}")
 async def stock_result(
-    request: Request, namespace: Literal["adjust", "import"], operation_id: Identifier
+    request: Request, namespace: Literal["adjust", "import", "archive"], operation_id: Identifier
 ):
     return operation_response(
         await invoke(

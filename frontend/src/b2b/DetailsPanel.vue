@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { t } from './preferences'
 import { onMounted, onUnmounted, ref } from 'vue'
-const props = defineProps<{ title: string; label: string; returnFocus?: HTMLElement | null }>()
+const props = defineProps<{ title: string; label: string; returnFocus?: HTMLElement | null; busy?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 const panel = ref<HTMLDialogElement>()
 const returnFocus = props.returnFocus ?? document.activeElement
@@ -14,17 +15,18 @@ onUnmounted(() => {
   <dialog
     ref="panel"
     class="b2b-detail-panel"
-    :aria-label="label"
-    @cancel.prevent="emit('close')"
+    :aria-label="t(label)"
+    @cancel.prevent="!busy && emit('close')"
   >
     <header class="b2b-detail-heading">
-      <h2>{{ title }}</h2>
+      <h2>{{ t(title) }}</h2>
       <button
         class="secondary"
         autofocus
+        :disabled="busy"
         @click="emit('close')"
       >
-        Fermer le détail
+        {{ t("Fermer le détail") }}
       </button>
     </header>
     <slot></slot>

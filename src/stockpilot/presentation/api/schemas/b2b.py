@@ -54,6 +54,19 @@ class CancelIn(Contract):
     operation_id: Identifier
 
 
+class ArchiveIn(Contract):
+    operation_id: Identifier
+    expected_revision: Revision
+    confirmed: Literal[True]
+
+    @field_validator("confirmed", mode="before")
+    @classmethod
+    def explicit(cls, value):
+        if value is not True:
+            raise ValueError("Explicit boolean confirmation required.")
+        return value
+
+
 class AdjustmentIn(Contract):
     operation_id: Identifier
     quantity: Annotated[StrictInt, Field(ge=0, le=1_000_000_000)]
@@ -161,7 +174,7 @@ class PreviewOut(Contract):
 
 class OperationOut(Contract):
     operation_id: str
-    namespace: Literal["adjust", "import"]
+    namespace: Literal["adjust", "import", "archive"]
     organization_id: str
     actor_user_id: str
     status: Literal["pending", "succeeded", "rejected"]
