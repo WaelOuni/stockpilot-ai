@@ -11,6 +11,28 @@ from stockpilot.application.services.bff_sessions import BffSessionService
 from stockpilot.bff import create_app, secure_transport
 
 
+@pytest.mark.parametrize("query,allowed", [
+    (b"mode=create_only", True),
+    (b"mode=create_only&category=Lighting", True),
+    (b"mode=create_only&mode=stock_only", False),
+    (b"mode=create_only&organization_id=foreign", False),
+])
+def test_export_category_is_optional_but_query_is_unambiguous(monkeypatch, query, allowed):
+    import asyncio
+    from stockpilot.presentation.api.routes import b2b_business
+    from stockpilot.domain.entities.tenant_stock_operation import ImportMode
+    async def invoked(*args, **kwargs):
+        return {"headers": ["sku"], "rows": []}
+    monkeypatch.setattr(b2b_business, "invoke", invoked)
+    request = Request({"type": "http", "query_string": query})
+    action = b2b_business.export_products(request, ImportMode.CREATE_ONLY)
+    if allowed:
+        assert asyncio.run(action)["rows"] == []
+    else:
+        with pytest.raises(ValueError):
+            asyncio.run(action)
+
+
 def configuration(**kwargs):
     return settings(
         mode="b2b_business_test",

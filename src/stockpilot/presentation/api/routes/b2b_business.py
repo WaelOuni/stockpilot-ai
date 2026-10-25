@@ -134,7 +134,7 @@ async def product_sku_query(request: Request, sku: Identifier):
 
 @router.get("/products/export")
 async def export_products(request: Request, mode: ImportMode, category: str | None = None):
-    exact_query(request, {"mode", "category"})
+    exact_query(request, {"mode"} | ({"category"} if "category" in request.query_params else set()))
     return await invoke(request, P.CATALOGUE_READ, "catalogue", "export_rows", mode, category)
 
 
