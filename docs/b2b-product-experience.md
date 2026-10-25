@@ -50,6 +50,9 @@ not merely older images. Never apply this procedure to preserved recovery source
 
 Every new OIDC login requests `prompt=login`, including when a Keycloak SSO session
 survives a local logout. The header displays the authenticated user identity.
+“Switch account” closes the BFF session and opens the provider's logout page;
+confirm Keycloak sign-out if prompted, then sign in with the intended account.
+The ordinary local sign-out remains available without ending unrelated SSO sessions.
 Cross-tab account changes invalidate existing views and pending references.
 Conversation authorization remains enforced on the server per organization **and
 user**, including for managers. Test same-browser user→manager switching as well

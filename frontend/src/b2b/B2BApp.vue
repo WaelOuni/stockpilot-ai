@@ -17,6 +17,12 @@ const { busy, error, run } = useTask()
 onMounted(() => { applyPreferences(); void session.start() })
 onUnmounted(session.dispose)
 async function login() { await run(async () => { location.assign(await session.login(organization.value)) }) }
+async function switchAccount() {
+  await run(async () => {
+    await session.logout()
+    if (session.ssoLogout.value) location.assign(session.ssoLogout.value)
+  })
+}
 </script>
 <template>
   <div class="b2b-shell">
@@ -58,6 +64,13 @@ async function login() { await run(async () => { location.assign(await session.l
           @click="run(session.logout)"
         >
           {{ t("Se déconnecter") }}
+        </button>
+        <button
+          class="secondary"
+          :disabled="busy"
+          @click="switchAccount"
+        >
+          {{ t('Changer de compte') }}
         </button>
       </div>
     </header>

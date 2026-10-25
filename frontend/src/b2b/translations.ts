@@ -14,6 +14,7 @@ Votre session a expiré. Reconnectez-vous ; aucune mutation ne sera relancée au
 Votre session a expiré. Reconnectez-vous.|Your session expired. Please sign in again.
 Votre session expire dans moins d’une minute. Reconnectez-vous pour poursuivre.|Your session expires in less than a minute. Sign in again to continue.
 Se déconnecter|Sign out
+Changer de compte|Switch account
 Revérifier la session|Check session again
 Déconnexion locale en cours…|Signing out…
 Session StockPilot fermée. La session SSO Keycloak peut rester ouverte.|Signed out of StockPilot. Your Keycloak SSO session may still be open.
