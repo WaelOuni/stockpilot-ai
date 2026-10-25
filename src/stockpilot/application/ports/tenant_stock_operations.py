@@ -5,6 +5,7 @@ from typing import Protocol
 from stockpilot.domain.entities.tenant_authorization import TenantContext
 from stockpilot.domain.entities.tenant_stock_operation import (
     AdjustTenantStock,
+    ArchiveTenantProduct,
     ApplyTenantImport,
     ImportMode,
     StockOperationResult,
@@ -22,6 +23,9 @@ class TenantStockResourceNotFound(Exception):
 
 
 class TenantStockOperationsPort(Protocol):
+    def archive(
+        self, request: object, context: TenantContext, command: ArchiveTenantProduct
+    ) -> StockOperationResult: ...
     def adjust(
         self, request: object, context: TenantContext, command: AdjustTenantStock
     ) -> StockOperationResult: ...

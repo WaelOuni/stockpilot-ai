@@ -55,6 +55,22 @@ class AdjustTenantStock:
 
 
 @dataclass(frozen=True)
+class ArchiveTenantProduct:
+    operation_id: str
+    product_id: str
+    expected_revision: int
+    confirmed: bool
+
+    def __post_init__(self):
+        identifier(self.operation_id)
+        identifier(self.product_id)
+        if type(self.expected_revision) is not int or self.expected_revision < 1:
+            raise ValueError("Positive revision required.")
+        if self.confirmed is not True:
+            raise ValueError("Explicit catalogue removal confirmation required.")
+
+
+@dataclass(frozen=True)
 class ApplyTenantImport:
     operation_id: str
     import_id: str

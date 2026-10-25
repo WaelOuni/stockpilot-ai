@@ -3,6 +3,7 @@
 from typing import Protocol
 
 from stockpilot.domain.entities.tenant_authorization import TenantContext
+from stockpilot.domain.entities.tenant_stock_operation import ImportMode
 from stockpilot.domain.entities.tenant_product import (
     TenantProduct,
     TenantProductPage,
@@ -16,6 +17,11 @@ class TenantCatalogueUnavailable(Exception):
 
 
 class TenantCataloguePort(Protocol):
+    def export_rows(
+        self, request: object, context: TenantContext, mode: ImportMode,
+        category: str | None = None,
+    ) -> dict[str, list]: ...
+
     def search(
         self, request: object, context: TenantContext, query: TenantProductQuery
     ) -> TenantProductPage: ...

@@ -124,6 +124,7 @@ def test_code_flow_pkce_and_private_exchange(harness):
         "client_id": [CLIENT_ID],
         "redirect_uri": ["https://app.example/auth/callback"],
         "scope": ["openid"],
+        "prompt": ["login"],
         "state": ["state-value"],
         "nonce": [NONCE],
         "code_challenge": [expected],

@@ -25,6 +25,9 @@ input[readonly] { background: #f8fafc; }
 input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent); vertical-align: middle; margin-right: 8px; }
 textarea { resize: vertical; min-height: 96px; }
 label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: 8px; }
+/* Keep keyboard focus visible without colliding with an enclosing label. */
+label > input:not([type="checkbox"]):not([type="radio"]), label > select, label > textarea { display:block; margin-top:8px; }
+input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-visible, textarea:focus-visible { outline-offset:1px; }
 small, .hint { color: var(--muted); font-size: .8125rem; line-height: 1.6; }
 h1, h2, h3, p { overflow-wrap: anywhere; }
 h1 { font-size: clamp(1.6rem, 3vw, 2rem); letter-spacing: -.035em; line-height: 1.25; margin: 8px 0; font-weight: 750; }

@@ -261,7 +261,7 @@ def execute(action, config):
             "phase": "ready",
         }:
             raise ValueError("Incomplete or foreign installation.")
-        MigrationRunner(db).require_version(3)
+        MigrationRunner(db).require_version(4)
         runner = PostgresTenantMigrations(pg_uri)
         with psycopg.connect(pg_uri) as c:
             runner.require(c)
@@ -275,14 +275,14 @@ def execute(action, config):
         if action not in {"init", "check"}:
             raise ValueError("Unknown operation.")
         return {
-            "mongo_migrations": 3,
+            "mongo_migrations": 4,
             "postgres_migrations": 2,
             "identity_records": db.b2b_users.count_documents({}),
             "durable_order_operations": db.b2b_order_operations.count_documents({}),
             "pending_assistant_turns": pending_assistant,
             "pending_stock_operations": db.b2b_stock_operations.count_documents(
                 {"status": "pending"}
-            ),
+            ) + db.b2b_product_archives.count_documents({"status": "pending"}),
             "unknown_outcome_requires_original_key": True,
         }
 

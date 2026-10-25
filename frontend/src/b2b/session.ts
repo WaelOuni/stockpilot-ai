@@ -4,7 +4,7 @@ import { sessionDecoder, type Session } from './contracts'
 
 export type OperationRef = {
   user: string; organization: string; family: 'orders' | 'stock'
-  namespace: 'prepare' | 'confirm' | 'cancel' | 'adjust' | 'import'; id: string
+  namespace: 'prepare' | 'confirm' | 'cancel' | 'adjust' | 'import' | 'archive'; id: string
 }
 export const sessionWarningMs = 60000
 const sessionCheckIntervalMs = 60000
@@ -18,7 +18,7 @@ function readJournal(): OperationRef[] {
       if (typeof v !== 'object' || v === null) return false
       return ['user', 'organization', 'id'].every(k => typeof v[k] === 'string' && v[k].length > 0 && v[k].length <= 128)
         && ((v.family === 'orders' && ['prepare', 'confirm', 'cancel'].includes(v.namespace))
-          || (v.family === 'stock' && ['adjust', 'import'].includes(v.namespace)))
+          || (v.family === 'stock' && ['adjust', 'import', 'archive'].includes(v.namespace)))
     }).map(v => ({ user: v.user, organization: v.organization, family: v.family, namespace: v.namespace, id: v.id }))
   } catch { return [] }
 }
@@ -44,8 +44,9 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     }
   }
   function invalidate(status = 401) {
+    const wasAuthenticated = current.value !== null
     generation++; client.abort(); current.value = null; phase.value = 'guest'
-    notice.value = status === 403 ? 'Accès refusé. Vérifiez votre appartenance et vos droits auprès de votre administrateur.' : 'Votre session a expiré. Reconnectez-vous ; aucune mutation ne sera relancée automatiquement.'
+    notice.value = status === 403 ? 'Accès refusé. Vérifiez votre appartenance et vos droits auprès de votre administrateur.' : wasAuthenticated ? 'Votre session a expiré. Reconnectez-vous ; aucune mutation ne sera relancée automatiquement.' : ''
     // Pending references remain quarantined. Business views unmount immediately.
   }
   const client = new BffClient({ generation: () => generation, csrf: () => current.value?.csrf_token, invalid: invalidate, activity: () => { void refreshDates() } }, fetcher, timeout)
@@ -59,6 +60,7 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
       if (Date.parse(session.expires_at) <= Date.now() || Date.parse(session.idle_expires_at) <= Date.now()) { invalidate(); return }
       now.value = Date.now(); sessionCheckAt = now.value
       current.value = session; phase.value = 'active'; notice.value = ''
+      channel?.postMessage({ type: 'identity', user: session.user_id, organization: session.organization_id })
       pending.value = readJournal().filter(p => p.user === session.user_id && p.organization === session.organization_id)
       persist()
     } catch (error) {
@@ -132,6 +134,15 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     if (typeof BroadcastChannel !== 'undefined') {
       channel = new BroadcastChannel('stockpilot.b2b.session')
       channel.onmessage = event => {
+        const data: unknown = event.data
+        if (typeof data === 'object' && data !== null && 'type' in data && data.type === 'identity') {
+          if (current.value && 'user' in data && 'organization' in data
+            && (current.value.user_id !== data.user || current.value.organization_id !== data.organization)) {
+            invalidate(); pending.value = []; persist()
+            notice.value = 'Le compte a changé dans un autre onglet. Reconnectez-vous avec le compte souhaité.'
+          }
+          return
+        }
         if (event.data !== 'logout') return
         invalidate(); pending.value = []; persist()
         notice.value = 'La session a été fermée dans un autre onglet.'

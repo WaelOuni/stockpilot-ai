@@ -90,7 +90,7 @@ export const orderDecoder = object({
 })
 export type Order = ReturnType<typeof orderDecoder>
 export const resultDecoder = object({
-  operation_id: text, namespace: oneOf('adjust', 'import'), organization_id: text, actor_user_id: text,
+  operation_id: text, namespace: oneOf('adjust', 'import', 'archive'), organization_id: text, actor_user_id: text,
   status: oneOf('pending', 'succeeded', 'rejected'), code: text, movement_ids: array(text),
   import_id: nullable(text),
 })

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from './preferences'
 import { ref, watch } from 'vue'
 import { useB2B, type OperationRef } from './session'
 import { orderDecoder, resultDecoder } from './contracts'
@@ -27,21 +28,21 @@ async function check(op: OperationRef) {
   <section
     v-if="current && (pending.length || message)"
     class="b2b-notice"
-    aria-label="Vérification des opérations"
+    :aria-label="t('Vérification des opérations')"
   >
-    <h2>Vérifier avant de recommencer</h2>
-    <p>Aucun nouvel envoi automatique. Un résultat introuvable ne prouve pas une annulation.</p>
+    <h2>{{ t("Vérifier avant de recommencer") }}</h2>
+    <p>{{ t("Aucun nouvel envoi automatique. Un résultat introuvable ne prouve pas une annulation.") }}</p>
     <p
       v-if="message"
       role="status"
     >
-      {{ message }} Actualisez la liste concernée pour consulter l’état courant.
+      {{ t(message) }} {{ t("Actualisez la liste concernée pour consulter l’état courant.") }}
     </p>
     <p
       v-if="error"
       role="alert"
     >
-      {{ error }} La référence reste conservée.
+      {{ t(error) }} {{ t("La référence reste conservée.") }}
     </p>
     <ul>
       <li
@@ -55,7 +56,7 @@ async function check(op: OperationRef) {
           :disabled="busy"
           @click="check(operation)"
         >
-          Vérifier le résultat
+          {{ t("Vérifier le résultat") }}
         </button>
       </li>
     </ul>

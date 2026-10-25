@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { t, dateLabel } from './preferences'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useB2B } from './session'
 import { movementDecoder, page, previewDecoder, productDecoder, resultDecoder, stockDecoder, type Movement, type OperationResult, type Preview, type Product, type Stock } from './contracts'
 import { useTask } from './tasks'
 import { mutate, physicalQuantity } from './workflows'
+import DetailsPanel from './DetailsPanel.vue'
+import ExportPanel from './ExportPanel.vue'
+import { csvHeaders, downloadCsv } from './csv'
 const session = useB2B()
 const { busy, error, run } = useTask()
 const sku = ref('')
@@ -24,6 +28,14 @@ const previewFilename = ref('')
 let selectionVersion = 0
 const result = ref<OperationResult | null>(null)
 const notice = ref('')
+const importOpen = ref(false)
+const adjustmentOpen = ref(false)
+const exportOpen = ref(false)
+function example() {
+  const row = mode.value === 'stock_only' ? ['EXEMPLE-SKU', '25']
+    : ['EXEMPLE-SKU', 'Lampe de bureau LED', 'Éclairage de bureau réglable', 'lighting', '3990', 'EUR', ...(mode.value === 'create_only' ? ['25'] : [])]
+  downloadCsv('modele-' + mode.value + '.csv', [csvHeaders[mode.value], row])
+}
 const pending = computed(() => session.pending.value.length > 0)
 const schemas = {
   stock_only: 'sku,quantity',
@@ -64,6 +76,7 @@ async function adjust() {
       id => ({ operation_id: id, quantity: physical, expected_revision: stock.value!.revision, reason: reason.value.trim() }), resultDecoder)
     describe(value)
     await loadStock(); await loadMovements()
+    if (value.status === 'succeeded') adjustmentOpen.value = false
   })
 }
 async function previewFile() {
@@ -107,31 +120,45 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
   <section>
     <div class="page-heading">
       <p class="eyebrow">
-        Inventaire de votre organisation
+        {{ t("Inventaire de votre organisation") }}
       </p>
-      <h1>Stock et administration</h1>
-      <p>Physique − réservé = disponible. Les réservations restent gérées par les commandes.</p>
+      <h1>{{ t("Stock et administration") }}</h1>
+      <p>{{ t("Physique − réservé = disponible. Les réservations restent gérées par les commandes.") }}</p>
+      <div class="b2b-actions">
+        <button
+          v-if="session.has('import:execute')"
+          @click="importOpen = true"
+        >
+          {{ t("Importer un CSV") }}
+        </button>
+        <button
+          class="secondary"
+          @click="exportOpen = true"
+        >
+          {{ t("Exporter CSV") }}
+        </button>
+      </div>
     </div>
     <p
       v-if="error"
       role="alert"
     >
-      {{ error }}
+      {{ t(error) }}
     </p>
     <p
       v-if="notice"
       class="b2b-notice"
       role="status"
     >
-      {{ notice }}<span v-if="result"> Référence {{ result.operation_id }}.</span>
+      {{ t(notice) }}<span v-if="result"> {{ t("Référence") }} {{ result.operation_id }}.</span>
     </p>
     <section class="b2b-card">
-      <h2>Consulter un stock</h2>
+      <h2>{{ t("Consulter un stock") }}</h2>
       <form
         class="b2b-actions"
         @submit.prevent="run(loadStock)"
       >
-        <label>SKU du stock
+        <label>{{ t("SKU du stock") }}
           <input
             v-model="sku"
             maxlength="128"
@@ -139,61 +166,81 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
           />
         </label>
         <button :disabled="busy">
-          Consulter le stock
+          {{ t("Consulter le stock") }}
         </button>
       </form>
       <div v-if="stock && product">
         <h3>{{ product.name }} · {{ product.sku }}</h3>
-        <p>Physique : <strong>{{ stock.quantity }}</strong> · Réservé : <strong>{{ stock.reserved }}</strong> · Disponible : <strong>{{ stock.available }}</strong> · Révision {{ stock.revision }}</p>
-        <form
+        <p>{{ t("Physique :") }} <strong>{{ stock.quantity }}</strong> {{ t("· Réservé :") }} <strong>{{ stock.reserved }}</strong> {{ t("· Disponible :") }} <strong>{{ stock.available }}</strong> {{ t("· Révision") }} {{ stock.revision }}</p>
+        <button
           v-if="session.has('stock:adjust')"
-          @submit.prevent="adjust"
+          @click="adjustmentOpen = true"
         >
-          <div class="b2b-actions">
-            <label>Nouveau stock physique
-              <input
-                v-model="quantity"
-                inputmode="numeric"
-                pattern="[0-9]+"
-                required
-              />
-            </label>
-            <label>Motif de l’ajustement
-              <input
-                v-model="reason"
-                maxlength="500"
-                required
-              />
-            </label>
-            <button :disabled="busy || pending">
-              Enregistrer l’ajustement
-            </button>
-          </div>
-          <p class="hint">
-            Le serveur revalide la révision et les réservations au moment de l’écriture.
+          {{ t("Ajuster le stock physique") }}
+        </button>
+        <DetailsPanel
+          v-if="session.has('stock:adjust') && adjustmentOpen"
+          :title="t('Ajuster le stock physique')"
+          :label="t('Ajustement du stock')"
+          :busy="busy"
+          @close="adjustmentOpen = false"
+        >
+          <p>{{ product.name }} · {{ product.sku }}</p>
+          <p
+            v-if="error"
+            role="alert"
+          >
+            {{ t(error) }}
           </p>
-        </form>
-        <p v-else>
-          Votre rôle autorise la consultation uniquement.
+          <form
+            @submit.prevent="adjust"
+          >
+            <div class="b2b-actions">
+              <label>{{ t("Nouveau stock physique") }}
+                <input
+                  v-model="quantity"
+                  inputmode="numeric"
+                  pattern="[0-9]+"
+                  required
+                />
+              </label>
+              <label>{{ t("Motif de l’ajustement") }}
+                <input
+                  v-model="reason"
+                  maxlength="500"
+                  required
+                />
+              </label>
+              <button :disabled="busy || pending">
+                {{ t("Enregistrer l’ajustement") }}
+              </button>
+            </div>
+            <p class="hint">
+              {{ t("Le serveur revalide la révision et les réservations au moment de l’écriture.") }}
+            </p>
+          </form>
+        </DetailsPanel>
+        <p v-if="!session.has('stock:adjust')">
+          {{ t("Votre rôle autorise la consultation uniquement.") }}
         </p>
       </div>
     </section>
     <section class="b2b-card">
       <div class="b2b-actions">
-        <h2>Mouvements physiques</h2>
+        <h2>{{ t("Mouvements physiques") }}</h2>
         <button
           class="secondary"
           :disabled="busy"
           @click="run(loadMovements)"
         >
-          Actualiser les mouvements
+          {{ t("Actualiser les mouvements") }}
         </button>
       </div>
       <p class="hint">
-        Journal des ajustements et imports. Il ne constitue pas l’historique exhaustif des réservations ORDER.
+        {{ t("Journal des ajustements et imports. Il ne constitue pas l’historique exhaustif des réservations ORDER.") }}
       </p>
       <p v-if="!movements.length && !busy">
-        Aucun mouvement physique à afficher.
+        {{ t("Aucun mouvement physique à afficher.") }}
       </p>
       <div
         v-if="movements.length"
@@ -201,9 +248,9 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
       >
         <table>
           <caption class="sr-only">
-            Mouvements de l’organisation
+            {{ t("Mouvements de l’organisation") }}
           </caption>
-          <thead><tr><th>SKU</th><th>Physique</th><th>Réservé</th><th>Acteur / motif</th><th>Date</th></tr></thead>
+          <thead><tr><th>SKU</th><th>{{ t("Physique") }}</th><th>{{ t("Réservé") }}</th><th>{{ t("Acteur / motif") }}</th><th>{{ t("Date") }}</th></tr></thead>
           <tbody>
             <tr
               v-for="movement in movements"
@@ -213,48 +260,66 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
               <td>{{ movement.quantity_before }} → {{ movement.quantity_after }} ({{ movement.delta }})</td>
               <td>{{ movement.reserved_before }} → {{ movement.reserved_after }}</td>
               <td>{{ movement.actor_user_id }} · {{ movement.reason }}</td>
-              <td>{{ new Date(movement.occurred_at).toLocaleString('fr-FR') }}</td>
+              <td>{{ dateLabel(movement.occurred_at) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
       <nav
         class="b2b-actions"
-        aria-label="Pages des mouvements"
+        :aria-label="t('Pages des mouvements')"
       >
         <button
           class="secondary"
           :disabled="busy || movementOffset === 0"
           @click="movePage(-1)"
         >
-          Précédent
+          {{ t("Précédent") }}
         </button>
         <button
           class="secondary"
           :disabled="busy || movements.length < limit || movementOffset + limit > 10000"
           @click="movePage(1)"
         >
-          Suivant
+          {{ t("Suivant") }}
         </button>
       </nav>
     </section>
     <template v-if="session.has('import:execute')">
-      <section class="b2b-card">
-        <h2>Importer un CSV</h2>
-        <p>Aperçu sans mutation, puis confirmation explicite d’un lot entièrement atomique.</p>
+      <DetailsPanel
+        v-if="importOpen"
+        :title="t('Importer un CSV')"
+        :label="t('Import CSV')"
+        :busy="busy"
+        @close="importOpen = false"
+      >
+        <p
+          v-if="error"
+          role="alert"
+        >
+          {{ t(error) }}
+        </p>
+        <p
+          v-if="notice"
+          class="hint"
+          role="status"
+        >
+          {{ t(notice) }}
+        </p>
+        <p>{{ t("Aperçu sans mutation, puis confirmation explicite d’un lot entièrement atomique.") }}</p>
         <form @submit.prevent="previewFile">
           <div class="b2b-actions">
-            <label>Type d’import
+            <label>{{ t("Type d’import") }}
               <select
                 v-model="mode"
                 :disabled="busy"
               >
-                <option value="stock_only">Stock physique uniquement</option>
-                <option value="metadata_only">Descriptions et prix uniquement</option>
-                <option value="create_only">Nouveaux produits uniquement</option>
+                <option value="stock_only">{{ t("Stock physique uniquement") }}</option>
+                <option value="metadata_only">{{ t("Descriptions et prix uniquement") }}</option>
+                <option value="create_only">{{ t("Nouveaux produits uniquement") }}</option>
               </select>
             </label>
-            <label>Fichier CSV UTF-8
+            <label>{{ t("Fichier CSV UTF-8") }}
               <input
                 type="file"
                 accept=".csv,text/csv"
@@ -264,89 +329,103 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
               />
             </label>
             <button :disabled="busy || !file">
-              Prévisualiser le CSV
+              {{ t("Prévisualiser le CSV") }}
             </button>
           </div>
-          <p>256 Kio et 100 lignes maximum. En-têtes exacts : <code>{{ schemas[mode] }}</code></p>
+          <p>{{ t("256 Kio et 100 lignes maximum. En-têtes exacts :") }} <code>{{ schemas[mode] }}</code></p>
+          <button
+            type="button"
+            class="secondary"
+            @click="example"
+          >
+            {{ t("Télécharger un modèle CSV") }}
+          </button>
           <p class="hint">
-            Prix en unités mineures entières avec devise. Séparateur virgule ou point-virgule. Aucun champ ne modifie le stock réservé.
+            {{ t("Remplacez les valeurs d’exemple. Pour une mise à jour, utilisez les SKU existants de votre catalogue.") }}
+          </p>
+          <p class="hint">
+            {{ t("Prix en unités mineures entières avec devise. Séparateur virgule ou point-virgule. Aucun champ ne modifie le stock réservé.") }}
           </p>
         </form>
         <div
           v-if="preview"
-          aria-label="Aperçu CSV"
+          :aria-label="t('Aperçu CSV')"
         >
-          <h3>{{ preview.status === 'preview' ? 'Aperçu prêt' : 'Aperçu invalide' }} · {{ preview.rows }} ligne(s)</h3>
-          <p>Fichier {{ previewFilename }} · Mode {{ preview.mode }} · Référence {{ preview.import_id }}</p>
-          <p>Empreinte {{ preview.file_fingerprint }}</p>
-          <p>Valable jusqu’au {{ new Date(preview.expires_at).toLocaleString('fr-FR') }}</p>
+          <h3>{{ preview.status === 'preview' ? t("Aperçu prêt") : t("Aperçu invalide") }} · {{ preview.rows }} {{ t("ligne(s)") }}</h3>
+          <p>{{ t("Fichier") }} {{ previewFilename }} {{ t("· Mode") }} {{ preview.mode }} {{ t("· Référence") }} {{ preview.import_id }}</p>
+          <p>{{ t("Empreinte") }} {{ preview.file_fingerprint }}</p>
+          <p>{{ t("Valable jusqu’au") }} {{ dateLabel(preview.expires_at) }}</p>
           <ul>
             <li
               v-for="(issue, index) in preview.issues"
               :key="index"
             >
-              Ligne {{ issue.line }} · {{ issue.code }} : {{ issue.message }}
+              {{ t("Ligne") }} {{ issue.line }} · {{ issue.code }} : {{ issue.message }}
             </li>
           </ul>
           <template v-if="preview.status === 'preview'">
             <label><span><input
               v-model="confirmed"
               type="checkbox"
-            /> Je confirme l’application de cet aperçu à mon organisation.</span></label>
+            /> {{ t("Je confirme l’application de cet aperçu à mon organisation.") }}</span></label>
             <button
               :disabled="busy || pending || !confirmed"
               @click="apply"
             >
-              Appliquer l’import
+              {{ t("Appliquer l’import") }}
             </button>
           </template>
         </div>
-      </section>
+      </DetailsPanel>
       <section class="b2b-card">
         <div class="b2b-actions">
-          <h2>Historique des imports</h2>
+          <h2>{{ t("Historique des imports") }}</h2>
           <button
             class="secondary"
             :disabled="busy"
             @click="run(loadImports)"
           >
-            Actualiser les imports
+            {{ t("Actualiser les imports") }}
           </button>
         </div>
         <p v-if="!imports.length && !busy">
-          Aucun import à afficher.
+          {{ t("Aucun import à afficher.") }}
         </p>
         <ul>
           <li
             v-for="entry in imports"
             :key="entry.import_id"
           >
-            {{ entry.import_id }} · {{ entry.mode }} · {{ entry.status }} · {{ entry.rows }} ligne(s)
+            {{ entry.import_id }} · {{ entry.mode }} · {{ entry.status }} · {{ entry.rows }} {{ t("ligne(s)") }}
           </li>
         </ul>
         <p class="hint">
-          Le statut d’un aperçu n’est pas une preuve d’application. Utilisez le résultat de l’opération pour confirmer un commit.
+          {{ t("Le statut d’un aperçu n’est pas une preuve d’application. Utilisez le résultat de l’opération pour confirmer un commit.") }}
         </p>
         <nav
           class="b2b-actions"
-          aria-label="Pages des imports"
+          :aria-label="t('Pages des imports')"
         >
           <button
             class="secondary"
             :disabled="busy || importOffset === 0"
             @click="importPage(-1)"
           >
-            Précédent
+            {{ t("Précédent") }}
           </button>
           <button
             class="secondary"
             :disabled="busy || imports.length < limit || importOffset + limit > 10000"
             @click="importPage(1)"
           >
-            Suivant
+            {{ t("Suivant") }}
           </button>
         </nav>
       </section>
     </template>
+    <ExportPanel
+      v-if="exportOpen"
+      @close="exportOpen = false"
+    />
   </section>
 </template>
