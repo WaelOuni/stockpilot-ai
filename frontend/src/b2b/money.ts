@@ -1,10 +1,11 @@
 import { currency as validateCurrency, minor } from './contracts'
+import { language, t } from './preferences'
 
 // Only the currency's minor-unit exponent is numeric. Monetary values stay BigInt.
-export function formatMoney(value: string, currency: string, locale = 'fr-FR'): string {
+export function formatMoney(value: string, currency: string, locale = language.value === 'en' ? 'en-GB' : 'fr-FR'): string {
   minor(value)
   validateCurrency(currency)
-  if (!Intl.supportedValuesOf('currency').includes(currency)) return value + ' unités mineures (' + currency + ', précision inconnue)'
+  if (!Intl.supportedValuesOf('currency').includes(currency)) return value + ' ' + t('unités mineures (') + currency + t(', précision inconnue)')
   const formatter = new Intl.NumberFormat(locale, { style: 'currency', currency })
   const digits = formatter.resolvedOptions().maximumFractionDigits
   if (digits === undefined) throw new Error('Unité monétaire inconnue.')

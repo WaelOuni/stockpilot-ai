@@ -27,6 +27,7 @@ from stockpilot.application.ports.tenant_stock_operations import (
 from stockpilot.application.services.identity_authorization import AuthorizationDenied
 from stockpilot.domain.entities.tenant_stock_operation import (
     AdjustTenantStock,
+    ArchiveTenantProduct,
     ApplyTenantImport,
 )
 from stockpilot.domain.entities.tenant_stock_operation import (
@@ -91,6 +92,46 @@ def adjustment(db, value, operation=None, org="org-a", sku="DRILL-001"):
         row["revision"],
         "Physical inventory",
     )
+
+
+def archive_command(db, operation=None, org="org-a"):
+    row = product(db, org)
+    return ArchiveTenantProduct(operation or uuid4().hex, str(row["_id"]), row["revision"], True)
+
+
+def test_archive_preserves_inventory_and_order_history_with_durable_replay(db, orders, stock):
+    order = prepare(orders, quantity=2)
+    confirm(orders, order, operation="reserve-before-archive")
+    denied = call(stock, orders, "archive", archive_command(db))
+    assert denied.status is S.REJECTED and denied.code == "reserved_conflict"
+    cancel(orders, order, operation="cancel-before-archive")
+    before = product(db)
+    historical_orders = list(db.b2b_orders.find({}))
+    foreign = product(db, "org-b")
+    command = archive_command(db)
+    result = call(stock, orders, "archive", command)
+    assert result.status is S.SUCCEEDED
+    assert call(stock, orders, "archive", command) == result
+    assert call(stock, orders, "result", "archive", command.operation_id) == result
+    after = product(db)
+    assert after == {**before, "status": "inactive", "revision": before["revision"] + 1}
+    assert list(db.b2b_orders.find({})) == historical_orders
+    assert product(db, "org-b") == foreign
+    with pytest.raises(TenantStockOperationConflict):
+        call(stock, orders, "archive", replace(command, expected_revision=after["revision"]))
+
+
+def test_archive_checks_tenant_permissions_revision_and_confirmation(db, orders, stock):
+    command = archive_command(db)
+    with pytest.raises(AuthorizationDenied):
+        call(stock, orders, "archive", command, actor="a1")
+    foreign = call(stock, orders, "archive", archive_command(db, org="org-b"))
+    assert foreign.status is S.REJECTED and foreign.code == "unavailable_resource"
+    stale = call(stock, orders, "archive", replace(command, expected_revision=command.expected_revision + 1))
+    assert stale.status is S.REJECTED and stale.code == "revision_conflict"
+    assert product(db)["status"] == "active"
+    with pytest.raises(ValueError):
+        replace(command, confirmed=False)
 
 
 def preview(stock, orders, content=None, mode=M.STOCK_ONLY, actor="admin-a"):

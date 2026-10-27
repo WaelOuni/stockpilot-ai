@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, dateLabel } from './preferences'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import DetailsPanel from './DetailsPanel.vue'
@@ -19,6 +20,8 @@ const prepared = ref<Order | null>(null)
 const chosen = ref<Order | null>(null)
 const confirmation = ref(false)
 const cancelChoice = ref<Order | null>(null)
+const creationOpen = ref(typeof route.query.sku === 'string')
+const confirmationOpen = ref(false)
 const offset = ref(0)
 const limit = 10
 const pending = computed(() => session.pending.value.length > 0)
@@ -38,6 +41,7 @@ async function prepare() {
     prepared.value = await mutate(session, 'orders', 'prepare', '/b2b/api/orders/prepare',
       id => ({ operation_id: id, customer_id: buyer.value, lines: requested }), orderDecoder)
     notice.value = 'Préparation enregistrée. Aucun stock réservé.'
+    creationOpen.value = false; confirmationOpen.value = true
     await refresh()
   })
 }
@@ -48,6 +52,7 @@ async function confirm() {
     const order = await mutate(session, 'orders', 'confirm', '/b2b/api/orders/' + encodeURIComponent(draft.order_id) + '/confirm',
       id => ({ operation_id: id, preparation_digest: draft.preparation_digest, confirmed: true }), orderDecoder)
     prepared.value = order; confirmation.value = false
+    confirmationOpen.value = false
     notice.value = 'État serveur : ' + label(order); await refresh()
   })
 }
@@ -84,36 +89,60 @@ onMounted(() => { void run(async () => {
   <section>
     <div class="page-heading">
       <p class="eyebrow">
-        Suivi et réservation
+        {{ t("Suivi et réservation") }}
       </p>
-      <h1>Commandes</h1>
-      <p>{{ organizationScope ? 'Commandes de votre organisation' : 'Mes commandes : créées par mon utilisateur' }}. L’acheteur partagé ne donne aucun droit sur les commandes d’un autre utilisateur.</p>
+      <h1>{{ t("Commandes") }}</h1>
+      <p>{{ organizationScope ? t("Commandes de votre organisation") : t("Mes commandes : créées par mon utilisateur") }}{{ t(". L’acheteur partagé ne donne aucun droit sur les commandes d’un autre utilisateur.") }}</p>
+      <div class="b2b-actions">
+        <button
+          v-if="session.has('order:create')"
+          @click="creationOpen = true"
+        >
+          {{ t("Nouvelle commande") }}
+        </button>
+        <button
+          v-if="prepared?.status === 'prepared' && !confirmationOpen"
+          class="secondary"
+          @click="confirmationOpen = true"
+        >
+          {{ t("Revoir la préparation") }}
+        </button>
+      </div>
     </div>
     <p
       v-if="error"
       role="alert"
     >
-      {{ error }}
+      {{ t(error) }}
     </p>
     <p
       v-if="notice"
       role="status"
       class="b2b-notice"
     >
-      {{ notice }}
+      {{ t(notice) }}
     </p>
-    <section
-      v-if="session.has('order:create')"
-      class="b2b-card"
+    <DetailsPanel
+      v-if="session.has('order:create') && creationOpen"
+      :title="t('Préparer une commande')"
+      :label="t('Nouvelle commande')"
+      :busy="busy"
+      @close="creationOpen = false"
     >
-      <h2>Préparer sans réserver</h2>
+      <p>{{ t("Aucun stock n’est réservé avant votre confirmation.") }}</p>
+      <p
+        v-if="error"
+        role="alert"
+      >
+        {{ t(error) }}
+      </p>
       <form @submit.prevent="prepare">
-        <label>Acheteur autorisé
+        <label>{{ t("Acheteur autorisé") }}
           <select
             v-model="buyer"
             required
           >
-            <option value="">Choisir un acheteur</option>
+            <option value="">{{ t("Choisir un acheteur") }}</option>
             <option
               v-for="association in buyers"
               :key="association.association_id"
@@ -125,7 +154,7 @@ onMounted(() => { void run(async () => {
           v-if="!buyers.length && !busy"
           class="hint"
         >
-          Aucun acheteur actif disponible. Contactez votre administrateur.
+          {{ t("Aucun acheteur actif disponible. Contactez votre administrateur.") }}
         </p>
         <div
           v-for="(line, index) in lines"
@@ -139,7 +168,7 @@ onMounted(() => { void run(async () => {
               maxlength="128"
             />
           </label>
-          <label>Quantité {{ index + 1 }}
+          <label>{{ t("Quantité") }} {{ index + 1 }}
             <input
               v-model="line.quantity"
               inputmode="numeric"
@@ -153,7 +182,7 @@ onMounted(() => { void run(async () => {
             class="secondary"
             @click="lines.splice(index, 1)"
           >
-            Retirer la ligne {{ index + 1 }}
+            {{ t("Retirer la ligne") }} {{ index + 1 }}
           </button>
         </div>
         <div class="b2b-actions">
@@ -163,30 +192,40 @@ onMounted(() => { void run(async () => {
             :disabled="lines.length >= 20"
             @click="lines.push({ sku: '', quantity: '1' })"
           >
-            Ajouter une ligne
+            {{ t("Ajouter une ligne") }}
           </button>
           <button :disabled="busy || pending || !buyer">
-            Préparer la commande
+            {{ t("Préparer la commande") }}
           </button>
         </div>
       </form>
-    </section>
-    <section
-      v-if="prepared"
-      class="b2b-card"
-      aria-label="Récapitulatif de préparation"
+    </DetailsPanel>
+    <DetailsPanel
+      v-if="prepared && confirmationOpen"
+      :title="t('Vérifier et confirmer la commande')"
+      :label="t('Récapitulatif de préparation')"
+      :busy="busy"
+      @close="confirmationOpen = false; confirmation = false"
     >
-      <h2>Récapitulatif {{ prepared.order_id }}</h2>
+      <p class="hint">
+        {{ t("Référence") }} {{ prepared.order_id }}
+      </p>
+      <p
+        v-if="error"
+        role="alert"
+      >
+        {{ t(error) }}
+      </p>
       <p class="b2b-status">
         {{ label(prepared) }}
       </p>
-      <p>Acheteur {{ prepared.customer_id }} · Valable jusqu’au {{ new Date(prepared.expires_at).toLocaleString('fr-FR') }}</p>
+      <p>{{ t("Acheteur") }} {{ prepared.customer_id }} {{ t("· Valable jusqu’au") }} {{ dateLabel(prepared.expires_at) }}</p>
       <ul>
         <li
           v-for="line in prepared.lines"
           :key="line.product_id"
         >
-          {{ line.sku }} · quantité {{ line.quantity }} · prix unitaire {{ formatMoney(line.price_minor, line.currency) }}
+          {{ line.sku }} {{ t("· quantité") }} {{ line.quantity }} {{ t("· prix unitaire") }} {{ formatMoney(line.price_minor, line.currency) }}
         </li>
       </ul>
       <template v-if="prepared.status === 'prepared'">
@@ -194,35 +233,35 @@ onMounted(() => { void run(async () => {
           <span><input
             v-model="confirmation"
             type="checkbox"
-          /> Je confirme explicitement les produits, les quantités et les prix ci-dessus.</span>
+          /> {{ t("Je confirme explicitement les produits, les quantités et les prix ci-dessus.") }}</span>
         </label>
         <button
           :disabled="busy || pending || !confirmation"
           @click="confirm"
         >
-          Confirmer et réserver
+          {{ t("Confirmer et réserver") }}
         </button>
       </template>
-    </section>
+    </DetailsPanel>
     <section class="b2b-card">
       <div class="b2b-actions">
-        <h2>{{ organizationScope ? 'Historique de l’organisation' : 'Mon historique' }}</h2>
+        <h2>{{ organizationScope ? t("Historique de l’organisation") : t("Mon historique") }}</h2>
         <button
           class="secondary"
           :disabled="busy"
           @click="run(refresh)"
         >
-          Actualiser les commandes
+          {{ t("Actualiser les commandes") }}
         </button>
       </div>
       <p
         v-if="busy"
         role="status"
       >
-        Chargement ou traitement en cours…
+        {{ t("Chargement ou traitement en cours…") }}
       </p>
       <p v-else-if="!orders.length">
-        Aucune commande à afficher.
+        {{ t("Aucune commande à afficher.") }}
       </p>
       <div
         v-if="orders.length"
@@ -230,9 +269,9 @@ onMounted(() => { void run(async () => {
       >
         <table>
           <caption class="sr-only">
-            Commandes autorisées
+            {{ t("Commandes autorisées") }}
           </caption>
-          <thead><tr><th>Commande</th><th>Créée par</th><th>État</th><th>Actions</th></tr></thead>
+          <thead><tr><th>{{ t("Commande") }}</th><th>{{ t("Créée par") }}</th><th>{{ t("État") }}</th><th>{{ t("Actions") }}</th></tr></thead>
           <tbody>
             <tr
               v-for="order in orders"
@@ -245,14 +284,14 @@ onMounted(() => { void run(async () => {
                   :disabled="busy"
                   @click="details(order, $event)"
                 >
-                  Voir la commande
+                  {{ t("Voir la commande") }}
                 </button> <button
                   v-if="canCancel(order)"
                   class="secondary"
                   :disabled="busy || pending"
                   @click="cancelChoice = order"
                 >
-                  Annuler la commande
+                  {{ t("Annuler la commande") }}
                 </button>
               </td>
             </tr>
@@ -261,56 +300,66 @@ onMounted(() => { void run(async () => {
       </div>
       <nav
         class="b2b-actions"
-        aria-label="Pages des commandes"
+        :aria-label="t('Pages des commandes')"
       >
         <button
           class="secondary"
           :disabled="busy || offset === 0"
           @click="next(-1)"
         >
-          Précédent
+          {{ t("Précédent") }}
         </button>
         <button
           class="secondary"
           :disabled="busy || orders.length < limit || offset + limit > 10000"
           @click="next(1)"
         >
-          Suivant
+          {{ t("Suivant") }}
         </button>
       </nav>
     </section>
-    <section
+    <DetailsPanel
       v-if="cancelChoice"
-      class="b2b-card"
-      aria-label="Confirmation d’annulation"
+      :title="t('Annuler la commande')"
+      :label="t('Confirmation d’annulation')"
+      :busy="busy"
+      @close="cancelChoice = null"
     >
-      <h2>Annuler {{ cancelChoice.order_id }} ?</h2>
-      <p>Les réservations seront libérées si le serveur confirme l’annulation.</p>
+      <p class="hint">
+        {{ t("Référence") }} {{ cancelChoice.order_id }}
+      </p>
+      <p
+        v-if="error"
+        role="alert"
+      >
+        {{ t(error) }}
+      </p>
+      <p>{{ t("Les réservations seront libérées si le serveur confirme l’annulation.") }}</p>
       <div class="b2b-actions">
         <button
           :disabled="busy || pending"
           @click="cancel"
         >
-          Confirmer l’annulation
+          {{ t("Confirmer l’annulation") }}
         </button>
         <button
           class="secondary"
           :disabled="busy"
           @click="cancelChoice = null"
         >
-          Conserver la commande
+          {{ t("Conserver la commande") }}
         </button>
       </div>
-    </section>
+    </DetailsPanel>
     <DetailsPanel
       v-if="chosen"
-      title="Détail de la commande"
+      :title="t('Détail de la commande')"
       :return-focus="detailTrigger"
-      label="Détail de commande"
+      :label="t('Détail de commande')"
       @close="chosen = null"
     >
-      <p>Référence : {{ chosen.order_id }}</p>
-      <p>{{ label(chosen) }} · Acheteur {{ chosen.customer_id }} · Créateur {{ chosen.created_by }}</p>
+      <p>{{ t("Référence :") }} {{ chosen.order_id }}</p>
+      <p>{{ label(chosen) }} {{ t("· Acheteur") }} {{ chosen.customer_id }} {{ t("· Créateur") }} {{ chosen.created_by }}</p>
       <ul>
         <li
           v-for="line in chosen.lines"
@@ -320,7 +369,7 @@ onMounted(() => { void run(async () => {
         </li>
       </ul>
       <p class="hint">
-        Créée le {{ new Date(chosen.created_at).toLocaleString('fr-FR') }}. Les prix ci-dessus sont ceux de la commande.
+        {{ t("Créée le") }} {{ dateLabel(chosen.created_at) }}{{ t(". Les prix ci-dessus sont ceux de la commande.") }}
       </p>
     </DetailsPanel>
   </section>

@@ -1,74 +1,107 @@
 <script setup lang="ts">
+import { t } from './preferences'
 import { onMounted, onUnmounted, provide, ref } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { createB2BSession, sessionKey } from './session'
 import { useTask } from './tasks'
 import OperationPanel from './OperationPanel.vue'
+import AssistantDock from './AssistantDock.vue'
+import { language, theme, applyPreferences } from './preferences'
+import './experience.css'
 const session = createB2BSession()
 provide(sessionKey, session)
 const { current, phase, notice, ssoLogout, expiresSoon } = session
 const organization = ref('')
 const roleNames = { READ_ONLY: 'Consultation', USER: 'Utilisateur', MANAGER: 'Responsable', ORGANIZATION_ADMIN: 'Administrateur entreprise' }
 const { busy, error, run } = useTask()
-onMounted(() => { void session.start() })
+onMounted(() => { applyPreferences(); void session.start() })
 onUnmounted(session.dispose)
 async function login() { await run(async () => { location.assign(await session.login(organization.value)) }) }
+async function switchAccount() {
+  await run(async () => {
+    await session.logout()
+    if (session.ssoLogout.value) location.assign(session.ssoLogout.value)
+  })
+}
 </script>
 <template>
   <div class="b2b-shell">
     <a
       class="skip-link"
       href="#b2b-content"
-    >Aller au contenu</a>
+    >{{ t("Aller au contenu") }}</a>
     <header class="b2b-header">
       <RouterLink
         class="b2b-brand"
         to="/b2b-app/"
       >
-        <span class="eyebrow">StockPilot AI</span><strong>Espace entreprise</strong>
+        <span class="eyebrow">StockPilot AI</span><strong>{{ t("Espace entreprise") }}</strong>
       </RouterLink>
+      <div class="display-preferences">
+        <label>{{ t("Langue") }}<select
+          v-model="language"
+          :aria-label="t('Langue')"
+        ><option value="fr">Français</option><option value="en">English</option></select></label>
+        <button
+          class="secondary theme-toggle"
+          :aria-pressed="theme === 'dark'"
+          @click="theme = theme === 'dark' ? 'light' : 'dark'"
+        >
+          {{ theme === 'dark' ? t("Mode clair") : t("Mode sombre") }}
+        </button>
+      </div>
       <div v-if="current">
         <strong>{{ current.organization_name }}</strong>
+        <p class="account-identity">
+          {{ current.user_id }}
+        </p>
         <p class="hint">
-          {{ roleNames[current.role] }}
+          {{ t(roleNames[current.role]) }}
         </p>
         <button
           class="secondary"
           :disabled="busy"
           @click="run(session.logout)"
         >
-          Se déconnecter
+          {{ t("Se déconnecter") }}
+        </button>
+        <button
+          class="secondary"
+          :disabled="busy"
+          @click="switchAccount"
+        >
+          {{ t('Changer de compte') }}
         </button>
       </div>
     </header>
     <nav
       v-if="current"
       class="b2b-nav"
-      aria-label="Navigation entreprise"
+      :aria-label="t('Navigation entreprise')"
     >
       <RouterLink
         v-if="current.assistant_available && session.has('conversation:own')"
         to="/b2b-app/assistant"
       >
-        Assistant
+        {{ t("Assistant") }}
       </RouterLink>
       <RouterLink
         v-if="session.has('catalogue:read')"
         to="/b2b-app/"
       >
-        Catalogue
+        {{ t("Catalogue") }}
       </RouterLink>
       <RouterLink
         v-if="session.has('order:read_own') || session.has('order:read_organization')"
         to="/b2b-app/orders"
       >
-        Commandes
+        {{ t("Commandes") }}
       </RouterLink>
       <RouterLink
         v-if="session.has('stock:read')"
         to="/b2b-app/stock"
       >
-        Stock et administration
+        {{ t("Stock et administration") }}
       </RouterLink>
     </nav>
     <main
@@ -76,36 +109,43 @@ async function login() { await run(async () => { location.assign(await session.l
       class="b2b-content"
       tabindex="-1"
     >
-      <p
+      <div
         v-if="notice"
-        class="b2b-notice"
+        class="session-hint"
         role="status"
       >
-        {{ notice }}
-      </p>
+        <span>{{ t(notice) }}</span>
+        <button
+          class="secondary"
+          :aria-label="t('Masquer le message')"
+          @click="notice = ''"
+        >
+          ×
+        </button>
+      </div>
       <p
         v-if="error"
         role="alert"
       >
-        {{ error }}
+        {{ t(error) }}
       </p>
       <p
         v-if="phase === 'loading'"
         role="status"
       >
-        Vérification de votre session…
+        {{ t("Vérification de votre session…") }}
       </p>
       <section
         v-else-if="phase !== 'active'"
         class="b2b-card b2b-login"
       >
         <p class="eyebrow">
-          Bienvenue dans votre espace
+          {{ t("Bienvenue dans votre espace") }}
         </p>
-        <h1>Votre catalogue. Vos commandes. Votre stock.</h1>
-        <p>Connectez-vous avec votre compte professionnel Keycloak.</p>
+        <h1>{{ t("Votre catalogue. Vos commandes. Votre stock.") }}</h1>
+        <p>{{ t("Connectez-vous avec votre compte professionnel Keycloak.") }}</p>
         <form @submit.prevent="login">
-          <label>Code d’entreprise
+          <label>{{ t("Code d’entreprise") }}
             <input
               v-model="organization"
               autocomplete="organization"
@@ -115,10 +155,10 @@ async function login() { await run(async () => { location.assign(await session.l
             />
           </label>
           <p class="hint">
-            Utilisez le code communiqué par votre administrateur. Le serveur vérifie votre appartenance ; ce code n’accorde aucun droit.
+            {{ t("Utilisez le code communiqué par votre administrateur. Le serveur vérifie votre appartenance ; ce code n’accorde aucun droit.") }}
           </p>
           <button :disabled="busy || !organization.trim()">
-            Continuer avec Keycloak
+            {{ t("Continuer avec Keycloak") }}
           </button>
         </form>
         <button
@@ -126,13 +166,13 @@ async function login() { await run(async () => { location.assign(await session.l
           :disabled="busy"
           @click="run(session.restore)"
         >
-          Vérifier la session existante
+          {{ t("Vérifier la session existante") }}
         </button>
         <a
           v-if="ssoLogout"
           :href="ssoLogout"
           referrerpolicy="no-referrer"
-        >Fermer aussi la session Keycloak</a>
+        >{{ t("Fermer aussi la session Keycloak") }}</a>
       </section>
       <template v-else-if="current">
         <section
@@ -140,21 +180,25 @@ async function login() { await run(async () => { location.assign(await session.l
           class="b2b-notice b2b-session-warning"
           role="status"
         >
-          <p>Votre session expire dans moins d’une minute. Reconnectez-vous pour poursuivre.</p>
+          <p>{{ t("Votre session expire dans moins d’une minute. Reconnectez-vous pour poursuivre.") }}</p>
           <button
             class="secondary"
             :disabled="busy"
             @click="run(session.restore)"
           >
-            Revérifier la session
+            {{ t("Revérifier la session") }}
           </button>
         </section>
         <OperationPanel />
         <RouterView :key="current.user_id + ':' + current.organization_id + ':' + current.csrf_token + ':' + session.businessRevision.value + ':' + $route.path" />
+        <AssistantDock
+          v-if="current.assistant_available && session.has('conversation:own') && !$route.path.startsWith('/b2b-app/assistant')"
+          :key="current.user_id + ':' + current.organization_id + ':' + current.csrf_token"
+        />
       </template>
     </main>
     <footer class="b2b-footer">
-      StockPilot AI · Espace entreprise sécurisé
+      {{ t("StockPilot AI · Espace entreprise sécurisé") }}
     </footer>
   </div>
 </template>

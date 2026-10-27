@@ -133,7 +133,7 @@ def operation(row, org):
         "[0-9a-f]{64}", row["fingerprint"]
     ):
         raise ValueError("Invalid operation fingerprint.")
-    if row["organization_id"] != org or row["namespace"] not in ("adjust", "import"):
+    if row["organization_id"] != org or row["namespace"] not in ("adjust", "import", "archive"):
         raise ValueError("Invalid persisted operation.")
     for key in ("operation_id", "actor_user_id"):
         identifier(row[key])

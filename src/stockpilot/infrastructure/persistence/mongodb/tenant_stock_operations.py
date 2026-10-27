@@ -16,6 +16,7 @@ from stockpilot.application.services.tenant_csv import RULES_VERSION, parse_tena
 from stockpilot.domain.entities.tenant_order import identifier
 from stockpilot.domain.entities.tenant_stock_operation import (
     AdjustTenantStock,
+    ArchiveTenantProduct,
     ApplyTenantImport,
     ImportIssue,
     ImportMode,
@@ -47,7 +48,7 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
             raise AuthorizationDenied("Current stock/import permission required.")
 
     def _receipt(self, key, principal, session, digest=None):
-        row = self.db.b2b_stock_operations.find_one(key, session=session)
+        row = self._operations(key["namespace"]).find_one(key, session=session)
         if row is None:
             return None
         if row["actor_user_id"] != principal.user_id:
@@ -56,6 +57,10 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
             raise TenantStockOperationConflict("Operation key has different content.")
         operation(row, principal.organization_id)
         return row
+
+    def _operations(self, namespace):
+        # Additive migration: historical stock receipt schemas remain immutable.
+        return self.db["b2b_product_archives" if namespace == "archive" else "b2b_stock_operations"]
 
     def _operate(self, request, context, command, namespace, permission, change):
         principal = self._current(request, context)
@@ -98,7 +103,7 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
                 "created_at": self._now(),
                 "finished_at": None,
             }
-            self.db.b2b_stock_operations.insert_one(row, session=session)
+            self._operations(namespace).insert_one(row, session=session)
             return operation(row, org)
 
         registered = self._transaction(request, context, register, reconcile)
@@ -122,7 +127,7 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
                 "movement_ids": ids,
                 "finished_at": self._now(),
             }
-            updated = self.db.b2b_stock_operations.update_one(
+            updated = self._operations(namespace).update_one(
                 {**key, "fingerprint": digest, "status": "pending"},
                 {
                     "$set": {
@@ -160,6 +165,42 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
         movement(record, principal.organization_id)
         self.db.b2b_stock_movements.insert_one(record, session=session)
         return record["movement_id"]
+
+    def archive(self, request, context, command):
+        if not isinstance(command, ArchiveTenantProduct):
+            raise TypeError("Typed catalogue removal required.")
+        from stockpilot.infrastructure.persistence.mongodb.schema_migrations import MigrationRunner
+        MigrationRunner(self.db).require_version(4)
+
+        def change(principal, session):
+            org = principal.organization_id
+            if not ObjectId.is_valid(command.product_id):
+                return "unavailable_resource", []
+            key = {"organization_id": org, "_id": ObjectId(command.product_id)}
+            row = self.db.b2b_products.find_one(key, session=session)
+            if row is None:
+                return "unavailable_resource", []
+            facts = _stock(row, org)
+            _product(row, org)
+            if facts.revision != command.expected_revision:
+                return "revision_conflict", []
+            if facts.reserved:
+                return "reserved_conflict", []
+            if row["status"] == "inactive":
+                return "ok", []
+            updated = self.db.b2b_products.update_one(
+                {**key, "revision": command.expected_revision, "reserved": 0},
+                {"$set": {"status": "inactive"}, "$inc": {"revision": 1}},
+                session=session,
+            )
+            if updated.matched_count != 1:
+                raise TenantOrdersUnavailable("Product changed during removal.")
+            # Preserve quantities and references from historical orders.
+            return "ok", []
+
+        return self._operate(
+            request, context, command, "archive", P.IMPORT_EXECUTE, change
+        )
 
     def adjust(self, request, context, command):
         if not isinstance(command, AdjustTenantStock):
@@ -401,14 +442,14 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
 
     def result(self, request, context, namespace, operation_id):
         identifier(operation_id)
-        if namespace not in ("adjust", "import"):
+        if namespace not in ("adjust", "import", "archive"):
             raise ValueError("Known namespace required.")
 
         def read(principal, session):
             self._permission(
                 principal, P.STOCK_ADJUST if namespace == "adjust" else P.IMPORT_EXECUTE
             )
-            row = self.db.b2b_stock_operations.find_one(
+            row = self._operations(namespace).find_one(
                 {
                     "organization_id": principal.organization_id,
                     "namespace": namespace,

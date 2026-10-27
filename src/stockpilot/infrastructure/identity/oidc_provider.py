@@ -201,6 +201,9 @@ class OidcHttpProvider:
                 "client_id": self._client_id,
                 "redirect_uri": self._redirect_uri,
                 "scope": "openid",
+                # A new StockPilot login must identify the intended person, not
+                # silently reuse a different account's surviving SSO session.
+                "prompt": "login",
                 "state": state,
                 "nonce": nonce,
                 "code_challenge": challenge,

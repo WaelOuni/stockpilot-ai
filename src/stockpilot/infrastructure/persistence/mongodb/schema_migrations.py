@@ -32,6 +32,7 @@ B2B_COLLECTIONS = frozenset(
         "b2b_stock_movements",
         "b2b_imports",
         "b2b_stock_operations",
+        "b2b_product_archives",
     }
 )
 
