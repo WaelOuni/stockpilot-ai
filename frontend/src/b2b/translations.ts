@@ -1,6 +1,16 @@
 // User-facing application copy only. Product descriptions and conversations are not translated.
 // Only interface copy is translated. Catalogue data and conversation text remain verbatim.
 export const english: Record<string, string> = Object.fromEntries(`
+Faites défiler horizontalement pour voir tous les produits. Au clavier, utilisez les flèches gauche et droite.|Scroll horizontally to see all products. With a keyboard, use the left and right arrow keys.
+Aperçu enregistré — non appliqué|Preview saved — not applied
+Fichier invalide|Invalid file
+Import appliqué|Import applied
+Import refusé|Import rejected
+Références et détails|References and details
+Identifiant de l’import|Import identifier
+Empreinte du fichier|File fingerprint
+Codes de diagnostic|Diagnostic codes
+Échéance de l’aperçu|Preview expiry
 Bienvenue dans votre espace|Welcome to your workspace
 Votre catalogue. Vos commandes. Votre stock.|Your catalogue. Your orders. Your stock.
 Connectez-vous avec votre compte professionnel Keycloak.|Sign in with your professional Keycloak account.
