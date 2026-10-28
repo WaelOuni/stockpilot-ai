@@ -83,10 +83,15 @@ verification above, retain its `MONGO_TEST_URI` / `POSTGRES_TEST_URI`, then prov
 `B2B_TEST_OLLAMA_URL` pointing to an explicitly selected test model server:
 
 ```sh
-.venv/bin/python -m pytest -q -s -m integration tests/test_b2b_advice_ollama_integration.py
+DEPLOYMENT_ENVIRONMENT=development .venv/bin/python -m pytest -q -s -o pythonpath=tests -m integration scripts/tests/validate_b2b_advice_ollama.py
 ```
 
-This opt-in test uses the real classifier and disposable tenant catalogue and
+This explicitly invoked manual qualification lives outside the required CI test
+collection because CI does not provision Ollama. It does not use
+`integration_optional` (reserved for dedicated-service lifecycle tests), and a
+missing model URL fails the invocation rather than silently skipping it. The
+deterministic B2B advice regressions remain in the required integration selection.
+The command uses the real classifier and disposable tenant catalogue and
 conversation fixtures. Generic, budget, named and empty-result advice remains
 deterministically grounded; it does not call free-form generation or RAG.
 

@@ -1,4 +1,4 @@
-"""Opt-in real classifier, using only canonical disposable integration fixtures."""
+"""Manual real-model qualification; invoke explicitly as documented in testing.md."""
 
 import os
 
@@ -13,15 +13,20 @@ from test_tenant_assistant_integration import send
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.llm.ollama_adapter import OllamaAdapter
 
-pytestmark = [pytest.mark.integration, pytest.mark.integration_optional]
+pytestmark = pytest.mark.integration
 
 
-def test_real_ollama_generic_advice_is_grounded_and_read_only(assistant, db):
+@pytest.fixture(scope="session")
+def model_url():
     url = os.environ.get("B2B_TEST_OLLAMA_URL")
     if not url:
-        pytest.skip("B2B_TEST_OLLAMA_URL required for opt-in real Ollama validation")
+        pytest.fail("B2B_TEST_OLLAMA_URL required for manual real Ollama validation", pytrace=False)
+    return url
+
+
+def test_real_ollama_generic_advice_is_grounded_and_read_only(assistant, db, model_url):
     service, _, _ = assistant
-    service.llm = OllamaAdapter(Settings(ollama_base_url=url), max_output_tokens=256)
+    service.llm = OllamaAdapter(Settings(ollama_base_url=model_url), max_output_tokens=256)
     classify = service.llm.classify_intent
     classifications = []
 
