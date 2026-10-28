@@ -64,6 +64,37 @@ workflow runs the Advice harness above on relevant `main` PRs, with a 12-minute
 ceiling; it does not activate the historical real-model suite or modify required
 CI/release jobs. Real Ollama validation remains separate from deterministic proof.
 
+## Targeted B2B validation
+
+Targeted B2B mobile comparison/import-history rendering uses the real Vue routes
+with intercepted, synthetic wire fixtures (no backend, SSO or database):
+
+```sh
+cd frontend && npx playwright test --config playwright.b2b-ux.config.ts
+```
+
+The harness owns loopback port 5186, refuses an existing server, and checks 390 px
+in French/English and light/dark themes, keyboard scrolling/focus, full column
+visibility, import references and absence of global horizontal overflow. It does
+not validate authentication; use the canonical isolated integration tests for that.
+
+For the targeted real Ollama B2B advice check, first run the isolated CI endpoint
+verification above, retain its `MONGO_TEST_URI` / `POSTGRES_TEST_URI`, then provide
+`B2B_TEST_OLLAMA_URL` pointing to an explicitly selected test model server:
+
+```sh
+DEPLOYMENT_ENVIRONMENT=development .venv/bin/python -m pytest -q -s -o pythonpath=tests -m integration scripts/tests/validate_b2b_advice_ollama.py
+```
+
+This explicitly invoked manual qualification lives outside the required CI test
+collection because CI does not provision Ollama. It does not use
+`integration_optional` (reserved for dedicated-service lifecycle tests), and a
+missing model URL fails the invocation rather than silently skipping it. The
+deterministic B2B advice regressions remain in the required integration selection.
+The command uses the real classifier and disposable tenant catalogue and
+conversation fixtures. Generic, budget, named and empty-result advice remains
+deterministically grounded; it does not call free-form generation or RAG.
+
 ## AI evaluations
 
 ```sh

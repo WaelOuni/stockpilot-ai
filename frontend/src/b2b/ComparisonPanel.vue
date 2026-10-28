@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t } from './preferences'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, useId } from 'vue'
 import { RouterLink } from 'vue-router'
 import DetailsPanel from './DetailsPanel.vue'
 import { useB2B } from './session'
@@ -10,6 +10,7 @@ import { formatMoney } from './money'
 const props = defineProps<{ ids: string[] }>(); const emit = defineEmits<{ close: [] }>()
 const session = useB2B(); const { busy, error, run } = useTask()
 const products = ref<Product[]>([]); const stocks = ref<Record<string, Stock>>({})
+const scrollHintId = useId()
 onMounted(() => { void run(async () => {
   for (const id of [...new Set(props.ids)].slice(0, 4)) {
     const item = await session.client.request('/b2b/api/products/' + encodeURIComponent(id), productDecoder)
@@ -38,9 +39,20 @@ onMounted(() => { void run(async () => {
     >
       {{ t(error) }}
     </p>
+    <p
+      v-if="products.length"
+      :id="scrollHintId"
+      class="hint"
+    >
+      {{ t("Faites défiler horizontalement pour voir tous les produits. Au clavier, utilisez les flèches gauche et droite.") }}
+    </p>
     <div
       v-if="products.length"
       class="b2b-table comparison-table"
+      role="region"
+      :aria-label="t('Comparatif produits')"
+      :aria-describedby="scrollHintId"
+      tabindex="0"
     >
       <table>
         <caption class="sr-only">

@@ -7,6 +7,7 @@ import { useTask } from './tasks'
 import { mutate, physicalQuantity } from './workflows'
 import DetailsPanel from './DetailsPanel.vue'
 import ExportPanel from './ExportPanel.vue'
+import ImportHistoryEntry from './ImportHistoryEntry.vue'
 import { csvHeaders, downloadCsv } from './csv'
 const session = useB2B()
 const { busy, error, run } = useTask()
@@ -391,13 +392,12 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
         <p v-if="!imports.length && !busy">
           {{ t("Aucun import à afficher.") }}
         </p>
-        <ul>
-          <li
+        <ul class="import-history">
+          <ImportHistoryEntry
             v-for="entry in imports"
             :key="entry.import_id"
-          >
-            {{ entry.import_id }} · {{ entry.mode }} · {{ entry.status }} · {{ entry.rows }} {{ t("ligne(s)") }}
-          </li>
+            :entry="entry"
+          />
         </ul>
         <p class="hint">
           {{ t("Le statut d’un aperçu n’est pas une preuve d’application. Utilisez le résultat de l’opération pour confirmer un commit.") }}

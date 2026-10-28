@@ -40,6 +40,22 @@ class TenantAssistantCatalogue:
     def __init__(self, catalogue):
         self.catalogue = catalogue
 
+    @staticmethod
+    def criteria(question, previous):
+        # A generic workshop context is not a product-name discriminant. Strip
+        # it only when the remaining request is an explicit category search;
+        # named/quoted references and unknown technical qualifiers stay literal.
+        usage = re.search(r"\s+pour (?:mon|notre) atelier[?!.]?\s*$", question, re.I)
+        if usage:
+            generic = extract_criteria(question[: usage.start()], previous)
+            if (
+                generic.category_explicit
+                and generic.reference is None
+                and generic.mode == "search"
+            ):
+                return generic
+        return extract_criteria(question, previous)
+
     def card(self, request, context, product):
         stock = self.catalogue.stock(request, context, product.product_id)
         if (
@@ -92,7 +108,7 @@ class TenantAssistantCatalogue:
         previous = (
             AdviceCriteria(**state["criteria"]) if state.get("criteria") else None
         )
-        criteria = extract_criteria(question, previous)
+        criteria = self.criteria(question, previous)
         prior_skus = state.get("advice_skus", [])[:5]
         reference = None
         if (

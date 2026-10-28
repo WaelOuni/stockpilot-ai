@@ -53,7 +53,16 @@
 .product-card-footer .b2b-actions { margin:0; gap:6px; }
 .product-card-footer button { padding:6px 10px; font-size:.8rem; }
 .comparison-bar { position:sticky; bottom:20px; z-index:8; display:flex; align-items:center; flex-wrap:wrap; justify-content:center; gap:14px; background:var(--surface); border:1px solid var(--line); box-shadow:0 8px 36px #10172222; padding:14px; border-radius:14px; }
-.comparison-table td { min-width:160px; }
+.comparison-table { max-width:100%; isolation:isolate; }
+.comparison-table table { border-collapse:separate; border-spacing:0; }
+.comparison-table td, .comparison-table thead th:not(:first-child) { min-width:156px; max-width:260px; overflow-wrap:anywhere; }
+.comparison-table tr > th:first-child { position:sticky; left:0; z-index:1; width:144px; min-width:144px; max-width:144px; background:var(--soft); box-shadow:2px 0 0 var(--line); overflow-wrap:normal; word-break:normal; }
+.b2b-shell .comparison-table:focus-visible { outline:3px solid var(--brand); outline-offset:2px; }
+@media(max-width:700px) {
+  .b2b-shell .comparison-table table { min-width:0; width:max-content; }
+  .comparison-table td, .comparison-table thead th:not(:first-child) { width:156px; max-width:156px; }
+}
+.import-history { list-style:none; padding:0; margin:0; }
 .b2b-detail-panel:has(.comparison-table) { width:min(1100px,calc(100% - 32px)); }
 .b2b-detail-panel::backdrop { background:#0e172a88; backdrop-filter:blur(3px); }
 .assistant-launcher { position:fixed; bottom:24px; right:24px; z-index:10; gap:10px; min-height:52px; border-radius:28px; box-shadow:0 8px 28px #4338ca33; }
