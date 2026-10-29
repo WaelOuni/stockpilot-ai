@@ -72,8 +72,9 @@ settings on every worker. Enabling/disabling renewal or rotating the key changes
 the fingerprint and invalidates sessions/login transactions. Plan explicit login
 and resolve any uncertain business operation by its original reference.
 
-For rollback: stop new admission in an authorized window, revoke BFF sessions and
-login transactions in the verified BFF target (never business data), then restore
+For rollback: stop new admission in an authorized window, drain or stop all BFF
+workers so no admitted callback can insert a session after the purge, revoke BFF
+sessions and login transactions in the verified BFF target (never business data), then restore
 the previous image/configuration. Do not rely only on reverting a fingerprint:
 old rows under the previous fingerprint could still exist. No Mongo volume reset,
 business backup restore or schema downgrade is required for these optional fields.
