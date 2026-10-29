@@ -1,6 +1,11 @@
 // User-facing application copy only. Product descriptions and conversations are not translated.
 // Only interface copy is translated. Catalogue data and conversation text remain verbatim.
 export const english: Record<string, string> = Object.fromEntries(`
+Afficher uniquement les produits disponibles|Show only available products
+Organisation active|Active organization
+Compte et préférences|Account and preferences
+Préférences|Preferences
+Administration|Administration
 Faites défiler horizontalement pour voir tous les produits. Au clavier, utilisez les flèches gauche et droite.|Scroll horizontally to see all products. With a keyboard, use the left and right arrow keys.
 Aperçu enregistré — non appliqué|Preview saved — not applied
 Fichier invalide|Invalid file

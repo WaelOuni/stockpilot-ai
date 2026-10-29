@@ -123,3 +123,12 @@ it('separates user, assistant and preparation messages while preserving history'
   expect(wrapper.get('option[value="conv"]').text()).not.toContain('conv')
   wrapper.unmount(); session.dispose()
 })
+
+it('still lets the user clear an explicitly selected buyer without preparing an order', async () => {
+  const { wrapper, session, fetcher } = await setup(respond)
+  const buyer = wrapper.findAll('select').find(s => s.find('option[value="buyer-a"]').exists())!
+  await buyer.setValue('')
+  expect((buyer.element as HTMLSelectElement).value).toBe('')
+  expect(fetcher.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true)
+  wrapper.unmount(); session.dispose()
+})

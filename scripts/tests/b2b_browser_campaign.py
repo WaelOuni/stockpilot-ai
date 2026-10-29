@@ -11,7 +11,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 
 
-def run_browser(db, env, directory, cert, passed):
+def run_browser(db, env, directory, cert, passed, *, continuity=False):
     # The parent has verified the local tmpfs project and disposable database.
     db.b2b_memberships.update_one(
         {"membership_id": "fixture-membership"},
@@ -48,7 +48,7 @@ def run_browser(db, env, directory, cert, passed):
     }
     with (directory / "browser-private.log").open("w") as output:
         result = subprocess.run(
-            [node, "b2b-browser.mjs"],
+            [node, "b2b-session-continuity.mjs" if continuity else "b2b-browser.mjs"],
             cwd=Path(__file__).resolve().parents[2] / "frontend",
             env=browser_env,
             stdout=output,
