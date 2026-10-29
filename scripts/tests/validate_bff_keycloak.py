@@ -172,7 +172,13 @@ def main():
         help="Canonical container composition and recovery campaign",
     )
     parser.add_argument('--continuity', action='store_true', help='Real SSO/conversation continuity only; no model generation')
+    parser.add_argument('--renewal', action='store_true', help='Opt-in encrypted server renewal on disposable services')
+    parser.add_argument('--renewal-timed', action='store_true', help='Actual 30-minute active session and expiry (implies renewal)')
     args = parser.parse_args()
+    if args.renewal_timed:
+        args.renewal = True
+    if args.renewal:
+        args.continuity = True
     if args.continuity and (args.assistant or args.canonical):
         parser.error("Continuity does not run the model/canonical recovery campaign.")
     if args.continuity:
@@ -255,6 +261,11 @@ def main():
         .read_text()
         .replace("https://127.0.0.1:57914", ORIGIN)
     )
+    if args.renewal:
+        definition = json.loads(realm.read_text())
+        definition['revokeRefreshToken'] = True
+        definition['refreshTokenMaxReuse'] = 0
+        realm.write_text(json.dumps(definition))
     env["BFF_TEST_REALM_FILE"] = str(realm)
     report = {
         "project": project,
@@ -538,6 +549,10 @@ def main():
                     "BFF_ASSISTANT_ALLOW_HTTP": "true",
                 }
             )
+        if args.renewal:
+            import base64
+            bff_env['BFF_REFRESH_ENABLED'] = 'true'
+            bff_env['BFF_REFRESH_ENCRYPTION_KEY'] = base64.b64encode(os.urandom(32)).decode()
         start_bff(bff_env, cert, key, context)
         if canonical:
             canonical.security_probes()
@@ -910,6 +925,12 @@ def main():
                 passed(
                     "unavailable Ollama endpoint fails 503; persisted original turn retries after owned BFF restart"
                 )
+        if args.renewal:
+            from scripts.tests.bff_renewal_faults import run_revocation
+            run_revocation(browser, auth_code, db, bff_env, passed)
+        if args.renewal_timed:
+            from scripts.tests.bff_renewal_timed import run_timed
+            run_timed(browser, auth_code, db, directory, passed, report)
         if canonical:
             from scripts.tests.canonical_recovery import run_recovery
 
@@ -935,10 +956,18 @@ def main():
             {"organization_id": "fixture-org"}, {"$set": {"status": "active"}}
         )
         with browser() as client:
+            if args.renewal:
+                assert client.get(auth_code(client)).status_code == 303
+                renewal_sid = sha256(client.cookies.get(COOKIE).encode()).hexdigest()
+                db.bff_sessions.update_one({"_id": renewal_sid}, {"$set": {"provider_expires_at": datetime.now(UTC) + timedelta(seconds=1)}})
             callback = auth_code(client)
             keycloak_id = next(cid for cid, name in owned.items() if name == "keycloak")
             validate_owned()
             command(["docker", "stop", "--time", "10", keycloak_id])
+            if args.renewal:
+                assert client.get(ORIGIN + "/b2b/auth/session").status_code == 503
+                assert db.bff_sessions.find_one({"_id": renewal_sid}) is None
+                passed("real provider outage during renewal fails closed and revokes the BFF session")
             response = client.get(callback)
             assert response.status_code == 503
             assert (

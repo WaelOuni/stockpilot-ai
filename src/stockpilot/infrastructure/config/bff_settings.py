@@ -33,6 +33,9 @@ class BffSettings(BaseSettings):
     transaction_seconds: int = Field(default=300, ge=30, le=300)
     configuration_key: SecretStr | None = Field(default=None, repr=False)
 
+    refresh_enabled: bool = False
+    refresh_encryption_key: SecretStr | None = Field(default=None, repr=False)
+
     assistant_enabled: bool = False
     assistant_postgres_uri: SecretStr | None = Field(default=None, repr=False)
     assistant_schema: str = "stockpilot_b2b"
@@ -161,6 +164,11 @@ class BffSettings(BaseSettings):
                 r"stockpilot_b2b_test_[0-9a-f]{32}", self.mongo_database
             ):
                 raise ValueError
+            if self.refresh_enabled:
+                from stockpilot.infrastructure.identity.token_protector import AesTokenProtector
+                if not self.refresh_encryption_key:
+                    raise ValueError
+                AesTokenProtector(self.refresh_encryption_key.get_secret_value())
             if self.session_idle_seconds > self.session_absolute_seconds:
                 raise ValueError
         except (ValueError, TypeError, OSError):
@@ -200,6 +208,8 @@ class BffSettings(BaseSettings):
                     self.assistant_embedding_model,
                 ]
             )
+        if self.refresh_enabled:
+            context += json.dumps(["server-refresh-v1", sha256(self.refresh_encryption_key.get_secret_value().encode()).hexdigest()])
         fingerprint = hmac.new(
             self.configuration_key.get_secret_value().encode(),
             context.encode(),

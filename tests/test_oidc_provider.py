@@ -21,6 +21,41 @@ NONCE = "nonce-expected"
 VERIFIER = "v" * 64
 
 
+def test_opt_in_refresh_keeps_credentials_internal_and_validates_signed_identity(harness):
+    provider, state, first, _ = harness
+    provider._retain_refresh = True
+    original = provider.exchange("code", NONCE, VERIFIER)
+    assert original.refresh_token == "refresh-token-secret"
+    assert "refresh-token-secret" not in repr(original)
+    value = claims()
+    value.pop("nonce")  # OIDC Core12.2 permits omission on refresh.
+    state["raw"]["token"] = json.dumps({"id_token": jwt.encode(value, first, algorithm="RS256", headers={"kid": "first"}), "refresh_token": "rotated-secret"})
+    renewed = provider.refresh(original.refresh_token, NONCE)
+    assert renewed.identity == original.identity
+    assert renewed.refresh_token == "rotated-secret"
+    form = parse_qs(next(r for r in reversed(state["requests"]) if r.url.path.endswith("/token")).content.decode())
+    assert form == {"grant_type": ["refresh_token"], "refresh_token": ["refresh-token-secret"]}
+
+
+@pytest.mark.parametrize("change", [{"nonce": "wrong"}, {"aud": "wrong"}, {"iss": "https://wrong"}, {"exp": 1}, {"iat": "bad"}])
+def test_refresh_rejects_invalid_signed_claims(harness, change):
+    provider, state, first, _ = harness
+    provider._retain_refresh = True
+    state["token"] = jwt.encode(claims(**change), first, algorithm="RS256", headers={"kid": "first"})
+    with pytest.raises(BffUnauthenticated):
+        provider.refresh("refresh-token-secret", NONCE)
+
+
+@pytest.mark.parametrize("status", [400, 503])
+def test_refresh_refusal_or_outage_has_no_credential_details(harness, status):
+    provider, state, _, _ = harness
+    provider._retain_refresh = True
+    state["status"]["token"] = status
+    with pytest.raises((BffUnauthenticated, BffUnavailable)) as caught:
+        provider.refresh("never-log-this-refresh", NONCE)
+    assert "never-log-this-refresh" not in str(caught.value)
+
+
 @pytest.fixture(scope="module")
 def signing_keys():
     return tuple(
