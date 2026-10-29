@@ -6,6 +6,18 @@ beforeEach(() => { sessionStorage.clear(); localStorage.clear() })
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 const key = 'stockpilot.b2b.conversation.v1'
 const expiry = 'Votre session a expiré'
+it.each(['user-a', 'other'])('quarantines the return path after a reload with an expired cookie: %s', async user => {
+  const original = await open(); original.continuity.select('conv-a'); original.dispose()
+  const fetcher = vi.fn().mockResolvedValueOnce(json({}, 401))
+    .mockResolvedValueOnce(json({ ...sessionFixture, user_id: user }))
+  const reloaded = createB2BSession(fetcher); await reloaded.restore()
+  expect(reloaded.current.value).toBeNull()
+  reloaded.continuity.rememberReturn('/b2b-app/assistant/conv-a')
+  expect(reloaded.continuity.active.value).toBe('')
+  await reloaded.restore()
+  expect(reloaded.continuity.takeReturn()).toBe(user === 'user-a' ? '/b2b-app/assistant/conv-a' : null)
+  reloaded.dispose()
+})
 async function open(fetcher = vi.fn().mockImplementation(async () => json(sessionFixture))) {
   const s = createB2BSession(fetcher); await s.restore(); return s
 }

@@ -171,7 +171,12 @@ def main():
         action="store_true",
         help="Canonical container composition and recovery campaign",
     )
+    parser.add_argument('--continuity', action='store_true', help='Real SSO/conversation continuity only; no model generation')
     args = parser.parse_args()
+    if args.continuity and (args.assistant or args.canonical):
+        parser.error("Continuity does not run the model/canonical recovery campaign.")
+    if args.continuity:
+        args.frontend = True
     if args.canonical and preset != "default":
         parser.error(
             "Canonical harness keeps its own fixed ports; use the BFF harness for isolated ports."
@@ -489,7 +494,7 @@ def main():
                 )
         if args.frontend:
             bff_env["B2B_BROWSER_TEST"] = "isolated"
-        if args.assistant:
+        if args.assistant or args.continuity:
             import psycopg
 
             from stockpilot.infrastructure.persistence.postgres.tenant_migrations import (
@@ -505,20 +510,26 @@ def main():
             with psycopg.connect(pg_uri) as connection:
                 target, identity = runner.target(connection)
             runner.apply(database=target, system_identifier=identity)
-            endpoint = os.environ.get("V1383_OLLAMA_URL", "")
-            if not endpoint:
-                raise RuntimeError("Explicit available Ollama endpoint required.")
-            tags = httpx.get(endpoint + "/api/tags", timeout=5).json()["models"]
-            required = {"qwen2.5:7b", "nomic-embed-text:latest"}
-            assert required <= {model["name"] for model in tags}
-            report["ollama_models"] = [
-                {"name": model["name"], "digest": model["digest"]}
-                for model in tags
-                if model["name"] in required
-            ]
-            report["ollama_initial_loaded_count"] = len(
-                httpx.get(endpoint + "/api/ps", timeout=5).json()["models"]
-            )
+            # No inference is part of SSO continuity. A closed local endpoint ensures
+            # this campaign cannot silently exercise a demo/model provider.
+            if args.continuity:
+                endpoint = 'http://127.0.0.1:9'
+                report['model_generation'] = 'not_requested_no_model_calls'
+            else:
+                endpoint = os.environ.get("V1383_OLLAMA_URL", "")
+                if not endpoint:
+                    raise RuntimeError("Explicit available Ollama endpoint required.")
+                tags = httpx.get(endpoint + "/api/tags", timeout=5).json()["models"]
+                required = {"qwen2.5:7b", "nomic-embed-text:latest"}
+                assert required <= {model["name"] for model in tags}
+                report["ollama_models"] = [
+                    {"name": model["name"], "digest": model["digest"]}
+                    for model in tags
+                    if model["name"] in required
+                ]
+                report["ollama_initial_loaded_count"] = len(
+                    httpx.get(endpoint + "/api/ps", timeout=5).json()["models"]
+                )
             bff_env.update(
                 {
                     "BFF_ASSISTANT_ENABLED": "true",
@@ -805,7 +816,7 @@ def main():
         if args.frontend:
             from scripts.tests.b2b_browser_campaign import run_browser
 
-            run_browser(db, bff_env, directory, cert, passed)
+            run_browser(db, bff_env, directory, cert, passed, continuity=args.continuity)
             if args.assistant:
                 from scripts.tests.b2b_assistant_campaign import run_assistant_browser
 

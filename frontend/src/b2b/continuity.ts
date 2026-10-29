@@ -55,7 +55,13 @@ export function createContinuity() {
     if (u !== user || o !== organization) purge()
   }
   function rememberReturn(path: string) {
-    if (owner && safePath(path)) write(returnKey, { user: owner.user_id, organization: owner.organization_id, value: path })
+    // A reload may encounter an expired cookie before any owner is validated.
+    // The old reference is only a hint: takeReturn still requires the newly
+    // authenticated owner to match, and history is authorized again by the BFF.
+    const previous = read(conversationKey)
+    const candidate = owner ?? (previous && identifier(previous.value)
+      ? { user_id: previous.user, organization_id: previous.organization } : null)
+    if (candidate && safePath(path)) write(returnKey, { user: candidate.user_id, organization: candidate.organization_id, value: path })
   }
   function takeReturn() {
     const saved = read(returnKey); write(returnKey, null)
