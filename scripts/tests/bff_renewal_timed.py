@@ -21,30 +21,12 @@ def run_timed(browser, auth_code, db, directory, passed, report):
         started = time.monotonic()
         offsets = sorted(set([*range(0, 1800, 60), 275, 1790, 1802]))
         for offset in offsets:
-            while time.monotonic() - started < offset:
-                time.sleep(max(0, min(1, offset - (time.monotonic() - started))))
-            if offset >= 1800:
-                # UTC may be adjusted independently of monotonic time (observed
-                # in WSL). Preserve the first probe, then test the actual stored
-                # server deadline; never change that deadline or fake the clock.
-                probe = client.get(ORIGIN + "/b2b/auth/session")
-                observed = datetime.now(UTC)
-                deadline_probe = {"elapsed_seconds": round(time.monotonic()-started,3),
-                    "observed_utc": observed.isoformat(),
-                    "absolute_expires_at": absolute.isoformat(),
-                    "status": probe.status_code,
-                    "request_id": probe.headers.get("x-request-id"),
-                    "session_cookie_sent": "__Host-stockpilot_bff=" in probe.request.headers.get("cookie", "")}
-                (directory / "renewal-deadline-probe.json").write_text(json.dumps(deadline_probe, indent=2))
-                assert probe.status_code in (200, 401)
-                if observed < absolute - timedelta(seconds=1):
-                    assert probe.status_code == 200
-                elif observed > absolute + timedelta(seconds=1):
-                    assert probe.status_code == 401
-                waiting = time.monotonic()
-                while datetime.now(UTC) < absolute + timedelta(seconds=1):
-                    assert time.monotonic()-waiting < 30, "UTC deadline not reached within bounded wait"
-                    time.sleep(0.1)
+            # Schedule against the same UTC deadline used by the BFF. Measure
+            # actual duration independently; never modify either clock/deadline.
+            target = absolute + timedelta(seconds=offset - 1800)
+            while datetime.now(UTC) < target:
+                assert time.monotonic()-started < 1860, "UTC schedule exceeded bounded monotonic wait"
+                time.sleep(min(0.5, max(0, (target-datetime.now(UTC)).total_seconds())))
             if offset == 275:
                 version = db.bff_sessions.find_one({"_id": identity})["refresh_version"]
                 with ThreadPoolExecutor(max_workers=4) as pool:
@@ -84,5 +66,6 @@ def run_timed(browser, auth_code, db, directory, passed, report):
         assert max(s["rotation_version"] or 0 for s in samples) >= 5
     report["renewal_timed"] = {"actual_elapsed_seconds": samples[-1]["elapsed_seconds"],
         "samples": samples, "absolute_unchanged": True, "clock_simulated": False,
-        "absolute_expires_at": absolute.isoformat(), "deadline_probe": deadline_probe}
+        "absolute_expires_at": absolute.isoformat(), "schedule_clock": "UTC",
+        "elapsed_clock": "monotonic"}
     passed("actual elapsed 30-minute active session with rotating Keycloak refresh; absolute expiry refused")
