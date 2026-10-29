@@ -34,12 +34,30 @@ def run_timed(browser, auth_code, db, directory, passed, report):
             else:
                 response = client.get(ORIGIN + "/b2b/auth/session")
             expected = 200 if offset < 1800 else 401
+            observation = {"elapsed_seconds": round(time.monotonic()-started,3),
+                "status": response.status_code,
+                "request_id": response.headers.get("x-request-id"),
+                "observed_utc": datetime.now(UTC).isoformat(),
+                "session_cookie_sent": "__Host-stockpilot_bff=" in response.request.headers.get("cookie", "")}
+            progress.write_text(json.dumps({"state": "observed", "samples": samples,
+                "last_observation": observation}, indent=2))
+            if offset >= 1800:
+                replay = client.get(ORIGIN + "/b2b/auth/session",
+                    headers={"Cookie": "__Host-stockpilot_bff=" + cookie})
+                observation["explicit_expired_cookie_replay_status"] = replay.status_code
+            progress.write_text(json.dumps({"state": "observed", "samples": samples,
+                "last_observation": observation}, indent=2))
+            if response.status_code != expected:
+                progress.write_text(json.dumps({"state": "failed", "samples": samples,
+                    "failed_elapsed_seconds": round(time.monotonic()-started,3),
+                    "expected_status": expected, "observed_status": response.status_code, "last_observation": observation},indent=2))
             assert response.status_code == expected
+            if offset >= 1800:
+                assert replay.status_code == 401
             if expected == 200:
                 assert datetime.fromisoformat(response.json()["expires_at"]).timestamp() == absolute.replace(tzinfo=UTC).timestamp()
             record = db.bff_sessions.find_one({"_id": identity})
-            samples.append({"elapsed_seconds": round(time.monotonic() - started, 3),
-                "status": response.status_code, "rotation_version": record.get("refresh_version") if record else None})
+            samples.append(observation | {"rotation_version": record.get("refresh_version") if record else None})
             progress.write_text(json.dumps({"state": "running" if offset < 1800 else "complete", "samples": samples}, indent=2))
         assert max(s["rotation_version"] or 0 for s in samples) >= 5
     report["renewal_timed"] = {"actual_elapsed_seconds": samples[-1]["elapsed_seconds"],

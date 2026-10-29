@@ -925,6 +925,13 @@ def main():
                 passed(
                     "unavailable Ollama endpoint fails 503; persisted original turn retries after owned BFF restart"
                 )
+        if args.renewal and not args.renewal_timed:
+            from scripts.tests.bff_renewal_expiry import run_short_expiry
+            stop_bff()
+            start_bff(bff_env | {"BFF_SESSION_ABSOLUTE_SECONDS": "30", "BFF_SESSION_IDLE_SECONDS": "30"}, cert, key, context)
+            run_short_expiry(browser, auth_code, directory, passed)
+            stop_bff()
+            start_bff(bff_env, cert, key, context)
         if args.renewal:
             from scripts.tests.bff_renewal_faults import run_revocation
             run_revocation(browser, auth_code, db, bff_env, passed)

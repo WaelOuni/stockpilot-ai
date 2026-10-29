@@ -96,7 +96,11 @@ This owned tmpfs harness turns on renewal with a generated test key and enables
 strict refresh rotation only in its ephemeral realm. It exercises real SSO/Vue
 continuity, real refresh-token revocation, injected owned-store idle expiry,
 concurrent requests, activity over five minutes through the 30-minute deadline,
-and provider outage. The elapsed-time trace records statuses and versions only.
+and provider outage. The elapsed-time trace records statuses, rotation versions, UTC timestamps, request
+IDs and cookie-presence booleans, never cookie values. The final request explicitly
+replays the expired opaque cookie as well as testing the normal cookie jar.
+`--renewal` without `--renewal-timed` instead includes an actual 32-second expiry
+check under a disposable 30-second BFF policy; this is not the 30-minute qualification.
 The idle injection is not a measured ten-minute idle wait. No inference is used.
 Run integration regressions separately with all three explicit CI endpoint variables;
 the standard BFF harness does not provision the authentication-only Mongo fixture.
