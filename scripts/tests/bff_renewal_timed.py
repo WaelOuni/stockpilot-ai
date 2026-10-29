@@ -68,4 +68,4 @@ def run_timed(browser, auth_code, db, directory, passed, report):
         "samples": samples, "absolute_unchanged": True, "clock_simulated": False,
         "absolute_expires_at": absolute.isoformat(), "schedule_clock": "UTC",
         "elapsed_clock": "monotonic"}
-    passed("actual elapsed 30-minute active session with rotating Keycloak refresh; absolute expiry refused")
+    passed("real activity through fixed 30-minute UTC policy; elapsed measured independently; absolute expiry refused")
