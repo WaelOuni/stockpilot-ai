@@ -97,7 +97,11 @@ strict refresh rotation only in its ephemeral realm. It exercises real SSO/Vue
 continuity, real refresh-token revocation, injected owned-store idle expiry,
 concurrent requests, activity over five minutes through the 30-minute deadline,
 and provider outage. The elapsed-time trace records statuses, rotation versions, UTC timestamps, request
-IDs and cookie-presence booleans, never cookie values. The final request explicitly
+IDs and cookie-presence booleans, never cookie values. At 1802 monotonic seconds it records a first probe, then waits until the stored
+UTC deadline plus one second (at most 30 additional monotonic seconds). This
+accounts for observed WSL UTC adjustments; failure to reach the deadline is an
+explicit test failure. Neither clock nor stored deadline is changed. Unexpected
+HTTP errors on the first probe still fail the test. The final request explicitly
 replays the expired opaque cookie as well as testing the normal cookie jar.
 `--renewal` without `--renewal-timed` instead includes an actual 32-second expiry
 check under a disposable 30-second BFF policy; this is not the 30-minute qualification.

@@ -3,7 +3,7 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 
 from scripts.tests.b2b_test_ports import ORIGIN
 
@@ -17,12 +17,34 @@ def run_timed(browser, auth_code, db, directory, passed, report):
         identity = sha256(cookie.encode()).hexdigest()
         document = db.bff_sessions.find_one({"_id": identity})
         assert document["refresh_ciphertext"] and document["provider_expires_at"] < document["absolute_expires_at"]
-        absolute = document["absolute_expires_at"]
+        absolute = document["absolute_expires_at"].replace(tzinfo=UTC)
         started = time.monotonic()
         offsets = sorted(set([*range(0, 1800, 60), 275, 1790, 1802]))
         for offset in offsets:
             while time.monotonic() - started < offset:
                 time.sleep(max(0, min(1, offset - (time.monotonic() - started))))
+            if offset >= 1800:
+                # UTC may be adjusted independently of monotonic time (observed
+                # in WSL). Preserve the first probe, then test the actual stored
+                # server deadline; never change that deadline or fake the clock.
+                probe = client.get(ORIGIN + "/b2b/auth/session")
+                observed = datetime.now(UTC)
+                deadline_probe = {"elapsed_seconds": round(time.monotonic()-started,3),
+                    "observed_utc": observed.isoformat(),
+                    "absolute_expires_at": absolute.isoformat(),
+                    "status": probe.status_code,
+                    "request_id": probe.headers.get("x-request-id"),
+                    "session_cookie_sent": "__Host-stockpilot_bff=" in probe.request.headers.get("cookie", "")}
+                (directory / "renewal-deadline-probe.json").write_text(json.dumps(deadline_probe, indent=2))
+                assert probe.status_code in (200, 401)
+                if observed < absolute - timedelta(seconds=1):
+                    assert probe.status_code == 200
+                elif observed > absolute + timedelta(seconds=1):
+                    assert probe.status_code == 401
+                waiting = time.monotonic()
+                while datetime.now(UTC) < absolute + timedelta(seconds=1):
+                    assert time.monotonic()-waiting < 30, "UTC deadline not reached within bounded wait"
+                    time.sleep(0.1)
             if offset == 275:
                 version = db.bff_sessions.find_one({"_id": identity})["refresh_version"]
                 with ThreadPoolExecutor(max_workers=4) as pool:
@@ -55,11 +77,12 @@ def run_timed(browser, auth_code, db, directory, passed, report):
             if offset >= 1800:
                 assert replay.status_code == 401
             if expected == 200:
-                assert datetime.fromisoformat(response.json()["expires_at"]).timestamp() == absolute.replace(tzinfo=UTC).timestamp()
+                assert datetime.fromisoformat(response.json()["expires_at"]).timestamp() == absolute.timestamp()
             record = db.bff_sessions.find_one({"_id": identity})
             samples.append(observation | {"rotation_version": record.get("refresh_version") if record else None})
             progress.write_text(json.dumps({"state": "running" if offset < 1800 else "complete", "samples": samples}, indent=2))
         assert max(s["rotation_version"] or 0 for s in samples) >= 5
     report["renewal_timed"] = {"actual_elapsed_seconds": samples[-1]["elapsed_seconds"],
-        "samples": samples, "absolute_unchanged": True, "clock_simulated": False}
+        "samples": samples, "absolute_unchanged": True, "clock_simulated": False,
+        "absolute_expires_at": absolute.isoformat(), "deadline_probe": deadline_probe}
     passed("actual elapsed 30-minute active session with rotating Keycloak refresh; absolute expiry refused")
