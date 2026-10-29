@@ -1,6 +1,8 @@
-"""OIDC/BFF orchestration. Token material never leaves the provider adapter."""
+"""OIDC/BFF orchestration. Renewal credentials remain protected on the server."""
 
 import re
+import json
+import time
 import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -14,6 +16,7 @@ from stockpilot.application.ports.bff_security import (
     BffUnavailable,
     LoginTransaction,
     OidcProvider,
+    TokenProtector,
 )
 from stockpilot.application.ports.identity_errors import IdentityRepositoryError
 from stockpilot.application.services.identity_authorization import (
@@ -70,7 +73,9 @@ class BffSessionService:
         policy: BffPolicy,
         *,
         clock: Callable[[], datetime] | None = None,
+        protector: TokenProtector | None = None,
     ):
+        self.protector = protector
         self.provider = provider
         self.store = store
         self.identities = identities
@@ -153,6 +158,11 @@ class BffSessionService:
         )
         if expiry <= now:
             raise BffUnauthenticated("Authentication expired.")
+        renewing = self.protector is not None
+        if renewing:
+            if not verified.refresh_token:
+                raise BffUnauthenticated("Renewal credentials required.")
+            expiry = now + timedelta(seconds=self.policy.absolute_seconds)
         token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         session = BffSession(
             token_hash(token),
@@ -165,8 +175,60 @@ class BffSessionService:
             min(expiry, now + timedelta(seconds=self.policy.idle_seconds)),
             self.policy.configuration,
         )
+        if renewing:
+            from dataclasses import replace
+            session = replace(session, provider_expires_at=verified.expires_at,
+                refresh_ciphertext=self.protector.seal(verified.refresh_token,
+                    json.dumps({"nonce": transaction.nonce, "auth_time": verified.auth_time, "audience": verified.audience}), self._binding(session)))
         self.store.rotate_session(session, transaction.previous_session_hash)
         return token
+
+    @staticmethod
+    def _binding(session):
+        return json.dumps([session.session_hash, session.configuration, session.user_id,
+            session.organization_id, session.identity.issuer, session.identity.subject], separators=(",", ":"))
+
+    def _renew(self, session):
+        if session.provider_expires_at is None:  # Legacy sessions retain their original cap.
+            return session
+        if self.protector is None or not session.refresh_ciphertext:
+            raise BffUnauthenticated("Renewal unavailable.")
+        if session.provider_expires_at > self.clock() + timedelta(seconds=30):
+            return session
+        # One durable claimant only. Never take over an uncertain token grant:
+        # a worker could have consumed a rotating token before disappearing.
+        deadline = time.monotonic() + 1.0
+        while time.monotonic() < deadline:
+            owner = secrets.token_urlsafe(32)
+            if self.store.claim_refresh(session, owner, self.clock()):
+                try:
+                    token, encoded = self.protector.open(session.refresh_ciphertext, self._binding(session))
+                    metadata = json.loads(encoded)
+                    fresh = self.provider.refresh(token, metadata["nonce"])
+                    if fresh.identity != session.identity or fresh.audience != tuple(metadata["audience"]) or (fresh.auth_time is not None and fresh.auth_time != metadata["auth_time"]):
+                        raise BffUnauthenticated("Renewed identity mismatch.")
+                    if fresh.expires_at <= self.clock():
+                        raise BffUnauthenticated("Renewed identity expired.")
+                    ciphertext = self.protector.seal(fresh.refresh_token or token, encoded, self._binding(session))
+                    if not self.store.finish_refresh(session, owner, ciphertext, fresh.expires_at, self.clock()):
+                        raise BffUnauthenticated("Session revoked or expired during renewal.")
+                except Exception as error:
+                    # Fail closed even for ambiguous transport/storage outcomes;
+                    # no automatic retry of a potentially consumed refresh token.
+                    self.store.revoke_session(session.session_hash, self.policy.configuration)
+                    if isinstance(error, (BffUnauthenticated, BffUnavailable)):
+                        raise
+                    raise BffUnauthenticated("Renewal failed.") from None
+            else:
+                time.sleep(0.025)
+            current = self.store.get_session(session.session_hash, self.policy.configuration,
+                self.clock(), self.policy.idle_seconds)
+            if current is None:
+                raise BffUnauthenticated("Session revoked or expired.")
+            if current.provider_expires_at > self.clock() and current.refresh_version != session.refresh_version:
+                return current
+            session = current
+        raise BffUnavailable("Session renewal in progress. Retry a read explicitly.")
 
     def current(self, cookie: str | None) -> tuple[BffSession, Principal]:
         if not opaque_token(cookie):
@@ -179,6 +241,7 @@ class BffSessionService:
         )
         if session is None:
             raise BffUnauthenticated("Session absent or expired.")
+        session = self._renew(session)
         try:
             principal = self._resolve(session.identity, session.organization_id)
             if principal.user_id != session.user_id:
@@ -199,7 +262,13 @@ class BffSessionService:
         return organization.name
 
     def logout(self, cookie: str | None, csrf: str) -> str:
-        session, _ = self.current(cookie)
+        # Logout must not wait on or start a provider refresh (including in flight).
+        if not opaque_token(cookie):
+            raise BffUnauthenticated("Session absent or expired.")
+        session = self.store.get_session(token_hash(cookie), self.policy.configuration,
+            self.clock(), self.policy.idle_seconds)
+        if session is None:
+            raise BffUnauthenticated("Session absent or expired.")
         if not secrets.compare_digest(csrf.encode(), session.csrf_token.encode()):
             raise BffForbidden("Invalid CSRF protection.")
         self.store.revoke_session(session.session_hash, self.policy.configuration)

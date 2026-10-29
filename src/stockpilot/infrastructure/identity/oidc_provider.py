@@ -1,4 +1,4 @@
-"""Confidential OIDC code flow; provider tokens never cross this boundary."""
+"""Confidential OIDC code flow; provider credentials never reach the browser."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import ssl
 import threading
 import time
 from datetime import UTC, datetime
+from dataclasses import replace
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
@@ -46,7 +47,9 @@ class OidcHttpProvider:
         allow_loopback_http: bool = False,
         client: httpx.Client | None = None,
         ca_file: str | None = None,
+        retain_refresh: bool = False,
     ):
+        self._retain_refresh = retain_refresh
         self._allow_loopback_http = allow_loopback_http
         self._issuer = issuer
         self._origin = self._checked_origin(issuer)
@@ -289,8 +292,37 @@ class OidcHttpProvider:
             },
         )
         encoded = response.get("id_token")
-        # Access/refresh tokens are never read, returned or persisted.
+        refresh = response.get("refresh_token") if self._retain_refresh else None
+        response.clear()  # Access tokens are never retained or used as identity.
+        verified = self._validate_identity(encoded, nonce)
+        if self._retain_refresh:
+            self._refresh_value(refresh, required=True)
+        return replace(verified, refresh_token=refresh)
+
+    @staticmethod
+    def _refresh_value(value, *, required=False):
+        if value is None and not required:
+            return
+        if not isinstance(value, str) or not 1 <= len(value) <= 32768 or any(ord(c) <= 32 for c in value):
+            raise BffUnauthenticated("Invalid renewal credentials")
+
+    def refresh(self, token: str, nonce: str) -> AuthenticatedIdentity:
+        if not self._retain_refresh:
+            raise BffUnauthenticated("Renewal disabled")
+        self._refresh_value(token, required=True)
+        response = self._json(
+            "POST", self._discovery()["token_endpoint"], token=True,
+            auth=httpx.BasicAuth(self._client_id, self._client_secret),
+            data={"grant_type": "refresh_token", "refresh_token": token},
+        )
+        encoded = response.get("id_token")
+        refresh = response.get("refresh_token")
         response.clear()
+        self._refresh_value(refresh)
+        return replace(self._validate_identity(encoded, nonce, renewing=True), refresh_token=refresh)
+
+    def _validate_identity(self, encoded, nonce: str, *, renewing=False) -> AuthenticatedIdentity:
+        doc = self._discovery()
         if not isinstance(encoded, str) or not encoded or len(encoded) > 32_768:
             raise BffUnauthenticated("Identity token missing or invalid")
         try:
@@ -314,7 +346,7 @@ class OidcHttpProvider:
                 algorithms=["RS256"],
                 issuer=self._issuer,
                 audience=self._client_id,
-                options={"require": ["iss", "aud", "exp", "iat", "sub", "nonce"]},
+                options={"require": ["iss", "aud", "exp", "iat", "sub"] + ([] if renewing else ["nonce"])},
             )
             if not self._numeric_date(claims["exp"]) or not self._numeric_date(
                 claims["iat"]
@@ -327,15 +359,10 @@ class OidcHttpProvider:
             sub = claims["sub"]
             if not isinstance(sub, str) or not sub.strip():
                 raise ValueError("Invalid subject")
-            actual_nonce = claims["nonce"]
-            if (
-                not isinstance(actual_nonce, str)
-                or not actual_nonce
-                or not hmac.compare_digest(
-                    actual_nonce.encode("utf-8"), nonce.encode("utf-8")
-                )
-            ):
-                raise ValueError("Invalid nonce")
+            if not renewing or "nonce" in claims:
+                actual_nonce = claims.get("nonce")
+                if not isinstance(actual_nonce, str) or not actual_nonce or not hmac.compare_digest(actual_nonce.encode(), nonce.encode()):
+                    raise ValueError("Invalid nonce")
             audiences = claims["aud"]
             if isinstance(audiences, list) and (
                 not audiences or any(not isinstance(a, str) or not a for a in audiences)
@@ -349,7 +376,11 @@ class OidcHttpProvider:
             identity = ExternalIdentity(issuer=self._issuer, subject=sub)
         except (jwt.PyJWTError, ValueError, TypeError, OverflowError, OSError):
             raise BffUnauthenticated("Identity token invalid") from None
-        return AuthenticatedIdentity(identity=identity, expires_at=expires_at)
+        auth_time = claims.get("auth_time")
+        if auth_time is not None and not self._numeric_date(auth_time):
+            raise BffUnauthenticated("Invalid authentication time")
+        return AuthenticatedIdentity(identity=identity, expires_at=expires_at, auth_time=auth_time,
+            audience=tuple(sorted(audiences)) if isinstance(audiences, list) else (audiences,))
 
     def logout_url(self) -> str:
         endpoint = self._discovery().get("end_session_endpoint")

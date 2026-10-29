@@ -38,12 +38,23 @@ class BffSession:
     absolute_expires_at: datetime
     idle_expires_at: datetime
     configuration: str
+    provider_expires_at: datetime | None = None
+    refresh_ciphertext: str | None = field(default=None, repr=False)
+    refresh_version: int = 0
 
 
 @dataclass(frozen=True)
 class AuthenticatedIdentity:
     identity: ExternalIdentity
     expires_at: datetime
+    refresh_token: str | None = field(default=None, repr=False)
+    auth_time: float | None = None
+    audience: tuple[str, ...] = ()
+
+
+class TokenProtector(Protocol):
+    def seal(self, token: str, nonce: str, binding: str) -> str: ...
+    def open(self, ciphertext: str, binding: str) -> tuple[str, str]: ...
 
 
 class OidcProvider(Protocol):
@@ -51,6 +62,7 @@ class OidcProvider(Protocol):
     def exchange(
         self, code: str, nonce: str, verifier: str
     ) -> AuthenticatedIdentity: ...
+    def refresh(self, token: str, nonce: str) -> AuthenticatedIdentity: ...
     def logout_url(self) -> str: ...
 
 
@@ -73,3 +85,6 @@ class BffStore(Protocol):
         ...
 
     def revoke_session(self, session_hash: str, configuration: str) -> None: ...
+
+    def claim_refresh(self, session: BffSession, owner: str, now: datetime) -> bool: ...
+    def finish_refresh(self, session: BffSession, owner: str, ciphertext: str, expires: datetime, now: datetime) -> bool: ...

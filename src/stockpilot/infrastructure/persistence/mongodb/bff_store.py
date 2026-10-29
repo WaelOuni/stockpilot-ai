@@ -112,6 +112,11 @@ class MongoBffStore:
             "configuration": session.configuration,
         }
 
+        if session.provider_expires_at is not None:
+            document.update(provider_expires_at=session.provider_expires_at,
+                            refresh_ciphertext=session.refresh_ciphertext,
+                            refresh_version=session.refresh_version)
+
         def rotate(mongo_session):
             self._sessions.insert_one(document.copy(), session=mongo_session)
             if previous_hash is not None:
@@ -171,6 +176,9 @@ class MongoBffStore:
                 absolute_expires_at=document["absolute_expires_at"],
                 idle_expires_at=document["idle_expires_at"],
                 configuration=document["configuration"],
+                provider_expires_at=document.get("provider_expires_at"),
+                refresh_ciphertext=document.get("refresh_ciphertext"),
+                refresh_version=document.get("refresh_version", 0),
             )
         except (PyMongoError, KeyError, TypeError, ValueError):
             raise BffUnavailable("BFF state unavailable") from None
@@ -183,3 +191,28 @@ class MongoBffStore:
                 )
         except PyMongoError:
             raise BffUnavailable("BFF state unavailable") from None
+
+    def claim_refresh(self, session, owner, now):
+        try:
+            with timeout(5):
+                result = self._sessions.update_one(
+                    {"_id": session.session_hash, "configuration": session.configuration,
+                     "refresh_version": session.refresh_version, "refresh_owner": {"$exists": False},
+                     "absolute_expires_at": {"$gt": now}, "idle_expires_at": {"$gt": now}},
+                    {"$set": {"refresh_owner": owner}})
+            return result.modified_count == 1
+        except PyMongoError:
+            raise BffUnavailable("Renewal storage unavailable") from None
+
+    def finish_refresh(self, session, owner, ciphertext, expires, now):
+        try:
+            with timeout(5):
+                result = self._sessions.update_one(
+                    {"_id": session.session_hash, "configuration": session.configuration,
+                     "refresh_version": session.refresh_version, "refresh_owner": owner,
+                     "absolute_expires_at": {"$gt": now}, "idle_expires_at": {"$gt": now}},
+                    {"$set": {"refresh_ciphertext": ciphertext, "provider_expires_at": expires},
+                     "$inc": {"refresh_version": 1}, "$unset": {"refresh_owner": ""}})
+            return result.modified_count == 1
+        except PyMongoError:
+            raise BffUnavailable("Renewal storage unavailable") from None

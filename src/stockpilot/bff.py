@@ -85,7 +85,12 @@ def create_app(
                     settings.post_logout_uri,
                     allow_loopback_http=settings.allow_loopback_http_issuer,
                     ca_file=settings.oidc_ca_file,
+                    retain_refresh=settings.refresh_enabled,
                 )
+                protector = None
+                if settings.refresh_enabled:
+                    from stockpilot.infrastructure.identity.token_protector import AesTokenProtector
+                    protector = AesTokenProtector(settings.refresh_encryption_key.get_secret_value())
                 app.state.bff_service = BffSessionService(
                     provider,
                     store,
@@ -93,6 +98,7 @@ def create_app(
                     MongoOrganizationRepository(database),
                     MongoMembershipRepository(database),
                     policy,
+                    protector=protector,
                 )
                 if settings.mode == "b2b_business_test":
                     from stockpilot.infrastructure.identity.bff_business import (
