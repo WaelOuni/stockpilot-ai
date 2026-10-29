@@ -1,5 +1,8 @@
 # V13.7.2 — OIDC Keycloak et sessions BFF de test
 
+V13.13.2 ajoute un [renouvellement serveur optionnel](bff-session-renewal.md),
+désactivé par défaut ; les limites historiques ci-dessous décrivent le mode sans renouvellement.
+
 État historique V13.7.2 : le mode auth_test ci-dessous reste inchangé.
 V13.8.1 ajoute un [mode métier de test distinct](b2b-http-api.md), avec contrat
 login JSON, admission bornée et routes B1/B2/B3 ; aucune ouverture Internet.

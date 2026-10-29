@@ -265,3 +265,46 @@ def test_invalid_grant_with_failed_revocation_remains_locked():
     with pytest.raises(BffUnavailable):
         s.current(token)
     assert provider.refresh_calls == 1
+
+
+def test_authentication_time_cannot_change_on_renewal():
+    s, token, clock, provider = renewal_env()
+    original = provider.refresh
+    provider.refresh = lambda *args: replace(original(*args), auth_time=12345)
+    clock[0] += timedelta(seconds=275)
+    with pytest.raises(BffUnauthenticated):
+        s.current(token)
+    assert not s.store.sessions
+
+
+def test_logout_csrf_is_checked_without_contacting_refresh_provider():
+    from fastapi.testclient import TestClient
+    from stockpilot.bff import create_app
+    from test_bff_auth import ORIGIN
+    s, token, clock, provider = renewal_env()
+    snapshot, _ = s.current(token)
+    clock[0] += timedelta(seconds=275)
+    client = TestClient(create_app(settings(), service=s), base_url=ORIGIN)
+    client.cookies.set("__Host-stockpilot_bff", token)
+    response = client.post("/b2b/auth/logout", headers={"Origin": ORIGIN, "X-BFF-CSRF": "wrong"})
+    assert response.status_code == 403 and provider.refresh_calls == 0
+    assert s.store.sessions
+    response = client.post("/b2b/auth/logout", headers={"Origin": ORIGIN, "X-BFF-CSRF": snapshot.csrf_token})
+    assert response.status_code == 200 and provider.refresh_calls == 0
+    assert not s.store.sessions
+
+
+def test_application_membership_is_revalidated_after_provider_renewal():
+    from stockpilot.domain.enums.membership_status import MembershipStatus
+    from stockpilot.application.services.bff_sessions import BffForbidden
+    s, token, clock, provider = renewal_env()
+    original = provider.refresh
+    def suspended(*args):
+        value = original(*args)
+        s.memberships.membership = replace(s.memberships.membership, status=MembershipStatus.SUSPENDED)
+        return value
+    provider.refresh = suspended
+    clock[0] += timedelta(seconds=275)
+    with pytest.raises(BffForbidden):
+        s.current(token)
+    assert not s.store.sessions
