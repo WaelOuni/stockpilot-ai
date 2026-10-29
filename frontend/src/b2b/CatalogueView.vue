@@ -108,13 +108,11 @@ onMounted(() => { void load() })
             :disabled="busy || !!sku.trim()"
           />
         </label>
-        <label><span>{{ t("Disponibilité") }}</span>
-          <span><input
-            v-model="available"
-            type="checkbox"
-            :disabled="busy || !!sku.trim()"
-          /> {{ t("En stock uniquement") }}</span>
-        </label>
+        <label class="check-label availability-filter"><input
+          v-model="available"
+          type="checkbox"
+          :disabled="busy || !!sku.trim()"
+        /> {{ t("Afficher uniquement les produits disponibles") }}</label>
         <button :disabled="busy">
           {{ t("Rechercher") }}
         </button>

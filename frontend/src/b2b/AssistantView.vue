@@ -5,14 +5,13 @@ import { useRoute, useRouter } from 'vue-router'
 import { useB2B } from './session'
 import { assistantHistory, assistantTurn, conversationList, type AssistantTurn } from './assistant'
 import { buyerDecoder, object, page, text } from './contracts'
-import { StaleResponse } from './client'
+import { BffError, StaleResponse } from './client'
 import { formatMoney } from './money'
 import { useTask } from './tasks'
 import { mutate } from './workflows'
 import ComparisonPanel from './ComparisonPanel.vue'
 
 const props = defineProps<{ embedded?: boolean }>()
-const localConversation = ref('')
 const comparison = ref<string[]>([])
 
 const statusLabels = { prepared: 'Préparée — aucun stock réservé', reserved: 'Réservée', cancelled: 'Annulée' }
@@ -33,9 +32,10 @@ const historyOffset = ref(0)
 const hasMore = ref(false)
 let epoch = 0
 let disposed = false
-const id = computed(() => props.embedded ? localConversation.value : typeof route.params.conversationId === 'string' ? route.params.conversationId : '')
+const id = computed(() => !props.embedded && typeof route.params.conversationId === 'string' && route.params.conversationId
+  ? route.params.conversationId : session.continuity.active.value)
 async function selectConversation(value: string) {
-  if (props.embedded) localConversation.value = value
+  if (props.embedded) session.continuity.select(value)
   else await router.push('/b2b-app/assistant/' + encodeURIComponent(value))
 }
 const base = computed(() => '/b2b/api/assistant/conversations/' + encodeURIComponent(id.value))
@@ -49,8 +49,18 @@ function current(version: number) { if (disposed || epoch !== version) throw new
 async function history(resume = false) {
   const version = epoch
   const url = base.value + (resume ? '/resume' : '?limit=20&offset=' + historyOffset.value)
-  const value = await session.client.request(url, assistantHistory, resume ? { method: 'POST', body: {} } : {})
-  current(version); turns.value = value.items; hasMore.value = value.has_more; unknown.value = false
+  const selected = id.value
+  try {
+    const value = await session.client.request(url, assistantHistory, resume ? { method: 'POST', body: {} } : {})
+    current(version)
+    if (id.value !== selected || value.conversation_id !== selected) throw new StaleResponse()
+    session.continuity.select(selected)
+    turns.value = value.items; hasMore.value = value.has_more; unknown.value = false
+  } catch (error) {
+    current(version)
+    if (error instanceof BffError && error.status === 404) session.continuity.forget(selected)
+    throw error
+  }
   confirmation.value = false; cancelConfirmation.value = false
 }
 async function load() {
@@ -59,6 +69,10 @@ async function load() {
   if (!enabled.value) return
   const result = await session.client.request('/b2b/api/assistant/conversations?limit=50&offset=0', conversationList)
   current(version); conversations.value = result.items
+  if (!props.embedded && !route.params.conversationId && id.value) {
+    await router.replace('/b2b-app/assistant/' + encodeURIComponent(id.value))
+    return
+  }
   if (id.value) await history()
 }
 async function create() {
@@ -67,7 +81,7 @@ async function create() {
     const result = await session.client.request('/b2b/api/assistant/conversations', object({ conversation_id: text }), {
       method: 'POST', body: { thread_id: crypto.randomUUID() },
     })
-    current(version); await selectConversation(result.conversation_id)
+    current(version); session.continuity.select(result.conversation_id); await selectConversation(result.conversation_id)
   })
 }
 async function send() {
@@ -160,7 +174,10 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
             :disabled="busy"
             @change="selectConversation(($event.target as HTMLSelectElement).value)"
           >
-            <option value="">{{ t("Choisir une conversation") }}</option>
+            <option
+              value=""
+              disabled
+            >{{ t("Choisir une conversation") }}</option>
             <option
               v-for="conversation in conversations"
               :key="conversation.conversation_id"

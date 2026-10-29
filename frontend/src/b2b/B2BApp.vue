@@ -1,22 +1,34 @@
 <script setup lang="ts">
 import { t } from './preferences'
 import { onMounted, onUnmounted, provide, ref } from 'vue'
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import { createB2BSession, sessionKey } from './session'
 import { useTask } from './tasks'
 import OperationPanel from './OperationPanel.vue'
 import AssistantDock from './AssistantDock.vue'
-import { language, theme, applyPreferences } from './preferences'
+import { applyPreferences } from './preferences'
+import B2BHeader from './B2BHeader.vue'
 import './experience.css'
 const session = createB2BSession()
 provide(sessionKey, session)
 const { current, phase, notice, ssoLogout, expiresSoon } = session
 const organization = ref('')
-const roleNames = { READ_ONLY: 'Consultation', USER: 'Utilisateur', MANAGER: 'Responsable', ORGANIZATION_ADMIN: 'Administrateur entreprise' }
+const route = useRoute()
+const router = useRouter()
 const { busy, error, run } = useTask()
-onMounted(() => { applyPreferences(); void session.start() })
+onMounted(() => {
+  applyPreferences()
+  void session.start().then(async () => {
+    const destination = session.continuity.takeReturn()
+    if (destination && route.path === '/b2b-app/') await router.replace(destination)
+  })
+})
 onUnmounted(session.dispose)
-async function login() { await run(async () => { location.assign(await session.login(organization.value)) }) }
+async function login() { await run(async () => {
+  const target = await session.login(organization.value)
+  session.continuity.rememberReturn(route.path)
+  location.assign(target)
+}) }
 async function switchAccount() {
   await run(async () => {
     await session.logout()
@@ -30,80 +42,11 @@ async function switchAccount() {
       class="skip-link"
       href="#b2b-content"
     >{{ t("Aller au contenu") }}</a>
-    <header class="b2b-header">
-      <RouterLink
-        class="b2b-brand"
-        to="/b2b-app/"
-      >
-        <span class="eyebrow">StockPilot AI</span><strong>{{ t("Espace entreprise") }}</strong>
-      </RouterLink>
-      <div class="display-preferences">
-        <label>{{ t("Langue") }}<select
-          v-model="language"
-          :aria-label="t('Langue')"
-        ><option value="fr">Français</option><option value="en">English</option></select></label>
-        <button
-          class="secondary theme-toggle"
-          :aria-pressed="theme === 'dark'"
-          @click="theme = theme === 'dark' ? 'light' : 'dark'"
-        >
-          {{ theme === 'dark' ? t("Mode clair") : t("Mode sombre") }}
-        </button>
-      </div>
-      <div v-if="current">
-        <strong>{{ current.organization_name }}</strong>
-        <p class="account-identity">
-          {{ current.user_id }}
-        </p>
-        <p class="hint">
-          {{ t(roleNames[current.role]) }}
-        </p>
-        <button
-          class="secondary"
-          :disabled="busy"
-          @click="run(session.logout)"
-        >
-          {{ t("Se déconnecter") }}
-        </button>
-        <button
-          class="secondary"
-          :disabled="busy"
-          @click="switchAccount"
-        >
-          {{ t('Changer de compte') }}
-        </button>
-      </div>
-    </header>
-    <nav
-      v-if="current"
-      class="b2b-nav"
-      :aria-label="t('Navigation entreprise')"
-    >
-      <RouterLink
-        v-if="current.assistant_available && session.has('conversation:own')"
-        to="/b2b-app/assistant"
-      >
-        {{ t("Assistant") }}
-      </RouterLink>
-      <RouterLink
-        v-if="session.has('catalogue:read')"
-        to="/b2b-app/"
-      >
-        {{ t("Catalogue") }}
-      </RouterLink>
-      <RouterLink
-        v-if="session.has('order:read_own') || session.has('order:read_organization')"
-        to="/b2b-app/orders"
-      >
-        {{ t("Commandes") }}
-      </RouterLink>
-      <RouterLink
-        v-if="session.has('stock:read')"
-        to="/b2b-app/stock"
-      >
-        {{ t("Stock et administration") }}
-      </RouterLink>
-    </nav>
+    <B2BHeader
+      :busy="busy"
+      @logout="run(session.logout)"
+      @switch-account="switchAccount"
+    />
     <main
       id="b2b-content"
       class="b2b-content"
@@ -204,13 +147,6 @@ async function switchAccount() {
 </template>
 <style>
 .b2b-shell { min-height:100vh; background:#f5f7fb; color:#17243b; }
-.b2b-header { display:flex; justify-content:space-between; gap:16px; padding:16px max(20px,calc((100vw - 1200px)/2)); background:#fff; border-bottom:1px solid #e1e6ef; }
-.b2b-brand { display:grid; gap:4px; text-decoration:none; color:inherit; align-self:center; }
-.b2b-brand strong { font-size:1.45rem; }
-.b2b-header p { margin:4px 0 12px; }
-.b2b-nav { display:flex; flex-wrap:wrap; gap:12px; max-width:1200px; margin:auto; padding:10px 20px 0; }
-.b2b-nav a { padding:10px 14px; border-radius:8px; color:#334155; text-decoration:none; font-weight:600; }
-.b2b-nav a.router-link-exact-active { background:#4338ca; color:white; }
 .b2b-content { max-width:1200px; margin:auto; padding:16px 20px; }
 .b2b-card { overflow-wrap:anywhere; background:white; border:1px solid #dfe5ef; border-radius:12px; padding:18px; margin-bottom:14px; }
 .b2b-login { max-width:640px; margin:32px auto; }
@@ -235,5 +171,5 @@ async function switchAccount() {
 .b2b-session-warning { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; margin:0 0 14px; }
 .b2b-session-warning p { margin:0; }
 .b2b-shell :focus-visible { outline:3px solid #4338ca; outline-offset:3px; }
-@media(max-width:600px) { .b2b-header { padding:20px; flex-direction:column; } .b2b-content { padding:16px; } .b2b-card { padding:18px; } }
+@media(max-width:600px) { .b2b-content { padding:16px; } .b2b-card { padding:18px; } }
 </style>
