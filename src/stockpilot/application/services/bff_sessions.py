@@ -1,4 +1,4 @@
-"""OIDC/BFF orchestration. Token material never leaves the provider adapter."""
+"""OIDC/BFF orchestration. Renewal credentials remain protected on the server."""
 
 import re
 import json

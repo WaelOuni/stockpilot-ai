@@ -1,4 +1,4 @@
-"""Confidential OIDC code flow; provider tokens never cross this boundary."""
+"""Confidential OIDC code flow; provider credentials never reach the browser."""
 
 from __future__ import annotations
 
