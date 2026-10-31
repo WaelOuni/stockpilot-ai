@@ -94,6 +94,7 @@ def operation_key(context, conversation_id, message_id):
 
 
 class AssistantState(TypedDict, total=False):
+    read_only: bool
     question: str
     turn_id: str
     customer_id: str | None
@@ -208,7 +209,7 @@ class TenantAssistant:
                     "État courant vérifié. Toute annulation exige une action distincte.",
                     order=order_snapshot(order),
                 )
-            if value in {"oui", "oui je confirme", "je confirme", "confirmer"}:
+            if not state.get("read_only") and value in {"oui", "oui je confirme", "je confirme", "confirmer"}:
                 order = (
                     self.orders.get(request, context, state["last_order_id"])
                     if state.get("last_order_id")
@@ -254,6 +255,8 @@ class TenantAssistant:
             )
             catalogue_question = "Je cherche " + purchase[1] if purchase else question
             if explicit_order_request(question) and not purchase:
+                if state.get("read_only"):
+                    return self._reply("ORDER_REFUSED", "Consultation uniquement : vérifiez d’abord l’opération en attente.")
                 product = await self.catalogue.resolve(
                     request, context, question, order=True
                 )
@@ -412,7 +415,7 @@ class TenantAssistant:
         }
 
     async def send(
-        self, request, context, conversation_id, turn_id, message, customer_id=None
+        self, request, context, conversation_id, turn_id, message, customer_id=None, read_only=False
     ):
         text(message, 4000)
         if not self.admission.acquire(blocking=False):
@@ -426,7 +429,7 @@ class TenantAssistant:
                     conversation_id,
                     turn_id,
                     "message",
-                    {"message": message, "customer_id": customer_id},
+                    {"message": message, "customer_id": customer_id, **({"read_only": True} if read_only else {})},
                 )
                 old = self.store.turn(request, context, conversation_id, turn_id)
                 if old["status"] == "completed":
@@ -438,6 +441,7 @@ class TenantAssistant:
                     request, context, conversation_id, saver
                 ).ainvoke(
                     {
+                        "read_only": read_only,
                         "question": message,
                         "turn_id": turn_id,
                         "customer_id": customer_id,
@@ -522,6 +526,7 @@ class TenantAssistant:
                 turn_id,
                 old["input"]["message"],
                 old["input"].get("customer_id"),
+                old["input"].get("read_only", False),
             )
         with self.store.execution(request, context, conversation_id):
             action = old["action"]
@@ -605,6 +610,7 @@ class TenantAssistant:
                 )
                 if (
                     not reply
+                    or last["input"].get("read_only", False)
                     or not reply.get("order")
                     or reply["order"]["order_id"] != order_id
                 ):

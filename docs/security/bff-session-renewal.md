@@ -19,7 +19,7 @@ authorized party and dates are verified. A returned nonce/auth_time must match
 the original values; nonce omission at renewal is permitted by OIDC Core12.2.
 
 The BFF absolute deadline is creation plus the configured duration (default
-1800s); it is never advanced by renewal. Inactivity stays at 600s by default and
+3600s); it is never advanced by renewal. Inactivity stays at 600s by default and
 is checked before claiming and committing. A session without renewal fields
 retains its original deadline. Activation uses a new configuration fingerprint,
 so existing browser sessions must authenticate again.

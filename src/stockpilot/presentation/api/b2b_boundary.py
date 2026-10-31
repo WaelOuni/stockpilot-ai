@@ -20,6 +20,7 @@ from stockpilot.application.ports.tenant_knowledge import (
 )
 from stockpilot.application.ports.tenant_orders import (
     TenantOrderConflict,
+    TenantStockInsufficient,
     TenantOrderNotFound,
     TenantOrderOutcomeUnknown,
     TenantOrdersUnavailable,
@@ -58,6 +59,8 @@ def failure(error, operation=None):
         status, code = 429, "BUSY"
     elif isinstance(error, BffUnauthenticated):
         status, code = 401, "UNAUTHENTICATED"
+    elif isinstance(error, TenantStockInsufficient):
+        status, code = 409, "STOCK_INSUFFICIENT"
     elif isinstance(error, (BffForbidden, AuthorizationDenied)):
         status, code = 403, "FORBIDDEN"
     elif isinstance(
@@ -92,6 +95,8 @@ def failure(error, operation=None):
     elif isinstance(error, (ValueError, TypeError)):
         status, code = 422, "INVALID_REQUEST"
     body = {"code": code}
+    if isinstance(error, TenantStockInsufficient):
+        body["stock"] = {"sku": error.sku, "requested": error.requested, "available": error.available}
     if operation is not None:
         body["operation"] = operation
     response = JSONResponse(body, status_code=status)
@@ -271,6 +276,7 @@ def install_business(app, settings, router):
         TenantContextUnavailable,
         TenantCatalogueUnavailable,
         TenantOrderConflict,
+        TenantStockInsufficient,
         TenantOrderNotFound,
         TenantOrdersUnavailable,
         TenantStockOperationConflict,

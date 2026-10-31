@@ -15,6 +15,7 @@ from stockpilot.application.ports.tenant_authorization import (
 )
 from stockpilot.application.ports.tenant_orders import (
     TenantOrderConflict,
+    TenantStockInsufficient,
     TenantOrderNotFound,
     TenantOrdersUnavailable,
 )
@@ -326,7 +327,10 @@ class MongoTenantOrders(MongoTenantUnitOfWork):
                 facts = _product(product, org)
                 stock = _stock(product, org)
                 if facts.status != "active" or stock.available < wanted.quantity:
-                    raise TenantOrderConflict("Insufficient active stock.")
+                    raise TenantStockInsufficient(
+                        wanted.sku, wanted.quantity,
+                        stock.available if P.STOCK_READ in principal.permissions else None,
+                    )
                 lines.append(
                     {
                         "product_id": product["_id"],
@@ -412,7 +416,10 @@ class MongoTenantOrders(MongoTenantUnitOfWork):
                     session=session,
                 )
                 if result.matched_count != 1:
-                    raise TenantOrderConflict("Insufficient active stock.")
+                    raise TenantStockInsufficient(
+                        line["sku"], line["quantity"],
+                        _stock(product, org).available if P.STOCK_READ in principal.permissions else None,
+                    )
             now = self._now()
             result = self.db.b2b_orders.update_one(
                 {

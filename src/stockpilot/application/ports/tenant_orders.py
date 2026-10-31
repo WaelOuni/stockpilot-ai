@@ -18,6 +18,14 @@ class TenantOrderConflict(Exception):
     """Idempotency mismatch, stale preparation, stock or state conflict."""
 
 
+class TenantStockInsufficient(TenantOrderConflict):
+    """Definitive transactional refusal; quantities disclosed only with STOCK_READ."""
+
+    def __init__(self, sku, requested, available=None):
+        super().__init__("Insufficient active stock.")
+        self.sku, self.requested, self.available = sku, requested, available
+
+
 class TenantOrderNotFound(Exception):
     """Missing and foreign orders/associations are deliberately indistinguishable."""
 

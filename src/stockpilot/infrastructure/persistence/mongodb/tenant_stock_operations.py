@@ -377,7 +377,7 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
                             "_id": ObjectId(),
                             "organization_id": org,
                             **values,
-                            "attributes": [],
+                            "attributes": values.get("attributes", []),
                             "status": "active",
                             "reserved": 0,
                             "revision": 1,

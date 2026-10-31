@@ -3,6 +3,7 @@
 import csv
 import hashlib
 import io
+import json
 import re
 from dataclasses import dataclass
 
@@ -71,7 +72,7 @@ def parse_tenant_csv(content: bytes, mode: ImportMode) -> ParsedTenantCsv:
                 )
             except csv.Error:
                 continue
-            if len(header) == len(_HEADERS[mode]) and set(header) == _HEADERS[mode]:
+            if len(header) == len(set(header)) and valid_fields(set(header), mode):
                 candidates.append(separator)
         if len(candidates) != 1:
             raise ValueError()
@@ -123,6 +124,8 @@ def parse_tenant_csv(content: bytes, mode: ImportMode) -> ParsedTenantCsv:
                             raise ValueError()
                     if not re.fullmatch(r"[A-Z]{3}", row["currency"]):
                         raise ValueError()
+                if "attributes" in row:
+                    row["attributes"] = json.loads(row["attributes"])
                 validate_values(row, mode)
                 entries.append({"line": line, "values": row})
             except (ValueError, TypeError):
@@ -139,10 +142,24 @@ def parse_tenant_csv(content: bytes, mode: ImportMode) -> ParsedTenantCsv:
     return ParsedTenantCsv(digest, () if issues else tuple(entries), tuple(issues))
 
 
+def valid_fields(fields, mode):
+    return fields == _HEADERS[mode] or (
+        mode != ImportMode.STOCK_ONLY and fields == _HEADERS[mode] | {"attributes"}
+    )
+
+
 def validate_values(row, mode):
     """Validate normalized persisted plans too, including BSON integers."""
-    if not isinstance(row, dict) or set(row) != _HEADERS[mode]:
+    if not isinstance(row, dict) or not valid_fields(set(row), mode):
         raise ValueError("Invalid normalized fields.")
+    if "attributes" in row:
+        attributes = row["attributes"]
+        if (not isinstance(attributes, list) or len(attributes) > 32 or any(
+            type(value) is not str or not value or len(value) > 128
+            or value != value.strip() or any(ord(c) < 32 or ord(c) == 127 for c in value)
+            for value in attributes
+        ) or len(set(attributes)) != len(attributes)):
+            raise ValueError("Invalid product attributes.")
     identifier(row["sku"])
     if "quantity" in row:
         if not isinstance(row["quantity"], int) or isinstance(row["quantity"], bool):

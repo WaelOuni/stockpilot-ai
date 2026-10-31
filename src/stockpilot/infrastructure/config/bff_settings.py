@@ -28,7 +28,7 @@ class BffSettings(BaseSettings):
     mongo_uri: SecretStr | None = Field(default=None, repr=False)
     mongo_database: str | None = None
     allow_loopback_http_issuer: bool = False
-    session_absolute_seconds: int = Field(default=1800, ge=30, le=3600)
+    session_absolute_seconds: int = Field(default=3600, ge=30, le=3600)
     session_idle_seconds: int = Field(default=600, ge=10, le=1800)
     transaction_seconds: int = Field(default=300, ge=30, le=300)
     configuration_key: SecretStr | None = Field(default=None, repr=False)

@@ -624,3 +624,34 @@ def test_sold_out_comparison_and_global_catalogue_never_fallback(assistant, db):
         list(db.b2b_products.find()) == before
         and db.b2b_orders.count_documents({}) == 0
     )
+
+
+def test_read_only_turn_is_persisted_replay_bound_and_cannot_arm_order(assistant, db):
+    a, conv, e = assistant
+    a.llm.classify_intent.return_value = IntentResult(intent="ORDER", quantity=1)
+    question = "Je veux commander 1 unité du SKU DRILL-001"
+    args = (REQUESTS["a1"], context(e.orders), conv, "consult", question, "customer-org-a")
+    turn = asyncio.run(a.send(*args, read_only=True))
+    assert turn["reply"]["intent"] == "ORDER_REFUSED"
+    assert turn["operation"] is None and not turn["reply"]["can_confirm"]
+    assert asyncio.run(a.send(*args, read_only=True)) == turn
+    with pytest.raises(TenantDataConflict):
+        asyncio.run(a.send(*args, read_only=False))
+    for namespace in ("confirm", "cancel"):
+        with pytest.raises(TenantDataConflict):
+            asyncio.run(a.action(REQUESTS["a1"], context(e.orders), conv, namespace, namespace, "invented", "digest"))
+    assert db.b2b_orders.count_documents({}) == 0 and facts(db)[1] == 0
+
+
+def test_retry_of_read_only_turn_retains_mode_after_model_outage(assistant, db):
+    a, conv, e = assistant
+    a.llm.classify_intent.side_effect = TimeoutError("synthetic")
+    with pytest.raises(TenantDataUnavailable):
+        asyncio.run(a.send(REQUESTS["a1"], context(e.orders), conv, "consult-retry",
+            "Je veux commander 1 unité du SKU DRILL-001", "customer-org-a", read_only=True))
+    a.llm.classify_intent.side_effect = None
+    a.llm.classify_intent.return_value = IntentResult(intent="ORDER", quantity=1)
+    turn = asyncio.run(a.retry(REQUESTS["a1"], context(e.orders), conv, "consult-retry"))
+    assert turn["reply"]["intent"] == "ORDER_REFUSED"
+    assert turn["operation"] is None
+    assert db.b2b_orders.count_documents({}) == 0 and facts(db)[1] == 0
