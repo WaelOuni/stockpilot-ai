@@ -55,6 +55,30 @@ python3 -B /opt/stockpilot/operations/b2b_vm_backup_identity.py capture-authoriz
   --sha256 DIGEST_RETURNED_BY_PLAN
 ```
 
+The original capture restarts its writers and initially reports
+`source_recovered=false`. Do not call the historical standalone recovery verifier:
+it imports the obsolete ID reader again. Use `verify-capture` with the same
+generation/digest and `--backup` set to the newly returned capture directory.
+This rechecks all six exact identities, images, private configuration, healthy
+writers, database/pending-operation facts, verified HTTPS/OIDC and all twelve
+archive hashes/sizes before recording source recovery. It preserves the original
+operator result and updates only the result in this fresh capture. Captures older
+than the generation, historical IDs and mismatching images/configuration are
+refused. Restart timestamps are deliberately not reused from R18 in this phase:
+the authorized capture has restarted the same containers, not recreated them.
+
+For `restore-authorized`, provide the same generation/digest and `--backup`, plus
+`--network-plan`, `--host-inventory` and `--restore-request`, all private files in
+that new capture directory. Their format and validation remain owned by the
+sealed `restore_network.py` and `restore_target.py`. The host network inventory
+must be complete and at most 120 seconds old when the allocation gate checks it;
+never reuse the historical inventory. The attempt must name absent resources and
+explicit, unoccupied internal subnets. The original source-preservation, isolated
+ownership, full PostgreSQL metadata/ACL/role, logical data and activation restore
+gates all still run. Only their source inventory provider is generation-aware.
+Failure leaves the isolated attempt's evidence intact, without automatic cleanup.
+Proof details stay in private files; the console receives only the result.
+
 The identifiers above are placeholders, not executable approval. Retain the
 generation and its digest with the new capture. A failed gate is a stop: do not
 edit a generation, re-pin an unexplained difference, reuse older archives as a
@@ -74,7 +98,9 @@ into separate containers/volumes/networks, logical comparison and source recover
 attestation. Do not use active volumes as restoration targets. A successful plan,
 preflight, CI run or archive read is not proof of database recovery.
 
-This adapter does not change Keycloak, enable refresh, deploy API/Web, restore
-databases, or qualify rollback. Those steps remain gated by the recovery proof.
+Only `restore-authorized` invokes the original database restoration into its
+explicitly isolated target. The adapter does not change active Keycloak settings,
+enable refresh, deploy API/Web or qualify application rollback. Those steps remain
+gated by the recovery proof and separate application checks.
 Local root and the Docker daemon are trusted; checksums are integrity witnesses,
 not signatures defending against a compromised host administrator.

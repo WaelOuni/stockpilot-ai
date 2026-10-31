@@ -3,6 +3,7 @@
 import copy
 import json
 import os
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -267,3 +268,149 @@ def test_optimization_is_refused_without_inspection(monkeypatch, capsys):
     monkeypatch.setattr(identity, "command", lambda _: pytest.fail("no inspection allowed"))
     assert identity.main() == 1
     assert "NO-GO" in capsys.readouterr().out
+
+
+@pytest.fixture
+def fresh_capture(private_directory, scenario, monkeypatch):
+    monkeypatch.setattr(identity, "ROOT", private_directory)
+    backups = private_directory / "backups"
+    backups.mkdir(mode=0o700)
+    backup = backups / "v13133-before-upgrade-20261031T120000Z"
+    backup.mkdir(mode=0o700)
+    generation = identity.reconcile(*scenario)
+    generation["created_utc"] = (datetime.now(UTC) - timedelta(seconds=5)).isoformat()
+    containers = generation["snapshot"]["containers"]
+    manifest = {
+        "format": 2, "postgres_backup_format": "pg-full-fidelity-v1",
+        "captured_at_utc": datetime.now(UTC).isoformat(), "source_project": identity.PROJECT,
+        "source_ids": {s: c["id"] for s, c in containers.items()},
+        "images": {s: c["image"] for s, c in containers.items()},
+        "source_engine_id": "owned-engine",
+        "source_volumes": {s: [m["Name"] for m in c["mounts"] if m["Type"] == "volume"] for s, c in containers.items()},
+        "private_file_hashes": {n: f["sha256"] for n, f in generation["snapshot"]["files"].items()},
+        "archives": {},
+    }
+    names = {"mongo.archive.gz", "private-state.tar", "runtime-state.tar", "application-images.tar", "image-archive-proof.json", "image-runtime-proof.json"}
+    names |= {f"pg-{db}/{n}" for db in ("application", "keycloak") for n in ("globals.sql", "database.dump", "manifest.json")}
+    for name in names:
+        path = backup / name
+        path.parent.mkdir(mode=0o700, exist_ok=True)
+        data = ("synthetic " + name).encode()
+        path.write_bytes(data); path.chmod(0o600)
+        manifest["archives"][name] = {"sha256": identity.digest(data), "bytes": len(data)}
+    result = {"capture_valid": True, "containers_restarted": True, "source_recovered": False, "backup": str(backup)}
+    identity.write_generation(backup / "manifest.json", manifest)
+    identity.write_generation(backup / "operator-result.json", result)
+    return backup, generation, manifest, result
+
+
+@pytest.mark.parametrize("drift", ["old", "future", "id", "image", "configuration", "incomplete", "failed_restart", "wrong_result_path", "volume"])
+def test_post_capture_gate_cannot_admit_historical_or_incomplete_capture(fresh_capture, drift):
+    backup, generation, manifest, result = fresh_capture
+    if drift == "old": manifest["captured_at_utc"] = "2020-01-01T00:00:00+00:00"
+    elif drift == "future": manifest["captured_at_utc"] = "2099-01-01T00:00:00+00:00"
+    elif drift == "id": manifest["source_ids"]["bff"] = "historical"
+    elif drift == "image": manifest["images"]["bff"] = "other"
+    elif drift == "configuration": manifest["private_file_hashes"]["bff.json"] = "other"
+    elif drift == "incomplete": result["capture_valid"] = False
+    elif drift == "failed_restart": result["containers_restarted"] = False
+    elif drift == "volume": manifest["source_volumes"]["mongo"] = ["another-volume"]
+    else: result["backup"] = "/old/backup"
+    (backup / "manifest.json").write_text(json.dumps(manifest))
+    (backup / "operator-result.json").write_text(json.dumps(result))
+    with pytest.raises(identity.Refused): identity.capture_metadata(backup, generation)
+
+
+@pytest.mark.parametrize("drift", ["bytes", "size", "extra", "symlink"])
+def test_archive_integrity_is_checked_before_recovery_attestation(fresh_capture, drift):
+    backup, _, manifest, _ = fresh_capture
+    identity.verify_archives(backup, manifest)
+    path = backup / "mongo.archive.gz"
+    if drift == "bytes": path.write_bytes(b"corruption")
+    elif drift == "size": manifest["archives"][path.name]["bytes"] += 1
+    elif drift == "extra": manifest["archives"]["../escape"] = {}
+    else:
+        path.unlink(); path.symlink_to(backup / "private-state.tar")
+    with pytest.raises((identity.Refused, OSError)): identity.verify_archives(backup, manifest)
+    assert not (backup / "recovery-attestation.json").exists()
+
+
+def test_post_capture_records_accept_same_containers_but_not_later_drift(fresh_capture, monkeypatch):
+    backup, generation, _, _ = fresh_capture
+    snapshot = copy.deepcopy(generation["snapshot"])
+    monkeypatch.setattr(identity, "load_operator", lambda: SimpleNamespace())
+    monkeypatch.setattr(identity, "observe", lambda: ({"same_containers": True}, snapshot))
+    operator = identity.post_capture_operator(backup, generation)
+    assert operator.records() == {"same_containers": True}
+    snapshot["containers"]["bff"]["id"] = "another-recreation"
+    with pytest.raises(identity.Refused, match="runtime_generation_changed"): operator.records()
+
+
+def test_recovery_writes_proof_only_after_all_original_gates(fresh_capture, monkeypatch):
+    backup, generation, _, result = fresh_capture
+    before = (backup / "operator-result.json").read_bytes()
+    events = []
+    rows = {s: {"Id": s, "State": {"Running": True}} for s in identity.SERVICES}
+    module = SimpleNamespace(
+        records=lambda: rows,
+        healthy=lambda _: events.append("healthy"),
+        config=lambda: {}, facts=lambda *_: events.append("facts"),
+    )
+    monkeypatch.setattr(identity, "post_capture_operator", lambda *_: module)
+    monkeypatch.setattr(identity, "docker", lambda *_: b"owned-engine")
+    monkeypatch.setattr(identity, "https_ready", lambda _: events.append("https"))
+    identity.verify_recovery(backup, generation)
+    assert events == ["healthy", "healthy", "healthy", "facts", "https"]
+    assert json.loads((backup / "operator-result.json").read_bytes())["source_recovered"] is True
+    assert json.loads((backup / "operator-result.before-identity-recovery.json").read_bytes()) == json.loads(before)
+    proof = json.loads((backup / "recovery-attestation.json").read_bytes())
+    assert proof["identity_generation_sha256"] == identity.digest(identity.encoded(generation) + b"\n")
+    rows["bff"]["State"]["Running"] = False
+    with pytest.raises(identity.Refused, match="source_not_running"): identity.verify_recovery(backup, generation)
+
+
+def test_restore_requires_generation_bound_source_recovery(fresh_capture, monkeypatch):
+    backup, generation, _, result = fresh_capture
+    monkeypatch.setattr(identity, "recovery_checks", lambda *_: (SimpleNamespace(), result))
+    with pytest.raises(identity.Refused, match="source_recovery_not_attested"):
+        identity.restore_capture(backup, generation, None, None, None)
+    result["source_recovered"] = True
+    identity.write_generation(backup / "recovery-attestation.json", {"identity_generation_sha256": "foreign"})
+    with pytest.raises(identity.Refused, match="recovery_generation_changed"):
+        identity.restore_capture(backup, generation, None, None, None)
+
+
+@pytest.mark.parametrize("full_gate_passes", [True, False])
+def test_isolated_restore_preserves_original_gates_and_hides_private_proof(fresh_capture, monkeypatch, capsys, full_gate_passes):
+    backup, generation, _, result = fresh_capture
+    events = []
+    operator = SimpleNamespace(records=lambda: events.append("current_inventory"))
+    result["source_recovered"] = True
+    monkeypatch.setattr(identity, "recovery_checks", lambda *_: (operator, result))
+    identity.write_generation(backup / "recovery-attestation.json", {
+        "identity_generation_sha256": identity.digest(identity.encoded(generation) + b"\n"),
+    })
+    paths = [backup / name for name in ("network.json", "host.json", "request.json")]
+    for path in paths: identity.write_generation(path, {})
+    restored = SimpleNamespace(
+        operator_lock=lambda: identity.locked(backup / "network.lock"),
+        scope=SimpleNamespace(report_failure=lambda _: events.append("failure_evidence")),
+    )
+    def original_main():
+        assert restored.cap is operator
+        restored.cap.records()
+        events.extend(["source_preserved", "fresh_owned_volumes", "network_isolation", "full_pg_restore", "logical_comparison"])
+        print("SYNTHETIC PRIVATE SQL PROOF")
+    restored.main = original_main
+    gate = SimpleNamespace(require_full_restore=lambda _: events.append("full_restore_gate") or full_gate_passes)
+    monkeypatch.setattr(identity.importlib.util, "spec_from_file_location", lambda name, _: SimpleNamespace(name=name, loader=SimpleNamespace(exec_module=lambda _: None)))
+    monkeypatch.setattr(identity.importlib.util, "module_from_spec", lambda spec: restored if spec.name == "vm_isolated_restore" else gate)
+    argv = identity.sys.argv
+    if full_gate_passes:
+        identity.restore_capture(backup, generation, *paths)
+    else:
+        with pytest.raises(identity.Refused, match="full_restore_gate_failed"):
+            identity.restore_capture(backup, generation, *paths)
+    assert events == ["current_inventory", "source_preserved", "fresh_owned_volumes", "network_isolation", "full_pg_restore", "logical_comparison", "full_restore_gate"]
+    assert "SYNTHETIC PRIVATE SQL PROOF" not in capsys.readouterr().out
+    assert identity.sys.argv is argv

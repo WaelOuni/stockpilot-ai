@@ -11,15 +11,20 @@ import copy
 import fcntl
 import hashlib
 import importlib.util
+import http.client
+import io
 import json
 import os
 import re
 import stat
+import socket
+import ssl
 import subprocess
 import sys
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 PROJECT = "stockpilot-vm-recovered"
 SOURCE = "b018bbf1c346bbcec11b4347e41175fad176f168"
@@ -248,30 +253,204 @@ def guarded_records(generation, history, observer=observe, attester=normal_attes
     return records
 
 
-def invoke_operator(mode, generation, history):
+def load_operator():
     verify_packages()
     path = OPERATOR / "backup_operator.py"
     sys.path.insert(0, str(OPERATOR))
     spec = importlib.util.spec_from_file_location("vm_legacy_backup", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    return module
+
+
+def invoke_operator(mode, generation, history):
+    module = load_operator()
     # Replace the obsolete ID-only inventory reader, not preflight/capture/OCI,
     # database, restore or recovery gates. EXPECTED and on-disk code stay intact.
     require(module.EXPECTED == history["source_ids"], "legacy_identity_contract_changed")
     module.records = guarded_records(generation, history)
     previous = sys.argv
     try:
-        sys.argv = [str(path), "preflight" if mode == "preflight" else "capture-authorized-v13133"]
+        sys.argv = [str(OPERATOR / "backup_operator.py"), "preflight" if mode == "preflight" else "capture-authorized-v13133"]
         module.main()
+    finally:
+        sys.argv = previous
+
+
+def capture_metadata(backup, generation):
+    """Admit only a fresh capture of this generation, never a historical backup."""
+    require(backup.parent == ROOT / "backups", "capture_location_refused")
+    require(bool(re.fullmatch(r"v13133-before-upgrade-[0-9]{8}T[0-9]{6}Z", backup.name)), "capture_name_refused")
+    manifest = json.loads(private_bytes(backup / "manifest.json"))
+    result = json.loads(private_bytes(backup / "operator-result.json"))
+    created = datetime.fromisoformat(generation["created_utc"])
+    captured = datetime.fromisoformat(manifest["captured_at_utc"])
+    require(created.tzinfo is not None and captured.tzinfo is not None, "capture_time_missing")
+    require(created <= captured <= datetime.now(UTC), "capture_predates_generation")
+    require(manifest["format"] == 2 and manifest["postgres_backup_format"] == "pg-full-fidelity-v1", "capture_format_refused")
+    require(manifest["source_project"] == PROJECT, "capture_project_changed")
+    containers = generation["snapshot"]["containers"]
+    require(manifest["source_ids"] == {s: c["id"] for s, c in containers.items()}, "capture_ids_changed")
+    require(manifest["images"] == {s: c["image"] for s, c in containers.items()}, "capture_images_changed")
+    require(set(manifest["source_volumes"]) == SERVICES, "capture_volumes_changed")
+    for service, container in containers.items():
+        names = [m["Name"] for m in container["mounts"] if m["Type"] == "volume"]
+        require(sorted(manifest["source_volumes"][service]) == sorted(names), "capture_volumes_changed")
+    require(manifest["private_file_hashes"] == {n: f["sha256"] for n, f in generation["snapshot"]["files"].items()}, "capture_configuration_changed")
+    require(result.get("capture_valid") is True and result.get("containers_restarted") is True, "capture_incomplete")
+    require(result.get("backup") == str(backup), "capture_result_location_changed")
+    return manifest, result
+
+
+def post_capture_operator(backup, generation):
+    """R18 start-time witnesses cannot survive the authorized capture restart.
+
+    Its replacement gate is the fresh capture's exact generation binding and
+    immutable resource comparison, plus the original health/facts/HTTPS gates.
+    This gate cannot admit an old capture or a changed container ID.
+    """
+    capture_metadata(backup, generation)
+    module = load_operator()
+
+    def records():
+        rows, snapshot = observe()
+        require(snapshot == generation["snapshot"], "runtime_generation_changed")
+        return rows
+
+    module.records = records
+    return module
+
+
+def archive_digest(path):
+    safe_parents(path)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, "rb") as stream:
+        info = os.fstat(fd)
+        require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, "archive_file_refused")
+        require(info.st_uid == os.geteuid() and not info.st_mode & 0o027, "archive_permissions_refused")
+        value = hashlib.sha256()
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(block)
+        return value.hexdigest(), info.st_size
+
+
+def verify_archives(backup, manifest):
+    expected = {"mongo.archive.gz", "private-state.tar", "runtime-state.tar", "application-images.tar", "image-archive-proof.json", "image-runtime-proof.json"}
+    expected |= {f"pg-{db}/{name}" for db in ("application", "keycloak") for name in ("globals.sql", "database.dump", "manifest.json")}
+    require(set(manifest["archives"]) == expected, "capture_archive_set_changed")
+    for name, item in manifest["archives"].items():
+        checksum, size = archive_digest(backup / name)
+        require(checksum == item["sha256"] and size == item["bytes"], "capture_archive_changed")
+
+
+def https_ready(config):
+    context = ssl.create_default_context(cafile=str(ROOT / "private/ca.crt"))
+    for url in (config["BFF_ORIGIN"] + "/b2b-app/", config["BFF_ISSUER"] + "/.well-known/openid-configuration"):
+        target = urlsplit(url)
+        require(target.scheme == "https" and target.hostname in {"b2b-vm.stockpilot.test", "auth-vm.stockpilot.test"}, "https_target_refused")
+        require(target.port in {61914, 61915}, "https_port_refused")
+        connection = http.client.HTTPSConnection(target.hostname, target.port, context=context, timeout=10)
+        try:
+            connection.sock = context.wrap_socket(socket.create_connection(("192.168.250.2", target.port), timeout=10), server_hostname=target.hostname)
+            connection.request("GET", target.path)
+            response = connection.getresponse()
+            body = response.read()
+            require(response.status == 200, "https_readiness_failed")
+            if "well-known" in target.path:
+                require(json.loads(body)["issuer"] == config["BFF_ISSUER"], "issuer_changed")
+        finally:
+            connection.close()
+
+
+def recovery_checks(backup, generation):
+    manifest, result = capture_metadata(backup, generation)
+    module = post_capture_operator(backup, generation)
+    require(docker("info", "--format", "{{.ID}}").decode().strip() == manifest["source_engine_id"], "capture_engine_changed")
+    rows = module.records()
+    require(all(r["State"]["Running"] for r in rows.values()), "source_not_running")
+    for service in ("bff", "proxy", "keycloak"):
+        module.healthy(rows[service]["Id"])
+    config = module.config()
+    module.facts(rows, config)
+    https_ready(config)
+    verify_archives(backup, manifest)
+    module.records()
+    return module, result
+
+
+def verify_recovery(backup, generation):
+    """Called under the backup lock. Only this fresh capture's status is updated."""
+    _, result = recovery_checks(backup, generation)
+    proof = {"source_recovered": True, "https_tls_oidc_verified": True,
+             "same_ids_images_private_files": True,
+             "identity_generation_sha256": digest(encoded(generation) + b"\n")}
+    path = backup / "recovery-attestation.json"
+    if path.exists():
+        require(json.loads(private_bytes(path)) == proof, "recovery_proof_conflict")
+    else:
+        write_generation(path, proof)
+    result.update(source_recovered=True, external_validation_pending=False)
+    # Preserve the original result; a failed write can never mark it recovered.
+    before = private_bytes(backup / "operator-result.json")
+    preserved = backup / "operator-result.before-identity-recovery.json"
+    if not preserved.exists():
+        write_generation(preserved, json.loads(before))
+    pending = backup / "operator-result.identity-recovery.json"
+    write_generation(pending, result)
+    require(private_bytes(backup / "operator-result.json") == before, "capture_result_changed")
+    os.replace(pending, backup / "operator-result.json")
+    parent = os.open(backup, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(parent)
+    finally:
+        os.close(parent)
+    require(json.loads(private_bytes(backup / "operator-result.json")) == result, "recovery_result_write_failed")
+    print(json.dumps({"source_recovered": True, "backup": str(backup)}))
+
+
+def restore_capture(backup, generation, network_plan, host_inventory, request):
+    """Use the original isolated restore/ownership/PG gates, with current IDs."""
+    module, result = recovery_checks(backup, generation)
+    require(result.get("source_recovered") is True, "source_recovery_not_attested")
+    proof = json.loads(private_bytes(backup / "recovery-attestation.json"))
+    require(proof.get("identity_generation_sha256") == digest(encoded(generation) + b"\n"), "recovery_generation_changed")
+    for path in (network_plan, host_inventory, request):
+        require(path is not None and path.parent == backup, "restore_input_location_refused")
+        private_bytes(path)
+    previous = sys.argv
+    try:
+        sys.argv = [str(OPERATOR / "restore_operator.py"), "restore-authorized-v13133", str(backup), str(network_plan), str(host_inventory), str(request)]
+        spec = importlib.util.spec_from_file_location("vm_isolated_restore", OPERATOR / "restore_operator.py")
+        restored = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(restored)
+        restored.cap = module
+        with restored.operator_lock():
+            try:
+                # Full proof stays in the original private destination; do not
+                # stream SQL metadata and account evidence to the console.
+                with redirect_stdout(io.StringIO()):
+                    restored.main()
+            except Exception:
+                restored.scope.report_failure({"restore_verified": False, "adapter_failure": True})
+                raise
+        gate_spec = importlib.util.spec_from_file_location("vm_restore_gate", OPERATOR / "activation_gate.py")
+        gate = importlib.util.module_from_spec(gate_spec)
+        gate_spec.loader.exec_module(gate)
+        require(gate.require_full_restore(backup) is True, "full_restore_gate_failed")
+        print(json.dumps({"restore_verified": True, "backup": str(backup)}))
     finally:
         sys.argv = previous
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["plan", "preflight", "capture-authorized"])
+    parser.add_argument("mode", choices=["plan", "preflight", "capture-authorized", "verify-capture", "restore-authorized"])
     parser.add_argument("--generation", type=Path, required=True)
     parser.add_argument("--sha256")
+    parser.add_argument("--backup", type=Path)
+    parser.add_argument("--network-plan", type=Path)
+    parser.add_argument("--host-inventory", type=Path)
+    parser.add_argument("--restore-request", type=Path)
     args = parser.parse_args()
     try:
         require(os.geteuid() == 0, "root_required")
@@ -293,7 +472,14 @@ def main():
             print(json.dumps({"generation": str(args.generation), "sha256": checksum, "backup_created": False}))
         else:
             generation = load_generation(args.generation, args.sha256)
-            if args.mode == "preflight":
+            if args.mode in {"verify-capture", "restore-authorized"}:
+                require(args.backup is not None, "capture_required")
+                with locked():
+                    if args.mode == "verify-capture":
+                        verify_recovery(args.backup, generation)
+                    else:
+                        restore_capture(args.backup, generation, args.network_plan, args.host_inventory, args.restore_request)
+            elif args.mode == "preflight":
                 with locked():
                     invoke_operator(args.mode, generation, history)
             else:
