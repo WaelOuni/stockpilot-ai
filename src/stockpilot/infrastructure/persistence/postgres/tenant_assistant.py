@@ -151,15 +151,34 @@ class PgTenantAssistant(PgTenantConversations):
             raise ValueError("Action too large.")
         with self.connection(request, context, P.CONVERSATION_OWN, write=True) as c:
             self._owned(c, context, conversation_id)
+            # Serialize admission across this owner's conversations. A committed
+            # write-ahead plan stays authoritative until its outcome is projected.
+            owner_key = canonical([context.organization_id, context.principal.user_id])
+            if not c.execute(
+                "SELECT pg_try_advisory_xact_lock(hashtextextended(%s,8))", (owner_key,)
+            ).fetchone()[0]:
+                raise TenantDataConflict("Another action is being planned.")
             old = c.execute(
                 sql.SQL(
-                    "SELECT action FROM {} WHERE organization_id=%s AND owner_user_id=%s "
+                    "SELECT action,input FROM {} WHERE organization_id=%s AND owner_user_id=%s "
                     "AND conversation_id=%s AND turn_id=%s FOR UPDATE"
                 ).format(self.t("assistant_turns")),
                 (*self._key(context, conversation_id), identifier(turn_id)),
             ).fetchone()
             if old is None or (old[0] is not None and old[0] != action):
                 raise TenantDataConflict("Original action plan required.")
+            if old[1].get("read_only", False):
+                raise TenantDataConflict("Consultation turns cannot plan order actions.")
+            pending = c.execute(
+                sql.SQL(
+                    "SELECT 1 FROM {} WHERE organization_id=%s AND owner_user_id=%s "
+                    "AND status='pending' AND action IS NOT NULL "
+                    "AND NOT (conversation_id=%s AND turn_id=%s) LIMIT 1"
+                ).format(self.t("assistant_turns")),
+                (*self._key(context, conversation_id), turn_id),
+            ).fetchone()
+            if pending and old[0] is None:
+                raise TenantDataConflict("Reconcile the existing action before another mutation.")
             c.execute(
                 sql.SQL(
                     "UPDATE {} SET action=%s WHERE organization_id=%s AND owner_user_id=%s AND conversation_id=%s AND turn_id=%s"
