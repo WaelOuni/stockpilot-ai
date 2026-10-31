@@ -205,3 +205,22 @@ it('throttles session revalidation attempts even when the server is unavailable'
   expect(s.current.value?.idle_expires_at).toBe(sessionFixture.idle_expires_at)
   s.dispose()
 })
+
+it('typing renews server dates at most once per minute and never moves the absolute deadline', async () => {
+  vi.useFakeTimers()
+  const start = Date.now(); const absolute = new Date(start + 3600000).toISOString()
+  const fetcher = vi.fn(async () => json({ ...sessionFixture, expires_at: absolute, idle_expires_at: new Date(Date.now() + 600000).toISOString() }))
+  const s = createB2BSession(fetcher); await s.start()
+  for (const minute of [1, 5, 9, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 59]) {
+    vi.setSystemTime(start + minute * 60000)
+    document.dispatchEvent(new Event('input')); await vi.advanceTimersByTimeAsync(0)
+    const calls = fetcher.mock.calls.length
+    document.dispatchEvent(new Event('input')); await vi.advanceTimersByTimeAsync(0)
+    expect(fetcher).toHaveBeenCalledTimes(calls)
+    expect(s.current.value?.expires_at).toBe(absolute)
+    expect(Date.parse(s.current.value!.idle_expires_at)).toBeGreaterThan(Date.now())
+  }
+  vi.setSystemTime(start + 3600000); s.tick()
+  expect(s.current.value).toBeNull()
+  s.dispose()
+})

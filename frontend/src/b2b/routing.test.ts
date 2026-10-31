@@ -20,3 +20,9 @@ it('keeps unknown B2B URLs inside the B2B area', async () => {
   expect(router.currentRoute.value.path).toBe('/b2b-app/')
   expect(router.currentRoute.value.matched.some(r => r.meta.b2b === true)).toBe(true)
 })
+
+it('matches the history page before the dynamic conversation identifier', () => {
+  const route = router.resolve('/b2b-app/assistant/history')
+  expect(route.params.conversationId).toBeUndefined()
+  expect(route.matched.at(-1)?.path).toBe('/b2b-app/assistant/history')
+})

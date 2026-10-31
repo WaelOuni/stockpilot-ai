@@ -5,6 +5,7 @@ import { RouterLink } from 'vue-router'
 import DetailsPanel from './DetailsPanel.vue'
 import ProductEditor from './ProductEditor.vue'
 import ProductVisual from './ProductVisual.vue'
+import StockStats from './StockStats.vue'
 import ComparisonPanel from './ComparisonPanel.vue'
 import ExportPanel from './ExportPanel.vue'
 import { useB2B } from './session'
@@ -160,11 +161,10 @@ onMounted(() => { void load() })
         <p class="b2b-price">
           {{ formatMoney(product.price_minor, product.currency) }}
         </p>
-        <p v-if="stocks[product.product_id]">
-          {{ t("Disponible :") }} <strong>{{ stocks[product.product_id]?.available }}</strong>
-          {{ t("· Réservé :") }} {{ stocks[product.product_id]?.reserved }}
-          {{ t("· Physique :") }} {{ stocks[product.product_id]?.quantity }}
-        </p>
+        <StockStats
+          v-if="session.has('stock:read')"
+          :stock="stocks[product.product_id]"
+        />
         <div class="b2b-actions">
           <button
             class="secondary"
@@ -185,7 +185,7 @@ onMounted(() => { void load() })
             v-model="compared"
             type="checkbox"
             :value="product.product_id"
-            :disabled="compared.length >= 4 && !compared.includes(product.product_id)"
+            :disabled="compared.length >= 10 && !compared.includes(product.product_id)"
           /> {{ t("Comparer") }}</label>
           <div
             v-if="session.has('import:execute')"
@@ -214,7 +214,7 @@ onMounted(() => { void load() })
       class="comparison-bar"
       role="status"
     >
-      <span>{{ compared.length }} {{ t("/ 4 produits sélectionnés") }}</span>
+      <span>{{ compared.length }} {{ t("/ 10 produits sélectionnés") }}</span>
       <button
         :disabled="compared.length < 2"
         @click="comparisonOpen = true"
@@ -275,6 +275,10 @@ onMounted(() => { void load() })
         {{ t("Informations complémentaires ·") }} {{ selected.sku }}
       </p>
       <p>{{ t("Catégorie :") }} {{ selected.category }} · {{ selected.status === 'active' ? t("Au catalogue") : t("Retiré du catalogue") }}</p>
+      <StockStats
+        v-if="session.has('stock:read')"
+        :stock="stocks[selected.product_id]"
+      />
       <p>{{ selected.description || t("Description non renseignée.") }}</p>
 
       <ul>

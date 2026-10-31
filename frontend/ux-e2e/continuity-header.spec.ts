@@ -138,3 +138,14 @@ test('absolute expiry, explicit login and fixed callback preserve navigation wit
   await expect(page.getByText('Réponse old-conversation')).toBeVisible()
   expect(state.writes).toEqual(['/b2b/auth/login'])
 })
+
+test('history navigation uses the dedicated page, not a conversation named history', async ({ page, context }) => {
+  const state = await fixture(context)
+  await page.goto('/b2b-app/assistant/old-conversation')
+  await page.getByRole('link', { name: 'Historique des conversations', exact: true }).click()
+  await expect(page).toHaveURL(/assistant\/history$/)
+  await expect(page.getByRole('heading', { name: 'Historique des conversations' })).toBeVisible()
+  await expect(page.locator('section li a').filter({ hasText: 'old-conversation' })).toBeVisible()
+  expect(state.reads.some(path => path === '/b2b/api/assistant/conversations/history')).toBe(false)
+  expect(state.writes).toEqual([])
+})

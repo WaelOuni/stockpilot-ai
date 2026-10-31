@@ -54,7 +54,10 @@ it('blocks new messages after uncertain response until durable history is checke
   await wrapper.get('textarea').setValue('Question documentaire')
   await wrapper.get('form').trigger('submit'); await flushPromises()
   expect(wrapper.text()).toContain('Une réponse reste à vérifier')
-  expect(wrapper.get('textarea').attributes('disabled')).toBeDefined()
+  await wrapper.get('textarea').setValue('Brouillon suivant')
+  expect(wrapper.findAll('button').find(b => b.text() === 'Envoyer le message')!.attributes('disabled')).toBeDefined()
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  expect(wrapper.get('textarea').attributes('disabled')).toBeUndefined()
   expect(fetcher.mock.calls.filter(([p]) => String(p).endsWith('/messages'))).toHaveLength(1)
   wrapper.unmount(); session.dispose()
 })
@@ -75,10 +78,15 @@ it('global pending operation blocks conversational mutations until reconciliatio
   const { wrapper, session, fetcher } = await setup(respond)
   session.remember('orders', 'confirm')
   await flushPromises()
-  expect(wrapper.get('textarea').attributes('disabled')).toBeDefined()
+  expect(wrapper.get('textarea').attributes('disabled')).toBeUndefined()
   const button = wrapper.findAll('button').find(b => b.text() === 'Confirmer et réserver')!
   expect(button.attributes('disabled')).toBeDefined()
   expect(fetcher.mock.calls.filter(([p]) => String(p).endsWith('/confirm') || String(p).endsWith('/messages'))).toHaveLength(0)
+  await wrapper.get('textarea').setValue('Question documentaire')
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  const call = fetcher.mock.calls.find(([p]) => String(p).endsWith('/messages'))!
+  expect(JSON.parse(String(call[1]?.body))).toMatchObject({ read_only: true, message: 'Question documentaire' })
+  expect(session.pending.value).toHaveLength(1)
   wrapper.unmount(); session.dispose()
 })
 
@@ -130,5 +138,16 @@ it('still lets the user clear an explicitly selected buyer without preparing an 
   await buyer.setValue('')
   expect((buyer.element as HTMLSelectElement).value).toBe('')
   expect(fetcher.mock.calls.every(([, init]) => init?.method === 'GET')).toBe(true)
+  wrapper.unmount(); session.dispose()
+})
+
+it('keeps new typing when an earlier submitted message replies late', async () => {
+  let deliver!: (value: Response) => void
+  const { wrapper, session } = await setup(path => path.endsWith('/messages') ? new Promise<Response>(resolve => { deliver = resolve }) : respond(path))
+  await wrapper.get('textarea').setValue('First question')
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  await wrapper.get('textarea').setValue('Next unsent question')
+  deliver(json(turn)); await flushPromises()
+  expect(wrapper.get('textarea').element.value).toBe('Next unsent question')
   wrapper.unmount(); session.dispose()
 })

@@ -12,8 +12,9 @@ export async function mutate<T>(session: B2BSession, family: OperationRef['famil
     if (!(typeof result === 'object' && result !== null && 'status' in result && result.status === 'pending')) session.resolve(operation)
     return result
   } catch (error) {
-    // These statuses are guaranteed pre-dispatch input/admission rejections.
-    if (error instanceof BffError && [400, 413, 422, 429].includes(error.status)) session.resolve(operation)
+    // Pre-dispatch rejections and the typed transactional stock refusal are definitive.
+    // Generic conflicts, timeouts and missing receipts remain quarantined.
+    if (error instanceof BffError && ([400, 413, 422, 429].includes(error.status) || (error.status === 409 && error.code === 'STOCK_INSUFFICIENT' && !!error.stock))) session.resolve(operation)
     throw error
   }
 }

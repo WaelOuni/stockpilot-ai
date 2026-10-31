@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t, dateLabel } from './preferences'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useB2B } from './session'
 import { assistantHistory, assistantTurn, conversationList, type AssistantTurn } from './assistant'
 import { buyerDecoder, object, page, text } from './contracts'
@@ -28,6 +28,7 @@ const message = ref('')
 const confirmation = ref(false)
 const cancelConfirmation = ref(false)
 const unknown = ref(false)
+const loadingHistory = ref(false)
 const historyOffset = ref(0)
 const hasMore = ref(false)
 let epoch = 0
@@ -65,15 +66,18 @@ async function history(resume = false) {
 }
 async function load() {
   const version = ++epoch
+  loadingHistory.value = true
+  try {
   turns.value = []; unknown.value = false; confirmation.value = false; cancelConfirmation.value = false; historyOffset.value = 0
   if (!enabled.value) return
-  const result = await session.client.request('/b2b/api/assistant/conversations?limit=50&offset=0', conversationList)
-  current(version); conversations.value = result.items
+  const result = await session.client.request('/b2b/api/assistant/conversations?limit=5&offset=0', conversationList)
+  current(version); conversations.value = result.items.slice(0, 5)
   if (!props.embedded && !route.params.conversationId && id.value) {
     await router.replace('/b2b-app/assistant/' + encodeURIComponent(id.value))
     return
   }
   if (id.value) await history()
+  } finally { if (epoch === version) loadingHistory.value = false }
 }
 async function create() {
   await run(async () => {
@@ -85,21 +89,21 @@ async function create() {
   })
 }
 async function send() {
-  if (!id.value || !message.value.trim() || pending.value || unknown.value || globallyPending.value) return
+  if (loadingHistory.value || !id.value || !message.value.trim() || pending.value || unknown.value) return
   const input = message.value.trim()
   await run(async () => {
     const version = epoch
     const turnId = crypto.randomUUID()
     unknown.value = true // Until a response or a durable history has been read.
     const result = await session.client.request(base.value + '/messages', assistantTurn, {
-      method: 'POST', body: { message_id: turnId, message: input, customer_id: buyer.value || null }, timeoutMs: 90000,
+      method: 'POST', body: { message_id: turnId, message: input, customer_id: buyer.value || null, read_only: globallyPending.value }, timeoutMs: 90000,
     })
-    current(version); turns.value = [...turns.value, result].slice(-20); message.value = ''; unknown.value = false; confirmation.value = false
+    current(version); turns.value = [...turns.value, result].slice(-20); if (message.value.trim() === input) message.value = ''; unknown.value = false; confirmation.value = false
   })
 }
 async function retry() {
   const turn = pending.value
-  if (!turn) return
+  if (!turn || globallyPending.value || loadingHistory.value) return
   await run(async () => {
     const version = epoch
     await session.client.request(base.value + '/turns/' + encodeURIComponent(turn.turn_id) + '/retry', assistantTurn, {
@@ -109,7 +113,7 @@ async function retry() {
   })
 }
 async function action(namespace: 'confirm' | 'cancel') {
-  if (globallyPending.value) { error.value = 'Vérifiez les opérations en attente avant toute nouvelle mutation.'; return }
+  if (globallyPending.value || loadingHistory.value) { error.value = 'Vérifiez les opérations en attente avant toute nouvelle mutation.'; return }
   const selected = order.value
   if (!selected || (namespace === 'confirm' ? !confirmation.value : !cancelConfirmation.value)) return
   await run(async () => {
@@ -122,8 +126,13 @@ async function action(namespace: 'confirm' | 'cancel') {
   })
 }
 async function older(delta: number) { historyOffset.value += delta * 20; await run(() => history()) }
-watch(id, () => { void run(load) })
+watch(message, value => session.continuity.saveDraft('assistant:' + id.value, value), { flush: 'sync' })
+watch(id, () => {
+  message.value = session.continuity.draft('assistant:' + id.value)
+  void load().catch(e => { if (!(e instanceof StaleResponse)) error.value = e instanceof Error ? e.message : 'Action impossible.' })
+})
 onMounted(() => { void run(async () => {
+  message.value = session.continuity.draft('assistant:' + id.value)
   await load()
   if (session.has('order:create')) {
     const version = epoch
@@ -132,7 +141,7 @@ onMounted(() => { void run(async () => {
     if (buyers.value.length === 1) buyer.value = buyers.value[0]!.customer_id
   }
 }) })
-onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.value = []; message.value = '' })
+onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.value = [] })
 </script>
 <template>
   <section>
@@ -187,6 +196,9 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
             </option>
           </select>
         </label>
+        <RouterLink to="/b2b-app/assistant/history">
+          {{ t("Historique des conversations") }}
+        </RouterLink>
         <button
           v-if="id"
           class="secondary"
@@ -326,11 +338,11 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
           <template v-if="canConfirm && session.has('order:create')">
             <label><span><input
               v-model="confirmation"
-              :disabled="busy || !!pending || unknown || globallyPending"
+              :disabled="busy || loadingHistory || !!pending || unknown || globallyPending"
               type="checkbox"
             /> {{ t("Je confirme les SKU, quantités et prix du dernier récapitulatif.") }}</span></label>
             <button
-              :disabled="busy || !!pending || unknown || globallyPending || !confirmation"
+              :disabled="busy || loadingHistory || !!pending || unknown || globallyPending || !confirmation"
               @click="action('confirm')"
             >
               {{ t("Confirmer et réserver") }}
@@ -339,11 +351,11 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
           <template v-if="order.status === 'reserved' && (session.has('order:cancel_own') || session.has('order:cancel_organization'))">
             <label><span><input
               v-model="cancelConfirmation"
-              :disabled="busy || !!pending || unknown || globallyPending"
+              :disabled="busy || loadingHistory || !!pending || unknown || globallyPending"
               type="checkbox"
             /> {{ t("Je demande l’annulation de cette commande.") }}</span></label>
             <button
-              :disabled="busy || !!pending || unknown || globallyPending || !cancelConfirmation"
+              :disabled="busy || loadingHistory || !!pending || unknown || globallyPending || !cancelConfirmation"
               @click="action('cancel')"
             >
               {{ t("Confirmer l’annulation") }}
@@ -377,11 +389,11 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
               required
               maxlength="4000"
               rows="3"
-              :disabled="busy || !!pending || unknown || globallyPending"
+              :disabled="!enabled"
               :placeholder="t('Ex. Des perceuses disponibles à moins de 50 €')"
             ></textarea>
           </label>
-          <button :disabled="busy || !!pending || unknown || globallyPending || !message.trim()">
+          <button :disabled="busy || loadingHistory || !!pending || unknown || !message.trim()">
             {{ t("Envoyer le message") }}
           </button>
         </form>

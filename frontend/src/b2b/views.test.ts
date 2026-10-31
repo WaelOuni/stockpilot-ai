@@ -28,6 +28,8 @@ async function setup(component: Component, responder: (path: string, init?: Requ
   return { wrapper, session, fetcher }
 }
 function response(path: string) {
+  if (path.includes('/by-sku?')) return json(productFixture)
+  if (path.endsWith('/stock')) return json(stockFixture)
   if (path.startsWith('/b2b/api/orders?')) return json(list([]))
   if (path.startsWith('/b2b/api/buyers?')) return json(list([buyerFixture]))
   if (path.startsWith('/b2b/api/stock/movements?') || path.startsWith('/b2b/api/imports?')) return json(list([]))
@@ -40,7 +42,7 @@ describe('B2B views use strict wire contracts', () => {
       return json({ ...list([productFixture]), total: 13, has_more: true })
     })
     expect(wrapper.text()).toContain('90 071 992 547 409,93')
-    expect(wrapper.text()).toContain('Disponible : 10')
+    expect(wrapper.text()).toMatch(/Disponible\s*10/)
     await wrapper.findAll('button').find(b => b.text() === 'Suivant')!.trigger('click'); await flushPromises()
     expect(fetcher.mock.calls.some(([p]) => String(p).includes('offset=12'))).toBe(true)
     wrapper.unmount(); session.dispose()
@@ -229,5 +231,27 @@ it('keeps the order detail trigger mounted during its asynchronous load', async 
   await wrapper.get('dialog').trigger('cancel')
   expect(wrapper.get('table button').element).toBe(trigger.element)
   expect(trigger.attributes('disabled')).toBeUndefined()
+  wrapper.unmount(); session.dispose()
+})
+
+it.each([9, 13])('rejects %s units using available rather than physical and preserves the draft', async requested => {
+  const { wrapper, session, fetcher } = await setup(OrdersView, path => path.endsWith('/stock') ? json({ ...stockFixture, quantity: 12, reserved: 4, available: 8 }) : response(path))
+  await wrapper.findAll('button').find(b => b.text() === 'Nouvelle commande')!.trigger('click')
+  await wrapper.get('input').setValue('DRILL-001')
+  await wrapper.findAll('input')[1]!.setValue(String(requested))
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  expect(wrapper.get('[role=alert]').text()).toContain('8 unités disponibles, ' + requested + ' demandées.')
+  expect(wrapper.findAll('input')[1]!.element.value).toBe(String(requested))
+  expect(fetcher.mock.calls.some(([p]) => String(p).endsWith('/prepare'))).toBe(false)
+  wrapper.unmount(); session.dispose()
+})
+it('keeps stock private and unlocks after a definitive server refusal, without retry', async () => {
+  const { wrapper, session, fetcher } = await setup(OrdersView, path => path.endsWith('/prepare') ? json({ code: 'STOCK_INSUFFICIENT', stock: { sku: 'DRILL-001', requested: 1, available: null } }, 409) : response(path), ['order:create'])
+  await wrapper.findAll('button').find(b => b.text() === 'Nouvelle commande')!.trigger('click')
+  await wrapper.get('input').setValue('DRILL-001'); await wrapper.get('form').trigger('submit'); await flushPromises()
+  expect(wrapper.text()).toContain('Stock insuffisant pour la quantité demandée.')
+  expect(wrapper.text()).not.toContain('unités disponibles')
+  expect(session.pending.value).toHaveLength(0)
+  expect(fetcher.mock.calls.filter(([p]) => String(p).endsWith('/prepare'))).toHaveLength(1)
   wrapper.unmount(); session.dispose()
 })

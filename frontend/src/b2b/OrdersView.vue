@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { t, dateLabel } from './preferences'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { BffError } from './client'
 import DetailsPanel from './DetailsPanel.vue'
 import { useB2B } from './session'
-import { buyerDecoder, orderDecoder, page, type Order } from './contracts'
+import { buyerDecoder, orderDecoder, productDecoder, stockDecoder, page, type Order } from './contracts'
 import { formatMoney } from './money'
 import { useTask } from './tasks'
 import { mutate, positiveQuantity } from './workflows'
@@ -16,6 +17,26 @@ const orders = ref<Order[]>([])
 const buyers = ref<ReturnType<typeof buyerDecoder>[]>([])
 const buyer = ref('')
 const lines = ref([{ sku: typeof route.query.sku === 'string' ? route.query.sku : '', quantity: '1' }])
+try {
+  const saved = JSON.parse(session.continuity.draft('order') || 'null')
+  if (saved && typeof saved.buyer === 'string' && Array.isArray(saved.lines) && saved.lines.length <= 20 && saved.lines.every((line: { sku: unknown; quantity: unknown }) => typeof line.sku === 'string' && typeof line.quantity === 'string')) {
+    buyer.value = saved.buyer
+    if (!route.query.sku) lines.value = saved.lines
+  }
+} catch { /* No usable in-memory draft. */ }
+watch([buyer, lines], () => session.continuity.saveDraft('order', JSON.stringify({ buyer: buyer.value, lines: lines.value })), { deep: true, flush: 'sync' })
+const quantityErrors = ref<Record<string, { requested: number; available: number | null }>>({})
+function quantityError(sku: string, quantity: string) {
+  const issue = quantityErrors.value[sku.trim()]
+  if (!issue || issue.requested !== Number(quantity)) return ''
+  return issue.available === null || !session.has('stock:read') ? t('Stock insuffisant pour la quantité demandée.')
+    : t('Stock insuffisant :') + ' ' + issue.available + ' ' + t('unités disponibles,') + ' ' + issue.requested + ' ' + t('demandées.')
+}
+function stockRefusal(error: unknown): never {
+  if (!(error instanceof BffError) || !error.stock) throw error
+  quantityErrors.value[error.stock.sku] = error.stock
+  throw new Error('Stock insuffisant pour la quantité demandée.')
+}
 const prepared = ref<Order | null>(null)
 const chosen = ref<Order | null>(null)
 const confirmation = ref(false)
@@ -26,6 +47,10 @@ const offset = ref(0)
 const limit = 10
 const pending = computed(() => session.pending.value.length > 0)
 const notice = ref('')
+const prepareReason = computed(() => session.phase.value !== 'active' ? 'Reconnectez-vous avant de préparer une commande.'
+  : busy.value ? 'Chargement ou vérification en cours…'
+  : pending.value ? 'Vérifiez d’abord les opérations en attente.'
+  : !buyer.value ? 'Choisissez un acheteur autorisé.' : '')
 const organizationScope = computed(() => session.has('order:read_organization'))
 function label(order: Order) { return { prepared: 'Préparée — aucune réservation', reserved: 'Réservée', cancelled: 'Annulée' }[order.status] }
 async function refresh() {
@@ -38,8 +63,17 @@ async function prepare() {
     if (!buyers.value.some(b => b.customer_id === buyer.value)) throw new Error('Choisissez un acheteur autorisé.')
     const requested = lines.value.map(l => ({ sku: l.sku.trim(), quantity: positiveQuantity(l.quantity) }))
     if (requested.some(l => !l.sku || l.sku.length > 128) || new Set(requested.map(l => l.sku)).size !== requested.length) throw new Error('Les SKU doivent être renseignés et distincts.')
+    quantityErrors.value = {}
+    if (session.has('stock:read')) {
+      for (const line of requested) {
+        const product = await session.client.request('/b2b/api/products/by-sku?sku=' + encodeURIComponent(line.sku), productDecoder)
+        const stock = await session.client.request('/b2b/api/products/' + encodeURIComponent(product.product_id) + '/stock', stockDecoder)
+        if (line.quantity > stock.available) quantityErrors.value[line.sku] = { requested: line.quantity, available: stock.available }
+      }
+      if (Object.keys(quantityErrors.value).length) return
+    }
     prepared.value = await mutate(session, 'orders', 'prepare', '/b2b/api/orders/prepare',
-      id => ({ operation_id: id, customer_id: buyer.value, lines: requested }), orderDecoder)
+      id => ({ operation_id: id, customer_id: buyer.value, lines: requested }), orderDecoder).catch(stockRefusal)
     notice.value = 'Préparation enregistrée. Aucun stock réservé.'
     creationOpen.value = false; confirmationOpen.value = true
     await refresh()
@@ -50,7 +84,7 @@ async function confirm() {
   if (!draft || !confirmation.value || draft.status !== 'prepared') return
   await run(async () => {
     const order = await mutate(session, 'orders', 'confirm', '/b2b/api/orders/' + encodeURIComponent(draft.order_id) + '/confirm',
-      id => ({ operation_id: id, preparation_digest: draft.preparation_digest, confirmed: true }), orderDecoder)
+      id => ({ operation_id: id, preparation_digest: draft.preparation_digest, confirmed: true }), orderDecoder).catch(stockRefusal)
     prepared.value = order; confirmation.value = false
     confirmationOpen.value = false
     notice.value = 'État serveur : ' + label(order); await refresh()
@@ -78,11 +112,11 @@ function canCancel(order: Order) {
   return order.status === 'reserved' && (session.has('order:cancel_organization') || (session.has('order:cancel_own') && order.created_by === session.current.value?.user_id))
 }
 onMounted(() => { void run(async () => {
-  await refresh()
   if (session.has('order:create')) {
     buyers.value = (await session.client.request('/b2b/api/buyers?limit=100&offset=0', page(buyerDecoder))).items
     if (buyers.value.length === 1) buyer.value = buyers.value[0]!.customer_id
   }
+  await refresh()
 }) })
 </script>
 <template>
@@ -136,6 +170,12 @@ onMounted(() => { void run(async () => {
       >
         {{ t(error) }}
       </p>
+      <p
+        id="prepare-reason"
+        role="status"
+      >
+        {{ t(prepareReason) }}
+      </p>
       <form @submit.prevent="prepare">
         <label>{{ t("Acheteur autorisé") }}
           <select
@@ -171,11 +211,20 @@ onMounted(() => { void run(async () => {
           <label>{{ t("Quantité") }} {{ index + 1 }}
             <input
               v-model="line.quantity"
+              :aria-invalid="!!quantityError(line.sku, line.quantity)"
+              :aria-describedby="quantityError(line.sku, line.quantity) ? 'quantity-error-' + index : undefined"
               inputmode="numeric"
               pattern="[1-9][0-9]*"
               required
             />
           </label>
+          <p
+            v-if="quantityError(line.sku, line.quantity)"
+            :id="'quantity-error-' + index"
+            role="alert"
+          >
+            {{ quantityError(line.sku, line.quantity) }}
+          </p>
           <button
             v-if="lines.length > 1"
             type="button"
@@ -194,7 +243,10 @@ onMounted(() => { void run(async () => {
           >
             {{ t("Ajouter une ligne") }}
           </button>
-          <button :disabled="busy || pending || !buyer">
+          <button
+            :disabled="!!prepareReason"
+            aria-describedby="prepare-reason"
+          >
             {{ t("Préparer la commande") }}
           </button>
         </div>

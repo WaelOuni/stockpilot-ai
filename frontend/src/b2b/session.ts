@@ -169,6 +169,8 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     } finally { waking = false }
   }
   function start() {
+    document.addEventListener('input', revalidateOnReturn)
+    document.addEventListener('pointerdown', revalidateOnReturn)
     window.addEventListener('focus', revalidateOnReturn)
     window.addEventListener('online', revalidateOnReturn)
     document.addEventListener('visibilitychange', revalidateOnReturn)
@@ -199,6 +201,8 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     timer = setInterval(tick, 1000); return restore()
   }
   function dispose() {
+    document.removeEventListener('input', revalidateOnReturn)
+    document.removeEventListener('pointerdown', revalidateOnReturn)
     window.removeEventListener('focus', revalidateOnReturn)
     window.removeEventListener('online', revalidateOnReturn)
     document.removeEventListener('visibilitychange', revalidateOnReturn)

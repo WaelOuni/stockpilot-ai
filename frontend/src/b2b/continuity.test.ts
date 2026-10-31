@@ -160,3 +160,20 @@ it('keeps a still-valid mounted session on focus, without losing in-memory form 
   expect(s.current.value?.idle_expires_at).toBe('2099-01-01T00:19:00Z')
   expect(s.continuity.active.value).toBe('conv-a'); expect(fetcher).toHaveBeenCalledTimes(2); s.dispose()
 })
+
+it('keeps drafts only in memory, quarantines them at expiry and purges on identity change', async () => {
+  let identity = sessionFixture
+  const s = createB2BSession(async () => json(identity)); await s.restore()
+  s.continuity.saveDraft('assistant:a', 'Private draft')
+  s.continuity.suspend()
+  expect(s.continuity.draft('assistant:a')).toBe('')
+  await s.restore()
+  expect(s.continuity.draft('assistant:a')).toBe('Private draft')
+  expect(JSON.stringify(sessionStorage)).not.toContain('Private draft')
+  identity = { ...sessionFixture, organization_id: 'other-org' }
+  await s.restore()
+  expect(s.continuity.draft('assistant:a')).toBe('')
+  s.continuity.saveDraft('assistant:a', 'Other draft'); await s.logout()
+  expect(s.continuity.draft('assistant:a')).toBe('')
+  s.dispose()
+})
