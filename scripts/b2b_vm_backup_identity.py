@@ -21,6 +21,7 @@ import socket
 import ssl
 import subprocess
 import sys
+import traceback
 from contextlib import contextmanager, redirect_stdout
 from datetime import UTC, datetime
 from pathlib import Path
@@ -34,6 +35,7 @@ OPERATOR = ROOT / "operations/v13133-r13-e9f6297c41ba"
 RECOVERY = ROOT / "operations/v13133-r18-c0858fa6496a/continuation_operator.py"
 HISTORY = ROOT / "backups/v13133-before-upgrade-20261030T165610Z/manifest.json"
 LOCK = Path("/run/lock/stockpilot-v13133-backup.lock")
+INDEX_PROFILE_SHA = "676de98e1c8a8d7f29898e54975ec8487f70fcd83a5ccdbadc834444110445ab"
 PINS = {
     OPERATOR / "backup_operator.py": "d48fa94d595b2b0a9741e52990a51058f0b6682b6b3d90cdba73b27701dd5f4e",
     OPERATOR / "package-manifest.json": "c755b7882f223170fd8ced43d5e4ef9fd1a82d67692094f130d1ef550fb7c191",
@@ -408,6 +410,114 @@ def verify_recovery(backup, generation):
     print(json.dumps({"source_recovered": True, "backup": str(backup)}))
 
 
+def qualify_keycloak_profile(backup, generation, module, cluster_type, guard):
+    """Rebind an unchanged, live-qualified index contract to this fresh capture.
+
+    The old profile is never edited. Its metadata, image, collation, server and
+    four index semantics must still match the new capture AND the live source.
+    Only the two capture provenance hashes change in a new private witness.
+    """
+    raw = private_bytes(OPERATOR / "qualified-index-profile.json")
+    require(digest(raw) == INDEX_PROFILE_SHA, "index_profile_changed")
+    profile = json.loads(raw)
+    require(profile["format"] == "r10-keycloak-index-aliases-v1", "index_profile_format")
+    manifest_bytes = private_bytes(backup / "manifest.json")
+    manifest = json.loads(manifest_bytes)
+    pg_bytes = private_bytes(backup / "pg-keycloak/manifest.json")
+    captured = json.loads(pg_bytes)
+    require(digest(pg_bytes) == manifest["archives"]["pg-keycloak/manifest.json"]["sha256"], "pg_capture_changed")
+    require(captured["image"] == profile["image"] == manifest["images"]["keycloak-db"], "index_image_changed")
+    require(captured["database"] == "keycloak_test", "index_database_changed")
+    query = private_bytes(OPERATOR / "index_profile.sql")
+    require(digest(query) == profile["query_sha256"], "index_query_changed")
+    source = module.records()["keycloak-db"]
+    require(source["Id"] == manifest["source_ids"]["keycloak-db"] and source["State"]["Running"], "index_source_changed")
+    cluster = cluster_type(source["Id"], *module.PG["keycloak-db"])
+
+    def rows(sql):
+        return json.loads(cluster.sql("SELECT coalesce(json_agg(t),'[]'::json) FROM (" + sql + ") t"))
+
+    comparison = guard.compare(
+        captured["metadata"], cluster.metadata(), profile, rows(query.decode()),
+        int(cluster.sql("SHOW server_version_num")),
+        rows("SELECT datcollate,datctype,datlocprovider,daticulocale,datcollversion FROM pg_database WHERE datname=current_database()"),
+    )
+    require(comparison["metadata_contract_equal"] is True and comparison["index_semantics_equal"] is True, "index_source_not_qualified")
+    module.records()
+    require(private_bytes(backup / "manifest.json") == manifest_bytes and private_bytes(backup / "pg-keycloak/manifest.json") == pg_bytes, "index_capture_changed")
+    fresh = copy.deepcopy(profile)
+    fresh.update(
+        backup_manifest_sha256=digest(manifest_bytes), pg_manifest_sha256=digest(pg_bytes),
+        predecessor_profile_sha256=digest(raw),
+        identity_generation_sha256=digest(encoded(generation) + b"\n"),
+        source_container_id=source["Id"], source_comparison=comparison,
+    )
+    path = backup / "qualified-keycloak-index-profile.json"
+    if path.exists():
+        require(json.loads(private_bytes(path)) == fresh, "index_witness_conflict")
+    else:
+        write_generation(path, fresh)
+    return path, digest(private_bytes(path))
+
+
+def current_capture_cluster(base, guard, backup, profile_path, profile_sha):
+    class CaptureCluster(base):
+        def validate_metadata(self, expected, folder):
+            if self.db != "keycloak_test":
+                return super().validate_metadata(expected, folder)
+            require(Path(folder) == backup / "pg-keycloak", "index_restore_folder_changed")
+            actual = self.metadata()
+            proof = guard.verify_cluster(self, expected, profile_path, profile_sha,
+                                         backup / "manifest.json", Path(folder) / "manifest.json")
+            require(guard.digest(actual) == proof["observed_metadata_sha256"], "index_metadata_changed_during_comparison")
+            return actual, proof
+
+        def restore(self, folder, expected_image, owner):
+            result = super().restore(folder, expected_image, owner)
+            if self.db == "keycloak_test" and result["metadata_equal"] is False:
+                profile = json.loads(private_bytes(profile_path))
+                require(digest(private_bytes(profile_path)) == profile_sha, "index_witness_changed")
+                query = private_bytes(OPERATOR / "index_profile.sql")
+                require(digest(query) == profile["query_sha256"], "index_query_changed")
+
+                def rows(sql):
+                    return json.loads(self.sql("SELECT coalesce(json_agg(t),'[]'::json) FROM (" + sql + ") t"))
+
+                witness = {"metadata": self.metadata(), "indexes": rows(query.decode()),
+                           "version": int(self.sql("SHOW server_version_num")),
+                           "collation": rows("SELECT datcollate,datctype,datlocprovider,daticulocale,datcollversion FROM pg_database WHERE datname=current_database()")}
+                capture = json.loads(private_bytes(Path(folder) / "manifest.json"))
+                compared = guard.compare(capture["metadata"], witness["metadata"], profile,
+                                         witness["indexes"], witness["version"], witness["collation"])
+                require(compared == result["index_comparison"] and guard.digest(witness["metadata"]) == result["metadata_sha256"], "index_restore_witness_changed")
+                result.update(canonical_witness=witness, canonical_witness_sha256=guard.digest(witness),
+                              qualified_profile_sha256=profile_sha)
+            return result
+    return CaptureCluster
+
+
+def current_metadata_gate(original, guard, profile_path, profile_sha):
+    def verify(service, result, capture, manifest_sha, pg_sha, historical_bytes):
+        if result["metadata_equal"] is True:
+            return original(service, result, capture, manifest_sha, pg_sha, historical_bytes)
+        require(service == "keycloak-db" and result["metadata_equal"] is False, "unqualified_metadata_difference")
+        require(digest(historical_bytes) == INDEX_PROFILE_SHA, "historical_index_profile_changed")
+        raw = private_bytes(profile_path)
+        require(digest(raw) == profile_sha == result["qualified_profile_sha256"], "current_index_profile_changed")
+        profile = json.loads(raw)
+        require(profile["backup_manifest_sha256"] == manifest_sha and profile["pg_manifest_sha256"] == pg_sha, "current_index_provenance_changed")
+        require(profile["image"] == capture["image"] == result["image"], "current_index_image_changed")
+        witness = result["canonical_witness"]
+        require(guard.digest(witness) == result["canonical_witness_sha256"], "current_index_witness_changed")
+        require(guard.digest(witness["metadata"]) == result["metadata_sha256"], "current_metadata_witness_changed")
+        compared = guard.compare(capture["metadata"], witness["metadata"], profile,
+                                 witness["indexes"], witness["version"], witness["collation"])
+        require(compared["raw_metadata_equal"] is False and result["metadata_contract_equal"] is True
+                and result["index_comparison"] == compared, "current_index_result_changed")
+        return "canonical-current-capture"
+    return verify
+
+
 def restore_capture(backup, generation, network_plan, host_inventory, request):
     """Use the original isolated restore/ownership/PG gates, with current IDs."""
     module, result = recovery_checks(backup, generation)
@@ -424,18 +534,25 @@ def restore_capture(backup, generation, network_plan, host_inventory, request):
         restored = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(restored)
         restored.cap = module
+        import pg_index_guard
+        profile, checksum = qualify_keycloak_profile(backup, generation, module, restored.Cluster, pg_index_guard)
+        restored.Cluster = current_capture_cluster(restored.Cluster, pg_index_guard, backup, profile, checksum)
         with restored.operator_lock():
             try:
                 # Full proof stays in the original private destination; do not
                 # stream SQL metadata and account evidence to the console.
                 with redirect_stdout(io.StringIO()):
                     restored.main()
-            except Exception:
-                restored.scope.report_failure({"restore_verified": False, "adapter_failure": True})
+            except Exception as error:
+                # Exception strings and subprocess bodies may contain secrets.
+                restored.scope.report_failure({"restore_verified": False, "adapter_failure": True,
+                    "error_type": type(error).__name__,
+                    "stack": [(frame.name, frame.lineno) for frame in traceback.extract_tb(error.__traceback__)]})
                 raise
         gate_spec = importlib.util.spec_from_file_location("vm_restore_gate", OPERATOR / "activation_gate.py")
         gate = importlib.util.module_from_spec(gate_spec)
         gate_spec.loader.exec_module(gate)
+        gate.require_metadata = current_metadata_gate(gate.require_metadata, pg_index_guard, profile, checksum)
         require(gate.require_full_restore(backup) is True, "full_restore_gate_failed")
         print(json.dumps({"restore_verified": True, "backup": str(backup)}))
     finally:

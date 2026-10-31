@@ -393,16 +393,20 @@ def test_isolated_restore_preserves_original_gates_and_hides_private_proof(fresh
     paths = [backup / name for name in ("network.json", "host.json", "request.json")]
     for path in paths: identity.write_generation(path, {})
     restored = SimpleNamespace(
+        Cluster=object,
         operator_lock=lambda: identity.locked(backup / "network.lock"),
         scope=SimpleNamespace(report_failure=lambda _: events.append("failure_evidence")),
     )
+    monkeypatch.setitem(identity.sys.modules, "pg_index_guard", SimpleNamespace())
+    monkeypatch.setattr(identity, "qualify_keycloak_profile", lambda *_: (backup / "profile.json", "digest"))
+    monkeypatch.setattr(identity, "current_capture_cluster", lambda base, *_: base)
     def original_main():
         assert restored.cap is operator
         restored.cap.records()
         events.extend(["source_preserved", "fresh_owned_volumes", "network_isolation", "full_pg_restore", "logical_comparison"])
         print("SYNTHETIC PRIVATE SQL PROOF")
     restored.main = original_main
-    gate = SimpleNamespace(require_full_restore=lambda _: events.append("full_restore_gate") or full_gate_passes)
+    gate = SimpleNamespace(require_metadata=object(), require_full_restore=lambda _: events.append("full_restore_gate") or full_gate_passes)
     monkeypatch.setattr(identity.importlib.util, "spec_from_file_location", lambda name, _: SimpleNamespace(name=name, loader=SimpleNamespace(exec_module=lambda _: None)))
     monkeypatch.setattr(identity.importlib.util, "module_from_spec", lambda spec: restored if spec.name == "vm_isolated_restore" else gate)
     argv = identity.sys.argv
@@ -414,3 +418,138 @@ def test_isolated_restore_preserves_original_gates_and_hides_private_proof(fresh
     assert events == ["current_inventory", "source_preserved", "fresh_owned_volumes", "network_isolation", "full_pg_restore", "logical_comparison", "full_restore_gate"]
     assert "SYNTHETIC PRIVATE SQL PROOF" not in capsys.readouterr().out
     assert identity.sys.argv is argv
+
+
+@pytest.fixture
+def index_capture(private_directory, monkeypatch):
+    operator = private_directory / "operator"
+    operator.mkdir(mode=0o700)
+    backup = private_directory / "capture"
+    backup.mkdir(mode=0o700)
+    (backup / "pg-keycloak").mkdir(mode=0o700)
+    query = operator / "index_profile.sql"
+    query.write_bytes(b"SELECT synthetic_index_profile")
+    query.chmod(0o600)
+    metadata = {"columns": [{"name": "client_id"}]}
+    profile = {"format": "r10-keycloak-index-aliases-v1", "image": "pinned-image",
+               "query_sha256": identity.digest(query.read_bytes()),
+               "backup_manifest_sha256": "old-backup", "pg_manifest_sha256": "old-pg",
+               "captured_metadata_sha256": identity.digest(identity.encoded(metadata))}
+    identity.write_generation(operator / "qualified-index-profile.json", profile)
+    monkeypatch.setattr(identity, "INDEX_PROFILE_SHA", identity.digest((operator / "qualified-index-profile.json").read_bytes()))
+    monkeypatch.setattr(identity, "OPERATOR", operator)
+    captured = {"image": "pinned-image", "database": "keycloak_test", "metadata": metadata}
+    identity.write_generation(backup / "pg-keycloak/manifest.json", captured)
+    manifest = {"images": {"keycloak-db": "pinned-image"}, "source_ids": {"keycloak-db": "current-source"},
+                "archives": {"pg-keycloak/manifest.json": {"sha256": identity.digest((backup / "pg-keycloak/manifest.json").read_bytes())}}}
+    identity.write_generation(backup / "manifest.json", manifest)
+    source = {"Id": "current-source", "State": {"Running": True}}
+    module = SimpleNamespace(records=lambda: {"keycloak-db": source}, PG={"keycloak-db": ("role", "keycloak_test", "5432")})
+    cluster = SimpleNamespace(sql=lambda q: "150018" if q == "SHOW server_version_num" else "[]", metadata=lambda: metadata)
+    comparisons = []
+    def compare(expected, actual, old, indexes, version, collation):
+        # Model a fail-closed sealed comparator; no live resources in unit tests.
+        assert identity.digest(identity.encoded(expected)) == old["captured_metadata_sha256"]
+        assert expected == actual and version == 150018
+        comparisons.append((indexes, collation))
+        return {"metadata_contract_equal": True, "index_semantics_equal": True, "raw_metadata_equal": True}
+    guard = SimpleNamespace(compare=compare)
+    return operator, backup, profile, manifest, captured, source, module, cluster, guard, comparisons
+
+
+def test_current_capture_profile_requires_live_semantics_and_preserves_original(index_capture):
+    operator, backup, _, _, _, _, module, cluster, guard, comparisons = index_capture
+    before = (operator / "qualified-index-profile.json").read_bytes()
+    path, checksum = identity.qualify_keycloak_profile(backup, {"generation": 1}, module, lambda *_: cluster, guard)
+    fresh = json.loads(path.read_bytes())
+    assert comparisons == [([], [])]
+    assert fresh["backup_manifest_sha256"] == identity.digest((backup / "manifest.json").read_bytes())
+    assert fresh["source_container_id"] == "current-source"
+    assert fresh["identity_generation_sha256"] == identity.digest(identity.encoded({"generation": 1}) + b"\n")
+    assert identity.digest(path.read_bytes()) == checksum
+    assert (operator / "qualified-index-profile.json").read_bytes() == before
+    # An existing witness cannot be rebound to another identity generation.
+    with pytest.raises(identity.Refused, match="index_witness_conflict"):
+        identity.qualify_keycloak_profile(backup, {"generation": 2}, module, lambda *_: cluster, guard)
+
+
+@pytest.mark.parametrize("change", ["historical_profile", "query", "capture", "image", "database", "source", "stopped", "live_metadata", "semantics"])
+def test_current_index_profile_refuses_drift_without_creating_witness(index_capture, change):
+    operator, backup, _, manifest, captured, source, module, cluster, guard, _ = index_capture
+    if change == "historical_profile": (operator / "qualified-index-profile.json").write_text("{}")
+    elif change == "query": (operator / "index_profile.sql").write_text("changed query")
+    elif change == "capture": (backup / "pg-keycloak/manifest.json").write_text("{}")
+    elif change in {"image", "database"}:
+        captured[change] = "unexpected"
+        (backup / "pg-keycloak/manifest.json").write_bytes(identity.encoded(captured))
+        manifest["archives"]["pg-keycloak/manifest.json"]["sha256"] = identity.digest((backup / "pg-keycloak/manifest.json").read_bytes())
+        (backup / "manifest.json").write_bytes(identity.encoded(manifest))
+    elif change == "source": source["Id"] = "foreign"
+    elif change == "stopped": source["State"]["Running"] = False
+    elif change == "live_metadata": cluster.metadata = lambda: {"columns": []}
+    else: guard.compare = lambda *_: {"metadata_contract_equal": True, "index_semantics_equal": False}
+    with pytest.raises((identity.Refused, AssertionError, KeyError)):
+        identity.qualify_keycloak_profile(backup, {}, module, lambda *_: cluster, guard)
+    assert not (backup / "qualified-keycloak-index-profile.json").exists()
+
+
+def test_raw_metadata_path_still_uses_original_activation_gate():
+    calls = []
+    wrapped = identity.current_metadata_gate(lambda *args: calls.append(args) or "raw", None, None, None)
+    assert wrapped("keycloak-db", {"metadata_equal": True}, {}, "backup", "pg", b"original") == "raw"
+    assert len(calls) == 1
+
+
+def test_cluster_validation_keeps_sealed_comparator_and_rejects_racing_metadata(private_directory):
+    class Base:
+        db = "keycloak_test"
+        def metadata(self): return {"columns": ["actual"]}
+        def validate_metadata(self, *_): return "original"
+    calls = []
+    hashing = lambda v: identity.digest(identity.encoded(v))
+    proof = {"observed_metadata_sha256": hashing({"columns": ["actual"]})}
+    guard = SimpleNamespace(digest=hashing, verify_cluster=lambda *args: calls.append(args) or proof)
+    wrapped = identity.current_capture_cluster(Base, guard, private_directory, private_directory / "profile", "checksum")
+    cluster = wrapped()
+    actual, observed = cluster.validate_metadata({"expected": True}, private_directory / "pg-keycloak")
+    assert observed is proof and calls[0][1] == {"expected": True}
+    assert calls[0][-2:] == (private_directory / "manifest.json", private_directory / "pg-keycloak/manifest.json")
+    proof["observed_metadata_sha256"] = "racing-change"
+    with pytest.raises(identity.Refused, match="index_metadata_changed_during_comparison"):
+        cluster.validate_metadata({}, private_directory / "pg-keycloak")
+    cluster.db = "stockpilot_ci"
+    assert cluster.validate_metadata({}, private_directory / "pg-application") == "original"
+
+
+@pytest.mark.parametrize("change", [None, "image", "manifest", "pg", "profile", "witness", "result", "semantic_difference", "service"])
+def test_current_activation_gate_binds_canonical_evidence(index_capture, change):
+    operator, backup, _, _, _, _, module, cluster, guard, _ = index_capture
+    path, checksum = identity.qualify_keycloak_profile(backup, {}, module, lambda *_: cluster, guard)
+    profile = json.loads(path.read_bytes())
+    hashing = lambda value: identity.digest(identity.encoded(value))
+    witness = {"metadata": {"columns": ["qualified-alias"]}, "indexes": [], "version": 150018, "collation": []}
+    compared = {"raw_metadata_equal": False, "metadata_contract_equal": True, "index_semantics_equal": True}
+    result = {"metadata_equal": False, "metadata_contract_equal": True, "image": "pinned-image",
+              "qualified_profile_sha256": checksum, "canonical_witness": witness,
+              "canonical_witness_sha256": hashing(witness), "metadata_sha256": hashing(witness["metadata"]),
+              "index_comparison": compared}
+    capture = {"image": "pinned-image", "metadata": {}}
+    guard.digest = hashing
+    guard.compare = lambda *_: compared
+    manifest_sha, pg_sha = profile["backup_manifest_sha256"], profile["pg_manifest_sha256"]
+    service = "keycloak-db"
+    if change == "image": capture["image"] = "foreign"
+    elif change == "manifest": manifest_sha = "foreign"
+    elif change == "pg": pg_sha = "foreign"
+    elif change == "profile": path.write_text("{}")
+    elif change == "witness": witness["version"] = 1
+    elif change == "result": result["index_comparison"] = {}
+    elif change == "service": service = "test-postgres"
+    elif change == "semantic_difference":
+        def refused(*_): raise RuntimeError("index_semantic_mismatch")
+        guard.compare = refused
+    wrapped = identity.current_metadata_gate(lambda *_: pytest.fail("no raw fallback"), guard, path, checksum)
+    args = (service, result, capture, manifest_sha, pg_sha, (operator / "qualified-index-profile.json").read_bytes())
+    if change is None: assert wrapped(*args) == "canonical-current-capture"
+    else:
+        with pytest.raises((identity.Refused, RuntimeError)): wrapped(*args)

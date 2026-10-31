@@ -75,9 +75,28 @@ must be complete and at most 120 seconds old when the allocation gate checks it;
 never reuse the historical inventory. The attempt must name absent resources and
 explicit, unoccupied internal subnets. The original source-preservation, isolated
 ownership, full PostgreSQL metadata/ACL/role, logical data and activation restore
-gates all still run. Only their source inventory provider is generation-aware.
+gates all still run. Their source inventory provider is generation-aware.
 Failure leaves the isolated attempt's evidence intact, without automatic cleanup.
 Proof details stay in private files; the console receives only the result.
+
+The historical Keycloak index profile also binds an old backup manifest. A fresh
+capture must not reuse that provenance. Before creating restore resources, the
+adapter qualifies the **unchanged historical metadata contract** against the new
+capture and live source using the sealed index comparator: identical image,
+server, collation, metadata and all four qualified index semantics are required.
+Only then does it write a new private `qualified-keycloak-index-profile.json` in
+the current capture, binding both new manifest hashes, the predecessor profile,
+source container and identity generation. The old profile and archives remain
+intact. Unknown metadata or index changes are refused, not auto-qualified.
+
+The restored Keycloak cluster uses the same sealed comparator against this fresh
+profile. If PostgreSQL reconstructs one of the four already-qualified internal
+index attribute aliases, the proof includes the full private metadata/index
+witness. The activation check verifies that witness, image and both new manifest
+hashes and runs the same semantic comparator again. Raw-equal metadata retains
+the original activation check; other services cannot use the alias exception.
+Failure evidence records only exception type and stack function/line pairs,
+never exception strings, SQL bodies, credentials or subprocess output.
 
 The identifiers above are placeholders, not executable approval. Retain the
 generation and its digest with the new capture. A failed gate is a stop: do not
