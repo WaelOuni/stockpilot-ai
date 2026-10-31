@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { t } from './preferences'
-import { onMounted, ref, useId } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue'
+import StockStats from './StockStats.vue'
 import { RouterLink } from 'vue-router'
 import DetailsPanel from './DetailsPanel.vue'
 import { useB2B } from './session'
@@ -11,12 +12,32 @@ const props = defineProps<{ ids: string[] }>(); const emit = defineEmits<{ close
 const session = useB2B(); const { busy, error, run } = useTask()
 const products = ref<Product[]>([]); const stocks = ref<Record<string, Stock>>({})
 const scrollHintId = useId()
+const scroller = ref<HTMLElement | null>(null)
+const overflow = ref(false)
+let observer: ResizeObserver | undefined
+function measure() { overflow.value = !!scroller.value && scroller.value.scrollWidth > scroller.value.clientWidth }
+function scroll(event: KeyboardEvent) {
+  if (!overflow.value || event.target !== scroller.value || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+  event.preventDefault()
+  scroller.value!.scrollLeft += (event.key === 'ArrowRight' ? 1 : -1) * Math.max(160, scroller.value!.clientWidth / 2)
+}
+watch(scroller, element => {
+  observer?.disconnect()
+  if (element && typeof ResizeObserver !== 'undefined') {
+    observer = new ResizeObserver(measure); observer.observe(element)
+    if (element.firstElementChild) observer.observe(element.firstElementChild)
+  }
+  measure()
+})
+onMounted(() => window.addEventListener('resize', measure))
+onUnmounted(() => { observer?.disconnect(); window.removeEventListener('resize', measure) })
 onMounted(() => { void run(async () => {
-  for (const id of [...new Set(props.ids)].slice(0, 4)) {
+  for (const id of [...new Set(props.ids)].slice(0, 10)) {
     const item = await session.client.request('/b2b/api/products/' + encodeURIComponent(id), productDecoder)
     products.value.push(item)
     if (session.has('stock:read')) stocks.value[id] = await session.client.request('/b2b/api/products/' + encodeURIComponent(id) + '/stock', stockDecoder)
   }
+  await nextTick(); measure()
 }) })
 </script>
 <template>
@@ -40,7 +61,7 @@ onMounted(() => { void run(async () => {
       {{ t(error) }}
     </p>
     <p
-      v-if="products.length"
+      v-if="overflow"
       :id="scrollHintId"
       class="hint"
     >
@@ -48,11 +69,13 @@ onMounted(() => { void run(async () => {
     </p>
     <div
       v-if="products.length"
+      ref="scroller"
       class="b2b-table comparison-table"
       role="region"
       :aria-label="t('Comparatif produits')"
-      :aria-describedby="scrollHintId"
+      :aria-describedby="overflow ? scrollHintId : undefined"
       tabindex="0"
+      @keydown="scroll"
     >
       <table>
         <caption class="sr-only">
@@ -110,7 +133,7 @@ onMounted(() => { void run(async () => {
               v-for="product in products"
               :key="product.product_id"
             >
-              {{ stocks[product.product_id]?.available ?? '—' }}
+              <StockStats :stock="stocks[product.product_id]" />
             </td>
           </tr>
           <tr>
@@ -130,7 +153,14 @@ onMounted(() => { void run(async () => {
               v-for="product in products"
               :key="product.product_id"
             >
-              {{ product.attributes.join(' · ') || '—' }}
+              <ul v-if="product.attributes.length">
+                <li
+                  v-for="attribute in product.attributes"
+                  :key="attribute"
+                >
+                  {{ attribute }}
+                </li>
+              </ul><span v-else>—</span>
             </td>
           </tr>
           <tr v-if="session.has('order:create')">

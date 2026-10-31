@@ -12,20 +12,22 @@ const emit = defineEmits<{ close: []; saved: [] }>()
 const session = useB2B(); const { busy, error, run } = useTask()
 const sku = ref(props.product?.sku ?? ''); const name = ref(props.product?.name ?? '')
 const description = ref(props.product?.description ?? ''); const category = ref(props.product?.category ?? '')
+const attributes = ref(props.product?.attributes.join('\n') ?? '')
 const currency = ref(props.product?.currency ?? 'EUR')
 const price = ref(props.product ? priceInput(props.product.price_minor, props.product.currency) : '')
 const quantity = ref('0'); const preview = ref<Preview | null>(null); const confirmed = ref(false)
 const outcome = ref('')
 let revision = 0
-watch([sku, name, description, category, currency, price, quantity], () => { revision++; preview.value = null; confirmed.value = false; outcome.value = '' }, { flush: 'sync' })
+watch([sku, name, description, category, currency, price, quantity, attributes], () => { revision++; preview.value = null; confirmed.value = false; outcome.value = '' }, { flush: 'sync' })
 async function prepare() {
   await run(async () => {
     const version = revision
     const mode = props.product ? 'metadata_only' : 'create_only'
     const row: (string | number)[] = [sku.value.trim(), name.value.trim(), description.value, category.value.trim(), priceMinor(price.value, currency.value), currency.value]
     if (!props.product) row.push(physicalQuantity(quantity.value))
+    row.push(JSON.stringify(attributes.value.split('\n').map(value => value.trim()).filter(Boolean)))
     const result = await session.client.request('/b2b/api/imports/preview?mode=' + mode, previewDecoder,
-      { method: 'POST', csv: encodeCsv([csvHeaders[mode], row]) })
+      { method: 'POST', csv: encodeCsv([[...csvHeaders[mode], 'attributes'], row]) })
     if (version !== revision) return
     preview.value = result
     confirmed.value = false
@@ -102,6 +104,13 @@ async function apply() {
         maxlength="2000"
       ></textarea></label>
       <div class="b2b-grid">
+        <label>{{ t("Caractéristiques (une par ligne, 32 maximum)") }}
+          <textarea
+            v-model="attributes"
+            maxlength="4127"
+            rows="4"
+          ></textarea>
+        </label>
         <label>{{ t("Catégorie") }}<input
           v-model="category"
           :disabled="busy"

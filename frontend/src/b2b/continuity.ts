@@ -28,12 +28,21 @@ function safePath(path: string) {
 }
 export function createContinuity() {
   const active = ref('')
+  const drafts = new Map<string, string>()
+  let suspended = true
+  function draft(key: string) { return !suspended && owner ? drafts.get(key) ?? '' : '' }
+  function saveDraft(key: string, value: string) {
+    if (suspended || !owner) return
+    if (!value) drafts.delete(key)
+    else { if (drafts.size >= 20 && !drafts.has(key)) drafts.delete(drafts.keys().next().value!); drafts.set(key, value.slice(0, 10000)) }
+  }
   let owner: Owner | null = null
   let cached: Reference | null = null
-  function purge() { active.value = ''; owner = null; cached = null; write(conversationKey, null); write(returnKey, null) }
+  function purge() { drafts.clear(); suspended = true; active.value = ''; owner = null; cached = null; write(conversationKey, null); write(returnKey, null) }
   function restore(identity: Owner) {
     const previous = cached ?? read(conversationKey)
     if (owner && (owner.user_id !== identity.user_id || owner.organization_id !== identity.organization_id)) purge()
+    suspended = false
     owner = { user_id: identity.user_id, organization_id: identity.organization_id }
     active.value = previous && same(previous, identity) && identifier(previous.value) ? previous.value : ''
     cached = active.value ? previous : null
@@ -46,7 +55,7 @@ export function createContinuity() {
     write(conversationKey, cached)
   }
   function forget(id: string) { if (active.value === id) { active.value = ''; cached = null; write(conversationKey, null) } }
-  function suspend() { active.value = '' } // Retain only quarantined, identity-bound references.
+  function suspend() { suspended = true; active.value = '' } // Keep identity-bound references and volatile drafts quarantined.
   function changedIdentity(user: unknown, organization: unknown) {
     const previous = owner ?? read(conversationKey) ?? read(returnKey)
     if (!previous) return
@@ -67,5 +76,5 @@ export function createContinuity() {
     const saved = read(returnKey); write(returnKey, null)
     return owner && saved && same(saved, owner) && safePath(saved.value) ? saved.value : null
   }
-  return { active, restore, select, forget, suspend, purge, changedIdentity, rememberReturn, takeReturn }
+  return { draft, saveDraft, active, restore, select, forget, suspend, purge, changedIdentity, rememberReturn, takeReturn }
 }

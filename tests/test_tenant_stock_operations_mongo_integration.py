@@ -514,3 +514,24 @@ def test_low_concurrency_latency_and_conflict_sample(db, orders, stock):
     }
     Path("tmp").mkdir(exist_ok=True)
     Path("tmp/b3-contention.json").write_text(json.dumps(report, indent=2))
+
+
+def test_attributes_preview_apply_replay_and_tenant_isolation(db, orders, stock):
+    import csv
+    import io
+    import json
+
+    before_b = product(db, "org-b")
+    for attributes in (["Marque : Northline", "Puissance : 800 W"], []):
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["sku", "name", "description", "category", "price_minor", "currency", "attributes"])
+        writer.writerow(["DRILL-001", "Drill", "Fixture", "drill", "4900", "EUR", json.dumps(attributes)])
+        view = preview(stock, orders, output.getvalue().encode(), M.METADATA_ONLY)
+        command = apply_command(view)
+        result = call(stock, orders, "apply", command)
+        assert result.status is S.SUCCEEDED
+        assert product(db)["attributes"] == attributes
+        assert call(stock, orders, "apply", command) == result
+        assert product(db, "org-b") == before_b
+        assert facts(db)[:2] == (10, 0)

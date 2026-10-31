@@ -5,7 +5,7 @@ import inspect
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Request
-from pydantic import Field, StrictStr, field_validator
+from pydantic import Field, StrictBool, StrictStr, field_validator
 
 from stockpilot.application.ports.bff_security import BffUnavailable
 from stockpilot.presentation.api.b2b_boundary import worker
@@ -29,6 +29,7 @@ class MessageIn(Contract):
     message_id: Identifier
     message: Annotated[StrictStr, Field(min_length=1, max_length=4000)]
     customer_id: Identifier | None = None
+    read_only: StrictBool = False
 
 
 class ActionIn(ConfirmIn):
@@ -148,6 +149,7 @@ async def message(request: Request, conversation_id: Identifier, body: MessageIn
             body.message_id,
             body.message,
             body.customer_id,
+            body.read_only,
         )
     )
 

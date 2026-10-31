@@ -328,4 +328,18 @@ Unité monétaire inconnue.|Unknown currency unit.
 · prix unitaire|· unit price
 · quantité|· quantity
 · État observé :|· Observed status:
+/ 10 produits sélectionnés|/ 10 products selected
+Caractéristiques (une par ligne, 32 maximum)|Attributes (one per line, up to 32)
+Physique|Physical
+Stock|Stock
+Historique des conversations|Conversation history
+Retour à l’assistant|Back to assistant
+Aucune conversation sur cette page.|No conversations on this page.
+Pagination des conversations|Conversation pagination
+Reconnectez-vous avant de préparer une commande.|Sign in before preparing an order.
+Chargement ou vérification en cours…|Loading or checking…
+Stock insuffisant pour la quantité demandée.|Insufficient stock for the requested quantity.
+Stock insuffisant :|Insufficient stock:
+unités disponibles,|units available,
+demandées.|requested.
 `.trim().split('\n').map(row => row.split('|')))

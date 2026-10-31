@@ -63,13 +63,13 @@ class RenewalProvider(Provider):
             refresh_token="test-rotated-refresh" if self.rotate else None)
 
 
-def renewal_env(store=None, start=NOW):
+def renewal_env(store=None, start=NOW, absolute_seconds=1800):
     clock = [start]
     provider, repos = RenewalProvider(clock), IdentityRepositories()
     store = store or RenewalStore()
     protector = AesTokenProtector(base64.b64encode(b"x" * 32).decode())
     service = BffSessionService(provider, store, repos, repos, repos,
-        BffPolicy("renewal-test", absolute_seconds=1800, idle_seconds=600),
+        BffPolicy("renewal-test", absolute_seconds=absolute_seconds, idle_seconds=600),
         clock=lambda: clock[0], protector=protector)
     _, browser = service.begin("o1", None)
     token = service.complete(provider.state, browser, "one-code")
@@ -308,3 +308,24 @@ def test_application_membership_is_revalidated_after_provider_renewal():
     with pytest.raises(BffForbidden):
         s.current(token)
     assert not s.store.sessions
+
+
+def test_one_hour_session_renews_during_activity_at_ten_and_thirty_minutes():
+    s, token, clock, provider = renewal_env(absolute_seconds=3600)
+    for seconds in range(0, 3600, 120):
+        clock[0] = NOW + timedelta(seconds=seconds)
+        current, _ = s.current(token)
+        assert current.absolute_expires_at == NOW + timedelta(seconds=3600)
+        assert current.idle_expires_at > clock[0]
+    assert provider.refresh_calls > 1
+    clock[0] = NOW + timedelta(seconds=3600)
+    with pytest.raises(BffUnauthenticated):
+        s.current(token)
+
+
+def test_one_hour_session_does_not_bypass_ten_minute_inactivity():
+    s, token, clock, provider = renewal_env(absolute_seconds=3600)
+    clock[0] = NOW + timedelta(seconds=600)
+    with pytest.raises(BffUnauthenticated):
+        s.current(token)
+    assert provider.refresh_calls == 0

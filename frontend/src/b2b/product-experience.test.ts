@@ -62,6 +62,11 @@ it('compares current catalogue facts without making a reservation', async () => 
   await flushPromises()
   expect(wrapper.findAll('thead th')).toHaveLength(2)
   expect(wrapper.get('[role=region]').attributes('tabindex')).toBe('0')
+  expect(wrapper.get('[role=region]').attributes('aria-describedby')).toBeUndefined()
+  const region = wrapper.get('[role=region]').element as HTMLElement
+  Object.defineProperty(region, 'scrollWidth', { configurable: true, value: 1600 })
+  Object.defineProperty(region, 'clientWidth', { configurable: true, value: 640 })
+  window.dispatchEvent(new Event('resize')); await flushPromises()
   const hintId = wrapper.get('[role=region]').attributes('aria-describedby')
   expect(wrapper.get(`[id="${hintId}"]`).text()).toContain('défiler horizontalement')
   expect(wrapper.findAll('tbody th').every(th => th.attributes('scope') === 'row')).toBe(true)
@@ -69,6 +74,44 @@ it('compares current catalogue facts without making a reservation', async () => 
   expect(wrapper.get('[role=region]').attributes('aria-label')).toBe('Product comparison')
   expect(wrapper.get(`[id="${hintId}"]`).text()).toContain('left and right arrow keys')
   expect(wrapper.text()).toContain(productFixture.description)
+  await wrapper.get('[role=region]').trigger('keydown', { key: 'ArrowRight' })
+  expect(region.scrollLeft).toBe(320)
+  await wrapper.get('[role=region]').trigger('keydown', { key: 'ArrowLeft' })
+  expect(region.scrollLeft).toBe(0)
+  Object.defineProperty(region, 'clientWidth', { configurable: true, value: 1600 })
+  window.dispatchEvent(new Event('resize')); await flushPromises()
+  expect(wrapper.get('[role=region]').attributes('aria-describedby')).toBeUndefined()
   expect(fetcher.mock.calls).toHaveLength(3)
+  wrapper.unmount(); session.dispose()
+})
+
+it.each([2, 4, 10])('loads %s distinct comparison products sequentially and caps at ten', async count => {
+  let inFlight = 0; let peak = 0
+  const fetcher = vi.fn(async (input: RequestInfo | URL) => {
+    inFlight++; peak = Math.max(peak, inFlight)
+    await Promise.resolve(); inFlight--
+    const path = String(input)
+    const id = path.split('/')[4]!
+    return json(path.endsWith('/session') ? sessionFixture : path.endsWith('/stock') ? { ...stockFixture, product_id: id } : { ...productFixture, product_id: id })
+  })
+  const session = createB2BSession(fetcher); await session.restore()
+  const wrapper = mount(ComparisonPanel, { props: { ids: Array.from({ length: count === 10 ? 11 : count }, (_, i) => 'p' + i) }, global: { provide: { [sessionKey as symbol]: session }, stubs: { RouterLink: true } } })
+  await flushPromises()
+  expect(wrapper.findAll('thead th')).toHaveLength(count + 1)
+  expect(fetcher).toHaveBeenCalledTimes(1 + count * 2)
+  expect(peak).toBe(1)
+  wrapper.unmount(); session.dispose()
+})
+it('includes edited attributes in the immutable preview and invalidates approval on change', async () => {
+  const { wrapper, session, fetcher } = await setup({ product: productFixture })
+  const textarea = wrapper.findAll('textarea').at(-1)!
+  await textarea.setValue('Marque : Northline\nPuissance : 800 W')
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  const call = fetcher.mock.calls.find(([url]) => String(url).includes('/preview'))!
+  expect(String(call[1]?.body)).toContain('attributes')
+  expect(String(call[1]?.body)).toContain('Puissance : 800 W')
+  await wrapper.get('input[type=checkbox]').setValue(true)
+  await textarea.setValue('Puissance : 900 W')
+  expect(wrapper.findAll('button').find(b => b.text() === 'Enregistrer le produit')).toBeUndefined()
   wrapper.unmount(); session.dispose()
 })

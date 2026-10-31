@@ -1,8 +1,8 @@
 import type { Decoder } from './contracts'
-import { ContractError, object, text } from './contracts'
+import { ContractError, object, text, integer, nullable } from './contracts'
 
 export class BffError extends Error {
-  constructor(public readonly status: number, public readonly code: string, public readonly uncertain = false) {
+  constructor(public readonly status: number, public readonly code: string, public readonly uncertain = false, public readonly stock?: { sku: string; requested: number; available: number | null }) {
     super(messages[status] ?? 'Le service ne répond pas. Réessayez une lecture.')
   }
 }
@@ -69,6 +69,10 @@ export class BffClient {
         }
         let code = 'HTTP_ERROR'
         if (typeof data === 'object' && data !== null && 'code' in data && typeof data.code === 'string') code = data.code
+        if (response.status === 409 && code === 'STOCK_INSUFFICIENT' && typeof data === 'object' && data !== null && 'stock' in data) {
+          const stock = object({ sku: text, requested: integer, available: nullable(integer) })(data.stock)
+          throw new BffError(409, code, false, stock)
+        }
         throw new BffError(response.status, code, mutation && (response.status >= 500 || response.status === 202))
       }
       const decoded = decode(data)

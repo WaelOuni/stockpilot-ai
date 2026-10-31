@@ -81,13 +81,14 @@ L'identifiant de session aléatoire est stocké seulement sous SHA-256.
 La rotation invalide l'ancienne session dans la même transaction MongoDB.
 Les instances partagent les sessions ; aucun fallback mémoire runtime.
 
-Par défaut : transaction 300 s, session absolue 1 800 s, inactivité 600 s.
-La session expire **au plus tard à l'expiration de l'ID token validé**.
+Par défaut : transaction 300 s, session absolue 3 600 s, inactivité 600 s.
+Sans renouvellement activé, la session expire **au plus tard à l’expiration de l’ID token validé**.
 L'accès applicatif est relu à chaque requête : désactivation/suspension refuse
 l'accès et révoque la session. Les TTL Mongo facilitent le ménage ; les requêtes
 contrôlent elles-mêmes les dates sans attendre le passage du moniteur TTL.
 
-Les tokens du fournisseur sont validés puis abandonnés : **aucun refresh**.
+Sans renouvellement activé, les tokens du fournisseur sont validés puis abandonnés.
+Avec `BFF_REFRESH_ENABLED=true`, voir [la politique de renouvellement](bff-session-renewal.md).
 Pas de chiffrement de refresh tokens à concevoir tant qu'ils ne sont pas conservés.
 Le logout local révoque avant toute communication fournisseur. Il renvoie une URL
 native de logout avec client_id et retour fixe, sans id_token_hint.
@@ -112,7 +113,7 @@ Aucun fichier .env privé n'est chargé automatiquement par BffSettings.
 | CONFIGURATION_KEY | Secret indépendant, au moins 32 caractères |
 | ALLOW_LOOPBACK_HTTP_ISSUER | Faux par défaut ; exception uniquement pour le realm jetable loopback |
 | TRANSACTION_SECONDS | 30–300, défaut 300 |
-| SESSION_ABSOLUTE_SECONDS | 30–3600, défaut 1800 |
+| SESSION_ABSOLUTE_SECONDS | 30–3600, défaut 3600 |
 | SESSION_IDLE_SECONDS | 10–1800, au plus la durée absolue, défaut 600 |
 
 Un HMAC de configuration invalide les transactions/sessions après changement des
@@ -177,3 +178,19 @@ MFA/recours administrateur, audit, sauvegarde/restauration, révocation fourniss
 et revue de sécurité sur une installation distincte.
 Le rollback consiste à ne pas lancer cet entrypoint et à remettre BFF_MODE=disabled.
 Aucune donnée métier n'a besoin de migration inverse ; les démos ne sont pas déployées.
+
+### Session B2B d’une heure
+
+`BFF_SESSION_ABSOLUTE_SECONDS=3600` borne la session sans glissement.
+L’inactivité reste limitée à 600 secondes : saisie et clics visibles déclenchent
+une vérification serveur au plus une fois par minute, jamais une prolongation
+locale. Sans activité, l’expiration reste effective. Les brouillons sont uniquement
+en mémoire et liés à l’utilisateur/organisation ; logout et changement d’identité
+les purgent. Un rechargement complet de page ne les conserve pas.
+
+Le renouvellement BFF existant doit être activé et sa clé de protection configurée
+selon la section renouvellement : sans lui, la session reste bornée par le token
+fournisseur. Le TTL d’access token peut rester court (par exemple 300 secondes),
+mais les limites Keycloak SSO/client session idle/max et refresh doivent permettre
+3600 secondes. Vérifier ces valeurs avant déploiement ; cette modification de code
+ne change aucun realm ni la VM. Révocation ou refus du refresh ferme la session.

@@ -600,3 +600,21 @@ def test_0001_upgrade_to_0002_keeps_products_and_history(db):
     assert db.b2b_products.find_one({"_id": product["_id"]}) == product
     assert db.stockpilot_schema_migrations.find_one({"_id": 1})["checksum"] == checksum
     assert [r["_id"] for r in runner.validate()] == [1, 2]
+
+
+@pytest.mark.parametrize("requested", [7, 11])
+def test_insufficient_available_stock_is_typed_and_transaction_aborts(db, orders, requested):
+    from stockpilot.application.ports.tenant_orders import TenantStockInsufficient
+
+    first = prepare(orders, quantity=4)
+    confirm(orders, first)
+    before = db.b2b_order_operations.count_documents({})
+    with pytest.raises(TenantStockInsufficient) as refused:
+        prepare(orders, quantity=requested)
+    assert refused.value.available == 6
+    assert refused.value.requested == requested
+    assert facts(db)[:2] == (10, 4)
+    assert db.b2b_order_operations.count_documents({}) == before
+    exact = prepare(orders, quantity=6)
+    assert confirm(orders, exact).status is S.RESERVED
+    assert facts(db)[:2] == (10, 10)

@@ -45,7 +45,7 @@ def opaque_token(value: str | None) -> bool:
 class BffPolicy:
     configuration: str
     transaction_seconds: int = 300
-    absolute_seconds: int = 1800
+    absolute_seconds: int = 3600
     idle_seconds: int = 600
 
 

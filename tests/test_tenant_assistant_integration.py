@@ -624,3 +624,53 @@ def test_sold_out_comparison_and_global_catalogue_never_fallback(assistant, db):
         list(db.b2b_products.find()) == before
         and db.b2b_orders.count_documents({}) == 0
     )
+
+
+def test_read_only_turn_is_persisted_replay_bound_and_cannot_arm_order(assistant, db):
+    a, conv, e = assistant
+    a.llm.classify_intent.return_value = IntentResult(intent="ORDER", quantity=1)
+    question = "Je veux commander 1 unité du SKU DRILL-001"
+    args = (REQUESTS["a1"], context(e.orders), conv, "consult", question, "customer-org-a")
+    turn = asyncio.run(a.send(*args, read_only=True))
+    assert turn["reply"]["intent"] == "ORDER_REFUSED"
+    assert turn["operation"] is None and not turn["reply"]["can_confirm"]
+    assert asyncio.run(a.send(*args, read_only=True)) == turn
+    with pytest.raises(TenantDataConflict):
+        asyncio.run(a.send(*args, read_only=False))
+    for namespace in ("confirm", "cancel"):
+        with pytest.raises(TenantDataConflict):
+            asyncio.run(a.action(REQUESTS["a1"], context(e.orders), conv, namespace, namespace, "invented", "digest"))
+    assert db.b2b_orders.count_documents({}) == 0 and facts(db)[1] == 0
+
+
+def test_retry_of_read_only_turn_retains_mode_after_model_outage(assistant, db):
+    a, conv, e = assistant
+    a.llm.classify_intent.side_effect = TimeoutError("synthetic")
+    with pytest.raises(TenantDataUnavailable):
+        asyncio.run(a.send(REQUESTS["a1"], context(e.orders), conv, "consult-retry",
+            "Je veux commander 1 unité du SKU DRILL-001", "customer-org-a", read_only=True))
+    a.llm.classify_intent.side_effect = None
+    a.llm.classify_intent.return_value = IntentResult(intent="ORDER", quantity=1)
+    turn = asyncio.run(a.retry(REQUESTS["a1"], context(e.orders), conv, "consult-retry"))
+    assert turn["reply"]["intent"] == "ORDER_REFUSED"
+    assert turn["operation"] is None
+    assert db.b2b_orders.count_documents({}) == 0 and facts(db)[1] == 0
+
+
+def test_pending_action_in_another_conversation_blocks_new_plans_not_consultation(assistant, db):
+    a, conv, e = assistant
+    request, ctx = REQUESTS["a1"], context(e.orders)
+    a.store.begin(request, ctx, conv, "uncertain", "message", {"message": "original"})
+    a.store.plan(request, ctx, conv, "uncertain", {"namespace": "prepare", "operation_id": "uncertain"})
+    other = a.store.open(request, ctx, "other-thread").conversation_id
+    a.llm.classify_intent.return_value = IntentResult(intent="ORDER", quantity=1)
+    with pytest.raises(TenantDataConflict):
+        asyncio.run(a.send(request, ctx, other, "new-mutation",
+            "Je veux commander 1 unité du SKU DRILL-001", "customer-org-a"))
+    consultation = a.store.open(request, ctx, "consultation-thread").conversation_id
+    answer = asyncio.run(a.send(request, ctx, consultation, "read-only",
+        "Des perceuses disponibles à moins de 50 euros", read_only=True))
+    assert answer["reply"]["products"] and answer["operation"] is None
+    with pytest.raises(TenantDataConflict):
+        a.store.plan(request, ctx, consultation, "read-only", {"namespace": "prepare", "operation_id": "bypass"})
+    assert db.b2b_orders.count_documents({}) == 0 and facts(db)[1] == 0

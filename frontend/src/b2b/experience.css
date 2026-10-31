@@ -31,8 +31,9 @@
 .product-editor > button { justify-self:start; }
 .dialog-confirmation { border-top:1px solid var(--line); padding-top:20px; margin-top:20px; }
 .b2b-shell .check-label { display:flex; gap:8px; align-items:center; font-weight:500; margin:0; }
-.check-label input { flex-shrink:0; }
-.b2b-actions .availability-filter { align-self:center; min-height:44px; }
+.b2b-shell .check-label input[type="checkbox"] { flex:0 0 auto; width:1.15rem; height:1.15rem; margin:0; accent-color:var(--brand); }
+.b2b-actions .availability-filter { align-self:end; min-height:44px; max-width:22rem; padding:8px 12px; box-sizing:border-box; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
+.b2b-actions .availability-filter:has(input:checked) { border-color:var(--brand); background:var(--soft); }
 @media(max-width:600px) { .b2b-actions .availability-filter { flex-basis:100%; } .availability-filter + button { margin-left:auto; } }
 .product-visual { display:grid; place-items:center; height:148px; border-radius:10px; background:linear-gradient(135deg,#eef2ff,#e5edf7); color:#53659b; margin-bottom:18px; }
 .product-visual svg { height:120px; width:180px; }
