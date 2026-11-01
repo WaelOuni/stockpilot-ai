@@ -58,7 +58,7 @@ onUnmounted(() => document.removeEventListener('click', outside))
         v-if="session.has('stock:read')"
         to="/b2b-app/stock"
       >
-        {{ t('Administration') }}
+        {{ t('Stocks') }}
       </RouterLink>
     </nav>
     <div

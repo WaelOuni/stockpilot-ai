@@ -161,7 +161,7 @@ onUnmounted(() => { disposed = true; invalidate(); suggestionEpoch++; clearTimeo
       class="b2b-card"
       @submit.prevent="load(true)"
     >
-      <div class="b2b-actions">
+      <div class="b2b-catalogue-filters">
         <CatalogueCombobox
           id="catalogue-sku"
           v-model="sku"

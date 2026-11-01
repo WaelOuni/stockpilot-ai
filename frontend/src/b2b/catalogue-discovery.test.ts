@@ -45,10 +45,10 @@ it('combobox supports keyboard choice, Escape and free typing', async () => {
   await input.trigger('keydown', { key: 'Escape' }); expect(input.attributes('aria-expanded')).toBe('false')
   wrapper.unmount()
 })
-async function setup(respond: (path: string) => Response | Promise<Response>, header = false) {
+async function setup(respond: (path: string) => Response | Promise<Response>, header = false, permissions = sessionFixture.permissions, role = sessionFixture.role) {
   const fetcher = vi.fn(async (input: RequestInfo | URL) => {
     const path = String(input)
-    if (path === '/b2b/auth/session') return json(sessionFixture)
+    if (path === '/b2b/auth/session') return json({ ...sessionFixture, permissions, role })
     if (path === '/b2b/api/products/categories') return json({ items: ['perceuses', 'Éclairage'] })
     if (path.endsWith('/stock')) return json(stockFixture)
     return respond(path)
@@ -124,5 +124,19 @@ it('ignores a late SKU suggestion response after the prefix changes', async () =
   release(json({ items: [productFixture] })); await flushPromises()
   expect(wrapper.get('#catalogue-sku-options').text()).toContain('SAW-NEW')
   expect(wrapper.get('#catalogue-sku-options').text()).not.toContain(productFixture.sku)
+  dispose()
+})
+
+
+it.each(['READ_ONLY', 'USER', 'MANAGER', 'ORGANIZATION_ADMIN'])('names the readable stock route Stocks for %s', async role => {
+  const { wrapper, dispose } = await setup(() => page(), true, ['stock:read'], role)
+  expect(wrapper.get('a[href="/b2b-app/stock"]').text()).toBe('Stocks')
+  expect(wrapper.text()).not.toContain('Administration')
+  dispose()
+})
+
+it('hides the stock route without stock:read even for an admin role', async () => {
+  const { wrapper, dispose } = await setup(() => page(), true, ['catalogue:read'], 'ORGANIZATION_ADMIN')
+  expect(wrapper.find('a[href="/b2b-app/stock"]').exists()).toBe(false)
   dispose()
 })

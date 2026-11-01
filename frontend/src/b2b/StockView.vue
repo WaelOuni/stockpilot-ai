@@ -123,8 +123,13 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
       <p class="eyebrow">
         {{ t("Inventaire de votre organisation") }}
       </p>
-      <h1>{{ t("Stock et administration") }}</h1>
+      <h1>{{ t(session.has('stock:adjust') ? "Gestion des stocks" : "Consultation des stocks") }}</h1>
       <p>{{ t("Physique − réservé = disponible. Les réservations restent gérées par les commandes.") }}</p>
+      <p class="hint">
+        {{ session.has('import:execute') ? t('Consultation, ajustements et imports selon vos permissions.')
+          : session.has('stock:adjust') ? t('Consultation et ajustements du stock physique.')
+            : t('Consultation des stocks et des mouvements uniquement.') }}
+      </p>
       <div class="b2b-actions">
         <button
           v-if="session.has('import:execute')"

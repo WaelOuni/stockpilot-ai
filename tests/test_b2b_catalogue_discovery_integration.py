@@ -25,14 +25,14 @@ def discovery(catalogue, db):
     return repo, contexts
 
 
-def answer(discovery, question, state=None):
+def answer(discovery, question, state=None, org="org-a"):
     repo, contexts = discovery
     writes = Mock()
     service = TenantAssistant(Mock(), repo, writes, Mock(), Mock())
     result = asyncio.run(
         service._answer(
-            REQUESTS["org-a"],
-            contexts["org-a"],
+            REQUESTS[org],
+            contexts[org],
             "test",
             {
                 "question": question,
@@ -88,13 +88,20 @@ def test_persisted_category(discovery, category):
         ("montre-moi les produits en rupture", 1),
         ("quelles perceuses ont 5 ou moins en stock", 3),
         ("produits avec 5 ou moins disponibles", 3),
+        ("Quels produits ont moins de 5 unités disponibles ?", 2),
+        ("Quels produits ont moins de 5 disponibles ?", 2),
+        ("Montre-moi les stocks inférieurs à 5 unités.", 2),
+        ("Quels articles sont presque épuisés ?", 2),
+        ("Liste les produits avec 5 unités disponibles ou moins.", 3),
+        ("Montre les produits en rupture de stock.", 1),
+        ("Quels produits ont moins de 0 unités disponibles ?", 0),
     ],
 )
 def test_low_stock_reads(discovery, db, question, count):
     for i, available in enumerate((0, 4, 5, 8)):
         db.b2b_products.update_one(
             {"organization_id": "org-a", "sku": f"BDEMO-perceuses-{i}"},
-            {"$set": {"quantity": available + 7, "reserved": 7}},
+            {"$set": {"quantity": available + 4, "reserved": 4}},
         )
     before = list(db.b2b_products.find({}).sort("_id", 1))
     result = answer(discovery, question)
@@ -165,6 +172,9 @@ def test_custom_category_and_unknown_product(discovery, db):
         "quels produits ont un stock inférieur à 5",
         "liste des produits presque épuisés",
         "quelles perceuses ont moins de 5 disponibles",
+        "Quels produits ont moins de 5 unités disponibles ?",
+        "Quels articles sont presque épuisés ?",
+        "Liste les produits avec 5 unités disponibles ou moins.",
     ],
 )
 def test_low_stock_bounded_sorted_and_active(discovery, db, phrase):
@@ -200,4 +210,31 @@ def test_stock_permission_is_revalidated(discovery):
 
     with patch.object(repo, "authorization", SimpleNamespace(decide_scope=guarded)):
         with pytest.raises(AuthorizationDenied):
-            answer(discovery, "produits avec moins de 5 en stock")
+            answer(discovery, "Quels produits ont moins de 5 unités disponibles ?")
+
+
+@pytest.mark.parametrize("org", ["org-a", "org-b"])
+def test_quantity_requests_use_only_active_tenant_and_do_not_write(discovery, db, org):
+    for tenant, quantity in (("org-a", 8), ("org-b", 4)):
+        db.b2b_products.update_one(
+            {"organization_id": tenant, "sku": "BDEMO-perceuses-0"},
+            {"$set": {"quantity": quantity, "reserved": 4}},
+        )
+    before = {name: list(db[name].find({}).sort("_id", 1)) for name in db.list_collection_names()}
+    result = answer(discovery, "Quels produits ont moins de 5 unités disponibles ?", org=org)
+    assert result["intent"] == "LOW_STOCK" and result["total"] == 1
+    assert result["products"][0]["organization_id"] == org
+    assert result["products"][0]["available"] == (4 if org == "org-a" else 0)
+    assert {name: list(db[name].find({}).sort("_id", 1)) for name in db.list_collection_names()} == before
+
+
+def test_exact_sku_and_explicit_order_keep_their_routes(discovery):
+    reply = answer(discovery, "Je cherche SKU BDEMO-perceuses-0")
+    assert reply["intent"] == "PRODUCT_ADVICE"
+    assert [p["sku"] for p in reply["products"]] == ["BDEMO-perceuses-0"]
+    reply = answer(
+        discovery,
+        "Je veux commander les produits avec moins de 5 unités disponibles",
+        {"read_only": True},
+    )
+    assert reply["intent"] == "ORDER_REFUSED"

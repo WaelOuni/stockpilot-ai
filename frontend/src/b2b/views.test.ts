@@ -14,10 +14,10 @@ beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', { configurable: true, value(this: HTMLDialogElement) { this.setAttribute('open', '') } })
   Object.defineProperty(HTMLDialogElement.prototype, 'close', { configurable: true, value(this: HTMLDialogElement) { this.removeAttribute('open') } })
 })
-async function setup(component: Component, responder: (path: string, init?: RequestInit) => Response | Promise<Response>, permissions = sessionFixture.permissions) {
+async function setup(component: Component, responder: (path: string, init?: RequestInit) => Response | Promise<Response>, permissions = sessionFixture.permissions, role = sessionFixture.role) {
   const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input)
-    return path === '/b2b/auth/session' ? json({ ...sessionFixture, permissions }) : responder(path, init)
+    return path === '/b2b/auth/session' ? json({ ...sessionFixture, permissions, role }) : responder(path, init)
   })
   const session = createB2BSession(fetcher)
   await session.restore()
@@ -253,5 +253,23 @@ it('keeps stock private and unlocks after a definitive server refusal, without r
   expect(wrapper.text()).not.toContain('unités disponibles')
   expect(session.pending.value).toHaveLength(0)
   expect(fetcher.mock.calls.filter(([p]) => String(p).endsWith('/prepare'))).toHaveLength(1)
+  wrapper.unmount(); session.dispose()
+})
+
+
+it.each(['READ_ONLY', 'USER', 'MANAGER', 'ORGANIZATION_ADMIN'])('stock presentation follows effective permissions for %s', async role => {
+  const canAdjust = role === 'MANAGER' || role === 'ORGANIZATION_ADMIN'
+  const canImport = role === 'ORGANIZATION_ADMIN'
+  const permissions = ['catalogue:read', 'stock:read', ...(canAdjust ? ['stock:adjust'] : []), ...(canImport ? ['import:execute'] : [])]
+  const { wrapper, session, fetcher } = await setup(StockView, response, permissions, role)
+  expect(wrapper.get('h1').text()).toBe(canAdjust ? 'Gestion des stocks' : 'Consultation des stocks')
+  await wrapper.get('input').setValue('DRILL-001')
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  const buttons = wrapper.findAll('button').map(b => b.text())
+  expect(buttons.includes('Ajuster le stock physique')).toBe(canAdjust)
+  expect(buttons.includes('Importer un CSV')).toBe(canImport)
+  expect(wrapper.text().includes('Historique des imports')).toBe(canImport)
+  expect(fetcher.mock.calls.some(([p]) => String(p).startsWith('/b2b/api/imports?'))).toBe(canImport)
+  expect(fetcher.mock.calls.some(([p]) => String(p).startsWith('/b2b/api/stock/movements?'))).toBe(true)
   wrapper.unmount(); session.dispose()
 })
