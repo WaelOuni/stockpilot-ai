@@ -126,6 +126,24 @@ async def products(request: Request):
     }
 
 
+@router.get("/products/categories")
+async def product_categories(request: Request):
+    exact_query(request, set())
+    return {"items": await invoke(request, P.CATALOGUE_READ, "catalogue", "categories")}
+
+
+class SkuSuggestions(Contract):
+    prefix: str = Field(min_length=2, max_length=128)
+    limit: int = Field(default=10, ge=1, le=20)
+
+
+@router.get("/products/suggestions")
+async def product_suggestions(request: Request):
+    filters = query(request, SkuSuggestions)
+    result = await invoke(request, P.CATALOGUE_READ, "catalogue", "suggest_skus", filters.prefix, filters.limit)
+    return {"items": [checked(ProductOut, p) for p in result]}
+
+
 @router.get("/products/by-sku")
 async def product_sku_query(request: Request, sku: Identifier):
     exact_query(request, {"sku"})
