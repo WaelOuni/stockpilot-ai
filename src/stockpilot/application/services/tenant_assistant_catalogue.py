@@ -27,6 +27,11 @@ class ScopedResolution:
         self.catalogue, self.request, self.context = catalogue, request, context
 
     async def find_resolution_skus(self, sku):
+        # The shared resolver also probes the complete natural-language phrase.
+        # B1 exact keys are bounded to 128 characters; longer text can still be
+        # a literal product name. Do not truncate it or weaken the store guard.
+        if len(sku) > 128:
+            return []
         product = self.catalogue.by_sku(self.request, self.context, sku)
         return [product] if product is not None and product.status == "active" else []
 
