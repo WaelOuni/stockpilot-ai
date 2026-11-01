@@ -6,6 +6,10 @@ V10 est une étape interne, pas la version v10.0.0. Le projet reste pré-1.0 :
 `origin/main`, puis PR explicitement vers `main`. Le chantier V11 sur `dev` reste
 séparé ; ne pas le fusionner ou cherry-pick dans le stable.
 
+La préparation v0.2.3 ajoute **API, Web et Keycloak** à la release privée.
+[Procédure opérateur v0.2.3](validation/v0.2.3-release-vm-runbook.md) : préparation,
+publication autorisée, puis sauvegarde/restauration, déploiement et rollback distincts.
+
 ## Branches et PR
 
 Pour le stable : branche depuis le main distant vérifié → PR vers `main` → CI
@@ -42,10 +46,13 @@ l'intégration ; la release relance également les contrôles sur le commit tagu
   `POSTGRES_TEST_URI`, ou avec une cible applicative (ports 27017/5432, endpoints de
   `Settings`, bases `stockpilot*` hors tests), les fixtures échouent avant toute
   écriture (`tests/integration_targets.py`) ; aucune valeur par défaut n'est utilisée.
-- Images : builds et lancement sur ces mêmes services éphémères, base runtime
+- Images : builds API/Web et lancement sur ces mêmes services éphémères, base runtime
   Mongo `stockpilot_ci_runtime`, Ollama inaccessible volontairement. Smoke HTTP
   santé API/web, fallback SPA et refus sûr 503 de `/api/products` via reverse proxy
-  dans le mode production fermé (aucun contenu métier).
+  dans le mode production fermé (aucun contenu métier). Keycloak est aussi construit
+  dans `containers`, depuis le SHA contrôlé, puis vérifié hors réseau et sans base
+  par `check_keycloak_image.py` (version, utilisateur, entrypoint, plateforme, labels
+  OCI et contenu exact du thème). Le conteneur de vérification est retiré par son ID.
 - Nettoyage `always()` limité aux ressources créées par le job. Pas d'artefacts
   de données, de logs applicatifs ou de credentials uploadés.
 
@@ -88,6 +95,8 @@ Construire depuis la racine :
 ```sh
 docker build -t stockpilot-api:local .
 docker build -f frontend/Dockerfile -t stockpilot-web:local .
+docker build --platform linux/amd64 -f docker/keycloak/Dockerfile -t stockpilot-keycloak:local docker/keycloak
+python3 scripts/ci/check_keycloak_image.py stockpilot-keycloak:local
 ```
 
 API : Python slim 3.12 fixé par digest, venv dans stage séparé, utilisateur 10001,
@@ -110,6 +119,21 @@ API_UPSTREAM est une URL interne de confiance fournie par l'opérateur au démar
 sans secret ; la substitution Nginx se limite à cette variable. VITE_API_BASE_URL
 reste `/api`, public. Une même image fonctionne dans plusieurs environnements.
 TLS et ingress sont à configurer hors de cette mission ; aucun déploiement Internet.
+
+Keycloak : version **26.8.1** inchangée, base approuvée de la composition DEMO
+`quay.io/keycloak/keycloak:26.8.1@sha256:79c623a22abacf3fe6c00a5fb30f5b7843d717b234033b80995891c06116d244`.
+Cet index contient `linux/amd64` (manifest
+`sha256:ed1cab21814c7d18ce8f0e11d5a1fa1c6923de12dd4c7625a18c5d34452a57a4`).
+Les builds CI/release demandent explicitement cette plateforme. Le tag mutable
+26.8.1 résolvait vers un autre index lors de la vérification du 1 novembre 2026 :
+il n’est pas utilisé comme preuve de provenance. Aucun upgrade n’est effectué.
+Le Dockerfile garde l’utilisateur 1000 et l’entrypoint officiels ; seule la copie
+du thème est ajoutée. Le contexte `docker/keycloak` a une allowlist `.dockerignore`
+limitée au Dockerfile et aux quatre sources du thème : aucun realm, secret,
+certificat, dump ou fichier d’environnement n’est transmis au build.
+Le contrôle d’archive refuse fichiers supplémentaires, liens, traversées et
+contenu différent du checkout. La campagne réelle reste le harnais existant
+`validate_bff_keycloak.py --login-return`, sur ressources jetables seulement.
 
 Les dépendances Python et transitives sont un snapshot de l'environnement V9
 fonctionnel, validé par installation propre en image et `pip check`. Les outils
@@ -147,16 +171,20 @@ Ainsi `--ref v0.1.0`, avec input `tag=v0.1.0`, produit `refs/tags/v0.1.0` et res
 la politique **Tag `v*`** existante. Le dispatch sur main/feature/SHA est refusé.
 Aucune ouverture de l'environnement à des branches n'est nécessaire.
 
-Le workflow doit d'abord être intégré par PR dans dev puis main, branche par
-défaut où GitHub exige la présence du workflow manuel. Le tag doit contenir cette
-révision. Le gate vérifie :
+Les changements passent par une PR technique vers **main**, jamais par intégration
+de dev. Le tag doit contenir la révision approuvée. GitHub doit déjà connaître le
+workflow manuel sur sa branche par défaut (dev ici) ; le dispatch utilise ensuite
+le contenu du tag. Si le workflow est indisponible, arrêter et faire vérifier sa
+configuration, sans fusionner dev ni changer les protections. Le gate vérifie :
 
 - SemVer strict `vMAJOR.MINOR.PATCH`, sans zéro initial, suffixe/prérelease ni metadata.
 - Tag annoté existant ; son commit égale `GITHUB_SHA`, `GITHUB_WORKFLOW_SHA` et HEAD.
 - `GITHUB_REF` égale exactement l'input tag ; `GITHUB_WORKFLOW_REF` désigne
   `.github/workflows/release.yml` du même dépôt au même tag.
 - Commit ancêtre de `origin/main`, aucune origine de branche supposée pour un tag.
-- Contenu du workflow release, CI et guard identique au pipeline actuellement
+- Contenu des workflows release/CI, du guard, du vérificateur d’image, du
+  Dockerfile et de son allowlist, ainsi que du seul répertoire du thème StockPilot,
+  identique au pipeline actuellement
   approuvé dans `origin/main` au checkout. Un ancien commit main portant une
   politique de publication obsolète refuse, même s'il appartient à l'historique.
 - Environnement existant, sans règle `required_reviewers`, avec politique custom
@@ -208,7 +236,8 @@ les effets externes, puis après chaque publication d'un composant.
 
 ### GHCR privé et draft
 
-Les deux packages doivent **déjà exister, être privés et liés au dépôt**.
+Les trois packages `stockpilot-api`, `stockpilot-web` et `stockpilot-keycloak`
+doivent **déjà exister, être privés et liés au dépôt**.
 404, 403, erreur réseau, package public/interne ou liaison absente refusent
 avant tout push. Un 404 peut masquer un package inaccessible : il n'est jamais
 considéré comme une preuve d'absence ou de confidentialité. Le pipeline ne fait
@@ -217,7 +246,7 @@ pas de bootstrap de package et ne s'appuie pas sur sa visibilité par défaut.
 GitHub documente un **PAT classique** pour son API REST Packages
 ([API officielle](https://docs.github.com/en/rest/packages/packages)). Configurer
 le secret d'environnement `GHCR_VISIBILITY_TOKEN` avec seulement `read:packages`,
-accès aux deux packages, expiration et rotation ; pas de write:packages ni scope
+accès aux trois packages, expiration et rotation ; pas de write:packages ni scope
 repo nécessaire pour ce dépôt public. Il sert uniquement à la lecture de
 visibilité. Les pushes GHCR et la création de draft utilisent `GITHUB_TOKEN`,
 sans PAT de publication. Le secret ne figure dans aucun input, build arg, log,
@@ -238,7 +267,7 @@ builds/pushes n'est effectué pour préparer cette PR. Le gate normal reste stri
 il ne publie jamais dans un package absent ou de confidentialité invérifiable.
 
 1. Garder `RELEASE_PUBLICATION_ENABLED` absent/faux. Avec le compte propriétaire,
-   vérifier dans GitHub Packages que les deux noms attendus sont disponibles ;
+   vérifier dans GitHub Packages que les trois noms attendus sont disponibles ;
    vérifier aussi l'accès à la liste des packages via un token autorisé. Un 404
    isolé ne prouve ni absence ni confidentialité. Si un package existe déjà,
    inspecter ses Settings et son accès ; ne pas le recréer ni l'écraser.
@@ -257,8 +286,9 @@ LABEL org.opencontainers.image.description="Empty private package bootstrap; not
 ```
 
    Après autorisation, construire depuis ce seul contexte, puis publier sous
-   `ghcr.io/waelouni/stockpilot-api:bootstrap-private` et
-   `ghcr.io/waelouni/stockpilot-web:bootstrap-private`, **un package à la fois**.
+   `ghcr.io/waelouni/stockpilot-api:bootstrap-private`,
+   `ghcr.io/waelouni/stockpilot-web:bootstrap-private` et
+   `ghcr.io/waelouni/stockpilot-keycloak:bootstrap-private`, **un package à la fois**.
    Ne pas utiliser un Dockerfile du projet, `latest`, une version SemVer ou un
    tag SHA de release. Ces pushes créent uniquement une réservation non sensible.
    GitHub documente la visibilité privée au premier push
@@ -281,8 +311,8 @@ LABEL org.opencontainers.image.description="Empty private package bootstrap; not
    le package public pour corriger une erreur d'accès.
 6. Créer un autre PAT classique permanent à expiration maîtrisée, limité à
    `read:packages`, et l'enregistrer uniquement dans le secret d'environnement
-   `release/GHCR_VISIBILITY_TOKEN`. Avec ce token, revérifier les deux endpoints
-   `/users/WaelOuni/packages/container/stockpilot-api` et `stockpilot-web` :
+   `release/GHCR_VISIBILITY_TOKEN`. Avec ce token, revérifier les trois endpoints
+   `/users/WaelOuni/packages/container/stockpilot-api`, `stockpilot-web` et `stockpilot-keycloak` :
    réponses 200 privées et liaison au dépôt, comme l'exige le guard. Pour une
    organisation, employer `/orgs/{owner}/packages/container/{name}`.
 7. Se déconnecter du registre, supprimer seulement le Docker config/contexte
@@ -304,24 +334,29 @@ accessible aux lecteurs de ce dépôt public. Seul le step de publication reçoi
 les credentials registry. La reconstruction peut différer du premier build
 (timestamps) : les digests consignés sont ceux du registre réellement publié.
 
-Tags GHCR : version sans `v` et `sha-<SHA Git complet>`, jamais `latest`. Les quatre
+Tags GHCR : version sans `v` et `sha-<SHA Git complet>`, jamais `latest`. Les six
 cibles doivent être absentes avant tout push ; erreurs d'accès ne sont pas
 interprétées comme absence. Les deux tags de chaque composant doivent retourner
 le **même digest distant SHA256**. `images.md` contient tag Git, SHA et références
 image/version/SHA/digest, uniquement des métadonnées non sensibles.
 
-La visibilité des **deux** packages est revérifiée après chaque composant, avant
+La visibilité des **trois** packages est revérifiée après chaque composant, avant
 création d'une GitHub Release **draft**, jamais publiée automatiquement. La draft
 est ensuite vérifiée (tag, SHA cible et statut draft) et reçoit `images.md` et les
 notes générées depuis l'historique GitHub. Pas de dataset, dump, archive Docker
 ni sauvegarde dans ses attachments. Une draft d'un dépôt public ne doit être
 publiée que sur décision distincte : elle deviendrait publique.
 
+Les sorties brutes registry/GitHub ne sont pas recopiées dans les logs ni les
+artefacts. Les erreurs gardent un diagnostic borné et les cibles tentées/confirmées
+pour réconciliation. Le Docker config de login est temporaire, privé et retiré ;
+`images.md` ne contient que trois références vérifiées et leurs métadonnées.
+
 Le YAML ne fixe pas la visibilité des packages. L'administrateur doit la
 maintenir dans Settings. Aucune vérification API ne peut rendre atomiques une
 modification concurrente de visibilité et un push ; contrôler les autres
 publishers/admins et leur accès. Les tags GHCR ne sont pas immuables côté serveur :
-utiliser les digests et limiter les publishers. Les deux images et la draft
+utiliser les digests et limiter les publishers. Les trois images et la draft
 n'ont pas de transaction commune. Tout échec après un push affiche les cibles
 tentées et les pushes confirmés dans le résumé Actions, sans cleanup distant
 ni suppression/écrasement automatique. Une perte réseau après un push peut
@@ -352,7 +387,7 @@ Lecture seule du dépôt le 11/10/2026, lors de l'adaptation solo :
 Aucun réglage distant, protection de branche, secret, variable ou package n'a été
 modifié. Avant activation : intégrer le pipeline dans main via PR ; conserver
 l'environnement tag-only sans reviewers ; vérifier les règles tags avec le
-compte admin ; préparer/vérifier les deux packages privés ; donner au dépôt
+compte admin ; préparer/vérifier les trois packages privés ; donner au dépôt
 l'accès Actions aux packages (write pour GITHUB_TOKEN), configurer le secret
 read:packages ; vérifier la politique Actions permettant le seul job publish
 contents:write/packages:write. Définir seulement ensuite la variable repository
@@ -367,10 +402,10 @@ une révision approuvée, même si l'environnement accepte son nom.
 
 ## Procédure solo : actions futures, non exécutées pendant cette mission
 
-1. **GitHub / intégration** : PR dev → main, vérifier tous les checks, fusionner
+1. **GitHub / intégration** : PR technique → main, vérifier tous les checks, fusionner
    selon les protections ; attendre également le workflow CI du push main.
 2. **GitHub / préparation** : vérifier les réglages ci-dessus et la confidentialité
-   des deux packages ; activer le flag seulement une fois la configuration complète.
+   des trois packages ; activer le flag seulement une fois la configuration complète.
 3. **Local / création du tag** : partir du main à jour, vérifier le SHA approuvé,
    créer puis pousser un tag annoté. Ces commandes ne publient aucune image avec
    le nouveau workflow, qui ne possède aucun déclencheur push :
@@ -379,8 +414,8 @@ une révision approuvée, même si l'environnement accepte son nom.
 git switch main
 git pull --ff-only origin main
 git rev-parse HEAD
-git tag -a v0.1.0 -m 'StockPilot AI 0.1.0'
-git push origin v0.1.0
+git tag -a v0.2.3 -m 'StockPilot AI 0.2.3'
+git push origin v0.2.3
 ```
 
 4. **GitHub / validation sans publication** : lancer manuellement sur le tag.
@@ -388,7 +423,7 @@ git push origin v0.1.0
    accidentelle de main dans le sélecteur UI de ref :
 
 ```sh
-gh workflow run release.yml --ref v0.1.0 -f tag=v0.1.0 -F publish=false
+gh workflow run release.yml --ref v0.2.3 -f tag=v0.2.3 -F publish=false
 ```
 
 Inspecter le run : gate, `validate / ...`, agrégat et build réussis ; publish
@@ -400,11 +435,11 @@ l'accès registry/secret. Aucun nouveau tag ne doit être créé pour le relance
    lancer un nouveau run. Il relance ses propres validations avant de pousser :
 
 ```sh
-gh workflow run release.yml --ref v0.1.0 -f tag=v0.1.0 -F publish=true -f 'confirmation=PUBLISH v0.1.0'
+gh workflow run release.yml --ref v0.2.3 -f tag=v0.2.3 -F publish=true -f 'confirmation=PUBLISH v0.2.3'
 ```
 
-6. **GitHub / vérification** : vérifier les quatre tags, les digests identiques
-   version/SHA par composant, les labels OCI, la visibilité **Private** des deux
+6. **GitHub / vérification** : vérifier les six tags, les digests identiques
+   version/SHA par composant, les labels OCI, la visibilité **Private** des trois
    packages et la draft non publiée avec `images.md`. La publication publique de
    cette draft est une autre décision ; aucune deuxième approbation n'est requise
    pour le workflow solo, et aucune publication de draft n'est automatisée.
@@ -426,14 +461,18 @@ docker image inspect --format '{{json .RepoDigests}}' ghcr.io/waelouni/stockpilo
 # Comparer avec images.md, puis utiliser image@sha256:<digest>.
 ```
 
-Rollback d'un déploiement privé existant : sélectionner les deux digests d'une
-version précédente validée, rétablir ces références dans sa configuration,
+Rollback d'un déploiement privé existant : sélectionner les références API/Web/Keycloak
+et les paramètres du realm réellement utilisés avant la bascule (Keycloak peut
+encore être l’image officielle Quay). Rétablir d’abord le thème précédent via
+l’administration Keycloak avant de retirer l’image personnalisée, puis les
+références dans une configuration privée approuvée,
 vérifier healthchecks et parcours applicatifs. Ne pas déplacer un tag, ne pas
 réécrire main, ne pas supprimer une image automatiquement. Les données ne sont
 pas restaurées automatiquement : vérifier la compatibilité des schémas. En cas
 de publication partielle, réconcilier d'abord les pushes tentés/confirmés et la
 draft, puis décider d'une nouvelle version ou d'une réparation explicite.
-Aucun déploiement ni migration n'est effectué par ce workflow.
+Aucun déploiement ni migration n'est effectué par ce workflow. Le [runbook v0.2.3](validation/v0.2.3-release-vm-runbook.md)
+détaille les preuves et distingue rollback applicatif et restauration des bases.
 
 ## Validation locale sans toucher les services dev/demo
 
@@ -484,3 +523,18 @@ avec les checksums de sa release officielle. Les nouveaux vérificateurs ont
 également validé en lecture seule l'environnement solo et le ruleset de tags
 actuels sur GitHub. Aucun workflow GitHub n'a été déclenché pour cette adaptation,
 aucun build/push distant, tag, release, déploiement ou changement de base de données.
+
+
+## Préparation technique v0.2.3 — état vérifié le 1 novembre 2026
+
+Base main `8dda6374966c78d4c9d85952feb9adb635c43f8c`, CI exacte
+[41336945242](https://github.com/WaelOuni/stockpilot-ai/actions/runs/41336945242) réussie.
+Lecture REST avec l’accès opérateur existant : API et Web répondent 200,
+`private`, liés à `WaelOuni/stockpilot-ai` ; Keycloak répond **404**.
+Cela ne prouve ni son absence ni sa confidentialité : bootstrap privé séparé
+explicitement autorisé ou résolution de l’accès requis avant publication.
+La variable repository `RELEASE_PUBLICATION_ENABLED` est déjà `true` ; aucune
+modification n’a été faite. L’opérateur devra la remettre à false durant la
+préparation puis l’activer seulement au moment de la publication autorisée.
+`publish=false` demeure le défaut du workflow. Aucun secret ni réglage distant
+n’est modifié par cette PR ; la VM reste hors périmètre d’exécution.

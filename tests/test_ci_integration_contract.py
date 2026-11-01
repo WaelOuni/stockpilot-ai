@@ -65,3 +65,17 @@ def test_every_integration_test_is_selected_unless_explicitly_optional():
     assert all(re.search(r"lifecycle", node) for node in optional), (
         "only the dedicated-service lifecycle tests may opt out of the required selection"
     )
+
+
+def test_required_containers_job_builds_and_checks_keycloak_from_controlled_sha():
+    config = yaml.load((ROOT / '.github/workflows/ci.yml').read_text(), Loader=yaml.BaseLoader)
+    job = config['jobs']['containers']
+    step = next(step for step in job['steps'] if 'scripts/ci/check_keycloak_image.py' in step.get('run', ''))
+    assert step['env']['SHA'] == '${{ inputs.release_sha || github.sha }}'
+    assert 'test "$(git rev-parse HEAD)" = "$SHA"' in step['run']
+    assert '--platform linux/amd64' in step['run']
+    assert '-f docker/keycloak/Dockerfile -t stockpilot-keycloak:ci docker/keycloak' in step['run']
+    assert '--revision "$SHA" --source "https://github.com/$GITHUB_REPOSITORY"' in step['run']
+    assert 'docker push' not in step['run'] and 'docker login' not in step['run']
+    assert 'if' not in step and 'if' not in job
+    assert config['jobs']['e2e']['if'] == '${{ false }}'

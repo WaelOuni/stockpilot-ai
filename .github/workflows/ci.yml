@@ -122,6 +122,14 @@ jobs:
           ref: ${{ inputs.release_sha || github.sha }}
       - run: docker build -t stockpilot-api:ci .
       - run: docker build -f frontend/Dockerfile -t stockpilot-web:ci .
+      - name: Build and verify pinned Keycloak theme
+        env:
+          SHA: ${{ inputs.release_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SHA"
+          docker build --platform linux/amd64 --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -f docker/keycloak/Dockerfile -t stockpilot-keycloak:ci docker/keycloak
+          python3 scripts/ci/check_keycloak_image.py stockpilot-keycloak:ci --revision "$SHA" --source "https://github.com/$GITHUB_REPOSITORY"
       - name: Start disposable image-test services
         run: |
           if ! docker compose -f docker/compose.ci.yml up -d --wait; then

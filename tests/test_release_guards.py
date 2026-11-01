@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import pytest
 import yaml
@@ -273,7 +273,7 @@ def test_existing_draft_refuses_reconciliation(context):
     responses['releases'] = [{'tag_name': TAG, 'draft': True}]
     with pytest.raises(ValueError, match='already exists'):
         guard.gate(env, publishing=True)
-    assert len(responses['packages']) == 2
+    assert len(responses['packages']) == 3
 
 
 def test_organization_package_endpoint(context, monkeypatch):
@@ -336,7 +336,13 @@ def test_workflow_permissions_ref_and_ci_contract():
     assert ci['on']['workflow_call']['outputs']['validated_sha']['value'] == '${{ jobs.release-validation.outputs.sha }}'
 
 
-@pytest.mark.parametrize('failure', ['', 'web_push', 'digest_mismatch', 'visibility_after_push', 'existing_tag', 'registry_denied'])
+@pytest.mark.parametrize('failure', [
+    '', 'web_push', 'digest_mismatch', 'visibility_after_push', 'existing_tag', 'registry_denied',
+    'keycloak_tag', 'keycloak_sha_tag', 'keycloak_push', 'keycloak_second_push',
+    'keycloak_digest_mismatch', 'keycloak_digest_network', 'network_after_push',
+    'policy_after_keycloak', 'keycloak_registry_denied', 'mixed_registry_error',
+    'invalid_digest', 'login_error', 'draft_network', 'draft_verify_network', 'draft_wrong_target',
+])
 def test_actual_publish_shell_with_only_mocked_external_commands(tmp_path, failure):
     # Execute the workflow's actual shell with shell functions replacing EVERY external
     # GitHub/registry/guard command. No tags, images or releases are really created.
@@ -345,33 +351,54 @@ def test_actual_publish_shell_with_only_mocked_external_commands(tmp_path, failu
     python3() {
       printf 'guard\n' >> "$CALLS"
       if [ "$FAILURE" = visibility_after_push ] && grep -q 'push:' "$CALLS"; then return 1; fi
+      if [ "$FAILURE" = policy_after_keycloak ] && grep -q 'push:.*stockpilot-keycloak' "$CALLS"; then return 1; fi
     }
     docker() {
       case "$1" in
-        login) cat >/dev/null ;;
+        login)
+          cat >/dev/null
+          if [ "$FAILURE" = login_error ]; then echo "$GH_TOKEN" >&2; return 1; fi ;;
         logout|tag) ;;
         manifest)
+          printf 'manifest:%s\n' "$3" >> "$CALLS"
+          if [ "$FAILURE" = keycloak_tag ] && [[ "$3" = *stockpilot-keycloak:0.1.0 ]]; then return 0; fi
+          if [ "$FAILURE" = keycloak_sha_tag ] && [[ "$3" = *stockpilot-keycloak:sha-* ]]; then return 0; fi
+          if [ "$FAILURE" = keycloak_registry_denied ] && [[ "$3" = *stockpilot-keycloak* ]]; then echo "unauthorized $GH_TOKEN" >&2; return 1; fi
+          if [ "$FAILURE" = mixed_registry_error ]; then echo "manifest unknown; unauthorized $GH_TOKEN" >&2; return 1; fi
           if [ "$FAILURE" = existing_tag ]; then return 0; fi
           if [ "$FAILURE" = registry_denied ]; then echo unauthorized >&2; return 1; fi
           echo 'manifest unknown' >&2; return 1 ;;
         push)
           printf 'push:%s\n' "$2" >> "$CALLS"
+          if [ "$FAILURE" = keycloak_push ] && [[ "$2" = *stockpilot-keycloak* ]]; then echo "$GH_TOKEN" >&2; return 1; fi
+          if [ "$FAILURE" = keycloak_second_push ] && [[ "$2" = *stockpilot-keycloak:sha-* ]]; then echo "$GH_TOKEN" >&2; return 1; fi
+          if [ "$FAILURE" = network_after_push ] && [[ "$2" = *stockpilot-web:sha-* ]]; then echo "connection lost $GH_TOKEN" >&2; return 1; fi
           if [ "$FAILURE" = web_push ] && [[ "$2" = *stockpilot-web* ]]; then return 1; fi ;;
         buildx)
-          if [ "$FAILURE" = digest_mismatch ] && [[ "$4" = *sha-* ]]; then
-            printf 'sha256:%064d\n' 2
-          else printf 'sha256:%064d\n' 1; fi ;;
-        *) return 99 ;;
+          printf 'digest:%s\n' "$4" >> "$CALLS"
+          value=1
+          if [[ "$4" = *stockpilot-web* ]]; then value=2; fi
+          if [[ "$4" = *stockpilot-keycloak* ]]; then value=3; fi
+          if [ "$FAILURE" = digest_mismatch ] && [[ "$4" = *sha-* ]]; then value=9; fi
+          if [ "$FAILURE" = keycloak_digest_mismatch ] && [[ "$4" = *stockpilot-keycloak:sha-* ]]; then value=9; fi
+          if [ "$FAILURE" = keycloak_digest_network ] && [[ "$4" = *stockpilot-keycloak* ]]; then echo "$GH_TOKEN" >&2; return 1; fi
+          if [ "$FAILURE" = invalid_digest ]; then echo "$GH_TOKEN"; else printf 'sha256:%064d\n' "$value"; fi ;;
+        *) printf 'unexpected:docker\n' >> "$CALLS"; return 99 ;;
       esac
     }
     jq() {
-      "$TEST_PYTHON" -c 'import json,os,sys; d=json.load(open(sys.argv[-1])); assert d["isDraft"] is True and d["tagName"]==os.environ["TAG"] and d["targetCommitish"]==os.environ["SHA"]' "$@"
+      "$TEST_PYTHON" -c 'import json,os,sys; d=json.load(sys.stdin); assert d["isDraft"] is True and d["tagName"]==os.environ["TAG"] and d["targetCommitish"]==os.environ["SHA"]' "$@"
     }
     gh() {
       case "$1 $2" in
-        'release create') printf 'draft:%s\n' "$*" >> "$CALLS" ;;
-        'release view') printf '{"isDraft":true,"tagName":"%s","targetCommitish":"%s"}\n' "$TAG" "$SHA" ;;
-        *) return 99 ;;
+        'release create')
+          printf 'draft:%s\n' "$*" >> "$CALLS"
+          if [ "$FAILURE" = draft_network ]; then echo "$GH_TOKEN" >&2; return 1; fi ;;
+        'release view')
+          if [ "$FAILURE" = draft_verify_network ]; then echo "$GH_TOKEN" >&2; return 1; fi
+          if [ "$FAILURE" = draft_wrong_target ]; then echo '{"isDraft":true,"tagName":"wrong","targetCommitish":"wrong"}'; return; fi
+          printf '{"isDraft":true,"tagName":"%s","targetCommitish":"%s"}\n' "$TAG" "$SHA" ;;
+        *) printf 'unexpected:gh\n' >> "$CALLS"; return 99 ;;
       esac
     }
     '''
@@ -384,14 +411,122 @@ def test_actual_publish_shell_with_only_mocked_external_commands(tmp_path, failu
     assert (result.returncode == 0) == (failure == '')
     assert calls.startswith('guard\n')
     assert ':latest' not in calls
+    assert 'unexpected:' not in calls
     if failure:
-        assert 'draft:' not in calls
+        if failure.startswith('draft_'):
+            assert calls.count('draft:') == 1 and calls.count('push:') == 6
+        else:
+            assert 'draft:' not in calls
         assert 'Release incomplete' in (tmp_path / 'summary').read_text()
-        if failure in ('existing_tag', 'registry_denied'):
+        if failure in ('existing_tag', 'registry_denied', 'keycloak_tag', 'keycloak_sha_tag', 'keycloak_registry_denied', 'mixed_registry_error', 'login_error'):
             assert 'push:' not in calls
     else:
-        assert calls.count('push:') == 4
+        assert calls.count('push:') == 6
+        assert calls.count('draft:') == 1
+        assert calls.count('manifest:') == 6
+        assert calls.count('digest:') == 6
+        assert calls.rindex('manifest:') < calls.index('push:')
+        assert calls.rindex('guard\n') < calls.index('draft:')
+        images = (tmp_path / 'images.md').read_text().splitlines()[3:]
+        assert len(images) == 3
+        for index, component in enumerate(('api', 'web', 'keycloak'), 1):
+            image = f'ghcr.io/test/stockpilot-{component}'
+            assert images[index - 1] == f'{image}:0.1.0 = {image}:sha-{SHA} = {image}@sha256:{index:064d}'
         assert f'--target {SHA} --draft --generate-notes' in calls
-        assert calls.count('guard\n') == 3
+        assert calls.count('guard\n') == 4
         assert 'sha256:' in (tmp_path / 'summary').read_text()
     assert 'not-a-real-token' not in result.stdout + result.stderr
+    for artifact in tmp_path.rglob('*'):
+        if artifact.is_file():
+            assert 'not-a-real-token' not in artifact.read_text()
+    assert not list(tmp_path.glob('registry-auth.*'))
+    if failure in ('keycloak_push', 'keycloak_second_push', 'network_after_push'):
+        summary = (tmp_path / 'summary').read_text()
+        attempted = [line.removeprefix('push:') for line in calls.splitlines() if line.startswith('push:')]
+        assert f'Push requested: {attempted[-1]}.' in summary
+        assert f'Push confirmed: {attempted[-1]}' not in summary
+        assert 'no rollback or overwrite was attempted' in summary
+
+
+@pytest.mark.parametrize("component", ["api", "web", "keycloak"])
+@pytest.mark.parametrize("problem", ["404", "403", "public", "internal", "wrong_repo", "missing_repo", "unknown_visibility", "network", "reset", "bad_json"])
+def test_each_package_must_be_proven_private_without_leaking_payloads(context, monkeypatch, capsys, component, problem):
+    env, responses = context
+    original = guard.urlopen
+
+    def response(request, **kwargs):
+        if not request.full_url.endswith('/stockpilot-' + component):
+            return original(request, **kwargs)
+        if problem in ('404', '403'):
+            raise HTTPError(request.full_url, int(problem), 'PRIVATE-PAYLOAD', {}, None)
+        if problem == 'network':
+            raise URLError('PRIVATE-PAYLOAD')
+        if problem == 'reset':
+            raise ConnectionResetError('PRIVATE-PAYLOAD')
+        if problem == 'bad_json':
+            return io.BytesIO(b'PRIVATE-PAYLOAD')
+        package = json.load(original(request, **kwargs))
+        if problem in ('public', 'internal'):
+            package['visibility'] = problem
+        elif problem == 'wrong_repo':
+            package['repository']['full_name'] = 'other/repo'
+        elif problem == 'missing_repo':
+            package['repository'] = None
+        else:
+            package.pop('visibility')
+        return io.BytesIO(json.dumps(package).encode())
+
+    monkeypatch.setattr(guard, 'urlopen', response)
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(sys, 'argv', ['release_guard.py', '--publication'])
+    assert guard.main() == 1
+    output = capsys.readouterr()
+    assert 'PRIVATE-PAYLOAD' not in output.out + output.err
+    assert 'not-a-real-token' not in output.out + output.err
+    assert not any('/releases?' in call for call in responses['calls'])
+
+
+@pytest.mark.parametrize('changed_path', [
+    'docker/keycloak/Dockerfile', 'docker/keycloak/.dockerignore',
+    'docker/keycloak/themes/stockpilot/login/footer.ftl',
+    'docker/keycloak/themes/stockpilot/login/messages/future.properties',
+    'scripts/ci/check_keycloak_image.py',
+])
+def test_historical_keycloak_packaging_policy_is_refused(context, monkeypatch, changed_path):
+    env, _ = context
+    original = guard.git
+
+    def git(*args):
+        if args[0] == 'diff' and any(changed_path == p or changed_path.startswith(p + '/') for p in args[args.index('--') + 1:]):
+            raise guard.ReleaseRefused('Obsolete Keycloak packaging policy')
+        return original(*args)
+
+    monkeypatch.setattr(guard, 'git', git)
+    with pytest.raises(guard.ReleaseRefused, match='Obsolete Keycloak'):
+        guard.gate(env)
+
+
+@pytest.mark.parametrize('validated', [True, False])
+def test_actual_release_build_shell_never_publishes_and_builds_all_three(tmp_path, validated):
+    code = workflow()['jobs']['build']['steps'][-1]['run']
+    stubs = r'''
+    git() { printf '%s\n' "$SHA"; }
+    docker() { [ "$1" = build ] || return 99; printf 'build:%s\n' "$*" >> "$CALLS"; }
+    python3() { [ "$1" = scripts/ci/check_keycloak_image.py ] || return 99; printf 'check:%s\n' "$*" >> "$CALLS"; }
+    '''
+    env = dict(os.environ, SHA=SHA, VALIDATED_SHA=SHA if validated else 'b' * 40,
+               GITHUB_REPOSITORY=REPO, CALLS=str(tmp_path / 'calls'))
+    result = subprocess.run(['bash', '-c', stubs + code], env=env, capture_output=True, text=True)
+    assert (result.returncode == 0) == validated
+    if validated:
+        calls = (tmp_path / 'calls').read_text()
+        assert calls.count('build:') == 3
+        for component in ('api', 'web', 'keycloak'):
+            line = next(line for line in calls.splitlines() if f'-t stockpilot-{component}:release' in line)
+            assert f'org.opencontainers.image.revision={SHA}' in line
+            assert f'org.opencontainers.image.source=https://github.com/{REPO}' in line
+        assert 'stockpilot-keycloak:release docker/keycloak' in calls
+        assert calls.count('check:') == 1
+    else:
+        assert not (tmp_path / 'calls').exists()

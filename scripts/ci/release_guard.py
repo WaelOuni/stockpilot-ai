@@ -11,7 +11,9 @@ from urllib.request import Request, urlopen
 SEMVER = re.compile(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z')
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 PIPELINE_PATHS = ('.github/workflows/release.yml', '.github/workflows/ci.yml',
-                  'scripts/ci/release_guard.py')
+                  'scripts/ci/release_guard.py', 'scripts/ci/check_keycloak_image.py',
+                  'docker/keycloak/Dockerfile', 'docker/keycloak/.dockerignore',
+                  'docker/keycloak/themes/stockpilot')
 REQUIRED_JOBS = ('backend-quality', 'eval-framework', 'frontend-quality',
                  'integration-tests', 'containers')
 
@@ -96,7 +98,7 @@ def verify_private_packages(repository):
     owner_type = api(f'repos/{repository}')['owner']['type']
     require(owner_type in ('User', 'Organization'), 'Unsupported repository owner type.')
     namespace = 'users' if owner_type == 'User' else 'orgs'
-    for component in ('api', 'web'):
+    for component in ('api', 'web', 'keycloak'):
         name = f'stockpilot-{component}'
         request = Request(f'https://api.github.com/{namespace}/{owner}/packages/container/{name}',
                           headers={'Authorization': f'Bearer {token}',
@@ -105,11 +107,14 @@ def verify_private_packages(repository):
         try:
             with urlopen(request, timeout=30) as response:
                 package = json.load(response)
-        except (HTTPError, URLError, TimeoutError):
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError):
             raise ReleaseRefused(f'Cannot prove {name} exists and is private; no new package bootstrap allowed.') from None
-        require(package.get('name') == name and package.get('package_type') == 'container'
+        linked = package.get('repository') if isinstance(package, dict) else None
+        require(isinstance(package, dict) and isinstance(linked, dict)
+                and package.get('name') == name and package.get('package_type') == 'container'
                 and package.get('visibility') == 'private'
-                and (package.get('repository') or {}).get('full_name', '').lower() == repository.lower(),
+                and isinstance(linked.get('full_name'), str)
+                and linked['full_name'].lower() == repository.lower(),
                 f'{name} must already be private and linked to this repository.')
 
 
@@ -175,7 +180,7 @@ def gate(environment, *, publishing=False):
         require(environment.get('VALIDATED_SHA') == sha
                 and environment.get('VALIDATE_RESULT') == 'success'
                 and environment.get('BUILD_RESULT') == 'success', 'CI/build validation incomplete.')
-        verify_private_packages(repository)  # Both before any push, and again before the draft.
+        verify_private_packages(repository)  # All three before any push, and again before the draft.
         require(not any(release.get('tag_name') == tag
                         for release in pages(f'repos/{repository}/releases')),
                 'Release already exists; refuse overwrite/reconciliation without a decision.')
