@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { t } from './preferences'
-import { onMounted, onUnmounted, provide, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, provide, ref } from 'vue'
 import { RouterView, useRoute, useRouter } from 'vue-router'
 import { createB2BSession, sessionKey } from './session'
 import { useTask } from './tasks'
@@ -13,6 +13,7 @@ const session = createB2BSession()
 provide(sessionKey, session)
 const { current, phase, notice, ssoLogout, expiresSoon } = session
 const organization = ref('')
+const organizationInput = ref<HTMLInputElement>()
 const route = useRoute()
 const router = useRouter()
 const { busy, error, run } = useTask()
@@ -20,6 +21,18 @@ onMounted(() => {
   applyPreferences()
   void session.start().then(async () => {
     const destination = session.continuity.takeReturn()
+    const outcome = route.query.login
+    if (route.path === '/b2b-app/' && (outcome === 'cancelled' || outcome === 'failed')) {
+      await router.replace('/b2b-app/')
+      if (!current.value) {
+        notice.value = outcome === 'cancelled'
+          ? 'Connexion annulée. Choisissez votre organisation pour recommencer.'
+          : 'La connexion a échoué. Choisissez votre organisation pour réessayer.'
+        await nextTick()
+        organizationInput.value?.focus()
+      }
+      return
+    }
     if (destination && route.path === '/b2b-app/') await router.replace(destination)
   })
 })
@@ -90,6 +103,7 @@ async function switchAccount() {
         <form @submit.prevent="login">
           <label>{{ t("Code d’entreprise") }}
             <input
+              ref="organizationInput"
               v-model="organization"
               autocomplete="organization"
               required

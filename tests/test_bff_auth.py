@@ -653,3 +653,62 @@ def test_historical_bearer_is_not_a_bff_session(env):
         .status_code
         == 401
     )
+
+
+@pytest.mark.parametrize("error,outcome", [("access_denied", "cancelled"), ("temporarily_unavailable", "failed")])
+def test_business_login_return_consumes_transaction_and_restarts_for_new_org(env, error, outcome):
+    client, service, _, _ = env
+    # Exercise the browser response branch without provisioning real dependencies.
+    client.app.state.bff_settings = settings(mode="b2b_business_test")
+    started = client.post('/b2b/auth/login', json={'organization_id': 'foreign-org'}, headers=LOGIN_HEADERS)
+    assert started.status_code == 200
+    state, browser = service.provider.state, client.cookies.get(TRANSACTION_COOKIE)
+    cancelled = client.get('/b2b/auth/callback', params={'state': state, 'error': error, 'error_description': 'PRIVATE https://evil.example'})
+    assert cancelled.status_code == 303
+    assert cancelled.headers['location'] == '/b2b-app/?login=' + outcome
+    assert 'PRIVATE' not in cancelled.text and 'evil' not in str(cancelled.headers)
+    assert not service.store.sessions and service.provider.calls == 0
+    assert not client.cookies.get(TRANSACTION_COOKIE) and not client.cookies.get(SESSION_COOKIE)
+    assert 'no-store' in cancelled.headers['cache-control']
+    for flag in ('Secure', 'HttpOnly', 'SameSite=lax', 'Path=/'):
+        assert flag in cancelled.headers['set-cookie']
+    client.cookies.set(TRANSACTION_COOKIE, browser, domain='bff.example.test', path='/')
+    assert complete(env, state).status_code == 401
+    assert service.provider.calls == 0
+    fresh = client.post('/b2b/auth/login', json={'organization_id': 'o1'}, headers=LOGIN_HEADERS)
+    assert fresh.status_code == 200 and service.provider.state != state
+    assert complete(env).status_code == 303
+    stored = next(iter(service.store.sessions.values()))
+    assert stored.organization_id == 'o1' and len(service.store.sessions) == 1
+
+
+@pytest.mark.parametrize('invalid', ['state', 'cookie', 'expired', 'issuer', 'redirect', 'duplicate'])
+def test_business_cancel_refuses_invalid_binding_and_redirects(env, invalid):
+    client, service, now, _ = env
+    state = begin(env)
+    client.app.state.bff_settings = settings(mode='b2b_business_test')
+    params = [('state', state), ('error', 'access_denied')]
+    if invalid == 'state': params[0] = ('state', 'x' * 43)
+    if invalid == 'cookie': client.cookies.clear()
+    if invalid == 'expired': now[0] += timedelta(seconds=301)
+    if invalid == 'issuer': params.append(('iss', 'https://foreign.example'))
+    if invalid == 'redirect': params.append(('return_to', 'https://foreign.example'))
+    if invalid == 'duplicate': params.append(('state', state))
+    result = client.get('/b2b/auth/callback', params=params)
+    assert result.status_code == 401 and 'location' not in result.headers
+    assert service.provider.calls == 0 and not service.store.sessions
+
+
+def test_cancel_and_complete_share_atomic_consumption(env):
+    from concurrent.futures import ThreadPoolExecutor
+    client, service, _, _ = env
+    state = begin(env); browser = client.cookies.get(TRANSACTION_COOKIE)
+    def attempt(cancel):
+        try:
+            return service.cancel_login(state, browser) if cancel else service.complete(state, browser, 'one-code')
+        except BffUnauthenticated:
+            return 'refused'
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(attempt, [True, False]))
+    assert outcomes.count('refused') == 1
+    assert len(service.store.sessions) == service.provider.calls <= 1

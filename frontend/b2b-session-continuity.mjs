@@ -6,7 +6,7 @@ import { writeFileSync } from 'node:fs'
 const origin = process.env.B2B_TEST_ORIGIN
 const issuer = process.env.B2B_TEST_ISSUER_ORIGIN
 const checks = [], writes = [], errors = []
-const browser = await chromium.launch({ headless: true, args: ['--ignore-certificate-errors-spki-list=' + process.env.B2B_BROWSER_SPKI] })
+const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext(), page = await context.newPage()
 context.on('request', r => { if(r.method() !== 'GET' && r.url().startsWith(origin)) writes.push(new globalThis.URL(r.url()).pathname) })
 page.on('pageerror', () => errors.push('pageerror'))
@@ -84,7 +84,10 @@ try {
   await page.screenshot({path:process.env.B2B_BROWSER_DIRECTORY+'/sso-account-isolation.png'})
   writeFileSync(process.env.B2B_BROWSER_REPORT,JSON.stringify({passed:true,checks,mutation_paths:writes,csrf_present:!!csrf,expiration_method:'owned Mongo fault injection; no elapsed 30-minute claim'},null,2))
 } catch(error){
-  // Private diagnostics only, no credential or token printed in the public report.
-  writeFileSync(process.env.B2B_BROWSER_DIRECTORY+'/continuity-private-error.txt',String(error))
+  let diagnostic = String(error.stack ?? error).replace(/https?:\/\/[^\s]+/g, '[URL redacted]')
+  for (const key of ['BFF_TEST_USER_PASSWORD', 'BFF_TEST_CLIENT_SECRET', 'BFF_CONFIGURATION_KEY']) {
+    if (process.env[key]) diagnostic = diagnostic.split(process.env[key]).join('[redacted]')
+  }
+  writeFileSync(process.env.B2B_BROWSER_DIRECTORY+'/continuity-private-error.txt',diagnostic)
   writeFileSync(process.env.B2B_BROWSER_REPORT,JSON.stringify({passed:false,checks,error_type:error.constructor.name},null,2));process.exitCode=1
 } finally {await context.close();await browser.close()}

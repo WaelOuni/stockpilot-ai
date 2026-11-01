@@ -7,6 +7,9 @@ désactivé par défaut ; les limites historiques ci-dessous décrivent le mode 
 V13.8.1 ajoute un [mode métier de test distinct](b2b-http-api.md), avec contrat
 login JSON, admission bornée et routes B1/B2/B3 ; aucune ouverture Internet.
 
+Le parcours métier de retour depuis la connexion et le thème versionné sont décrits
+dans [la validation v0.2.3](../validation/v0.2.3-keycloak-safe-return.md).
+
 ## Frontière et limites
 
 Entrypoint séparé : `uvicorn stockpilot.bff:create_app --factory`, avec TLS.

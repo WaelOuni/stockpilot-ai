@@ -115,6 +115,20 @@ async def callback(request: Request):
     # RFC 9207 response issuer is checked when supplied; token issuer is always checked.
     if "iss" in query and query["iss"] != request.app.state.bff_settings.issuer:
         raise BffUnauthenticated("Invalid callback issuer.")
+    if "error" in query and request.app.state.bff_settings.mode == "b2b_business_test":
+        await auth_worker(
+            request,
+            service(request).cancel_login,
+            query["state"],
+            cookie(request, TRANSACTION_COOKIE),
+        )
+        # Provider text and browser-supplied destinations never enter this URL.
+        outcome = "cancelled" if query["error"] == "access_denied" else "failed"
+        response = RedirectResponse("/b2b-app/?login=" + outcome, status_code=303)
+        response.delete_cookie(
+            TRANSACTION_COOKIE, secure=True, httponly=True, samesite="lax", path="/"
+        )
+        return response
     token = await auth_worker(
         request,
         service(request).complete,

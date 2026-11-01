@@ -13,7 +13,7 @@ const checks = []
 const check = name => checks.push(name)
 const browser = await chromium.launch({
   headless: true,
-  args: [...dnsArgs, '--ignore-certificate-errors-spki-list=' + process.env.B2B_BROWSER_SPKI],
+  args: dnsArgs,
 })
 const context = await browser.newContext()
 const page = await context.newPage()
@@ -22,22 +22,93 @@ const historicalCalls = []
 page.on('request', request => { if (new globalThis.URL(request.url()).pathname.startsWith('/api/')) historicalCalls.push('historical-api') })
 page.on('pageerror', () => failures.push('browser-script-error'))
 const probe = stage => execFileSync(process.env.B2B_TEST_PYTHON, ['scripts/tests/b2b_browser_probe.py', stage], { cwd: '..', env: process.env, stdio: 'pipe' })
-async function login(org, username) {
+async function beginLogin(org) {
   await page.goto(origin + '/b2b-app/')
   await page.getByLabel('Code d’entreprise').fill(org)
   await page.getByRole('button', { name: 'Continuer avec Keycloak' }).click()
   await page.waitForURL(issuerOrigin + '/**')
-  await page.locator('#username').fill(username)
-  await page.locator('#password').fill(process.env.BFF_TEST_USER_PASSWORD)
+  const parameters = new globalThis.URL(page.url()).searchParams
+  expect(parameters.get('prompt')).toBe('login')
+  expect(parameters.get('code_challenge_method')).toBe('S256')
+  return parameters
+}
+async function submitIdentity(username, password = process.env.BFF_TEST_USER_PASSWORD) {
+  if (await page.locator('#username').isVisible()) {
+    await page.locator('#username').fill(username)
+  } else {
+    // Native reauthentication can retain an SSO username. Use its account selector.
+    await expect(page.locator('#kc-attempted-username')).toBeVisible()
+    if (await page.locator('#kc-attempted-username').inputValue() !== username) {
+      await page.locator('#reset-login').click()
+      await page.locator('#username').fill(username)
+    }
+  }
+  await page.locator('#password').fill(password)
   await page.locator('#kc-login').click()
+}
+async function login(org, username, cancelled) {
+  const parameters = await beginLogin(org)
+  if (cancelled) {
+    for (const key of ['state', 'nonce', 'code_challenge']) expect(parameters.get(key) !== cancelled.get(key)).toBe(true)
+  }
+  await submitIdentity(username)
   await page.waitForURL(origin + '/b2b-app/')
   await expect(page.getByRole('heading', { name: 'Catalogue', exact: true })).toBeVisible()
+}
+async function safeLoginReturn() {
+  const abandoned = await beginLogin('fixture-other')
+  await expect(page).toHaveTitle(/StockPilot AI/)
+  const back = page.getByRole('button', { name: "Retour au choix de l'organisation", exact: true })
+  await expect(back).toBeVisible()
+  await expect(page.locator('#kc-form-login')).toBeVisible()
+  await page.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/keycloak-return-fr.png', fullPage: true })
+  await page.getByRole('combobox', { name: 'languages' }).selectOption({ label: 'Anglais (English)' })
+  await expect(page.getByRole('button', { name: 'Back to organization selection', exact: true })).toBeVisible()
+  await submitIdentity('bff-test-user', 'intentionally-invalid-fixture-password')
+  await expect(page.locator('#password')).toBeVisible()
+  expect((await context.cookies(origin)).some(c => c.name === '__Host-stockpilot_bff')).toBe(false)
+  const transaction = (await context.cookies(origin)).find(c => c.name === '__Host-stockpilot_oidc')
+  expect(Boolean(transaction)).toBe(true)
+  await page.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/keycloak-return-en-error.png', fullPage: true })
+  const cancel = page.getByRole('button', { name: 'Back to organization selection', exact: true })
+  await cancel.focus(); await page.keyboard.press('Enter')
+  await page.waitForURL(origin + '/b2b-app/')
+  await expect(page.getByLabel('Code d’entreprise')).toBeFocused()
+  await expect(page.getByLabel('Code d’entreprise')).toHaveValue('')
+  await expect(page.getByRole('status')).toContainText('Connexion annulée')
+  expect((await context.cookies(origin)).some(c => c.name.startsWith('__Host-stockpilot'))).toBe(false)
+  expect((await context.request.get(origin + '/b2b/auth/session')).status()).toBe(401)
+  const replay = new globalThis.URL(origin + '/b2b/auth/callback')
+  replay.searchParams.set('state', abandoned.get('state')); replay.searchParams.set('error', 'access_denied')
+  const rejected = await context.request.get(replay.href, { headers: { Cookie: transaction.name + '=' + transaction.value }, maxRedirects: 0 })
+  expect(rejected.status()).toBe(401)
+  expect(rejected.headers().location).toBeUndefined()
+  check('versioned native Keycloak form FR/EN; failed password then keyboard cancellation, blank organization choice, no session and consumed transaction')
+  await beginLogin('fixture-other')
+  const refusedMembership = page.waitForResponse(r => new globalThis.URL(r.url()).pathname === '/b2b/auth/callback' && r.status() === 403)
+  await submitIdentity('bff-test-user')
+  await refusedMembership
+  await page.waitForURL(origin + '/b2b/auth/callback?**')
+  expect((await context.request.get(origin + '/b2b/auth/session')).status()).toBe(401)
+  expect((await context.cookies(origin)).some(c => c.name === '__Host-stockpilot_bff')).toBe(false)
+  await expect(page.locator('body')).toContainText('Application access refused.')
+  check('foreign organization membership refused by the BFF after genuine Keycloak authentication; no phantom session')
+  await beginLogin('fixture-org')
+  await expect(page.locator('#stockpilot-return')).toBeVisible()
+  await page.locator('#stockpilot-return').focus(); await page.keyboard.press('Enter')
+  await page.waitForURL(origin + '/b2b-app/')
+  await expect(page.getByLabel('Code d’entreprise')).toHaveValue('')
+  expect((await context.request.get(origin + '/b2b/auth/session')).status()).toBe(401)
+  check('return also cancels a prompt=login attempt with an existing provider SSO identity')
+  return abandoned
 }
 try {
   await page.goto(origin + '/b2b-app/orders')
   await expect(page.getByLabel('Code d’entreprise')).toBeVisible()
   check('direct protected URL requires a real BFF session')
-  await login('fixture-org', 'bff-test-user')
+  const cancelled = process.env.B2B_TEST_LOGIN_RETURN ? await safeLoginReturn() : undefined
+  await login('fixture-org', 'bff-test-user', cancelled)
+  if (cancelled) check('fresh organization A login after organization B cancellation uses new state, nonce and PKCE challenge')
   await expect(page.locator('.workspace-organization').getByText('Synthetic test company', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Perceuse A', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Perceuse B', exact: true })).toHaveCount(0)
@@ -249,8 +320,12 @@ try {
   expect(historicalCalls).toEqual([])
   writeFileSync(process.env.B2B_BROWSER_REPORT, JSON.stringify({ passed: true, checks }, null, 2))
 } catch (error) {
-  // Detailed diagnostics stay in the parent's private log, not the public report.
-  console.error(error)
+  // URLs may carry codes/state; never keep them or generated fixture secrets in diagnostics.
+  let diagnostic = String(error.stack ?? error).replace(/https?:\/\/[^\s]+/g, '[URL redacted]')
+  for (const key of ['BFF_TEST_USER_PASSWORD', 'BFF_TEST_CLIENT_SECRET', 'BFF_CONFIGURATION_KEY']) {
+    if (process.env[key]) diagnostic = diagnostic.split(process.env[key]).join('[redacted]')
+  }
+  console.error(diagnostic)
   writeFileSync(process.env.B2B_BROWSER_REPORT, JSON.stringify({ passed: false, checks, error_type: error.constructor.name }, null, 2))
   process.exitCode = 1
 } finally {
