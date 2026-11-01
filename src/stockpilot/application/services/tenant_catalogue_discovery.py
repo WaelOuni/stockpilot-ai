@@ -55,23 +55,38 @@ def custom_category_question(question, categories):
     ), tuple(matches)
 
 
+# Share threshold grammar between routing and criteria extraction. Quantity words
+# may sit between the number and "ou moins"; they are not catalogue categories.
+_STRICT_STOCK_THRESHOLD = r"\b(?:moins de|inferieure?s? a)\s+(\d+)\b"
+_INCLUSIVE_STOCK_THRESHOLD = (
+    r"\b(\d+)(?:\s+unites?)?(?:\s+disponibles?)?\s+ou moins\b"
+)
+_STOCK_THRESHOLD = _STRICT_STOCK_THRESHOLD + "|" + _INCLUSIVE_STOCK_THRESHOLD
+
+
 def is_low_stock_request(question):
     text = normalize(question)
     # A monetary ceiling is never a stock threshold, even with "disponible".
     text = re.sub(
-        r"(?:moins de|inferieur a)\s+\d+(?:[.,]\d+)?\s*(?:euros?\b|eur\b|€)", "", text
+        r"(?:moins de|inferieure?s? a)\s+\d+(?:[.,]\d+)?\s*(?:euros?\b|eur\b|€)", "", text
     )
     if re.search(r"\b(?:rupture|stocks? faibles?|presque epuises?|s'epuiser)\b", text):
         return True
-    threshold = r"(?:moins de|inferieur a)\s+\d+|\d+ ou moins"
-    if not re.search(threshold, text):
+    if not re.search(_STOCK_THRESHOLD, text):
         return False
     if re.search(r"\bstocks?\b", text):
         return True
     # Bare ceilings in a buying search keep the historical budget contract.
     # A stock list without the word 'stock' needs explicit quantity scaffolding.
+    quantity = r"(?:unites?(?:\s+disponibles?)?|disponibles?)"
     return bool(
-        re.search(r"\b(?:ont|avec)\s+(?:" + threshold + r")\s+disponibles?\b", text)
+        re.search(
+            r"\b(?:ont|avec)\s+(?:"
+            + _STRICT_STOCK_THRESHOLD + r"\s+" + quantity
+            + r"|\d+\s+" + quantity + r"\s+ou moins"
+            + r"|" + _INCLUSIVE_STOCK_THRESHOLD + r"\s+" + quantity + r")\b",
+            text,
+        )
     )
 
 
@@ -88,8 +103,8 @@ def low_stock_criteria(question, categories):
         raise ClarificationRequired(
             "Précisez un seuil de stock disponible pour les produits actifs, sans budget."
         )
-    strict = list(re.finditer(r"\b(?:moins de|inferieur a)\s+(\d+)\b", text))
-    inclusive = list(re.finditer(r"\b(\d+) ou moins\b", text))
+    strict = list(re.finditer(_STRICT_STOCK_THRESHOLD, text))
+    inclusive = list(re.finditer(_INCLUSIVE_STOCK_THRESHOLD, text))
     rupture = bool(re.search(r"\b(?:en )?rupture(?: de stock)?\b", text))
     if len(strict) + len(inclusive) + int(rupture) > 1:
         raise ClarificationRequired("Précisez un seul seuil de stock disponible.")
@@ -105,14 +120,14 @@ def low_stock_criteria(question, categories):
         maximum, label = 4, "disponible < 5 (seuil par défaut)"
     if maximum > 2**63 - 1:
         raise ClarificationRequired("Le seuil de stock est trop élevé.")
-    remainder = re.sub(r"\b(?:moins de|inferieur a)\s+\d+\b|\b\d+ ou moins\b", "", text)
+    remainder = re.sub(_STOCK_THRESHOLD, "", text)
     remainder = re.sub(
         r"\b(?:en )?rupture(?: de stock)?\b|\bpresque epuises?\b|\b(?:qui )?vont s'epuiser\b",
         "",
         remainder,
     )
     remainder = re.sub(
-        r"\b(?:quels|quelles|sont|les|des|un|une|produits?|liste|avec|ont|en|de|stocks?|faibles?|disponibles?|montre[- ]moi|affiche[- ]moi)\b",
+        r"\b(?:quels|quelles|sont|les|des|un|une|produits?|articles?|unites?|liste|avec|ont|en|de|stocks?|faibles?|disponibles?|montre(?:[- ]moi)?|affiche[- ]moi)\b",
         " ",
         remainder,
     )
