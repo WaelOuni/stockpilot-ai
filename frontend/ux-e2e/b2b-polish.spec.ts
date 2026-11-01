@@ -13,6 +13,7 @@ for (const language of ['fr', 'en'] as const) {
           let body: unknown
           if (request.method() !== 'GET') unexpected.push(request.method() + ' ' + path)
           if (path === '/b2b/auth/session') body = sessionFixture
+          else if (path === '/b2b/api/products/categories') body = { items: ['perceuses'] }
           else if (path === '/b2b/api/products') body = { items: products, total: 10, has_more: false, limit: 12, offset: 0 }
           else if (path.startsWith('/b2b/api/products/')) {
             const id = path.split('/')[4], product = products.find(p => p.product_id === id)

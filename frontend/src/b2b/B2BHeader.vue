@@ -80,7 +80,14 @@ onUnmounted(() => document.removeEventListener('click', outside))
           class="account-avatar"
           aria-hidden="true"
         >{{ current ? current.user_id.slice(0, 1).toUpperCase() : '○' }}</span>
-        <span class="account-label">{{ current?.user_id ?? t('Préférences') }}</span><span aria-hidden="true">⌄</span>
+        <span class="account-label">{{ current?.user_id ?? t('Préférences') }}</span><svg
+          class="account-chevron"
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        ><path d="m6 9 6 6 6-6" /></svg>
       </summary>
       <div class="workspace-account-panel">
         <div
@@ -138,6 +145,10 @@ onUnmounted(() => document.removeEventListener('click', outside))
 .workspace-account { position:relative; min-width:0; }
 .workspace-account summary { list-style:none; display:flex; align-items:center; gap:8px; padding:4px 8px; min-height:44px; cursor:pointer; border:1px solid var(--line); border-radius:10px; }
 .workspace-account summary::-webkit-details-marker { display:none; }
+.account-chevron { width:18px; height:18px; flex-shrink:0; transition:transform .15s; }
+.workspace-account[open] .account-chevron { transform:rotate(180deg); }
+.workspace-account summary:hover, .workspace-account[open] summary { background:var(--soft); }
+.workspace-account summary:focus-visible { outline:3px solid var(--brand); outline-offset:3px; }
 .account-avatar { display:grid; place-items:center; width:28px; height:28px; flex-shrink:0; border-radius:50%; background:var(--soft); color:var(--brand); font-weight:700; }
 .account-label { max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.8rem; }
 .workspace-account-panel { position:absolute; right:0; top:calc(100% + 8px); z-index:30; display:grid; gap:12px; width:300px; max-width:calc(100vw - 32px); padding:18px; border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 36px #10172222; background:var(--surface); color:var(--ink); }
