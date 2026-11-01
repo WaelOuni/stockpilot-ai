@@ -18,6 +18,11 @@ from stockpilot.application.use_cases.resolve_product import (
     ResolveProductUseCase,
 )
 from stockpilot.domain.entities.tenant_product import TenantProductQuery
+from stockpilot.application.services.tenant_catalogue_discovery import (
+    custom_category_question,
+    low_stock_criteria,
+    persisted_categories,
+)
 
 
 class ScopedResolution:
@@ -61,8 +66,12 @@ class TenantAssistantCatalogue:
                 return generic
         return extract_criteria(question, previous)
 
-    def card(self, request, context, product):
-        stock = self.catalogue.stock(request, context, product.product_id)
+    def card(self, request, context, product, stock=None, observed_at=None):
+        stock = (
+            stock
+            if stock is not None
+            else self.catalogue.stock(request, context, product.product_id)
+        )
         if (
             stock is None
             or stock.organization_id != context.organization_id
@@ -80,7 +89,7 @@ class TenantAssistantCatalogue:
             "reserved": stock.reserved,
             "available": stock.available,
             "revision": stock.revision,
-            "observed_at": datetime.now(UTC).isoformat(),
+            "observed_at": observed_at or datetime.now(UTC).isoformat(),
         }
 
     async def resolve(self, request, context, reference, *, order=False):
@@ -109,11 +118,78 @@ class TenantAssistantCatalogue:
             )
         return current
 
+    def low_stock(self, request, context, question):
+        categories = self.catalogue.categories(request, context)
+        criteria = low_stock_criteria(question, categories)
+        observed = datetime.now(UTC).isoformat()
+        page = self.catalogue.search_stock(
+            request,
+            context,
+            TenantProductQuery(
+                limit=5,
+                status="active",
+                categories=criteria.categories,
+                maximum_available=max(0, criteria.maximum),
+                sort_by_available=True,
+            ),
+        )
+        items, total = (page.items, page.total) if criteria.maximum >= 0 else ((), 0)
+        cards = [
+            self.card(request, context, pair.product, pair.stock, observed)
+            for pair in items
+        ]
+        label = criteria.label + (
+            " ; catégorie : " + ", ".join(criteria.categories)
+            if criteria.categories
+            else ""
+        )
+        return {
+            "intent": "LOW_STOCK",
+            "products": cards,
+            "total": total,
+            "text": f"{total} produit(s) actif(s) : {label}. "
+            + (
+                f"Les {len(cards)} premiers sont affichés ; résultat partiel. "
+                if total > len(cards)
+                else ""
+            )
+            + f"Observation : {observed}. Consultation en lecture seule, sans réservation.",
+            "criteria": None,
+            "catalogue_categories": [],
+            "advice_skus": [],
+        }
+
     async def advice(self, request, context, question, state):
         previous = (
             AdviceCriteria(**state["criteria"]) if state.get("criteria") else None
         )
-        criteria = self.criteria(question, previous)
+        actual_categories = self.catalogue.categories(request, context)
+        parsed_question, custom = custom_category_question(question, actual_categories)
+        criteria = self.criteria(parsed_question, previous)
+        if custom and criteria.reference:
+            # A category inside a product name must not change that identity.
+            criteria = self.criteria(question, previous)
+            custom = None
+        if custom:
+            categories = custom
+            criteria = replace(criteria, category=None, category_explicit=True)
+        elif criteria.category_explicit:
+            categories = persisted_categories(
+                criteria.category.value, actual_categories
+            )
+        elif state.get("catalogue_categories"):
+            categories = tuple(
+                c for c in state["catalogue_categories"] if c in actual_categories
+            )
+        elif criteria.category:
+            categories = persisted_categories(
+                criteria.category.value, actual_categories
+            )
+        else:
+            categories = ()
+        category_requested = bool(
+            custom or criteria.category or state.get("catalogue_categories")
+        )
         prior_skus = state.get("advice_skus", [])[:5]
         reference = None
         if (
@@ -139,121 +215,137 @@ class TenantAssistantCatalogue:
             raise ClarificationRequired(
                 "Quel produit souhaitez-vous comparer ? Précisez son SKU."
             )
-        maximum = None
-        if criteria.maximum is not None:
-            # The shared grammar accepts at most two decimal digits. Decimal(str)
-            # translates that lexical bound; no product amount passes through float.
-            maximum = int(Decimal(str(criteria.maximum)) * 100) - int(
-                criteria.exclusive_maximum
+        maximum = (
+            (
+                int(Decimal(str(criteria.maximum)) * 100)
+                - int(criteria.exclusive_maximum)
             )
+            if criteria.maximum is not None
+            else None
+        )
+        minimum = (
+            int(Decimal(str(criteria.minimum)) * 100)
+            if criteria.minimum is not None
+            else None
+        )
+        if reference and criteria.mode == "compare" and not criteria.category_explicit:
+            categories, category_requested = (reference.category,), True
+        cards = []
+        total = 0
+        query = None
         if criteria.mode == "product":
-            products = [reference]
+            cards = [self.card(request, context, reference)]
+            total = 1
         elif criteria.mode == "cheapest":
-            products = [
-                self.catalogue.by_sku(request, context, sku) for sku in prior_skus
-            ]
-            products = [
-                p
-                for p in products
-                if p is not None
-                and p.status == "active"
-                and p.sku not in criteria.exclude_skus
-                and (
-                    criteria.category is None
-                    or p.category.upper() == criteria.category.value
-                )
-                and (
-                    maximum is None
-                    or (p.currency == "EUR" and p.price_minor <= maximum)
-                )
-                and (
-                    criteria.minimum is None
-                    or (
-                        p.currency == "EUR"
-                        and p.price_minor >= int(Decimal(str(criteria.minimum)) * 100)
-                    )
-                )
-                and (
-                    criteria.available is None
-                    or (
-                        self.catalogue.stock(request, context, p.product_id).available
-                        > 0
-                    )
-                    == criteria.available
-                )
-            ]
-            if not products:
-                return {
-                    "intent": "PRODUCT_ADVICE",
-                    "text": "Aucun produit ne correspond aux critères actuels.",
-                    "products": [],
-                    "criteria": criteria_context(criteria),
-                    "advice_skus": [],
-                }
-            if len({p.currency for p in products}) != 1:
+            for sku in prior_skus:
+                p = self.catalogue.by_sku(request, context, sku)
+                if p is None or p.status != "active" or p.sku in criteria.exclude_skus:
+                    continue
+                card = self.card(request, context, p)
+                if (
+                    category_requested
+                    and p.category not in categories
+                    or maximum is not None
+                    and (p.currency != "EUR" or p.price_minor > maximum)
+                    or minimum is not None
+                    and (p.currency != "EUR" or p.price_minor < minimum)
+                    or criteria.available is not None
+                    and (card["available"] > 0) != criteria.available
+                ):
+                    continue
+                cards.append(card)
+            if len({p["currency"] for p in cards}) > 1:
                 raise ClarificationRequired(
                     "Commencez par une liste dans une seule devise."
                 )
-            products = sorted(products, key=lambda p: (p.price_minor, p.sku))[:1]
-        else:
-            categories = (
-                [criteria.category.value, criteria.category.value.lower()]
-                if criteria.category
-                else [None]
+            cards = sorted(cards, key=lambda p: (p["price_minor"], p["sku"]))[:1]
+            total = len(cards)
+        elif not category_requested or categories:
+            query = TenantProductQuery(
+                limit=criteria.limit,
+                categories=categories,
+                exclude_skus=tuple(
+                    dict.fromkeys(
+                        (
+                            *criteria.exclude_skus,
+                            *((reference.sku,) if reference else ()),
+                        )
+                    )
+                ),
+                minimum_price_minor=minimum,
+                maximum_price_minor=maximum,
+                currency="EUR"
+                if maximum is not None or minimum is not None
+                else reference.currency
+                if reference
+                else None,
+                available=criteria.available,
+                status="active",
+                sort_by_price=True,
             )
-            if (
-                reference
-                and criteria.mode == "compare"
-                and not criteria.category_explicit
-            ):
-                categories = [reference.category]
-            candidates = {}
-            for category in dict.fromkeys(categories):
-                page = self.catalogue.search(
-                    request,
-                    context,
-                    TenantProductQuery(
-                        limit=5,
-                        category=category,
-                        minimum_price_minor=int(Decimal(str(criteria.minimum)) * 100)
-                        if criteria.minimum is not None
-                        else None,
-                        maximum_price_minor=maximum,
-                        currency="EUR"
-                        if maximum is not None
-                        else reference.currency
-                        if reference
-                        else None,
-                        available=criteria.available,
-                        status="active",
-                        sort_by_price=True,
-                    ),
-                )
-                for item in page.items:
-                    if item.sku not in criteria.exclude_skus and (
-                        reference is None or item.product_id != reference.product_id
-                    ):
-                        candidates[item.sku] = item
-            products = sorted(
-                candidates.values(), key=lambda p: (p.currency, p.price_minor, p.sku)
-            )[: criteria.limit]
-            if reference:
-                products.insert(0, reference)
-        cards = [self.card(request, context, p) for p in products[:5] if p is not None]
+            page = self.catalogue.search_stock(request, context, query)
+            observed = datetime.now(UTC).isoformat()
+            cards = [
+                self.card(request, context, pair.product, pair.stock, observed)
+                for pair in page.items
+            ]
+            total = page.total
+        if reference and criteria.mode == "compare":
+            cards.insert(0, self.card(request, context, reference))
         outside = (
             reference is not None
             and maximum is not None
             and (reference.currency != "EUR" or reference.price_minor > maximum)
         )
+        labels = []
+        if category_requested:
+            labels.append(
+                "catégorie : " + (", ".join(categories) or "absente du catalogue")
+            )
+        if criteria.maximum is not None:
+            labels.append(
+                f"prix {'<' if criteria.exclusive_maximum else '≤'} {Decimal(str(criteria.maximum))} EUR"
+            )
+        if criteria.available is not None:
+            labels.append("disponible > 0" if criteria.available else "disponible = 0")
+        summary = "; ".join(labels) or "produits actifs"
+        if cards:
+            message = (
+                f"{total} résultat(s) trouvé(s) ; {len(cards)} fiche(s) affichée(s). "
+            )
+            if total == 1 and criteria.limit > 1:
+                message += "Un seul produit correspond aux critères. "
+            message += (
+                f"Critères : {summary}. Disponibilité observée, sans réservation."
+            )
+        else:
+            message = f"Aucun produit ne correspond aux critères : {summary}. "
+            if query is not None and maximum is not None:
+                without_budget = self.catalogue.search_stock(
+                    request,
+                    context,
+                    replace(
+                        query,
+                        limit=1,
+                        maximum_price_minor=None,
+                    ),
+                )
+                if without_budget.total:
+                    message += "Le plafond de prix exclut les produits satisfaisant les autres critères. "
+            if query is not None and criteria.available is not None:
+                without_availability = self.catalogue.search_stock(
+                    request, context, replace(query, limit=1, available=None)
+                )
+                if without_availability.total:
+                    message += "Le critère de disponibilité exclut les produits satisfaisant les autres critères. "
+            message += "Vous pouvez élargir la catégorie ou le plafond de prix puis relancer la recherche."
         return {
             "intent": "COMPARISON" if criteria.mode == "compare" else "PRODUCT_ADVICE",
             "text": ("Fiche ciblée hors du budget précédent. " if outside else "")
-            + (
-                "Produits vérifiés dans votre organisation ; disponibilité observée, sans réservation."
-                if cards
-                else "Aucun produit ne correspond aux critères de votre organisation."
-            ),
-            "products": cards,
+            + message,
+            "products": cards[:5],
+            "total": total,
             "criteria": criteria_context(criteria),
-            "advice_skus": [p["sku"] for p in cards],
+            "catalogue_categories": list(categories),
+            "advice_skus": [p["sku"] for p in cards[:5]],
         }

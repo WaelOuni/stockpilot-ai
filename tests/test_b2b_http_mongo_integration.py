@@ -655,3 +655,23 @@ def test_dot_operation_reconciliation_uses_canonical_query(http):
         c.get("/b2b/api/products/by-sku", params={"sku": "DRILL-001"}).status_code
         == 200
     )
+
+
+@pytest.mark.parametrize("path", ["/b2b/api/products/categories", "/b2b/api/products/suggestions?prefix=DR"])
+def test_catalogue_discovery_http_scope_and_session(http, path):
+    c = http.browser("a1")
+    response = c.get(path)
+    assert response.status_code == 200
+    if "suggestions" in path:
+        assert response.json()["items"] and all(p["organization_id"] == "org-a" for p in response.json()["items"])
+    else:
+        assert response.json()["items"]
+    c.headers["X-BFF-CSRF"] = "wrong-session-proof"
+    assert c.get(path).status_code == 403
+    assert http.browser(None).get(path).status_code == 401
+    assert http.browser("a1").get(path, headers={"X-Organization-ID": "org-b"}).status_code == 400
+
+
+@pytest.mark.parametrize("suffix", ["prefix=A", "prefix=AB&limit=21", "prefix=AB&prefix=CD", "prefix=AB&organization_id=org-b"])
+def test_suggestions_http_rejects_unbounded_or_forged_query(http, suffix):
+    assert http.browser().get("/b2b/api/products/suggestions?" + suffix).status_code == 422

@@ -96,8 +96,23 @@ class TenantProductQuery:
     status: str | None = None
     available: bool | None = None
     sort_by_price: bool = False
+    categories: tuple[str, ...] = ()
+    exclude_skus: tuple[str, ...] = ()
+    maximum_available: int | None = None
+    sort_by_available: bool = False
 
     def __post_init__(self):
+        for values in (self.categories, self.exclude_skus):
+            if not isinstance(values, tuple) or len(values) > 1000 or any(
+                type(v) is not str or not 1 <= len(v) <= 128 for v in values
+            ):
+                raise ValueError("Bounded literal filters required.")
+        if self.maximum_available is not None and (
+            type(self.maximum_available) is not int or not 0 <= self.maximum_available <= 2**63 - 1
+        ):
+            raise ValueError("Nonnegative stock threshold required.")
+        if type(self.sort_by_available) is not bool:
+            raise ValueError("Boolean sort selector required.")
         if type(self.sort_by_price) is not bool:
             raise ValueError("Boolean sort selector required.")
         if self.available is not None and type(self.available) is not bool:
@@ -143,5 +158,18 @@ class TenantProductQuery:
 @dataclass(frozen=True)
 class TenantProductPage:
     items: tuple[TenantProduct, ...]
+    total: int
+    has_more: bool
+
+
+@dataclass(frozen=True)
+class TenantProductStock:
+    product: TenantProduct
+    stock: TenantStock
+
+
+@dataclass(frozen=True)
+class TenantStockPage:
+    items: tuple[TenantProductStock, ...]
     total: int
     has_more: bool

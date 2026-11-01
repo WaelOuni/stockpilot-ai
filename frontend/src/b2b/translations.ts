@@ -1,6 +1,25 @@
 // User-facing application copy only. Product descriptions and conversations are not translated.
 // Only interface copy is translated. Catalogue data and conversation text remain verbatim.
 export const english: Record<string, string> = Object.fromEntries(`
+Toutes les catégories|All categories
+Aucune suggestion. La saisie libre reste possible.|No suggestions. You can still type freely.
+produits • Page|products • Page
+sur|of
+Affichage de|Showing
+à|to
+Première|First
+Dernière|Last
+Page|Page
+Affinez les filtres pour accéder aux résultats au-delà de la limite de pagination.|Refine filters to reach results beyond the pagination limit.
+Tapez au moins 2 caractères du début du SKU.|Type at least 2 characters from the start of the SKU.
+Suggestions indisponibles. La saisie libre reste possible.|Suggestions unavailable. You can still type freely.
+Catégories indisponibles. La saisie libre reste possible.|Categories unavailable. You can still type freely.
+Aucun produit trouvé pour ce SKU exact.|No product found for this exact SKU.
+Lecture du catalogue impossible.|Unable to read the catalogue.
+Effacer les filtres|Clear filters
+Résultats du catalogue|Catalogue results
+Rupture de stock|Out of stock
+
 Afficher uniquement les produits disponibles|Show only available products
 Organisation active|Active organization
 Compte et préférences|Account and preferences

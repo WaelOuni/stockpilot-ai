@@ -35,6 +35,10 @@ from stockpilot.application.resource_errors import (
     ModelUnavailableError,
 )
 from stockpilot.application.services.identity_authorization import AuthorizationDenied
+from stockpilot.application.services.tenant_catalogue_discovery import (
+    custom_category_question,
+    is_low_stock_request,
+)
 from stockpilot.application.services.tenant_assistant_catalogue import (
     TenantAssistantCatalogue,
 )
@@ -100,6 +104,7 @@ class AssistantState(TypedDict, total=False):
     customer_id: str | None
     criteria: dict | None
     advice_skus: list[str]
+    catalogue_categories: list[str]
     last_order_id: str | None
     preparation_armed: bool
     reply: dict
@@ -168,6 +173,9 @@ class TenantAssistant:
             return {
                 "reply": reply,
                 "criteria": reply.get("criteria", state.get("criteria")),
+                "catalogue_categories": reply.get(
+                    "catalogue_categories", state.get("catalogue_categories", [])
+                ),
                 "advice_skus": reply.get("advice_skus", state.get("advice_skus", [])),
                 "last_order_id": reply["order"]["order_id"]
                 if reply.get("order")
@@ -188,6 +196,12 @@ class TenantAssistant:
         value = normalize(question).strip()
         classification = state["reply"]["classification"]
         try:
+            if is_low_stock_request(question) and not explicit_order_request(question):
+                result = self.catalogue.low_stock(request, context, question)
+                return self._reply(
+                    result["intent"], result["text"],
+                    **{k: v for k, v in result.items() if k not in {"intent", "text"}},
+                )
             if (
                 re.search(r"\b(annul\w*|statut|ou en est|derniere commande)\b", value)
                 or classification["intent"] == "ORDER_STATUS"
@@ -314,8 +328,16 @@ class TenantAssistant:
             )
 
             try:
+                lexical_question = catalogue_question
+                if re.match(
+                    r"^(?:je (?:cherche|recherche|voudrais|veux|souhaite)|"
+                    r"conseille|propose|montre|affiche|trouve|cherche)\b", value,
+                ):
+                    lexical_question, _ = custom_category_question(
+                        catalogue_question, self.catalogue.catalogue.categories(request, context)
+                    )
                 lexical = (
-                    extract_criteria(catalogue_question)
+                    extract_criteria(lexical_question)
                     if len(catalogue_question) <= 256
                     else None
                 )

@@ -9,6 +9,7 @@ from stockpilot.domain.entities.tenant_product import (
     TenantProductPage,
     TenantProductQuery,
     TenantStock,
+    TenantStockPage,
 )
 
 
@@ -17,6 +18,16 @@ class TenantCatalogueUnavailable(Exception):
 
 
 class TenantCataloguePort(Protocol):
+    def categories(self, request: object, context: TenantContext) -> tuple[str, ...]: ...
+
+    def suggest_skus(
+        self, request: object, context: TenantContext, prefix: str, limit: int = 10
+    ) -> tuple[TenantProduct, ...]: ...
+
+    def search_stock(
+        self, request: object, context: TenantContext, query: TenantProductQuery
+    ) -> TenantStockPage: ...
+
     def export_rows(
         self, request: object, context: TenantContext, mode: ImportMode,
         category: str | None = None,

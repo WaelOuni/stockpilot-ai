@@ -21,6 +21,8 @@ from stockpilot.domain.entities.tenant_product import (
     TenantProductPage,
     TenantProductQuery,
     TenantStock,
+    TenantProductStock,
+    TenantStockPage,
 )
 from stockpilot.domain.enums.tenant_authorization import AuthorizationDecision as D
 from stockpilot.domain.enums.tenant_authorization import ResourceKind as K
@@ -197,6 +199,38 @@ class MongoTenantCatalogue:
         except (PyMongoError, KeyError, TypeError):
             raise TenantCatalogueUnavailable("Scoped catalogue export unavailable.") from None
 
+    def categories(self, request, context):
+        org = self._scope(request, context, O.CATALOGUE_READ)
+        try:
+            rows = list(self.collection.aggregate([
+                {"$match": {"organization_id": org, "status": "active"}},
+                {"$group": {"_id": "$category"}},
+                {"$sort": {"_id": 1}}, {"$limit": 1001},
+            ], collation=Collation("simple"), maxTimeMS=2000))
+            if len(rows) > 1000:
+                raise ValueError("Category discovery bound exceeded.")
+            values = tuple(_identifier(row["_id"]) for row in rows)
+            self._scope(request, context, O.CATALOGUE_READ)
+            return values
+        except (PyMongoError, KeyError, TypeError, ValueError):
+            raise TenantCatalogueUnavailable("Scoped categories unavailable.") from None
+
+    def suggest_skus(self, request, context, prefix, limit=10):
+        org = self._scope(request, context, O.CATALOGUE_READ)
+        if type(prefix) is not str or not 2 <= len(prefix) <= 128 or type(limit) is not int or not 1 <= limit <= 20:
+            raise ValueError("Bounded SKU prefix required.")
+        try:
+            # Literal case-sensitive anchored prefix: existing org/status/SKU index.
+            rows = self.collection.find({
+                "organization_id": org, "status": "active",
+                "sku": {"$regex": "^" + re.escape(prefix)},
+            }, collation=Collation("simple")).hint("b2b_org_status_sku").sort("sku", 1).limit(limit).max_time_ms(2000)
+            result = tuple(_product(row, org) for row in rows)
+            self._scope(request, context, O.CATALOGUE_READ)
+            return result
+        except (PyMongoError, KeyError, TypeError, ValueError):
+            raise TenantCatalogueUnavailable("Scoped SKU suggestions unavailable.") from None
+
     def resolution_candidates(
         self, request, context, reference, *, exact=False, limit=21
     ):
@@ -265,10 +299,23 @@ class MongoTenantCatalogue:
         return decision is D.ALLOW
 
     def search(self, request, context, query):
+        return self._search(request, context, query, with_stock=False)
+
+    def search_stock(self, request, context, query):
+        return self._search(request, context, query, with_stock=True)
+
+    def _search(self, request, context, query, *, with_stock):
         org = self._scope(request, context, O.CATALOGUE_READ)
         if not isinstance(query, TenantProductQuery):
             raise TypeError("Typed catalogue query required.")
+        stock_read = with_stock or query.available is not None or query.maximum_available is not None or query.sort_by_available
+        if stock_read:
+            self._scope(request, context, O.STOCK_READ)
         filters = {"organization_id": org}
+        if query.categories:
+            filters["category"] = {"$in": list(query.categories)}
+        if query.exclude_skus:
+            filters["sku"] = {"$nin": list(query.exclude_skus)}
         for key in ("category", "currency", "status"):
             if getattr(query, key) is not None:
                 filters[key] = getattr(query, key)
@@ -284,6 +331,9 @@ class MongoTenantCatalogue:
             filters["$expr"] = (
                 availability if query.available else {"$not": [availability]}
             )
+        if query.maximum_available is not None:
+            threshold = {"$lte": [{"$subtract": ["$quantity", "$reserved"]}, query.maximum_available]}
+            filters["$expr"] = {"$and": [filters["$expr"], threshold]} if "$expr" in filters else threshold
         prices = {}
         if query.minimum_price_minor is not None:
             prices["$gte"] = query.minimum_price_minor
@@ -296,8 +346,9 @@ class MongoTenantCatalogue:
             # read-then-count race. No global read followed by Python filtering.
             pipeline = [
                 {"$match": filters},
+                *([{"$set": {"_available": {"$subtract": ["$quantity", "$reserved"]}}}] if query.sort_by_available else []),
                 {
-                    "$sort": {"price_minor": 1, "sku": 1}
+                    "$sort": {"_available": 1, "sku": 1} if query.sort_by_available else {"price_minor": 1, "sku": 1}
                     if query.sort_by_price
                     else {"sku": 1}
                 },
@@ -317,7 +368,14 @@ class MongoTenantCatalogue:
             if len({p.sku for p in items}) != len(items):
                 raise ValueError("Duplicate B2B SKU.")
             total = result["total"][0]["value"] if result["total"] else 0
-            return TenantProductPage(items, total, query.offset + len(items) < total)
+            self._scope(request, context, O.CATALOGUE_READ)
+            if stock_read:
+                self._scope(request, context, O.STOCK_READ)
+            more = query.offset + len(items) < total
+            if with_stock:
+                pairs = tuple(TenantProductStock(product, _stock(row, org)) for product, row in zip(items, result["items"], strict=True))
+                return TenantStockPage(pairs, total, more)
+            return TenantProductPage(items, total, more)
         except (PyMongoError, KeyError, ValueError, TypeError, StopIteration):
             raise TenantCatalogueUnavailable("B2B catalogue read failed.") from None
 
