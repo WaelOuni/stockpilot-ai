@@ -434,7 +434,8 @@ def test_http_free_text_resolution_and_replay_preserve_tenant_and_order_guards(
         (FREE_TEXT, "STOCK_CHECK", "CLARIFICATION_REQUIRED", []),
         ("Est-ce que DRILL-001 est disponible ?", "STOCK_CHECK", "STOCK_CHECK", ["DRILL-001"]),
         ("Des perceuses disponibles à moins de 50 euros", "ORDER", "PRODUCT_ADVICE", ["DRILL-001", "DRILL-002", "LONG-001"]),
-        ("La Perceuse Northline 18V 0476 est-elle en stock ?", "STOCK_CHECK", "STOCK_CHECK", ["DRILL-001"]),
+        # An explicit tool category already routes this named lookup through Advice.
+        ("La Perceuse Northline 18V 0476 est-elle en stock ?", "STOCK_CHECK", "PRODUCT_ADVICE", ["DRILL-001"]),
         ("Est-ce que le SKU ABSENT-001 est disponible ?", "STOCK_CHECK", "CLARIFICATION_REQUIRED", []),
         ("Est-ce que le SKU SAW-002 est disponible ?", "STOCK_CHECK", "CLARIFICATION_REQUIRED", []),
         ("Conseille-moi sur Perceuse Northline", "PRODUCT_ADVICE", "CLARIFICATION_REQUIRED", []),
@@ -453,7 +454,7 @@ def test_http_free_text_resolution_and_replay_preserve_tenant_and_order_guards(
         turn = result.json()
         assert turn["status"] == "completed" and turn["operation"] is None
         reply = turn["reply"]
-        assert reply["intent"] == intent and reply["text"]
+        assert reply["intent"] == intent and reply["text"], (message, reply)
         assert reply["order"] is None and reply["can_confirm"] is False
         assert sorted(p["sku"] for p in reply["products"]) == skus
         assert all(p["organization_id"] == "org-a" and p["reserved"] == 0 for p in reply["products"])
@@ -476,6 +477,7 @@ def test_http_free_text_resolution_and_replay_preserve_tenant_and_order_guards(
     ]:
         assert c.post(base + "/messages", json={**body, "message_id": "invalid", **changes}).status_code == 422
     assert len(c.get(base).json()["items"]) == 1
+    assert c.get("/b2b/api/products/by-sku", params={"sku": "X" * 129}).status_code == 422
     assert c.post(base + "/messages", json=body, headers={"X-BFF-CSRF": "forged"}).status_code == 403
     h.db.b2b_memberships.update_one({"user_id": "a1"}, {"$set": {"status": "suspended"}})
     assert c.post(base + "/messages", json=body).status_code == 403
