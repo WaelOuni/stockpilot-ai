@@ -74,6 +74,8 @@ jobs:
           test "$VALIDATED_SHA" = "$SHA"
           docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -t stockpilot-api:release .
           docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -f frontend/Dockerfile -t stockpilot-web:release .
+          docker build --platform linux/amd64 --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -f docker/keycloak/Dockerfile -t stockpilot-keycloak:release docker/keycloak
+          python3 scripts/ci/check_keycloak_image.py stockpilot-keycloak:release --revision "$SHA" --source "https://github.com/$GITHUB_REPOSITORY"
   publish:
     if: >-
       github.event_name == 'workflow_dispatch' && github.ref_type == 'tag' &&
@@ -98,7 +100,7 @@ jobs:
           ref: ${{ needs.gate.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Recheck policy and both existing private packages before publication
+      - name: Recheck policy and all three existing private packages before publication
         env:
           GH_TOKEN: ${{ github.token }}
           GHCR_VISIBILITY_TOKEN: ${{ secrets.GHCR_VISIBILITY_TOKEN }}
@@ -111,6 +113,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SHA"
           docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -t stockpilot-api:release .
           docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -f frontend/Dockerfile -t stockpilot-web:release .
+          docker build --platform linux/amd64 --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -f docker/keycloak/Dockerfile -t stockpilot-keycloak:release docker/keycloak
+          python3 scripts/ci/check_keycloak_image.py stockpilot-keycloak:release --revision "$SHA" --source "https://github.com/$GITHUB_REPOSITORY"
       - name: Publish private images and draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -122,7 +126,9 @@ jobs:
           set -euo pipefail
           # Recheck after builds, before registry login/push; no missing-package exception.
           python3 scripts/ci/release_guard.py --publication
-          export DOCKER_CONFIG="$RUNNER_TEMP/registry-auth"
+          umask 077
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/registry-auth.XXXXXX")
+          export DOCKER_CONFIG
           published=''
           attempted=''
           finished=false
@@ -138,45 +144,63 @@ jobs:
           trap cleanup EXIT
           trap 'exit 130' INT
           trap 'exit 143' TERM
-          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          if ! printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null 2>&1; then
+            echo 'Registry login failed; publication refused.' >&2
+            exit 1
+          fi
+          owner="${GITHUB_REPOSITORY%%/*}"
+          owner="${owner,,}"
           # Check all target tags before any push. Access/network failures are not absence.
-          for component in api web; do
+          for component in api web keycloak; do
             image="ghcr.io/$owner/stockpilot-$component"
             for target in "$VERSION" "sha-$SHA"; do
-              if docker manifest inspect "$image:$target" > "$RUNNER_TEMP/manifest.json" 2> "$RUNNER_TEMP/manifest-error.txt"; then
+              if manifest_error=$(docker manifest inspect "$image:$target" 2>&1 >/dev/null); then
                 echo 'Image tag already exists; refusing overwrite' >&2
                 exit 1
-              elif ! grep -Eqi 'manifest unknown|no such manifest|name unknown' "$RUNNER_TEMP/manifest-error.txt"; then
+              elif grep -Eqi 'unauthorized|denied|forbidden|timeout|timed out|connection|tls|certificate' <<< "$manifest_error" ||
+                   ! grep -Eqi 'manifest unknown|no such manifest|name unknown' <<< "$manifest_error"; then
                 echo 'Cannot establish absence of image tag; refusing publication' >&2
                 exit 1
               fi
             done
           done
+          unset manifest_error
           printf 'Tag: %s\nCommit: %s\n\n' "$TAG" "$SHA" > "$RUNNER_TEMP/images.md"
-          for component in api web; do
+          for component in api web keycloak; do
             image="ghcr.io/$owner/stockpilot-$component"
             docker tag "stockpilot-$component:release" "$image:$VERSION"
             docker tag "stockpilot-$component:release" "$image:sha-$SHA"
             for target in "$VERSION" "sha-$SHA"; do
               attempted="$attempted $image:$target"
               printf 'Push requested: %s:%s. Verify registry if this run is interrupted.\n' "$image" "$target" >> "$GITHUB_STEP_SUMMARY"
-              docker push "$image:$target"
+              if ! docker push "$image:$target" >/dev/null 2>&1; then
+                echo 'Image push failed; reconcile the requested tag before retrying.' >&2
+                exit 1
+              fi
               published="$published $image:$target"
               printf 'Push confirmed: %s:%s\n' "$image" "$target" >> "$GITHUB_STEP_SUMMARY"
             done
-            digest=$(docker buildx imagetools inspect "$image:$VERSION" --format '{{.Manifest.Digest}}')
-            immutable_digest=$(docker buildx imagetools inspect "$image:sha-$SHA" --format '{{.Manifest.Digest}}')
+            if ! digest=$(docker buildx imagetools inspect "$image:$VERSION" --format '{{.Manifest.Digest}}' 2>/dev/null) ||
+               ! immutable_digest=$(docker buildx imagetools inspect "$image:sha-$SHA" --format '{{.Manifest.Digest}}' 2>/dev/null); then
+              echo 'Remote digest verification failed; reconcile the requested tags.' >&2
+              exit 1
+            fi
             [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
             test "$digest" = "$immutable_digest"
             printf '%s:%s = %s:sha-%s = %s@%s\n' "$image" "$VERSION" "$image" "$SHA" "$image" "$digest" >> "$RUNNER_TEMP/images.md"
-            # Recheck both packages after every component, before proceeding further.
+            # Recheck all three packages after every component, before proceeding further.
             python3 scripts/ci/release_guard.py --publication
           done
           printf 'Draft creation requested for %s at %s; verify GitHub if interrupted.\n' "$TAG" "$SHA" >> "$GITHUB_STEP_SUMMARY"
-          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --target "$SHA" --draft --generate-notes --notes-file "$RUNNER_TEMP/images.md" "$RUNNER_TEMP/images.md"
+          if ! gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --target "$SHA" --draft --generate-notes --notes-file "$RUNNER_TEMP/images.md" "$RUNNER_TEMP/images.md" >/dev/null 2>&1; then
+            echo 'Draft creation uncertain; reconcile GitHub before retrying.' >&2
+            exit 1
+          fi
           # Verify the created draft targets the intended tag and remains unpublished.
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,tagName,targetCommitish > "$RUNNER_TEMP/release.json"
-          jq -e --arg tag "$TAG" --arg sha "$SHA" '.isDraft == true and .tagName == $tag and .targetCommitish == $sha' "$RUNNER_TEMP/release.json" >/dev/null
+          if ! draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,tagName,targetCommitish 2>/dev/null); then
+            echo 'Draft verification unavailable; reconcile GitHub before retrying.' >&2
+            exit 1
+          fi
+          jq -e --arg tag "$TAG" --arg sha "$SHA" '.isDraft == true and .tagName == $tag and .targetCommitish == $sha' <<< "$draft" >/dev/null 2>&1
           cat "$RUNNER_TEMP/images.md" >> "$GITHUB_STEP_SUMMARY"
           finished=true

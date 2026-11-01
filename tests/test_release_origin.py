@@ -110,3 +110,16 @@ def test_origin_tag_with_real_git_objects(tmp_path, monkeypatch, kind):
         run(runner, 'fetch', '--no-tags', 'origin', f'+{REF}:{REF}')
         guard.verify_origin_tag(REPO, 'v0.2.1', sha)
         assert run(remote, 'rev-parse', REF) == tag_object
+
+
+def test_release_policy_protects_narrow_keycloak_sources_and_checker():
+    assert set(guard.PIPELINE_PATHS) == {
+        '.github/workflows/release.yml', '.github/workflows/ci.yml',
+        'scripts/ci/release_guard.py', 'scripts/ci/check_keycloak_image.py',
+        'docker/keycloak/Dockerfile', 'docker/keycloak/.dockerignore',
+        'docker/keycloak/themes/stockpilot',
+    }
+    for source in (ROOT / 'docker/keycloak/themes/stockpilot').rglob('*'):
+        if source.is_file():
+            relative = str(source.relative_to(ROOT))
+            assert any(relative == path or relative.startswith(path + '/') for path in guard.PIPELINE_PATHS)

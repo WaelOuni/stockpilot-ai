@@ -1,0 +1,10 @@
+**
+!Dockerfile
+!themes/
+!themes/stockpilot/
+!themes/stockpilot/login/
+!themes/stockpilot/login/theme.properties
+!themes/stockpilot/login/footer.ftl
+!themes/stockpilot/login/messages/
+!themes/stockpilot/login/messages/messages_fr.properties
+!themes/stockpilot/login/messages/messages_en.properties
