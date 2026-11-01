@@ -59,7 +59,9 @@ try {
   await page.locator('.workspace-account summary').click()
   await page.getByRole('button',{name:'Se déconnecter',exact:true}).click()
   await expect(page.getByLabel('Code d’entreprise')).toBeVisible()
-  await expect(second.getByLabel('Code d’entreprise')).toBeVisible(); expect(await authStatus()).toBe(401)
+  await expect(second.getByLabel('Code d’entreprise')).toBeVisible()
+  // Local content is cleared before the asynchronous server revocation completes.
+  await expect.poll(authStatus).toBe(401)
   check('voluntary BFF logout revokes cookie and clears both tabs; no automatic relogin')
   await login('fixture-org','bff-test-user')
   await page.locator('.workspace-account summary').click()

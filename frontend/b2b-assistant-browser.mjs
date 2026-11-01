@@ -103,6 +103,7 @@ try {
   await page.evaluate(() => globalThis.scrollTo(0, 0))
   await page.screenshot({ path: process.env.B2B_BROWSER_DIRECTORY + '/assistant-overview.png' })
   check('B2 cancellation frees reservation exactly once')
+  await page.locator('.workspace-account summary').click()
   await page.getByRole('button', { name: 'Se déconnecter', exact: true }).click()
   await expect(page.getByLabel('Code d’entreprise')).toBeVisible()
   await context.clearCookies()
