@@ -1,6 +1,8 @@
 // User-facing application copy only. Product descriptions and conversations are not translated.
 // Only interface copy is translated. Catalogue data and conversation text remain verbatim.
 export const english: Record<string, string> = Object.fromEntries(`
+Connexion annulée. Choisissez votre organisation pour recommencer.|Login cancelled. Choose your organization to start again.
+La connexion a échoué. Choisissez votre organisation pour réessayer.|Login failed. Choose your organization to try again.
 Toutes les catégories|All categories
 Aucune suggestion. La saisie libre reste possible.|No suggestions. You can still type freely.
 produits • Page|products • Page

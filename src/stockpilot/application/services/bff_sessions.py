@@ -126,13 +126,7 @@ class BffSessionService:
         )
         return url, browser
 
-    def complete(
-        self,
-        state: str,
-        browser: str | None,
-        code: str | None,
-        provider_error: bool = False,
-    ) -> str:
+    def _consume_login(self, state: str, browser: str | None) -> LoginTransaction:
         if not opaque_token(state) or not opaque_token(browser):
             raise BffUnauthenticated("Invalid authentication transaction.")
         transaction = self.store.consume_transaction(
@@ -141,8 +135,25 @@ class BffSessionService:
             self.policy.configuration,
             self.clock(),
         )
-        # Consumption precedes token exchange so concurrent callbacks cannot replay.
-        if transaction is None or provider_error or not code or len(code) > 4096:
+        if transaction is None:
+            raise BffUnauthenticated("Invalid authentication transaction.")
+        return transaction
+
+    def cancel_login(self, state: str, browser: str | None) -> None:
+        # Same one-use, browser/configuration/expiry-bound consumption as a code.
+        # No token exchange, membership selection or BFF session creation.
+        self._consume_login(state, browser)
+
+    def complete(
+        self,
+        state: str,
+        browser: str | None,
+        code: str | None,
+        provider_error: bool = False,
+    ) -> str:
+        # Consumption precedes exchange so cancellation and completion cannot race.
+        transaction = self._consume_login(state, browser)
+        if provider_error or not code or len(code) > 4096:
             raise BffUnauthenticated("Invalid authentication transaction.")
         if (
             not transaction.verifier

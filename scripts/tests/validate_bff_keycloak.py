@@ -174,7 +174,15 @@ def main():
     parser.add_argument('--continuity', action='store_true', help='Real SSO/conversation continuity only; no model generation')
     parser.add_argument('--renewal', action='store_true', help='Opt-in encrypted server renewal on disposable services')
     parser.add_argument('--renewal-timed', action='store_true', help='Actual 30-minute active session and expiry (implies renewal)')
+    parser.add_argument(
+        "--login-return", action="store_true",
+        help="Build the versioned Keycloak theme and exercise safe login return",
+    )
     args = parser.parse_args()
+    if args.login_return:
+        if any((args.assistant, args.canonical, args.continuity, args.renewal, args.renewal_timed)):
+            parser.error('Login return runs the standard isolated frontend campaign only.')
+        args.frontend = True
     if args.renewal_timed:
         args.renewal = True
     if args.renewal:
@@ -261,6 +269,16 @@ def main():
         .read_text()
         .replace("https://127.0.0.1:57914", ORIGIN)
     )
+    if args.login_return:
+        definition = json.loads(realm.read_text())
+        definition.update(
+            loginTheme="stockpilot", displayName="StockPilot AI",
+            displayNameHtml="StockPilot AI", internationalizationEnabled=True,
+            supportedLocales=["fr", "en"], defaultLocale="fr",
+        )
+        realm.write_text(json.dumps(definition))
+        env['BFF_TEST_KEYCLOAK_IMAGE'] = project + '-keycloak:26.8.1'
+        env['B2B_TEST_LOGIN_RETURN'] = '1'
     if args.renewal:
         definition = json.loads(realm.read_text())
         definition['revokeRefreshToken'] = True
@@ -282,6 +300,7 @@ def main():
             "canonical HTTPS proxy/container BFF/Vue/Keycloak and real paired backup/restore"
         )
     process, logfile, mongo = None, None, None
+    theme_image_built = False
     owned = {}
     compose = ["docker", "compose", "-f", str(COMPOSE), "-p", project]
     if args.canonical:
@@ -380,6 +399,13 @@ def main():
         raise RuntimeError("Isolated BFF startup deadline.")
 
     try:
+        if args.login_return:
+            command([
+                "docker", "build", "-f", "docker/keycloak/Dockerfile",
+                "-t", env["BFF_TEST_KEYCLOAK_IMAGE"], "docker/keycloak",
+            ], env)
+            theme_image_built = True
+            passed('versioned StockPilot login theme built on unchanged Keycloak 26.8.1')
         if canonical:
             canonical.build_images()
         command([*compose, "up", "-d"], env)
@@ -1069,6 +1095,8 @@ def main():
             command(
                 [*compose, "--profile", "*", "down", "--timeout", "15"], env
             ) if canonical else command([*compose, "down", "--timeout", "15"], env)
+            if theme_image_built:
+                command(['docker', 'image', 'rm', env['BFF_TEST_KEYCLOAK_IMAGE']])
             if canonical:
                 canonical.cleanup_volumes()
                 canonical.cleanup_images()
