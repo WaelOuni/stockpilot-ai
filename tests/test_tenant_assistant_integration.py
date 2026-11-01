@@ -399,6 +399,93 @@ def test_http_assistant_uses_real_session_csrf_and_scoped_stores(http, environme
     assert c.get(base, headers={"X-Organization-Id": "org-b"}).status_code == 400
 
 
+@pytest.mark.parametrize("read_only", [False, True])
+def test_http_free_text_resolution_and_replay_preserve_tenant_and_order_guards(
+    http, environment, read_only
+):
+    from test_assistant_reference_bounds import FREE_TEXT
+    from stockpilot.infrastructure.persistence.postgres.tenant_knowledge import PgTenantKnowledge
+    from stockpilot.presentation.api.routes.b2b_assistant import router
+
+    h, e = http, environment
+    llm = SimpleNamespace(
+        classify_intent=AsyncMock(), generate=AsyncMock(return_value="Synthetic document")
+    )
+    store = PgTenantAssistant(e.uri, h.bundle.authorization, e.schema)
+    knowledge = PgTenantKnowledge(
+        e.uri, h.bundle.authorization, e.embeddings, e.schema, model="synthetic-768", version="v1"
+    )
+    retrieval = TenantRetrieval(knowledge, e.embeddings, llm, model="synthetic-768", version="v1")
+    h.app.state.bff_assistant = TenantAssistant(
+        store, h.bundle.catalogue, h.bundle.orders, retrieval, llm
+    )
+    h.app.include_router(router)
+    h.db.b2b_products.update_many(
+        {"sku": "DRILL-001"}, {"$set": {"name": "Perceuse Northline 18V 0476"}}
+    )
+    extra = h.db.b2b_products.find_one({"organization_id": "org-a", "sku": "DRILL-001"})
+    extra.pop("_id")
+    h.db.b2b_products.insert_one({**extra, "sku": "DRILL-002", "name": "Perceuse Northline compacte"})
+    long_name = ("Perceuse professionnelle " + "qualification " * 9).strip()
+    h.db.b2b_products.insert_one({**extra, "sku": "LONG-001", "name": long_name})
+    before = list(h.db.b2b_products.find({}).sort("_id", 1))
+    c = h.browser()
+    cases = [
+        (FREE_TEXT, "STOCK_CHECK", "CLARIFICATION_REQUIRED", []),
+        ("Est-ce que DRILL-001 est disponible ?", "STOCK_CHECK", "STOCK_CHECK", ["DRILL-001"]),
+        ("Des perceuses disponibles à moins de 50 euros", "ORDER", "PRODUCT_ADVICE", ["DRILL-001", "DRILL-002", "LONG-001"]),
+        # An explicit tool category already routes this named lookup through Advice.
+        ("La Perceuse Northline 18V 0476 est-elle en stock ?", "STOCK_CHECK", "PRODUCT_ADVICE", ["DRILL-001"]),
+        ("Est-ce que le SKU ABSENT-001 est disponible ?", "STOCK_CHECK", "CLARIFICATION_REQUIRED", []),
+        ("Est-ce que le SKU SAW-002 est disponible ?", "STOCK_CHECK", "CLARIFICATION_REQUIRED", []),
+        ("Conseille-moi sur Perceuse Northline", "PRODUCT_ADVICE", "CLARIFICATION_REQUIRED", []),
+        ("Expliquez la documentation de garantie.", "UNKNOWN", "RAG", []),
+        ("  Est-ce que le SKU DRILL-001 est disponible ?!  ", "STOCK_CHECK", "STOCK_CHECK", ["DRILL-001"]),
+        ('Conseille-moi sur "' + long_name + '"', "PRODUCT_ADVICE", "PRODUCT_ADVICE", ["LONG-001"]),
+    ]
+    for index, (message, classification, intent, skus) in enumerate(cases):
+        opened = c.post("/b2b/api/assistant/conversations", json={"thread_id": f"free-{index}"})
+        assert opened.status_code == 200
+        base = "/b2b/api/assistant/conversations/" + opened.json()["conversation_id"]
+        llm.classify_intent.return_value = IntentResult(intent=classification)
+        body = {"message_id": "turn", "message": message, "read_only": read_only}
+        result = c.post(base + "/messages", json=body)
+        assert result.status_code == 200, (message, result.text)
+        turn = result.json()
+        assert turn["status"] == "completed" and turn["operation"] is None
+        reply = turn["reply"]
+        assert reply["intent"] == intent and reply["text"], (message, reply)
+        assert reply["order"] is None and reply["can_confirm"] is False
+        assert sorted(p["sku"] for p in reply["products"]) == skus
+        assert all(p["organization_id"] == "org-a" and p["reserved"] == 0 for p in reply["products"])
+        calls = llm.classify_intent.await_count
+        assert c.post(base + "/messages", json=body).json() == turn
+        assert llm.classify_intent.await_count == calls
+        assert len(c.get(base).json()["items"]) == 1
+        assert c.post(base + "/messages", json={**body, "read_only": not read_only}).status_code == 409
+        # Both foreign tenant and same-tenant nonowner see no conversation.
+        for actor in ("b1", "a3"):
+            foreign = h.browser(actor)
+            assert foreign.get(base).status_code == 404
+            assert foreign.post(base + "/messages", json=body).status_code == 404
+
+    # Genuine malformed HTTP/domain inputs retain 422, before any new turn.
+    for changes in [
+        {"message": None}, {"message": 42}, {"message": ""}, {"message": " "},
+        {"message": "bad\x00text"}, {"message": "x" * 4001},
+        {"message_id": "x" * 129}, {"read_only": "true"}, {"organization_id": "org-b"},
+    ]:
+        assert c.post(base + "/messages", json={**body, "message_id": "invalid", **changes}).status_code == 422
+    assert len(c.get(base).json()["items"]) == 1
+    assert c.get("/b2b/api/products/by-sku", params={"sku": "X" * 129}).status_code == 422
+    assert c.post(base + "/messages", json=body, headers={"X-BFF-CSRF": "forged"}).status_code == 403
+    h.db.b2b_memberships.update_one({"user_id": "a1"}, {"$set": {"status": "suspended"}})
+    assert c.post(base + "/messages", json=body).status_code == 403
+    assert list(h.db.b2b_products.find({}).sort("_id", 1)) == before
+    assert h.db.b2b_orders.count_documents({}) == 0
+    assert h.db.b2b_order_operations.count_documents({}) == 0
+
+
 def test_cheapest_reapplies_strict_budget_and_current_availability(assistant, db):
     send(assistant, "Des perceuses disponibles")
     result = send(assistant, "La moins chère à moins de 30 euros")
