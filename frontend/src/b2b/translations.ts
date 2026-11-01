@@ -24,7 +24,12 @@ Afficher uniquement les produits disponibles|Show only available products
 Organisation active|Active organization
 Compte et préférences|Account and preferences
 Préférences|Preferences
-Administration|Administration
+Stocks|Stock
+Gestion des stocks|Stock management
+Consultation des stocks|Stock overview
+Consultation, ajustements et imports selon vos permissions.|Stock overview, adjustments and imports according to your permissions.
+Consultation et ajustements du stock physique.|Stock overview and physical stock adjustments.
+Consultation des stocks et des mouvements uniquement.|View stock levels and movements only.
 Faites défiler horizontalement pour voir tous les produits. Au clavier, utilisez les flèches gauche et droite.|Scroll horizontally to see all products. With a keyboard, use the left and right arrow keys.
 Aperçu enregistré — non appliqué|Preview saved — not applied
 Fichier invalide|Invalid file
