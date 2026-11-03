@@ -1,7 +1,7 @@
 """Reuse the historical lexical contracts, never its repositories or float prices."""
 
 import re
-from dataclasses import replace
+from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -122,18 +122,15 @@ class TenantAssistantCatalogue:
         categories = self.catalogue.categories(request, context)
         criteria = low_stock_criteria(question, categories)
         observed = datetime.now(UTC).isoformat()
-        page = self.catalogue.search_stock(
-            request,
-            context,
-            TenantProductQuery(
-                limit=5,
-                status="active",
-                categories=criteria.categories,
-                maximum_available=max(0, criteria.maximum),
-                sort_by_available=True,
-            ),
+        empty = criteria.maximum is not None and criteria.maximum < 0
+        query = TenantProductQuery(
+            limit=5, status="active", categories=criteria.categories,
+            minimum_available=criteria.minimum,
+            maximum_available=max(0, criteria.maximum) if criteria.maximum is not None else None,
+            sort_by_available=True,
         )
-        items, total = (page.items, page.total) if criteria.maximum >= 0 else ((), 0)
+        page = self.catalogue.search_stock(request, context, query)
+        items, total = ((), 0) if empty else (page.items, page.total)
         cards = [
             self.card(request, context, pair.product, pair.stock, observed)
             for pair in items
@@ -157,6 +154,7 @@ class TenantAssistantCatalogue:
             "criteria": None,
             "catalogue_categories": [],
             "advice_skus": [],
+            "catalogue_search": None if empty else asdict(query),
         }
 
     async def advice(self, request, context, question, state):
@@ -348,4 +346,35 @@ class TenantAssistantCatalogue:
             "criteria": criteria_context(criteria),
             "catalogue_categories": list(categories),
             "advice_skus": [p["sku"] for p in cards[:5]],
+            "catalogue_search": asdict(query) if query is not None else None,
+        }
+
+    def results(self, request, context, saved, *, limit=20, offset=0,
+                custom_stock_range=False, minimum_available=None, maximum_available=None,
+                exclude_sold_out=None, sort=None):
+        """Current catalogue facts; never update a historical reply/checkpoint."""
+        values = dict(saved)
+        for field in ("categories", "exclude_skus"):
+            values[field] = tuple(values.get(field, ()))
+        original = TenantProductQuery(**values)
+        if not custom_stock_range and (minimum_available is not None or maximum_available is not None):
+            raise ValueError("An explicit stock range selection is required.")
+        selected_sort = sort or ("available" if original.sort_by_available else "price" if original.sort_by_price else "sku")
+        if selected_sort not in ("available", "price", "sku"):
+            raise ValueError("Invalid catalogue sort.")
+        query = replace(
+            original, limit=limit, offset=offset, status="active",
+            minimum_available=minimum_available if custom_stock_range else original.minimum_available,
+            maximum_available=maximum_available if custom_stock_range else original.maximum_available,
+            available=original.available if exclude_sold_out is None else True if exclude_sold_out else None,
+            sort_by_available=selected_sort == "available", sort_by_price=selected_sort == "price",
+        )
+        page = self.catalogue.search_stock(request, context, query)
+        observed = datetime.now(UTC).isoformat()
+        return {
+            "items": [self.card(request, context, pair.product, pair.stock, observed) for pair in page.items],
+            "total": page.total, "has_more": page.has_more, "limit": limit, "offset": offset,
+            "observed_at": observed,
+            "filters": {"minimum_available": query.minimum_available, "maximum_available": query.maximum_available,
+                        "exclude_sold_out": query.available is True, "sort": selected_sort},
         }

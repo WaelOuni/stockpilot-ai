@@ -308,7 +308,7 @@ class MongoTenantCatalogue:
         org = self._scope(request, context, O.CATALOGUE_READ)
         if not isinstance(query, TenantProductQuery):
             raise TypeError("Typed catalogue query required.")
-        stock_read = with_stock or query.available is not None or query.maximum_available is not None or query.sort_by_available
+        stock_read = with_stock or query.available is not None or query.maximum_available is not None or query.minimum_available is not None or query.sort_by_available
         if stock_read:
             self._scope(request, context, O.STOCK_READ)
         filters = {"organization_id": org}
@@ -331,6 +331,9 @@ class MongoTenantCatalogue:
             filters["$expr"] = (
                 availability if query.available else {"$not": [availability]}
             )
+        if query.minimum_available is not None:
+            threshold = {"$gte": [{"$subtract": ["$quantity", "$reserved"]}, query.minimum_available]}
+            filters["$expr"] = {"$and": [filters["$expr"], threshold]} if "$expr" in filters else threshold
         if query.maximum_available is not None:
             threshold = {"$lte": [{"$subtract": ["$quantity", "$reserved"]}, query.maximum_available]}
             filters["$expr"] = {"$and": [filters["$expr"], threshold]} if "$expr" in filters else threshold

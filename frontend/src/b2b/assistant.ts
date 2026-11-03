@@ -8,7 +8,7 @@ export const assistantTurn = object({
   turn_id: text, kind: oneOf('message', 'confirm', 'cancel'), message: text,
   status: oneOf('pending', 'completed'), created_at: date,
   operation: nullable(object({ namespace: oneOf('prepare', 'confirm', 'cancel'), operation_id: text })),
-  reply: nullable(object({ intent: text, text, products: array(assistantCard, 5), order: nullable(orderDecoder), can_confirm: boolean })),
+  reply: nullable(object({ intent: text, text, products: array(assistantCard, 5), order: nullable(orderDecoder), can_confirm: boolean, can_browse_products: (value: unknown) => value === undefined ? false : boolean(value) })),
 })
 export const assistantHistory = object({
   conversation_id: text, items: array(assistantTurn, 20), has_more: boolean, limit: integer, offset: integer,
@@ -17,3 +17,12 @@ export const conversationList = object({
   items: array(object({ conversation_id: text, created_at: date }), 50), limit: integer, offset: integer,
 })
 export type AssistantTurn = ReturnType<typeof assistantTurn>
+
+export const assistantResults = object({
+  items: array(assistantCard, 100), total: integer, has_more: boolean, limit: integer, offset: integer,
+  observed_at: date,
+  filters: object({
+    minimum_available: nullable(integer), maximum_available: nullable(integer),
+    exclude_sold_out: boolean, sort: oneOf('sku', 'available', 'price'),
+  }),
+})

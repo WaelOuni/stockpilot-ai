@@ -76,3 +76,57 @@ def test_quantity_normalization_never_broadens_unknown_or_ambiguous_criteria(que
 )
 def test_product_and_budget_searches_remain_outside_low_stock(question):
     assert not is_low_stock_request(question)
+
+
+@pytest.mark.parametrize("phrase,minimum,maximum", [
+    ("Quels produits ont que 5 unités disponibles ?", 5, 5),
+    ("Quels produits avec 5 unités disponibles ?", 5, 5),
+    ("produits avec exactement 5 unités disponibles", 5, 5),
+    ("produits ayant seulement 5 unités disponibles", 5, 5),
+    ("produits ont 5 unités disponibles", 5, 5),
+    ("produits avec moins de 15 unités disponibles", 0, 14),
+    ("produits avec 15 unités disponibles ou moins", 0, 15),
+    ("produits avec au moins 5 unités disponibles", 5, None),
+    ("produits avec plus de 5 unités disponibles", 6, None),
+    ("produits avec entre 1 et 14 unités disponibles", 1, 14),
+    ("produits en rupture", 0, 0),
+])
+def test_v024_explicit_available_intervals(phrase, minimum, maximum):
+    assert is_low_stock_request(phrase)
+    criteria = low_stock_criteria(phrase, ("perceuses",))
+    assert (criteria.minimum, criteria.maximum) == (minimum, maximum)
+
+
+@pytest.mark.parametrize("phrase", [
+    "produits avec entre 14 et 1 unités disponibles",
+    "produits avec exactement 5.5 unités disponibles",
+    "produits avec exactement -5 unités disponibles",
+    "produits avec exactement 5 et exactement 6 unités disponibles",
+    "produits avec au moins 9223372036854775808 unités disponibles",
+    "produits avec entre 0 et 9223372036854775808 unités disponibles",
+    "produits avec plus de 9223372036854775807 unités disponibles",
+])
+def test_v024_invalid_stock_constraints_never_broaden(phrase):
+    with pytest.raises(ClarificationRequired):
+        low_stock_criteria(phrase, ())
+
+
+@pytest.mark.parametrize("phrase", [
+    "Je cherche une perceuse avec 5 euros",
+    "Je cherche une perceuse avec exactement 5 euros",
+    "Je cherche SKU DEMO-01-0225",
+    "Je cherche la perceuse Northline 18V 0476",
+])
+def test_v024_budget_and_reference_digits_are_not_stock(phrase):
+    assert not is_low_stock_request(phrase)
+
+
+@pytest.mark.parametrize("value", [True, -1, "5", 1.5, 2**63, {"$gte": 0}])
+def test_v024_minimum_bound_is_strict(value):
+    with pytest.raises(ValueError):
+        TenantProductQuery(minimum_available=value)
+
+
+def test_v024_interval_validation():
+    with pytest.raises(ValueError):
+        TenantProductQuery(minimum_available=6, maximum_available=5)
