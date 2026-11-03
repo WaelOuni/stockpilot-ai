@@ -131,3 +131,30 @@ def test_invalid_provider_embedding_is_dependency_failure_before_retrieval(inval
     assert "private" not in str(error.value)
     repo.search.assert_not_called()
     generator.generate.assert_not_awaited()
+
+
+@pytest.mark.parametrize("origins,allowed", [
+    ([], True), (["https://bff.example"], True),
+    (["https://foreign.example"], False),
+    (["https://bff.example", "https://bff.example"], False),
+])
+def test_current_catalogue_read_checks_explicit_origin_before_service(origins, allowed):
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, patch
+    from starlette.requests import Request
+    from stockpilot.presentation.api.routes.b2b_assistant import catalogue_results
+    from stockpilot.application.services.bff_sessions import BffForbidden
+
+    request = Request({"type": "http", "method": "GET", "path": "/", "query_string": b"",
+        "headers": [(b"origin", value.encode()) for value in origins],
+        "app": SimpleNamespace(state=SimpleNamespace(bff_settings=SimpleNamespace(origin="https://bff.example")))})
+    invoke = AsyncMock(return_value={"items": []})
+    with patch("stockpilot.presentation.api.routes.b2b_assistant.invoke", invoke):
+        if allowed:
+            assert asyncio.run(catalogue_results(request, "conv", "turn")) == {"items": []}
+            invoke.assert_awaited_once()
+        else:
+            with pytest.raises(BffForbidden):
+                asyncio.run(catalogue_results(request, "conv", "turn"))
+            invoke.assert_not_awaited()

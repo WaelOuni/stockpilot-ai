@@ -9,6 +9,7 @@ from pydantic import Field, StrictBool, StrictStr, field_validator
 
 from stockpilot.application.ports.bff_security import BffUnavailable
 from stockpilot.presentation.api.b2b_boundary import worker
+from stockpilot.presentation.api.routes.bff_auth import origin
 from stockpilot.presentation.api.routes.b2b_business import checked, query
 from stockpilot.presentation.api.schemas.b2b import (
     ConfirmIn,
@@ -152,6 +153,10 @@ async def history(request: Request, conversation_id: Identifier):
 
 @router.get("/conversations/{conversation_id}/turns/{turn_id}/products")
 async def catalogue_results(request: Request, conversation_id: Identifier, turn_id: Identifier):
+    # Same-origin GETs need not send Origin; an explicit foreign/ambiguous Origin
+    # must never be accepted for this private, conversation-owned result set.
+    if request.headers.getlist("origin"):
+        origin(request)
     filters = query(request, CatalogueResultsPage)
     result = await invoke(
         request, lambda a: lambda source, context, cid, tid: a.catalogue_results(
