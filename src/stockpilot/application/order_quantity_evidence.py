@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass
 from stockpilot.application.order_quantity_errors import InvalidOrderQuantityError
 from stockpilot.application.product_reference import SKU_PATTERN
 
-_ACTION = r"(?:commander|acheter|r[eé]server)"
+_ACTION = r"(?:commander|acheter|r[eé]server|pr[eé]parer\s+une\s+commande\s+de)"
 _PREFIX = re.compile(
     r"^\s*(?:"
     r"(?:(?:je\s+(?:veux|voudrais|souhaite)|j['’]aimerais)\s+)?" + _ACTION
@@ -20,6 +20,7 @@ _PREFIX = re.compile(
     + r"|(?:tu|vous)\s+(?:peux|pourrais|pouvez|pourriez)\s+(?:(?:me|nous)\s+)?" + _ACTION
     + r"|(?:serait[- ]il|est[- ]il)\s+possible\s+de\s+" + _ACTION
     + r"|(?:commande|ach[eè]te|r[eé]serve)(?:z)?(?:[- ]moi)?"
+    + r"|pr[eé]pare(?:z)?(?:[- ]moi)?\s+une\s+commande\s+de"
     + r")\s+", re.I,
 )
 _CONTINUATION_START = (
@@ -207,6 +208,10 @@ def inspect_quantity(message: str, *, product_name: str | None = None) -> Quanti
             continue
         raise InvalidOrderQuantityError('Plusieurs nombres ou une quantité non identifiée : précisez la quantité et un seul produit.')
     if count is None:
+        # A new explicit preparation request must supply its own count;
+        # existing ORDER defaults retain their historical contract.
+        if re.search(r"\bpr[eé]par", prefix.group(), re.I):
+            raise InvalidOrderQuantityError('Précisez une quantité entière avant le SKU pour préparer la commande.')
         return QuantityEvidence(message, None, None, 1, 'default', product_name)
     return QuantityEvidence(message, start + head.start('count'), start + head.end('count'), count, 'explicit', product_name)
 
