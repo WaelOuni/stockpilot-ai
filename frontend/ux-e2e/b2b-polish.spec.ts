@@ -18,8 +18,8 @@ for (const language of ['fr', 'en'] as const) {
           else if (path.startsWith('/b2b/api/products/')) {
             const id = path.split('/')[4], product = products.find(p => p.product_id === id)
             body = path.endsWith('/stock') ? { ...stockFixture, product_id: id } : product
-          } else if (path === '/b2b/api/stock/movements') body = { items: [], limit: 10, offset: 0 }
-          else if (path === '/b2b/api/imports') body = { items: [{ ...previewFixture, import_id: 'complete-import-reference-1234567890', file_fingerprint: 'a'.repeat(64), status: 'applied' }], limit: 10, offset: 0 }
+          } else if (path === '/b2b/api/stock/movements') body = { items: [], total: 0, has_more: false, limit: 10, offset: 0 }
+          else if (path === '/b2b/api/imports') body = { items: [{ ...previewFixture, import_id: 'complete-import-reference-1234567890', file_fingerprint: 'a'.repeat(64), status: 'applied' }], total: 1, has_more: false, limit: 10, offset: 0 }
           else unexpected.push(path)
           await route.fulfill({ status: body ? 200 : 500, contentType: 'application/json', body: JSON.stringify(body ?? {}) })
         })

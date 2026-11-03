@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { t, dateLabel } from './preferences'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { BffError } from './client'
+import CataloguePagination from './CataloguePagination.vue'
+import { BffError, StaleResponse } from './client'
 import DetailsPanel from './DetailsPanel.vue'
 import { useB2B } from './session'
-import { buyerDecoder, orderDecoder, productDecoder, stockDecoder, page, type Order } from './contracts'
+import { buyerDecoder, orderDecoder, productDecoder, stockDecoder, page, countedPage, orderArchiveDecoder, type Order } from './contracts'
 import { formatMoney } from './money'
 import { useTask } from './tasks'
 import { mutate, positiveQuantity } from './workflows'
@@ -45,6 +46,14 @@ const creationOpen = ref(typeof route.query.sku === 'string')
 const confirmationOpen = ref(false)
 const offset = ref(0)
 const limit = 10
+const total = ref(0), statusFilter = ref(''), archivedFilter = ref(false)
+const archiveChoice = ref<Order | null>(null)
+const archiveAttempt = ref<{ operation_id: string; order_id: string; archived: boolean } | null>(null)
+let listEpoch = 0
+let disposed = false
+onUnmounted(() => { disposed = true; listEpoch++; orders.value = []; archiveAttempt.value = null })
+watch([statusFilter, archivedFilter], () => { offset.value = 0; archiveChoice.value = null; void run(refresh) })
+
 const pending = computed(() => session.pending.value.length > 0)
 const notice = ref('')
 const prepareReason = computed(() => session.phase.value !== 'active' ? 'Reconnectez-vous avant de préparer une commande.'
@@ -54,8 +63,30 @@ const prepareReason = computed(() => session.phase.value !== 'active' ? 'Reconne
 const organizationScope = computed(() => session.has('order:read_organization'))
 function label(order: Order) { return { prepared: 'Préparée — aucune réservation', reserved: 'Réservée', cancelled: 'Annulée' }[order.status] }
 async function refresh() {
-  const result = await session.client.request('/b2b/api/orders?' + new URLSearchParams({ limit: String(limit), offset: String(offset.value) }), page(orderDecoder))
+  const version = ++listEpoch
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset.value), archived: String(archivedFilter.value) })
+  if (statusFilter.value) params.set('status', statusFilter.value)
+  const result = await session.client.request('/b2b/api/orders?' + params, countedPage(orderDecoder))
+  if (disposed || version !== listEpoch) throw new StaleResponse()
+  total.value = result.total
+  if (offset.value && offset.value >= result.total) {
+    offset.value = Math.max(0, Math.floor((result.total - 1) / limit) * limit)
+    await refresh(); return
+  }
   orders.value = result.items
+}
+async function archive() {
+  const selected = archiveChoice.value
+  if (!selected) return
+  await run(async () => {
+    archiveAttempt.value ??= { operation_id: crypto.randomUUID(), order_id: selected.order_id, archived: !archivedFilter.value }
+    const attempt = archiveAttempt.value
+    await session.client.request('/b2b/api/orders/' + encodeURIComponent(attempt.order_id) + (attempt.archived ? '/archive' : '/restore'),
+      orderArchiveDecoder, { method: 'POST', body: { operation_id: attempt.operation_id, confirmed: true } })
+    archiveAttempt.value = null; archiveChoice.value = null
+    notice.value = 'Préférence personnelle enregistrée. La commande et les stocks sont conservés.'
+    await refresh()
+  })
 }
 async function prepare() {
   await run(async () => {
@@ -75,7 +106,7 @@ async function prepare() {
     prepared.value = await mutate(session, 'orders', 'prepare', '/b2b/api/orders/prepare',
       id => ({ operation_id: id, customer_id: buyer.value, lines: requested }), orderDecoder).catch(stockRefusal)
     notice.value = 'Préparation enregistrée. Aucun stock réservé.'
-    creationOpen.value = false; confirmationOpen.value = true
+    creationOpen.value = false; confirmationOpen.value = true; offset.value = 0
     await refresh()
   })
 }
@@ -107,7 +138,7 @@ async function details(order: Order, event: Event) {
   detailTrigger.value = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
   await run(async () => { chosen.value = await session.client.request('/b2b/api/orders/' + encodeURIComponent(order.order_id), orderDecoder) })
 }
-async function next(delta: number) { offset.value += delta * limit; await run(refresh) }
+async function next(page: number) { offset.value = (page - 1) * limit; await run(refresh) }
 function canCancel(order: Order) {
   return order.status === 'reserved' && (session.has('order:cancel_organization') || (session.has('order:cancel_own') && order.created_by === session.current.value?.user_id))
 }
@@ -306,6 +337,26 @@ onMounted(() => { void run(async () => {
           {{ t("Actualiser les commandes") }}
         </button>
       </div>
+      <div class="b2b-actions">
+        <label>{{ t('Filtrer les états') }}<select
+          v-model="statusFilter"
+          :disabled="busy || !!archiveAttempt"
+        >
+          <option value="">{{ t('Tous les états') }}</option>
+          <option value="prepared">{{ t('Préparée — aucune réservation') }}</option>
+          <option value="reserved">{{ t('Réservée') }}</option>
+          <option value="cancelled">{{ t('Annulée') }}</option>
+        </select></label>
+        <label>{{ t('Visibilité personnelle') }}
+          <select
+            v-model="archivedFilter"
+            :disabled="busy || !!archiveAttempt"
+          >
+            <option :value="false">{{ t('Mes commandes visibles') }}</option>
+            <option :value="true">{{ t('Afficher mes commandes archivées') }}</option>
+          </select>
+        </label>
+      </div>
       <p
         v-if="busy"
         role="status"
@@ -345,31 +396,57 @@ onMounted(() => { void run(async () => {
                 >
                   {{ t("Annuler la commande") }}
                 </button>
+                <button
+                  v-if="order.status === 'cancelled'"
+                  class="secondary"
+                  :disabled="busy || !!archiveAttempt"
+                  @click="archiveChoice = order"
+                >
+                  {{ archivedFilter ? t('Restaurer dans ma liste') : t('Archiver pour moi') }}
+                </button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <nav
-        class="b2b-actions"
-        :aria-label="t('Pages des commandes')"
-      >
-        <button
-          class="secondary"
-          :disabled="busy || offset === 0"
-          @click="next(-1)"
-        >
-          {{ t("Précédent") }}
-        </button>
-        <button
-          class="secondary"
-          :disabled="busy || orders.length < limit || offset + limit > 10000"
-          @click="next(1)"
-        >
-          {{ t("Suivant") }}
-        </button>
-      </nav>
+      <CataloguePagination
+        :total="total"
+        :offset="offset"
+        :limit="limit"
+        :busy="busy"
+        unit="commandes • Page"
+        label="Pages des commandes"
+        @page="next"
+      />
     </section>
+    <DetailsPanel
+      v-if="archiveChoice"
+      :title="t('Préférence personnelle')"
+      :label="t('Confirmation d’archivage personnel')"
+      :busy="busy || !!archiveAttempt"
+      @close="archiveChoice = null"
+    >
+      <p>{{ t('Cette action change uniquement votre liste. La commande annulée, ses preuves et ses stocks restent conservés.') }}</p>
+      <p>{{ archiveChoice.order_id }}</p>
+      <p
+        v-if="error"
+        role="alert"
+      >
+        {{ t(error) }}
+      </p>
+      <p
+        v-if="archiveAttempt"
+        role="status"
+      >
+        {{ t('Résultat à vérifier : un nouvel essai conservera la même référence.') }}
+      </p>
+      <button
+        :disabled="busy"
+        @click="archive"
+      >
+        {{ archiveAttempt ? t('Réessayer la même préférence') : archivedFilter ? t('Confirmer la restauration') : t('Confirmer l’archivage personnel') }}
+      </button>
+    </DetailsPanel>
     <DetailsPanel
       v-if="cancelChoice"
       :title="t('Annuler la commande')"

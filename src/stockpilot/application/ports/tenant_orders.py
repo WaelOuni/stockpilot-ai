@@ -1,6 +1,8 @@
 """Inactive B2B use-case port: mandatory verified server request/context."""
 
 from typing import Protocol
+from stockpilot.domain.entities.tenant_order_archive import OrderListQuery, SetOrderArchive
+from stockpilot.domain.entities.tenant_page import TenantPage
 
 from stockpilot.domain.entities.tenant_authorization import (
     BuyerAssociation,
@@ -39,6 +41,9 @@ class TenantOrderOutcomeUnknown(TenantOrdersUnavailable):
 
 
 class TenantOrdersPort(Protocol):
+    def page(self, request: object, context: TenantContext, filters: OrderListQuery) -> TenantPage[TenantOrder]: ...
+    def set_archive(self, request: object, context: TenantContext, command: SetOrderArchive) -> dict: ...
+
     def prepare(
         self, request: object, context: TenantContext, command: PrepareTenantOrder
     ) -> TenantOrder: ...

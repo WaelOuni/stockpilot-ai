@@ -1,6 +1,7 @@
 """Internal B3 use cases. No HTTP composition, DDL or implicit provisioning."""
 
 from dataclasses import asdict
+from stockpilot.domain.entities.tenant_page import TenantPage
 from datetime import timedelta
 from uuid import uuid4
 
@@ -475,6 +476,9 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
             raise ValueError("Bounded pagination required.")
 
     def movements(self, request, context, limit=20, offset=0):
+        return self.movements_page(request, context, limit, offset).items
+
+    def movements_page(self, request, context, limit=20, offset=0):
         self._pagination(limit, offset)
 
         def read(principal, session):
@@ -487,11 +491,16 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
                 .skip(offset)
                 .limit(limit)
             )
-            return tuple(movement(row, principal.organization_id) for row in rows)
+            items = tuple(movement(row, principal.organization_id) for row in rows)
+            total = self.db.b2b_stock_movements.count_documents({"organization_id": principal.organization_id}, session=session)
+            return TenantPage(items, total, limit, offset)
 
         return self._transaction(request, context, read)
 
     def imports(self, request, context, limit=20, offset=0):
+        return self.imports_page(request, context, limit, offset).items
+
+    def imports_page(self, request, context, limit=20, offset=0):
         self._pagination(limit, offset)
 
         def read(principal, session):
@@ -504,6 +513,8 @@ class MongoTenantStockOperations(MongoTenantUnitOfWork):
                 .skip(offset)
                 .limit(limit)
             )
-            return tuple(batch(row, principal.organization_id) for row in rows)
+            items = tuple(batch(row, principal.organization_id) for row in rows)
+            total = self.db.b2b_imports.count_documents({"organization_id": principal.organization_id}, session=session)
+            return TenantPage(items, total, limit, offset)
 
         return self._transaction(request, context, read)

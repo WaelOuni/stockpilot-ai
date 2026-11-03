@@ -14,7 +14,7 @@ for (const width of [1440, 1024, 768, 390]) for (const language of ['fr', 'en'] 
       const url = new URL(route.request().url()); const path = url.pathname; calls.push(path + url.search)
       let body: unknown
       if (path.endsWith('/session')) body = { ...sessionFixture, role, permissions }
-      else if (path === '/b2b/api/stock/movements' || path === '/b2b/api/imports') body = { items: [], limit: 10, offset: 0 }
+      else if (path === '/b2b/api/stock/movements' || path === '/b2b/api/imports') body = { items: [], total: 0, has_more: false, limit: 10, offset: 0 }
       else if (path.endsWith('/categories')) body = { items: ['perceuses', 'Éclairage'] }
       else if (path.endsWith('/suggestions')) body = { items: products.slice(0, 3) }
       else if (path.endsWith('/by-sku')) body = products.find(p => p.sku === url.searchParams.get('sku'))

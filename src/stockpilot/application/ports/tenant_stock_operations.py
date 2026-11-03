@@ -1,6 +1,7 @@
 """Internal-only B2B contracts. Reuse B2's technical/unknown outcome semantics."""
 
 from typing import Protocol
+from stockpilot.domain.entities.tenant_page import TenantPage
 
 from stockpilot.domain.entities.tenant_authorization import TenantContext
 from stockpilot.domain.entities.tenant_stock_operation import (
@@ -23,6 +24,9 @@ class TenantStockResourceNotFound(Exception):
 
 
 class TenantStockOperationsPort(Protocol):
+    def movements_page(self, request: object, context: TenantContext, limit: int = 20, offset: int = 0) -> TenantPage[TenantStockMovement]: ...
+    def imports_page(self, request: object, context: TenantContext, limit: int = 20, offset: int = 0) -> TenantPage[TenantImportPreview]: ...
+
     def archive(
         self, request: object, context: TenantContext, command: ArchiveTenantProduct
     ) -> StockOperationResult: ...
