@@ -141,6 +141,8 @@ class TenantAssistant:
         async def understand(state):
             started = perf_counter()
             self.current(request, context)
+            if is_low_stock_request(state["question"]) and not explicit_order_request(state["question"]):
+                return {"reply": {"classification": {"intent": "STOCK_CHECK"}, "classification_ms": 0}}
             try:
                 classification = await self.llm.classify_intent(state["question"])
             except (
@@ -435,6 +437,17 @@ class TenantAssistant:
             if action
             else None,
         }
+
+    def catalogue_results(self, request, context, conversation_id, turn_id, **filters):
+        self.current(request, context)
+        turn = self.store.turn(request, context, conversation_id, turn_id)
+        saved = (turn.get("reply") or {}).get("catalogue_search") if turn else None
+        if not isinstance(saved, dict):
+            raise TenantDataNotFound("Catalogue results unavailable.")
+        result = self.catalogue.results(request, context, saved, **filters)
+        self.current(request, context)
+        self.store.turn(request, context, conversation_id, turn_id)
+        return result
 
     async def send(
         self, request, context, conversation_id, turn_id, message, customer_id=None, read_only=False

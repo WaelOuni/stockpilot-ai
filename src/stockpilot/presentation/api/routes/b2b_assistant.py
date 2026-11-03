@@ -9,6 +9,7 @@ from pydantic import Field, StrictBool, StrictStr, field_validator
 
 from stockpilot.application.ports.bff_security import BffUnavailable
 from stockpilot.presentation.api.b2b_boundary import worker
+from stockpilot.presentation.api.routes.bff_auth import origin
 from stockpilot.presentation.api.routes.b2b_business import checked, query
 from stockpilot.presentation.api.schemas.b2b import (
     ConfirmIn,
@@ -59,6 +60,16 @@ class HistoryPage(Contract):
     offset: int = Field(default=0, ge=0, le=100)
 
 
+class CatalogueResultsPage(Contract):
+    limit: int = Field(default=20, ge=1, le=100)
+    offset: int = Field(default=0, ge=0, le=10000)
+    custom_stock_range: bool = False
+    minimum_available: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    maximum_available: int | None = Field(default=None, ge=0, le=2**63 - 1)
+    exclude_sold_out: bool | None = None
+    sort: Literal["sku", "available", "price"] | None = None
+
+
 class CardOut(Money):
     product_id: str
     organization_id: str
@@ -89,6 +100,7 @@ def public_turn(turn):
         "products": [checked(CardOut, card) for card in reply.get("products", [])],
         "order": checked(OrderOut, reply["order"]) if reply.get("order") else None,
         "can_confirm": bool(reply.get("can_confirm")),
+        "can_browse_products": isinstance(reply.get("catalogue_search"), dict),
     }
     return result
 
@@ -137,6 +149,21 @@ async def history(request: Request, conversation_id: Identifier):
             request, lambda a: a.read, conversation_id, page.limit, page.offset
         )
     )
+
+
+@router.get("/conversations/{conversation_id}/turns/{turn_id}/products")
+async def catalogue_results(request: Request, conversation_id: Identifier, turn_id: Identifier):
+    # Same-origin GETs need not send Origin; an explicit foreign/ambiguous Origin
+    # must never be accepted for this private, conversation-owned result set.
+    if request.headers.getlist("origin"):
+        origin(request)
+    filters = query(request, CatalogueResultsPage)
+    result = await invoke(
+        request, lambda a: lambda source, context, cid, tid: a.catalogue_results(
+            source, context, cid, tid, **filters.model_dump()
+        ), conversation_id, turn_id,
+    )
+    return {**result, "items": [checked(CardOut, item) for item in result["items"]]}
 
 
 @router.post("/conversations/{conversation_id}/messages")

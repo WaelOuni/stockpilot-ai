@@ -1,6 +1,21 @@
 // User-facing application copy only. Product descriptions and conversations are not translated.
 // Only interface copy is translated. Catalogue data and conversation text remain verbatim.
 export const english: Record<string, string> = Object.fromEntries(`
+Voir plus de produits|See more products
+Résultats actualisés|Current results
+Cette liste utilise le stock actuel. Les cartes du message initial restent inchangées.|This list uses current stock. The original message cards remain unchanged.
+Disponible minimum|Minimum available
+Disponible maximum|Maximum available
+Tri des résultats|Result sorting
+Disponible croissant, puis SKU|Available ascending, then SKU
+Prix croissant, puis SKU|Price ascending, then SKU
+Exclure les ruptures|Exclude sold-out products
+Appliquer les filtres|Apply filters
+Aucun produit ne correspond à ces filtres.|No products match these filters.
+Fermer les résultats actualisés|Close current results
+Les bornes de stock doivent être des entiers positifs ou nuls.|Stock bounds must be non-negative integers.
+La borne minimale dépasse la borne maximale.|The minimum exceeds the maximum.
+
 Connexion annulée. Choisissez votre organisation pour recommencer.|Login cancelled. Choose your organization to start again.
 La connexion a échoué. Choisissez votre organisation pour réessayer.|Login failed. Choose your organization to try again.
 Toutes les catégories|All categories

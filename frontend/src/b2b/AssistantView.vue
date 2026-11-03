@@ -10,6 +10,7 @@ import { formatMoney } from './money'
 import { useTask } from './tasks'
 import { mutate } from './workflows'
 import ComparisonPanel from './ComparisonPanel.vue'
+import AssistantCatalogueResults from './AssistantCatalogueResults.vue'
 
 const props = defineProps<{ embedded?: boolean }>()
 const comparison = ref<string[]>([])
@@ -277,6 +278,11 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
                   </p>
                 </article>
               </div>
+              <AssistantCatalogueResults
+                v-if="turn.reply.can_browse_products"
+                :conversation-id="id"
+                :turn-id="turn.turn_id"
+              />
               <button
                 v-if="turn.reply.products.length > 1"
                 class="secondary"

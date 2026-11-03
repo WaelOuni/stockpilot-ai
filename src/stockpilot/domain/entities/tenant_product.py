@@ -100,6 +100,7 @@ class TenantProductQuery:
     exclude_skus: tuple[str, ...] = ()
     maximum_available: int | None = None
     sort_by_available: bool = False
+    minimum_available: int | None = None
 
     def __post_init__(self):
         for values in (self.categories, self.exclude_skus):
@@ -111,6 +112,12 @@ class TenantProductQuery:
             type(self.maximum_available) is not int or not 0 <= self.maximum_available <= 2**63 - 1
         ):
             raise ValueError("Nonnegative stock threshold required.")
+        if self.minimum_available is not None and (
+            type(self.minimum_available) is not int or not 0 <= self.minimum_available <= 2**63 - 1
+        ):
+            raise ValueError("Nonnegative stock threshold required.")
+        if self.minimum_available is not None and self.maximum_available is not None and self.minimum_available > self.maximum_available:
+            raise ValueError("Invalid stock range.")
         if type(self.sort_by_available) is not bool:
             raise ValueError("Boolean sort selector required.")
         if type(self.sort_by_price) is not bool:
