@@ -74,7 +74,8 @@ def test_archive_refuses_active_order_unauthorized_owner_tenant_and_changed_key(
 def test_counts_sort_filters_and_last_page_after_removal(db, orders):
     from stockpilot.infrastructure.persistence.mongodb.tenant_orders import _proof
     order = prepare(orders)
-    template = db.b2b_orders.find_one({"order_id": order.order_id})
+    # Use the repository UTC codec when recomputing the persisted proof.
+    template = orders[0].db.b2b_orders.find_one({"order_id": order.order_id})
     rows = []
     for i in range(104):
         row = {**template, "order_id": f"ORDER-{i:03}", "operation_id": f"seed-{i}"}
@@ -137,3 +138,32 @@ def test_archive_http_csrf_confirmation_and_count_contract(http):
     assert archived["total"] == 1 and archived["has_more"] is False
     assert http.browser("a2").get("/b2b/api/orders").json()["total"] == 1
     assert c.get("/b2b/api/orders?user_id=other").status_code in (400, 422)
+
+
+def test_upgrade0004_to0005_preserves_existing_data_validators_and_indexes(db):
+    from test_tenant_catalogue_mongo_integration import document
+    from stockpilot.infrastructure.persistence.mongodb.schema_migrations import MigrationRunner, registry
+    MigrationRunner(db, registry()[:4]).apply(confirmation=db.name)
+    product = document()
+    db.b2b_products.insert_one(product)
+    names = db.list_collection_names()
+    options = {name: db[name].options() for name in names}
+    indexes = {name: list(db[name].list_indexes()) for name in names}
+    history = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
+    runner = MigrationRunner(db)
+    assert [m.version for m in runner.plan()] == [5]
+    runner.apply(confirmation=db.name)
+    runner.require_version(5)
+    assert {name: db[name].options() for name in names} == options
+    assert {name: list(db[name].list_indexes()) for name in names} == indexes
+    assert list(db.stockpilot_schema_migrations.find().sort("_id", 1))[:4] == history
+    assert db.b2b_products.find_one({"_id": product["_id"]}) == product
+    assert set(db.list_collection_names()) - set(names) == {
+        "b2b_order_archives", "b2b_order_archive_operations"
+    }
+    assert db.b2b_order_archives.count_documents({}) == 0
+    assert db.b2b_order_archive_operations.count_documents({}) == 0
+    completed = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
+    assert runner.plan() == ()
+    runner.apply(confirmation=db.name)
+    assert list(db.stockpilot_schema_migrations.find().sort("_id", 1)) == completed
