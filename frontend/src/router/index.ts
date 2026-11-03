@@ -22,6 +22,7 @@ export const router = createRouter({
       { path: "assistant/history", component: () => import("../b2b/AssistantHistoryView.vue") },
       { path: "assistant/:conversationId?", component: () => import("../b2b/AssistantView.vue") },
       { path: "orders", component: () => import("../b2b/OrdersView.vue") },
+      { path: "contact", component: () => import("../b2b/ContactView.vue") },
       { path: "stock", component: () => import("../b2b/StockView.vue") },
       { path: ":pathMatch(.*)*", redirect: "/b2b-app/" },
     ] },

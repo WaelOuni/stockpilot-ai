@@ -8,6 +8,7 @@ import anyio
 from fastapi.responses import JSONResponse
 from starlette.requests import Request
 
+from stockpilot.application.ports.tenant_contact import ContactRateLimited
 from stockpilot.application.ports.bff_security import BffUnauthenticated, BffUnavailable
 from stockpilot.application.ports.identity_errors import IdentityRepositoryError
 from stockpilot.application.ports.tenant_authorization import TenantContextUnavailable
@@ -55,7 +56,9 @@ from stockpilot.presentation.api.routes.bff_auth import (
 
 def failure(error, operation=None):
     status, code = 500, "INTERNAL_ERROR"
-    if isinstance(error, AssistantBusy):
+    if isinstance(error, ContactRateLimited):
+        status, code = 429, "CONTACT_RATE_LIMITED"
+    elif isinstance(error, AssistantBusy):
         status, code = 429, "BUSY"
     elif isinstance(error, BffUnauthenticated):
         status, code = 401, "UNAUTHENTICATED"
@@ -101,7 +104,7 @@ def failure(error, operation=None):
         body["operation"] = operation
     response = JSONResponse(body, status_code=status)
     if status == 429:
-        response.headers["Retry-After"] = "1"
+        response.headers["Retry-After"] = str(error.retry_after) if isinstance(error, ContactRateLimited) else "1"
     if status == 401:
         response.delete_cookie(
             SESSION_COOKIE, secure=True, httponly=True, samesite="lax", path="/"
@@ -265,6 +268,7 @@ def install_business(app, settings, router):
         return JSONResponse({"code": "INVALID_REQUEST"}, status_code=422)
 
     for kind in (
+        ContactRateLimited,
         AssistantBusy,
         TenantDataUnavailable,
         TenantDataConflict,

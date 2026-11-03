@@ -60,6 +60,9 @@ onUnmounted(() => document.removeEventListener('click', outside))
       >
         {{ t('Stocks') }}
       </RouterLink>
+      <RouterLink to="/b2b-app/contact">
+        {{ t('Aide & contact') }}
+      </RouterLink>
     </nav>
     <div
       v-if="current"

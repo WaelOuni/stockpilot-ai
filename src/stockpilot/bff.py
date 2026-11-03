@@ -156,6 +156,8 @@ def create_app(
         )
 
         install_business(app, settings, business_router)
+        from stockpilot.presentation.api.routes.b2b_contact import router as contact_router
+        app.include_router(contact_router)
         if settings.assistant_enabled:
             from stockpilot.presentation.api.routes.b2b_assistant import (
                 router as assistant_router,
