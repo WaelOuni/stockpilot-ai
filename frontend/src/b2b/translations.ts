@@ -15,6 +15,24 @@ Aucun produit ne correspond à ces filtres.|No products match these filters.
 Fermer les résultats actualisés|Close current results
 Les bornes de stock doivent être des entiers positifs ou nuls.|Stock bounds must be non-negative integers.
 La borne minimale dépasse la borne maximale.|The minimum exceeds the maximum.
+Visibilité personnelle|Personal visibility
+Mes commandes visibles|My visible orders
+commandes • Page|orders • Page
+mouvements • Page|movements • Page
+imports • Page|imports • Page
+Filtrer les états|Filter statuses
+Tous les états|All statuses
+Afficher mes commandes archivées|Show my archived orders
+Archiver pour moi|Archive for me
+Restaurer dans ma liste|Restore to my list
+Préférence personnelle|Personal preference
+Confirmation d’archivage personnel|Confirm personal archive
+Cette action change uniquement votre liste. La commande annulée, ses preuves et ses stocks restent conservés.|This action only changes your list. The cancelled order, its evidence and stock records are preserved.
+Préférence personnelle enregistrée. La commande et les stocks sont conservés.|Personal preference saved. The order and stock records are preserved.
+Résultat à vérifier : un nouvel essai conservera la même référence.|Result needs verification: retrying will keep the same reference.
+Réessayer la même préférence|Retry the same preference
+Confirmer la restauration|Confirm restore
+Confirmer l’archivage personnel|Confirm personal archive
 
 Connexion annulée. Choisissez votre organisation pour recommencer.|Login cancelled. Choose your organization to start again.
 La connexion a échoué. Choisissez votre organisation pour réessayer.|Login failed. Choose your organization to try again.

@@ -4,6 +4,8 @@ No historical repository is imported. No DDL, provisioning or I/O at import.
 """
 
 from dataclasses import asdict
+from stockpilot.domain.entities.tenant_order_archive import OrderListQuery, SetOrderArchive
+from stockpilot.domain.entities.tenant_page import TenantPage
 from datetime import datetime, timedelta
 from uuid import uuid4
 
@@ -537,7 +539,14 @@ class MongoTenantOrders(MongoTenantUnitOfWork):
             raise ValueError("Bounded pagination required.")
 
     def list(self, request, context, limit=20, offset=0):
-        self._pagination(limit, offset)
+        return self.page(request, context, OrderListQuery(limit, offset, archived=None)).items
+
+    def page(self, request, context, filters):
+        if not isinstance(filters, OrderListQuery):
+            raise TypeError("Typed order filters required.")
+        limit, offset = filters.limit, filters.offset
+        if filters.archived is not None:
+            self._archive_schema()
 
         def read(principal, session):
             org = principal.organization_id
@@ -546,6 +555,8 @@ class MongoTenantOrders(MongoTenantUnitOfWork):
                 if P.ORDER_READ_OWN not in principal.permissions:
                     raise AuthorizationDenied("Order reading denied.")
                 query["created_by"] = principal.user_id
+            if filters.status is not None:
+                query["status"] = filters.status
             # Grant and tenant filtering precede sorting/pagination, not Python.
             pipeline = [
                 {"$match": query},
@@ -571,16 +582,25 @@ class MongoTenantOrders(MongoTenantUnitOfWork):
                     }
                 },
                 {"$match": {"_grants.0": {"$exists": True}}},
-                {"$sort": {"created_at": -1, "order_id": -1}},
-                {"$skip": offset},
-                {"$limit": limit},
-                {"$project": {"_grants": 0}},
             ]
-            rows = list(self.db.b2b_orders.aggregate(pipeline, session=session))
+            if filters.archived is not None:
+                pipeline += [
+                    {"$lookup": {"from": "b2b_order_archives", "let": {"order": "$order_id"},
+                        "pipeline": [{"$match": {"organization_id": org, "user_id": principal.user_id,
+                            "archived": True, "$expr": {"$eq": ["$order_id", "$$order"]}}}],
+                        "as": "_archive"}},
+                    {"$match": {"_archive.0": {"$exists": filters.archived}}},
+                ]
+            pipeline += [{"$sort": {"created_at": -1, "order_id": -1}}, {"$facet": {
+                "items": [{"$skip": offset}, {"$limit": limit}, {"$project": {"_grants": 0, "_archive": 0}}],
+                "count": [{"$count": "total"}],
+            }}]
+            result = next(self.db.b2b_orders.aggregate(pipeline, session=session))
+            rows = result["items"]
             for row in rows:
                 self._permission(principal, "get", row)
                 self._buyer(org, row["created_by"], row["customer_id"], session)
-            return tuple(_decode(row, org) for row in rows)
+            return TenantPage(tuple(_decode(row, org) for row in rows), result["count"][0]["total"] if result["count"] else 0, limit, offset)
 
         return self._transaction(request, context, read)
 
@@ -643,3 +663,37 @@ class MongoTenantOrders(MongoTenantUnitOfWork):
             return _decode(row, org)
 
         return self._transaction(request, context, read)
+
+    def _archive_schema(self):
+        try:
+            MigrationRunner(self.db).require_version(5)
+        except (MigrationError, PyMongoError):
+            raise TenantOrdersUnavailable("Personal order archive schema unavailable.") from None
+
+    def set_archive(self, request, context, command):
+        if not isinstance(command, SetOrderArchive):
+            raise TypeError("Typed archive preference required.")
+        self._archive_schema()
+        digest = fingerprint(asdict(command))
+
+        def change(principal, session):
+            org = principal.organization_id
+            row = self._load(org, command.order_id, session)
+            self._permission(principal, "get", row)
+            self._buyer(org, row["created_by"], row["customer_id"], session)
+            if row["status"] != "cancelled":
+                raise TenantOrderConflict("Only cancelled orders can be archived or restored.")
+            key = {"organization_id": org, "user_id": principal.user_id, "operation_id": command.operation_id}
+            old = self.db.b2b_order_archive_operations.find_one(key, session=session)
+            if old is not None:
+                if old["fingerprint"] != digest:
+                    raise TenantOrderConflict("Archive operation key has different content.")
+                return {"order_id": old["order_id"], "archived": old["archived"], "operation_id": old["operation_id"]}
+            preference = {"organization_id": org, "user_id": principal.user_id, "order_id": command.order_id}
+            self.db.b2b_order_archives.update_one(preference,
+                {"$set": {"archived": command.archived, "updated_at": self._now()}}, upsert=True, session=session)
+            self.db.b2b_order_archive_operations.insert_one({**key, "order_id": command.order_id,
+                "archived": command.archived, "fingerprint": digest, "created_at": self._now()}, session=session)
+            return {"order_id": command.order_id, "archived": command.archived, "operation_id": command.operation_id}
+
+        return self._transaction(request, context, change)

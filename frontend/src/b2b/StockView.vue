@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { t, dateLabel } from './preferences'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useB2B } from './session'
-import { movementDecoder, page, previewDecoder, productDecoder, resultDecoder, stockDecoder, type Movement, type OperationResult, type Preview, type Product, type Stock } from './contracts'
+import { movementDecoder, countedPage, previewDecoder, productDecoder, resultDecoder, stockDecoder, type Movement, type OperationResult, type Preview, type Product, type Stock } from './contracts'
 import { useTask } from './tasks'
 import { mutate, physicalQuantity } from './workflows'
 import DetailsPanel from './DetailsPanel.vue'
 import ExportPanel from './ExportPanel.vue'
 import ImportHistoryEntry from './ImportHistoryEntry.vue'
+import CataloguePagination from './CataloguePagination.vue'
+import { StaleResponse } from './client'
 import { csvHeaders, downloadCsv } from './csv'
 const session = useB2B()
 const { busy, error, run } = useTask()
@@ -21,6 +23,10 @@ const imports = ref<Preview[]>([])
 const movementOffset = ref(0)
 const importOffset = ref(0)
 const limit = 10
+const movementTotal = ref(0), importTotal = ref(0)
+let movementEpoch = 0, importEpoch = 0, disposed = false
+onUnmounted(() => { disposed = true; movementEpoch++; importEpoch++; movements.value = []; imports.value = [] })
+
 const mode = ref<'create_only' | 'metadata_only' | 'stock_only'>('stock_only')
 const file = ref<File | null>(null)
 const preview = ref<Preview | null>(null)
@@ -56,10 +62,25 @@ async function loadStock() {
   product.value = item; stock.value = inventory; quantity.value = String(inventory.quantity)
 }
 async function loadMovements() {
-  movements.value = (await session.client.request('/b2b/api/stock/movements?' + new URLSearchParams({ limit: String(limit), offset: String(movementOffset.value) }), page(movementDecoder))).items
+  const version = ++movementEpoch
+  const value = await session.client.request('/b2b/api/stock/movements?' + new URLSearchParams({ limit: String(limit), offset: String(movementOffset.value) }), countedPage(movementDecoder))
+  if (disposed || version !== movementEpoch) throw new StaleResponse()
+  movementTotal.value = value.total
+  if (movementOffset.value && movementOffset.value >= value.total) {
+    movementOffset.value = Math.max(0, Math.floor((value.total - 1) / limit) * limit); await loadMovements(); return
+  }
+  movements.value = value.items
 }
 async function loadImports() {
-  if (session.has('import:execute')) imports.value = (await session.client.request('/b2b/api/imports?' + new URLSearchParams({ limit: String(limit), offset: String(importOffset.value) }), page(previewDecoder))).items
+  if (!session.has('import:execute')) return
+  const version = ++importEpoch
+  const value = await session.client.request('/b2b/api/imports?' + new URLSearchParams({ limit: String(limit), offset: String(importOffset.value) }), countedPage(previewDecoder))
+  if (disposed || version !== importEpoch) throw new StaleResponse()
+  importTotal.value = value.total
+  if (importOffset.value && importOffset.value >= value.total) {
+    importOffset.value = Math.max(0, Math.floor((value.total - 1) / limit) * limit); await loadImports(); return
+  }
+  imports.value = value.items
 }
 function describe(value: OperationResult) {
   result.value = value
@@ -113,8 +134,8 @@ async function apply() {
     if (product.value) await loadStock()
   })
 }
-async function movePage(delta: number) { movementOffset.value += delta * limit; await run(loadMovements) }
-async function importPage(delta: number) { importOffset.value += delta * limit; await run(loadImports) }
+async function movePage(delta: number) { movementOffset.value = (delta - 1) * limit; await run(loadMovements) }
+async function importPage(delta: number) { importOffset.value = (delta - 1) * limit; await run(loadImports) }
 onMounted(() => { void run(async () => { await loadMovements(); await loadImports() }) })
 </script>
 <template>
@@ -271,25 +292,15 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
           </tbody>
         </table>
       </div>
-      <nav
-        class="b2b-actions"
-        :aria-label="t('Pages des mouvements')"
-      >
-        <button
-          class="secondary"
-          :disabled="busy || movementOffset === 0"
-          @click="movePage(-1)"
-        >
-          {{ t("Précédent") }}
-        </button>
-        <button
-          class="secondary"
-          :disabled="busy || movements.length < limit || movementOffset + limit > 10000"
-          @click="movePage(1)"
-        >
-          {{ t("Suivant") }}
-        </button>
-      </nav>
+      <CataloguePagination
+        :total="movementTotal"
+        :offset="movementOffset"
+        :limit="limit"
+        :busy="busy"
+        unit="mouvements • Page"
+        label="Pages des mouvements"
+        @page="movePage"
+      />
     </section>
     <template v-if="session.has('import:execute')">
       <DetailsPanel
@@ -407,25 +418,15 @@ onMounted(() => { void run(async () => { await loadMovements(); await loadImport
         <p class="hint">
           {{ t("Le statut d’un aperçu n’est pas une preuve d’application. Utilisez le résultat de l’opération pour confirmer un commit.") }}
         </p>
-        <nav
-          class="b2b-actions"
-          :aria-label="t('Pages des imports')"
-        >
-          <button
-            class="secondary"
-            :disabled="busy || importOffset === 0"
-            @click="importPage(-1)"
-          >
-            {{ t("Précédent") }}
-          </button>
-          <button
-            class="secondary"
-            :disabled="busy || imports.length < limit || importOffset + limit > 10000"
-            @click="importPage(1)"
-          >
-            {{ t("Suivant") }}
-          </button>
-        </nav>
+        <CataloguePagination
+          :total="importTotal"
+          :offset="importOffset"
+          :limit="limit"
+          :busy="busy"
+          unit="imports • Page"
+          label="Pages des imports"
+          @page="importPage"
+        />
       </section>
     </template>
     <ExportPanel

@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator
 
 from stockpilot.application.ports.bff_security import BffUnavailable
 from stockpilot.application.ports.tenant_orders import TenantOrderNotFound
@@ -16,6 +16,7 @@ from stockpilot.domain.entities.tenant_order import (
     RequestedLine,
 )
 from stockpilot.domain.entities.tenant_product import TenantProductQuery
+from stockpilot.domain.entities.tenant_order_archive import OrderListQuery, SetOrderArchive
 from stockpilot.domain.entities.tenant_stock_operation import (
     AdjustTenantStock,
     ArchiveTenantProduct,
@@ -48,6 +49,28 @@ router = APIRouter(prefix="/b2b/api", tags=["B2B business"])
 class Page(Contract):
     limit: int = Field(default=20, ge=1, le=100)
     offset: int = Field(default=0, ge=0, le=10000)
+
+
+class OrderFilters(Page):
+    status: Literal["prepared", "reserved", "cancelled"] | None = None
+    archived: bool = False
+
+
+class ArchiveOrderIn(Contract):
+    operation_id: Identifier
+    confirmed: Literal[True]
+
+    @field_validator("confirmed", mode="before")
+    @classmethod
+    def explicit(cls, value):
+        if value is not True:
+            raise ValueError("Explicit confirmation required.")
+        return value
+
+
+def counted_page(values, model, page):
+    return {"items": [checked(model, v) for v in values.items], "total": values.total,
+            "has_more": values.has_more, "limit": page.limit, "offset": page.offset}
 
 
 class CatalogueFilters(Page):
@@ -203,16 +226,24 @@ async def buyers(request: Request):
 
 @router.get("/orders")
 async def orders(request: Request):
-    page = query(request, Page)
+    page = query(request, OrderFilters)
     values = await invoke(
-        request,
-        (P.ORDER_READ_OWN, P.ORDER_READ_ORGANIZATION),
-        "orders",
-        "list",
-        page.limit,
-        page.offset,
+        request, (P.ORDER_READ_OWN, P.ORDER_READ_ORGANIZATION), "orders", "page",
+        OrderListQuery(**page.model_dump()),
     )
-    return {"items": [checked(OrderOut, v) for v in values], **page.model_dump()}
+    return counted_page(values, OrderOut, page)
+
+
+@router.post("/orders/{order_id}/archive")
+async def archive_order(request: Request, order_id: Identifier, body: ArchiveOrderIn):
+    return await invoke(request, (P.ORDER_READ_OWN, P.ORDER_READ_ORGANIZATION), "orders", "set_archive",
+                        SetOrderArchive(body.operation_id, order_id, True, body.confirmed))
+
+
+@router.post("/orders/{order_id}/restore")
+async def restore_order(request: Request, order_id: Identifier, body: ArchiveOrderIn):
+    return await invoke(request, (P.ORDER_READ_OWN, P.ORDER_READ_ORGANIZATION), "orders", "set_archive",
+                        SetOrderArchive(body.operation_id, order_id, False, body.confirmed))
 
 
 @router.post("/orders/prepare")
@@ -340,9 +371,9 @@ async def adjust(request: Request, product_id: Identifier, body: AdjustmentIn):
 async def movements(request: Request):
     page = query(request, Page)
     values = await invoke(
-        request, P.STOCK_READ, "stock", "movements", page.limit, page.offset
+        request, P.STOCK_READ, "stock", "movements_page", page.limit, page.offset
     )
-    return {"items": [checked(MovementOut, v) for v in values], **page.model_dump()}
+    return counted_page(values, MovementOut, page)
 
 
 @router.post("/imports/preview")
@@ -380,9 +411,9 @@ async def apply(request: Request, body: ApplyIn):
 async def imports(request: Request):
     page = query(request, Page)
     values = await invoke(
-        request, P.IMPORT_EXECUTE, "stock", "imports", page.limit, page.offset
+        request, P.IMPORT_EXECUTE, "stock", "imports_page", page.limit, page.offset
     )
-    return {"items": [checked(PreviewOut, v) for v in values], **page.model_dump()}
+    return counted_page(values, PreviewOut, page)
 
 
 @router.get("/stock/operations")

@@ -53,6 +53,10 @@ export function object<S extends Record<string, Decoder<unknown>>>(shape: S): De
 export function page<T>(decode: Decoder<T>) {
   return object({ items: array(decode), limit: integer, offset: integer })
 }
+export function countedPage<T>(decode: Decoder<T>) {
+  return object({ items: array(decode), total: integer, has_more: boolean, limit: integer, offset: integer })
+}
+export const orderArchiveDecoder = object({ order_id: text, operation_id: text, archived: boolean })
 export const sessionDecoder = object({
   user_id: text, organization_id: text, organization_name: text,
   role: oneOf('READ_ONLY', 'USER', 'MANAGER', 'ORGANIZATION_ADMIN'),

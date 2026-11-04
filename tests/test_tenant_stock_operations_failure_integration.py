@@ -349,7 +349,8 @@ def test_upgrade0003_to0004_is_additive_and_keeps_historical_validators(db):
     names = db.list_collection_names()
     options = {name: db[name].options() for name in names}
     history = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
-    runner = MigrationRunner(db)
+    # Keep this historical 0003 -> 0004 scenario bounded as later migrations are added.
+    runner = MigrationRunner(db, registry()[:4])
     assert [m.version for m in runner.plan()] == [4]
     runner.apply(confirmation=db.name)
     runner.require_version(4)

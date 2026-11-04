@@ -1,0 +1,158 @@
+{
+  "version": 5,
+  "id": "0005_b2b_order_archives",
+  "description": "Add personal cancelled-order visibility and idempotent receipts without changing ORDER",
+  "collections": [
+    {
+      "collection": "b2b_order_archives",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "user_id",
+              "order_id",
+              "archived",
+              "updated_at"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "user_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "order_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "archived": {
+                "bsonType": "bool"
+              },
+              "updated_at": {
+                "bsonType": "date"
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_order_archive_owner",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "user_id",
+              1
+            ],
+            [
+              "order_id",
+              1
+            ]
+          ],
+          "unique": true
+        }
+      ]
+    },
+    {
+      "collection": "b2b_order_archive_operations",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "user_id",
+              "order_id",
+              "archived",
+              "operation_id",
+              "fingerprint",
+              "created_at"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "user_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "order_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "archived": {
+                "bsonType": "bool"
+              },
+              "operation_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "fingerprint": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "created_at": {
+                "bsonType": "date"
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_order_archive_operation",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "user_id",
+              1
+            ],
+            [
+              "operation_id",
+              1
+            ]
+          ],
+          "unique": true
+        }
+      ]
+    }
+  ]
+}

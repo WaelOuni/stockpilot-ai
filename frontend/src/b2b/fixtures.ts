@@ -25,5 +25,5 @@ export const resultFixture = {
   operation_id: 'original-adjust', namespace: 'adjust', organization_id: 'org-a', actor_user_id: 'user-a',
   status: 'succeeded', code: 'adjusted', movement_ids: ['movement-a'], import_id: null,
 }
-export const list = (items: unknown[]) => ({ items, limit: 10, offset: 0 })
+export const list = (items: unknown[]) => ({ items, total: items.length, has_more: false, limit: 10, offset: 0 })
 export const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { t } from './preferences'
-const props = defineProps<{ total: number; offset: number; limit: number; busy: boolean }>()
+const props = withDefaults(defineProps<{ total: number; offset: number; limit: number; busy: boolean; unit?: string; label?: string }>(),
+  { unit: 'produits • Page', label: 'Pages du catalogue' })
 const emit = defineEmits<{ page: [page: number] }>()
 const pages = computed(() => Math.ceil(props.total / props.limit))
 const current = computed(() => Math.floor(props.offset / props.limit) + 1)
@@ -23,11 +24,11 @@ const links = computed(() => {
 <template>
   <div class="catalogue-pagination">
     <p role="status">
-      {{ total }} {{ t('produits • Page') }} {{ total ? current : 0 }} {{ t('sur') }} {{ pages }}
+      {{ total }} {{ t(unit) }} {{ total ? current : 0 }} {{ t('sur') }} {{ pages }}
     </p>
     <p>{{ t('Affichage de') }} {{ total ? offset + 1 : 0 }} {{ t('à') }} {{ Math.min(offset + limit, total) }} {{ t('sur') }} {{ total }}</p>
     <nav
-      :aria-label="t('Pages du catalogue')"
+      :aria-label="t(label)"
       class="b2b-actions"
     >
       <button
