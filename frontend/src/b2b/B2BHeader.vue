@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { language, theme, t } from './preferences'
 import { useB2B } from './session'
@@ -10,6 +10,7 @@ const session = useB2B()
 const { current } = session
 const route = useRoute()
 const account = ref<HTMLDetailsElement>()
+const navigation = ref<HTMLElement>()
 const trigger = ref<HTMLElement>()
 const roleNames = { READ_ONLY: 'Consultation', USER: 'Utilisateur', MANAGER: 'Responsable', ORGANIZATION_ADMIN: 'Administrateur entreprise' }
 function close(returnFocus = false) {
@@ -18,9 +19,18 @@ function close(returnFocus = false) {
   if (returnFocus) trigger.value?.focus()
 }
 function outside(event: MouseEvent) { if (event.target instanceof Node && !account.value?.contains(event.target)) close() }
-watch(() => route.path, () => close())
-watch(current, () => close())
-onMounted(() => document.addEventListener('click', outside))
+function revealActiveLink() {
+  void nextTick(() => {
+    const nav = navigation.value, active = nav?.querySelector<HTMLElement>('[aria-current="page"]')
+    if (!nav || !active) return
+    const bounds = nav.getBoundingClientRect(), link = active.getBoundingClientRect()
+    if (link.right > bounds.right) nav.scrollLeft += link.right - bounds.right + 4
+    else if (link.left < bounds.left) nav.scrollLeft -= bounds.left - link.left + 4
+  })
+}
+watch(() => route.path, () => { close(); revealActiveLink() })
+watch(current, () => { close(); revealActiveLink() })
+onMounted(() => { document.addEventListener('click', outside); revealActiveLink() })
 onUnmounted(() => document.removeEventListener('click', outside))
 </script>
 <template>
@@ -33,6 +43,7 @@ onUnmounted(() => document.removeEventListener('click', outside))
     </RouterLink>
     <nav
       v-if="current"
+      ref="navigation"
       class="workspace-nav"
       :aria-label="t('Navigation entreprise')"
     >

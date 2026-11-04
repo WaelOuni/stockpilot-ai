@@ -2,9 +2,12 @@ import { array, boolean, date, integer, nullable, object, oneOf, text } from './
 export const supportAddress = 'waelounie@gmail.com'
 export const supportTypes = ['Problème technique', "Question sur l’application", "Suggestion d’amélioration", 'Autre'] as const
 export const contactCategories = { access: "Demande d’accès", catalogue: 'Problème de catalogue', order: 'Question sur une commande', stock: 'Problème de stock', other: 'Autre' }
+function hasControl(value: string, multiline = false) {
+  return [...value].some(c => (c.charCodeAt(0) < 32 && !(multiline && (c === '\n' || c === '\t'))) || c.charCodeAt(0) === 127)
+}
 export function supportText(type: string, subject: string, description: string) {
   if (!(supportTypes as readonly string[]).includes(type) || !subject.trim() || subject.length > 100 || !description.trim() || description.length > 800
-      || /[\r\n\x00-\x1f\x7f]/.test(subject) || /[\x00-\x08\x0b-\x1f\x7f]/.test(description)) {
+      || hasControl(subject) || hasControl(description, true)) {
     throw new Error('Renseignez un objet (100 caractères maximum) et une description (800 caractères maximum).')
   }
   return { subject: '[StockPilot AI] ' + type + ' — ' + subject, body: description }

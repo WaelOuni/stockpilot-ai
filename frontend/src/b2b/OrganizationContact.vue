@@ -73,7 +73,7 @@ async function retry() {
       throw e
     }
     current(version); pending.value = null
-    if (attempt.kind === 'create') { subject.value = ''; description.value = ''; offset.value = 0; scope.value = 'own' }
+    if (attempt.kind === 'create') { subject.value = ''; description.value = ''; offset.value = 0; scope.value = 'own'; status.value = '' }
     if (attempt.kind === 'reply') answer.value = ''
     notice.value = 'Demande ou mise à jour enregistrée dans votre organisation. Aucun email envoyé.'
     replyOffset.value = 0
@@ -157,7 +157,7 @@ onMounted(() => { void run(load) })
     </aside>
     <template v-if="session.has('contact:read_own')">
       <h3>{{ scope === 'organization' ? t('Demandes de mon organisation') : t('Mes demandes') }}</h3>
-      <div class="b2b-actions">
+      <div class="b2b-actions contact-filters">
         <label v-if="session.has('contact:read_organization')">{{ t('Périmètre des demandes') }}
           <select
             v-model="scope"
@@ -282,6 +282,7 @@ textarea { resize:vertical; }
 .contact-detail { border-top:2px solid var(--line); margin-top:20px; padding-top:16px; }
 .plain-text { white-space:pre-wrap; overflow-wrap:anywhere; }
 .reply { border-left:3px solid var(--brand); padding-left:12px; }
-.b2b-actions { flex-wrap:wrap; }
+.contact-filters { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:end; }
+@media(max-width:600px) { .contact-filters { grid-template-columns:minmax(0,1fr); } }
 h3 { overflow-wrap:anywhere; }
 </style>

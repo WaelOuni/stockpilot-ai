@@ -141,3 +141,80 @@ def test_http_contract_csrf_origin_input_and_expired_session(http):
     # Revoke the real synthetic persisted BFF session, not a mocked permission.
     http.sessions.logout(http.tokens["a1"], "csrf-a1")
     assert c.get(url).status_code == 401
+
+
+def test_upgrade0004_to0005_contact_is_additive_repeatable_and_non_destructive(db):
+    from test_tenant_catalogue_mongo_integration import document
+    from stockpilot.infrastructure.persistence.mongodb.schema_migrations import MigrationRunner, registry
+    MigrationRunner(db, registry()[:4]).apply(confirmation=db.name)
+    product = document()
+    db.b2b_products.insert_one(product)
+    names = db.list_collection_names()
+    options = {name: db[name].options() for name in names}
+    indexes = {name: list(db[name].list_indexes()) for name in names}
+    history = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
+    runner = MigrationRunner(db)
+    assert [m.version for m in runner.plan()] == [5]
+    runner.apply(confirmation=db.name)
+    runner.require_version(5)
+    assert {name: db[name].options() for name in names} == options
+    assert {name: list(db[name].list_indexes()) for name in names} == indexes
+    assert list(db.stockpilot_schema_migrations.find().sort("_id", 1))[:4] == history
+    assert db.b2b_products.find_one({"_id": product["_id"]}) == product
+    added = set(db.list_collection_names()) - set(names)
+    assert added == {"b2b_contact_requests", "b2b_contact_replies", "b2b_contact_operations"}
+    assert all(db[name].count_documents({}) == 0 for name in added)
+    completed = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
+    assert runner.plan() == ()
+    runner.apply(confirmation=db.name)
+    assert list(db.stockpilot_schema_migrations.find().sort("_id", 1)) == completed
+
+
+def test_org_quota_is_shared_across_users_and_admin_reply_quota_is_persistent(contact, orders, db):
+    from datetime import UTC, datetime
+    now = datetime.now(UTC)
+    first = create(contact, orders)
+    template = db.b2b_contact_operations.find_one({"request_id": first["request_id"]})
+    # Synthetic ledger entries from distinct active/previous authors in the same org.
+    for i in range(49):
+        row = {**template, "user_id": "synthetic-" + str(i), "operation_id": uuid4().hex, "created_at": now}
+        row.pop("_id")
+        db.b2b_contact_operations.insert_one(row)
+    with pytest.raises(ContactRateLimited):
+        create(contact, orders, actor="a3")
+    assert create(contact, orders, actor="b1")["request_id"] != first["request_id"]
+    for i in range(20):
+        call(contact, orders, "reply", ReplyContact("answer-" + str(i), first["request_id"], "Synthetic answer"), actor="admin-a")
+    with pytest.raises(ContactRateLimited):
+        call(contact, orders, "reply", ReplyContact("too-many", first["request_id"], "Synthetic answer"), actor="admin-a")
+    assert db.b2b_contact_replies.count_documents({}) == 20
+    assert call(contact, orders, "reply", ReplyContact("answer-0", first["request_id"], "Synthetic answer"), actor="admin-a")["reply_id"]
+
+
+def test_http_admin_lifecycle_errors_pagination_and_rate_limit(http):
+    c, admin = http.browser(), http.browser("admin-a")
+    root = "/b2b/api/contact/requests"
+    body = {"operation_id": "initial", "subject": "Access", "category": "access", "description": "<img src=x onerror=alert(1)>"}
+    receipt = c.post(root, json=body).json()
+    url = root + "/" + receipt["request_id"]
+    assert c.get(url).json()["description"] == body["description"]
+    reply = {"operation_id": "reply", "body": "Approved as plain text"}
+    assert c.post(url + "/replies", json=reply).status_code == 403
+    assert http.browser("a2").post(url + "/replies", json=reply).status_code == 403
+    assert http.browser("admin-b").post(url + "/replies", json=reply).status_code == 404
+    assert admin.post(url + "/replies", json={**reply, "body": "x" * 4001}).status_code == 422
+    assert admin.post(url + "/replies", json=reply).status_code == 200
+    assert c.get(url + "/replies").json()["total"] == 1
+    for status in ("resolved", "open"):
+        command = {"operation_id": status, "status": status}
+        assert admin.post(url + "/status", json=command).status_code == 200
+        assert c.get(url).json()["status"] == status
+    for query in ("limit=101", "offset=10001", "offset=-1", "limit=1&limit=2", "scope=global", "created_by=a2"):
+        assert c.get(root + "?" + query).status_code == 422
+    for i in range(4):
+        assert c.post(root, json={**body, "operation_id": str(i)}).status_code == 200
+    limited = c.post(root, json={**body, "operation_id": "quota"})
+    assert limited.status_code == 429
+    assert limited.headers["Retry-After"] == "600"
+    assert limited.json() == {"code": "CONTACT_RATE_LIMITED"}
+    assert c.post(root, json=body).json() == receipt
