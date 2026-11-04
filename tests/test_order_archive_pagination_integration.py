@@ -97,7 +97,7 @@ def test_counts_sort_filters_and_last_page_after_removal(db, orders):
     assert page(orders, status="prepared").total == 104
     assert page(orders, status="cancelled").total == 0
     assert page(orders, status="cancelled", archived=True).total == 1
-    db.b2b_buyers.update_one({"association_id": "buyer-a1"}, {"$set": {"status": "suspended"}})
+    db.b2b_buyers.update_one({"association_id": "buyer-a1"}, {"$set": {"status": "disabled"}})
     assert page(orders, actor="a2").total == 0  # grant filtering before count
 
 
