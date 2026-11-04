@@ -87,6 +87,60 @@ def identities(db):
             for n in ("b2b_users", "b2b_memberships", "b2b_organizations", "b2b_buyers")}
 
 
+BROWSER_IDENTITY_SCOPES = ("b2b_users", "b2b_organizations", "b2b_memberships")
+
+
+def browser_business_facts(db):
+    """Business reads fence authorization; only two synthetic principals are allowed."""
+    mongo = {k: v for k, v in mongo_facts(db).items()
+             if k not in {"bff_sessions", "bff_login_transactions"}}
+    fences = {}
+    for name in BROWSER_IDENTITY_SCOPES:
+        rows = list(db[name].find({}))
+        normalized, counters = [], {}
+        for row in rows:
+            value = row.get("authorization_fence", 0)
+            check(type(value) is int and value >= 0, "typed nonnegative authorization fence")
+            allowed = (row.get("organization_id") in {"org-a", "org-b"} if name == "b2b_organizations"
+                       else row.get("user_id") in {"a1", "b1"})
+            counters[hashed(canonical(row["_id"]))] = {
+                "value": value, "present": "authorization_fence" in row, "allowed": allowed}
+            normalized.append(canonical({k: v for k, v in row.items() if k != "authorization_fence"}))
+        mongo[name]["data"] = hashed("\n".join(sorted(normalized)))
+        fences[name] = counters
+    return {"mongo": mongo, "application": pg_facts(os.environ["POSTGRES_TEST_URI"]),
+            "authorization_fences": fences}
+
+
+def compare_browser_business(before, after):
+    check(before["mongo"] == after["mongo"],
+          "browser preserves all Mongo business fields and structures outside explicit authorization counters")
+    check(before["application"] == after["application"],
+          "browser preserves all PostgreSQL application data and structures")
+    expected, actual = before["authorization_fences"], after["authorization_fences"]
+    check(set(expected) == set(actual) == set(BROWSER_IDENTITY_SCOPES), "exact authorization fence scopes")
+    changes = {}
+    for name in BROWSER_IDENTITY_SCOPES:
+        check(set(expected[name]) == set(actual[name]), "authorization identity inventory preserved")
+        delta = 0
+        for identifier, old in expected[name].items():
+            new = actual[name][identifier]
+            check(set(old) == set(new) == {"value", "present", "allowed"}
+                  and all(type(row["value"]) is int and row["value"] >= 0
+                          and type(row["present"]) is bool and type(row["allowed"]) is bool
+                          for row in (old, new)), "typed authorization fence proof")
+            if old == new:
+                continue
+            check(old["allowed"] and new["allowed"] and new["present"]
+                  and type(new["value"]) is int and 0 < new["value"] - old["value"] <= 100,
+                  "only bounded monotonic fences of the two browser principals may change")
+            delta += new["value"] - old["value"]
+        changes[name] = delta
+    check(all(value > 0 for value in changes.values()), "historical order reads actually fence authorization")
+    CHECKS.append("only documented authorization_fence increments: " + json.dumps(changes, sort_keys=True))
+    return changes
+
+
 def pg_facts(uri, *, raw_roles=False):
     with psycopg.connect(uri) as c:
         c.execute("SET TRANSACTION READ ONLY")
@@ -674,13 +728,11 @@ def main():
                     ssl_keyfile="/inputs/tls.key", ssl_certfile="/inputs/tls.crt",
                     proxy_headers=False, access_log=False, log_level="critical")
             elif phase in {"browser-before", "browser-after"}:
-                business = {k: v for k, v in mongo_facts(db).items()
-                            if k not in {"bff_sessions", "bff_login_transactions"}}
-                facts = {"mongo": business, "application": pg_facts(os.environ["POSTGRES_TEST_URI"])}
+                facts = browser_business_facts(db)
                 if phase == "browser-before":
                     save("browser-business", facts)
                 else:
-                    check(facts == load("browser-business"), "browser read-only recipe preserves all business data and structures")
+                    compare_browser_business(load("browser-business"), facts)
             elif phase == "old-refusal":
                 before = mongo_facts(db)
                 try:

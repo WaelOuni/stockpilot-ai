@@ -218,3 +218,45 @@ def test_browser_is_mandatory_within_existing_container_job():
     roundtrip = next(s for s in steps if "qualify_schema6_rollback.py" in s.get("run", ""))
     assert "if" not in browser and steps.index(browser) < steps.index(roundtrip)
     assert '--browser-build-report "$RUNNER_TEMP/schema6-browser-build.json"' in roundtrip["run"]
+
+
+def browser_capture():
+    from scripts.tests.schema6_rollback_probe import BROWSER_IDENTITY_SCOPES
+    return {"mongo": {"business": "exact-fields-and-structures"}, "application": {"table": "exact-data"},
+            "authorization_fences": {name: {
+                "principal": {"value": 2, "present": True, "allowed": True},
+                "other": {"value": 1, "present": True, "allowed": False}}
+                for name in BROWSER_IDENTITY_SCOPES}}
+
+
+def test_browser_read_contract_accepts_only_explicit_monotonic_authorization_fences():
+    from scripts.tests.schema6_rollback_probe import compare_browser_business
+    before, after = browser_capture(), browser_capture()
+    for rows in after["authorization_fences"].values():
+        rows["principal"]["value"] += 3
+    assert set(compare_browser_business(before, after).values()) == {3}
+
+
+@pytest.mark.parametrize("change", ["business", "postgres", "revoked", "removed", "decrement", "excess", "float"])
+def test_browser_read_contract_never_hides_business_or_identity_changes(change):
+    from scripts.tests.schema6_rollback_probe import compare_browser_business
+    before, after = browser_capture(), browser_capture()
+    for rows in after["authorization_fences"].values():
+        rows["principal"]["value"] += 3
+    row = after["authorization_fences"]["b2b_users"]["principal"]
+    if change == "business":
+        after["mongo"]["business"] = "role or reservation changed"
+    elif change == "postgres":
+        after["application"]["table"] = "conversation changed"
+    elif change == "revoked":
+        after["authorization_fences"]["b2b_users"]["other"]["value"] += 1
+    elif change == "removed":
+        row["present"] = False
+    elif change == "decrement":
+        row["value"] = 1
+    elif change == "excess":
+        row["value"] = 103
+    else:
+        row["value"] = 5.0
+    with pytest.raises(AssertionError):
+        compare_browser_business(before, after)

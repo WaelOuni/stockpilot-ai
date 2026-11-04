@@ -47,7 +47,15 @@ async function main() {
         && session.role === 'USER', 'native OIDC callback/session/tenant verified')
       stage = actor + '-catalogue'
       await page.getByRole('combobox', { name: 'SKU exact', exact: true }).fill('DRILL-001')
-      await page.getByRole('combobox', { name: 'SKU exact', exact: true }).press('Enter')
+      const [productResponse] = await Promise.all([
+        page.waitForResponse(response => {
+          const url = new URL(response.url())
+          return url.pathname === '/b2b/api/products/by-sku' && url.searchParams.get('sku') === 'DRILL-001'
+        }),
+        page.getByRole('combobox', { name: 'SKU exact', exact: true }).press('Enter')
+      ])
+      ok(productResponse.status() === 200, 'exact SKU query succeeds against the historical API')
+      await page.waitForFunction(() => document.querySelectorAll('.b2b-grid article').length === 1)
       await page.locator('.b2b-grid article').getByText('DRILL-001', { exact: true }).waitFor()
       ok(true, 'historical catalogue renders the exact synthetic SKU')
       stage = actor + '-stocks'
