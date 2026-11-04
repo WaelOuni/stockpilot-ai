@@ -133,6 +133,8 @@ jobs:
           python3 scripts/ci/check_keycloak_image.py stockpilot-keycloak:ci --revision "$SHA" --source "https://github.com/$GITHUB_REPOSITORY"
       - name: Build immutable schema6 rollback candidate (local only)
         run: python3 scripts/ops/schema6_rollback.py --build --output "$RUNNER_TEMP/schema6-build.json"
+      - name: Build immutable historical Web and pinned browser (local only)
+        run: python3 scripts/ci/build_schema6_browser.py --output "$RUNNER_TEMP/schema6-browser-build.json"
       - name: Start disposable image-test services
         run: |
           if ! docker compose -f docker/compose.ci.yml up -d --wait; then
@@ -147,7 +149,7 @@ jobs:
       - run: python3 scripts/ci/smoke_images.py
       - name: Qualify schema6 migration, rollback and isolated restore
         run: |
-          python3 scripts/ci/qualify_schema6_rollback.py --build-report "$RUNNER_TEMP/schema6-build.json" --current-image stockpilot-api:ci --keycloak-image stockpilot-keycloak:ci --output "$RUNNER_TEMP/schema6-qualification.json"
+          python3 scripts/ci/qualify_schema6_rollback.py --build-report "$RUNNER_TEMP/schema6-build.json" --browser-build-report "$RUNNER_TEMP/schema6-browser-build.json" --current-image stockpilot-api:ci --keycloak-image stockpilot-keycloak:ci --output "$RUNNER_TEMP/schema6-qualification.json"
       - name: Retain sanitized schema6 qualification proof
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -155,6 +157,7 @@ jobs:
           name: schema6-rollback-proof
           path: |
             ${{ runner.temp }}/schema6-build.json
+            ${{ runner.temp }}/schema6-browser-build.json
             ${{ runner.temp }}/schema6-qualification.json
           if-no-files-found: error
           retention-days: 14

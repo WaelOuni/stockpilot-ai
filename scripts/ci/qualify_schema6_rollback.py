@@ -18,6 +18,7 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.ops.schema6_rollback import QualificationError, command, digest, require
+from scripts.ops.recovery_contract import compare_capture
 
 ROOT = Path(__file__).resolve().parents[2]
 LABEL = "io.stockpilot.qualification.owner"
@@ -115,7 +116,7 @@ class Lab:
         require(Path(path).resolve().is_relative_to(self.directory), "Non-owned bind refused.")
         return ["--mount", "type=bind,source=" + str(path) + ",target=" + target + (",readonly" if readonly else "")]
 
-    def database_set(self, suffix, network, pg_env):
+    def database_set(self, suffix, network, pg_env, *, restoring=False):
         result = {}
         result["mongo"] = self.create(suffix + "-mongo", "mongo:8", network,
             ["mongod", "--port", "27027", "--replSet", "rs0", "--bind_ip_all"],
@@ -133,7 +134,7 @@ class Lab:
         self.wait(result["mongo"], ["mongosh", "--port", "27027", "--quiet", "--eval",
             "if (!db.hello().isWritablePrimary) quit(1)"])
         for key, port in (("application", "55432"), ("keycloak", "55433")):
-            self.wait(result[key], ["pg_isready", "-U", "ci", "-p", port])
+            self.wait(result[key], ["pg_isready", "-U", "restore_admin" if restoring else "ci", "-p", port])
         return result
 
     def keycloak(self, suffix, network, image, env, realm, cert, key, *, importing):
@@ -147,7 +148,7 @@ class Lab:
         self.start(cid)
         return cid
 
-    def probe(self, label, phase, image, network, state, env, config, cert, probe, guards):
+    def probe(self, label, phase, image, network, state, env, config, cert, probe, guards, contract):
         self.stage = label
         print(json.dumps({"phase_started": label}), flush=True)
         cid = self.create("probe-" + label, image, network,
@@ -156,7 +157,8 @@ class Lab:
              *self.bind(config, "/inputs/config.json"), *self.bind(cert, "/inputs/tls.crt"),
              *self.bind(state, "/state", False),
              *self.bind(probe, "/qualification/schema6_rollback_probe.py"),
-             *self.bind(guards, "/qualification/integration_targets.py")])
+             *self.bind(guards, "/qualification/integration_targets.py"),
+             *self.bind(contract, "/qualification/recovery_contract.py")])
         self.attest(cid)
         result = subprocess.run(["docker", "start", "-a", cid], capture_output=True, timeout=360)
         lines = result.stdout.decode(errors="replace").splitlines()
@@ -173,6 +175,66 @@ class Lab:
         print(json.dumps({"phase": label, **report}), flush=True)
         require(result.returncode == 0 and report.get("success"), "Probe failed: " + label)
         return report
+
+    def browser(self, build, candidate, network, state, env, config, cert, key, probe, guards, contract):
+        self.stage = "historical-browser"
+        server = self.create("browser-api", candidate, network,
+            ["/qualification/schema6_rollback_probe.py", "serve-browser"],
+            ["--read-only", "--entrypoint", "python", "--network-alias", "candidate-api",
+             "--env-file", str(env), *self.bind(config, "/inputs/config.json"),
+             *self.bind(cert, "/inputs/tls.crt"), *self.bind(key, "/inputs/tls.key"),
+             *self.bind(state, "/state", False),
+             *self.bind(probe, "/qualification/schema6_rollback_probe.py"),
+             *self.bind(guards, "/qualification/integration_targets.py"),
+             *self.bind(contract, "/qualification/recovery_contract.py")])
+        self.start(server)
+        nginx = self.file("browser-nginx.conf", """
+server {
+  listen 8443 ssl;
+  server_name bff.example;
+  ssl_certificate /inputs/tls.crt;
+  ssl_certificate_key /inputs/tls.key;
+  access_log off;
+  root /usr/share/nginx/html;
+  location /b2b/ {
+    proxy_pass https://candidate-api:8000;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto "";
+    proxy_set_header X-Forwarded-Host "";
+    proxy_set_header X-Forwarded-For "";
+    proxy_ssl_verify on;
+    proxy_ssl_name bff.example;
+    proxy_ssl_trusted_certificate /inputs/tls.crt;
+  }
+  location / { try_files $uri $uri/ /index.html; }
+}
+""")
+        web = self.create("browser-web", build["web"]["image_id"], network,
+            ["-g", "daemon off;"], ["--entrypoint", "nginx", "--network-alias", "bff.example",
+             *self.bind(nginx, "/etc/nginx/conf.d/default.conf"),
+             *self.bind(cert, "/inputs/tls.crt"), *self.bind(key, "/inputs/tls.key")])
+        self.start(web)
+        driver = self.create("browser-chromium", build["browser"]["image_id"], network, options=[
+            "--shm-size=1g", *self.bind(config, "/inputs/config.json"),
+            *self.bind(cert, "/inputs/tls.crt"), *self.bind(state, "/state")])
+        try:
+            result = subprocess.run(["docker", "start", "-a", driver], capture_output=True, timeout=300)
+            reports = []
+            for line in result.stdout.decode(errors="replace").splitlines():
+                try:
+                    value = json.loads(line)
+                    if isinstance(value, dict) and "success" in value:
+                        reports.append(value)
+                except ValueError:
+                    pass
+            require(reports, "Browser returned no bounded diagnostic.")
+            report = reports[-1]
+            print(json.dumps({"phase": self.stage, **report}), flush=True)
+            require(result.returncode == 0 and report.get("success"), "Historical browser qualification failed.")
+            return report
+        finally:
+            self.stop(web)
+            self.stop(server)
 
     def archive(self, cid, args, path, *, restore=False):
         self.attest(cid)
@@ -207,8 +269,10 @@ class Lab:
         return {"removed_count": len(self.removed), "preexisting_resources_removed": 0}
 
 
-def run(build, current, keycloak, output):
+def run(build, current, keycloak, output, browser_build):
     local_engine()
+    require(browser_build["qualification_commit"] == build["qualification_commit"]
+            and browser_build["base_commit"] == build["base_commit"], "Browser/source commit mismatch.")
     report = {"base_commit": build["base_commit"], "qualification_commit": build["qualification_commit"],
               "images": {k: v["image_id"] for k, v in build["images"].items()}, "phases": {},
               "ports_published": False, "success": False}
@@ -218,7 +282,7 @@ def run(build, current, keycloak, output):
             cert, key = Path(directory) / "tls.crt", Path(directory) / "tls.key"
             command(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
                      "-keyout", str(key), "-out", str(cert), "-days", "2",
-                     "-subj", "/CN=keycloak", "-addext", "subjectAltName=DNS:keycloak"])
+                     "-subj", "/CN=keycloak", "-addext", "subjectAltName=DNS:keycloak,DNS:bff.example"])
             cert.chmod(0o444); key.chmod(0o444)
             password, client_secret = secrets.token_urlsafe(32), secrets.token_urlsafe(40)
             pg_password = secrets.token_urlsafe(32)
@@ -249,6 +313,9 @@ def run(build, current, keycloak, output):
             pg_env = {name: lab.file("pg-" + name + ".env",
                 "POSTGRES_USER=ci\nPOSTGRES_PASSWORD=" + pg_password + "\nPOSTGRES_DB=" + db + "\n")
                 for name, db in (("application", "stockpilot_ci"), ("keycloak", "stockpilot_test_keycloak"))}
+            restore_pg_env = {name: lab.file("restore-pg-" + name + ".env",
+                "POSTGRES_USER=restore_admin\nPOSTGRES_PASSWORD=" + secrets.token_urlsafe(40)
+                + "\nPOSTGRES_DB=postgres\n") for name in ("application", "keycloak")}
             kc_env = lab.file("keycloak.env", "\n".join([
                 "KC_DB=postgres", "KC_DB_URL=jdbc:postgresql://pg-keycloak:55433/stockpilot_test_keycloak",
                 "KC_DB_USERNAME=ci", "KC_DB_PASSWORD=" + pg_password,
@@ -261,8 +328,11 @@ def run(build, current, keycloak, output):
                 "POSTGRES_TEST_URI=postgresql://ci:" + pg_password + "@pg-application:55432/stockpilot_ci",
                 "DEPLOYMENT_ENVIRONMENT=development", "LOG_FILE=", "PYTHONDONTWRITEBYTECODE=1",
             ]) + "\n")
+            restore_probe_env = lab.file("restore-probe.env", probe_env.read_text()
+                                         + "SCHEMA6_RESTORE_ROLE=restore_admin\n")
             probe = lab.file("probe.py", (ROOT / "scripts/tests/schema6_rollback_probe.py").read_text())
             guards = lab.file("integration_targets.py", (ROOT / "tests/integration_targets.py").read_text())
+            contract = lab.file("recovery_contract.py", (ROOT / "scripts/ops/recovery_contract.py").read_text())
             states = {}
             for suffix in ("source", "restore"):
                 path = Path(directory) / ("state-" + suffix)
@@ -273,7 +343,7 @@ def run(build, current, keycloak, output):
             kc = lab.keycloak("source", networks["source"], keycloak, kc_env, realm, cert, key, importing=True)
             def phase(label, phase_name, image=current, side="source"):
                 value = lab.probe(label, phase_name, image, networks[side], states[side],
-                                  probe_env, config, cert, probe, guards)
+                                  restore_probe_env if side == "restore" else probe_env, config, cert, probe, guards, contract)
                 report["phases"][label] = value
                 return value
             phase("wait-source", "wait-keycloak")
@@ -298,13 +368,24 @@ def run(build, current, keycloak, output):
                 archives[name] = lab.archive(source[name], [
                     "pg_dump", "-U", "ci", "-p", port, "-d", db, "--format=custom"], Path(directory) / (name + ".dump"))
                 archives[name + "-roles"] = lab.archive(source[name], [
-                    "pg_dumpall", "-U", "ci", "-p", port, "--globals-only", "--no-role-passwords"],
+                    "pg_dumpall", "-U", "ci", "-p", port, "--globals-only"],
                     Path(directory) / (name + "-roles.sql"))
             phase("snapshot-after", "snapshot")
-            require(json.loads((states["source"] / "snapshot.json").read_text()) == before,
-                    "Data changed during quiescent backup.")
-            target = lab.database_set("restore", networks["restore"], pg_env)
+            compare_capture(before, json.loads((states["source"] / "snapshot.json").read_text()))
+            target = lab.database_set("restore", networks["restore"], restore_pg_env, restoring=True)
             require(set(target.values()).isdisjoint(source.values()), "Restore container overlap.")
+            # Restore globals into a distinct fresh bootstrap owner, as the private operator does.
+            # Passwords are synthetic and remain only in 0600 archives, never in the artifact.
+            for name, port, db in (("application", "55432", "stockpilot_ci"), ("keycloak", "55433", "stockpilot_test_keycloak")):
+                present = lab.exec(target[name], ["psql", "-X", "-U", "restore_admin", "-p", port,
+                    "-d", "postgres", "-At", "-c", "SELECT count(*) FROM pg_roles WHERE rolname='ci'"])
+                require(present.strip() == b"0", "Restore owner already exists.")
+                roles_file = Path(directory) / (name + "-roles.sql")
+                require(digest(roles_file.read_bytes()) == archives[name + "-roles"]["sha256"],
+                        "Role archive digest mismatch.")
+                lab.archive(target[name], ["psql", "-X", "-U", "restore_admin", "-p", port,
+                    "-d", "postgres", "-v", "ON_ERROR_STOP=1"], roles_file, restore=True)
+                lab.exec(target[name], ["createdb", "-U", "restore_admin", "-p", port, "--owner", "ci", db])
             # Prove empty effective targets before restore (no drop/reset options).
             names = lab.exec(target["mongo"], ["mongosh", "--port=27027", "--quiet", "--eval",
                 "JSON.stringify(db.adminCommand({listDatabases:1}).databases.map(x=>x.name).filter(x=>!['admin','local','config'].includes(x)))"])
@@ -325,9 +406,18 @@ def run(build, current, keycloak, output):
                 (states["restore"] / path.name).chmod(0o666)
             phase("restored-snapshot", "snapshot", side="restore")
             restored = json.loads((states["restore"] / "snapshot.json").read_text())
-            require(restored == before, "Restored data/structures/indexes/roles differ.")
+            compare_capture(before, restored, restore_role="restore_admin")
+            require(json.loads((states["source"] / "physical-columns.json").read_text()) == {"dropped_column_slots": 1}
+                    and json.loads((states["restore"] / "physical-columns.json").read_text()) == {"dropped_column_slots": 0},
+                    "Physical dropped-column compaction not exercised.")
             lab.keycloak("restored", networks["restore"], keycloak, kc_env, realm, cert, key, importing=False)
             phase("wait-restored", "wait-keycloak", side="restore")
+            phase("restored-rollback", "rollback", build["images"]["candidate"]["image_id"], side="restore")
+            phase("browser-before", "browser-before", side="restore")
+            report["phases"]["historical-browser"] = lab.browser(
+                browser_build, build["images"]["candidate"]["image_id"], networks["restore"],
+                states["restore"], restore_probe_env, config, cert, key, probe, guards, contract)
+            phase("browser-after", "browser-after", side="restore")
             phase("restored-current", "return", side="restore")
             report.update(success=True, backup={
                 "archives": archives, "logical_before_after_restore_equal": True,
@@ -335,7 +425,9 @@ def run(build, current, keycloak, output):
                 "application_tables": len([k for k in before["application"] if not k.startswith("_")]),
                 "keycloak_tables": len([k for k in before["keycloak"] if not k.startswith("_")]),
                 "facts": before, "independent_tmpfs": True, "restore_ports_published": False,
-                "roles": "globals captured; identical synthetic owner preprovisioned and role attributes compared",
+                "roles": "globals restored into a fresh owner; only the extra restore_admin role is normalized",
+                "physical_column_compaction": {"source_dropped_slots": 1, "restored_dropped_slots": 0,
+                                               "logical_columns_identical": True},
             })
         except Exception as error:
             report["failure"] = {"stage": lab.stage, "type": type(error).__name__,
@@ -355,12 +447,14 @@ def run(build, current, keycloak, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--build-report", type=Path, required=True)
+    parser.add_argument("--browser-build-report", type=Path, required=True)
     parser.add_argument("--current-image", required=True)
     parser.add_argument("--keycloak-image", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     require(not args.output.exists(), "Existing report must not be overwritten.")
-    run(json.loads(args.build_report.read_text()), args.current_image, args.keycloak_image, args.output)
+    run(json.loads(args.build_report.read_text()), args.current_image, args.keycloak_image, args.output,
+        json.loads(args.browser_build_report.read_text()))
 
 
 if __name__ == "__main__":
