@@ -212,7 +212,12 @@ class Bff:
             client_id="rollback-lab", client_secret=CONFIG["client_secret"],
             configuration_key=CONFIG["configuration_key"], oidc_ca_file="/inputs/tls.crt",
             mongo_uri=os.environ["MONGO_TEST_URI"], mongo_database=db.name,
-            session_idle_seconds=1800,
+            session_idle_seconds=1800, assistant_enabled=True,
+            assistant_postgres_uri=os.environ["POSTGRES_TEST_URI"],
+            assistant_ollama_url="https://keycloak:8443",
+            # No generation requested: current low-stock routing and stored-turn replay
+            # must work without calling a model. No real Ollama is accessed.
+
         )
         self.app = create_app(self.settings)
         self.stack = ExitStack()
@@ -256,7 +261,7 @@ class Bff:
 
 def response(c, method, path, *, status=200, **kwargs):
     r = getattr(c, method)(path, **kwargs)
-    check(r.status_code == status, method.upper() + " " + path.split("?")[0] + " status " + str(status))
+    check(r.status_code == status, method.upper() + " " + path.split("?")[0] + " expected " + str(status) + " actual " + str(r.status_code))
     return r.json() if r.content and r.headers.get("content-type", "").startswith("application/json") else None
 
 
@@ -297,7 +302,7 @@ def seed(db):
                 "_id": ObjectId(), "organization_id": org, "sku": sku, "name": "Synthetic tool",
                 "description": "Qualification fixture", "category": "drill", "price_minor": 4900,
                 "currency": "EUR", "status": status, "attributes": ["electric"],
-                "quantity": 20, "reserved": 0, "revision": 1,
+                "quantity": 3 if sku == "SAW-001" else 20, "reserved": 0, "revision": 1,
             })
     for actor, item in CONFIG["actors"].items():
         db.b2b_users.insert_one({"user_id": actor, "external_identity": {
@@ -432,6 +437,14 @@ def upgrade(db):
         response(admin, "post", path + "/replies", json={"operation_id": "reply", "body": "Synthetic answer"})
         response(admin, "post", path + "/status", json={"operation_id": "resolved", "status": "resolved"})
         save("contact", {"receipt": receipt, "body": body})
+        assistant_root = "/b2b/api/assistant/conversations"
+        cid = response(c, "post", assistant_root, json={"thread_id": "v024-catalogue"})["conversation_id"]
+        message = {"message_id": "v024-catalogue", "message": "Quels produits ont moins de 5 unités disponibles ?",
+                   "read_only": True}
+        turn = response(c, "post", assistant_root + "/" + cid + "/messages", json=message)
+        check(turn["reply"]["can_browse_products"] is True and turn["reply"]["products"],
+              "current assistant persists enriched catalogue turn without a model call")
+        save("assistant-turn", {"conversation_id": cid, "body": message, "turn": turn})
         b.remember_session()
     save("v6-new", {k: v for k, v in mongo_facts(db).items() if k in NEW})
     save("v6-history", mongo_facts(db)[HISTORY])
@@ -457,7 +470,13 @@ def read_business(b):
              json={"operation_id": "denied-ro", "customer_id": "customer-org-a", "lines": [{"sku": "DRILL-001", "quantity": 1}]})
     response(c, "post", "/b2b/api/orders/prepare", status=403, headers={"X-BFF-CSRF": "wrong"},
              json={"operation_id": "denied-csrf", "customer_id": "customer-org-a", "lines": [{"sku": "DRILL-001", "quantity": 1}]})
-    response(c, "get", "/b2b/api/products", status=403, headers={"Origin": "https://foreign.invalid"})
+    response(c, "post", "/b2b/api/orders/prepare", status=403, headers={"Origin": "https://foreign.invalid"},
+             json={"operation_id": "denied-origin", "customer_id": "customer-org-a",
+                   "lines": [{"sku": "DRILL-001", "quantity": 1}]})
+    cross_origin = c.get("/b2b/api/products", headers={"Origin": "https://foreign.invalid"})
+    check(cross_origin.status_code == 200 and "access-control-allow-origin" not in cross_origin.headers
+          and all(p["organization_id"] == "org-a" for p in cross_origin.json()["items"]),
+          "historical read contract grants no CORS access or tenant switch")
     pg_business(b)
 
 
@@ -469,6 +488,17 @@ def rollback(db):
     with Bff(db, reuse=True) as b:
         read_business(b)
         c = b.browser()
+        stored = load("assistant-turn")
+        assistant_path = "/b2b/api/assistant/conversations/" + stored["conversation_id"]
+        history = response(c, "get", assistant_path)
+        check(history["items"][-1]["reply"]["products"] == stored["turn"]["reply"]["products"],
+              "v0.2.3 reads v0.2.4 enriched assistant turn without discarding stored data")
+        replay = response(c, "post", assistant_path + "/messages", json=stored["body"])
+        check(replay["reply"]["products"] == stored["turn"]["reply"]["products"]
+              and "can_browse_products" not in replay["reply"],
+              "old completed-turn replay remains compatible without advertising new capability")
+        response(b.browser("b1"), "get", assistant_path, status=404)
+        response(c, "get", assistant_path + "/turns/v024-catalogue/products", status=404)
         for method, path, payload in (
             ("get", "/b2b/api/contact/requests", None),
             ("post", "/b2b/api/contact/requests", {"operation_id": "absent"}),
@@ -529,6 +559,13 @@ def return_current(db):
         page = response(c, "get", "/b2b/api/orders?archived=true&status=cancelled")
         check([o["order_id"] for o in page["items"]] == [load("orders")["archived"]["order_id"]],
               "personal archive reappears after returning to current code")
+        stored = load("assistant-turn")
+        assistant_path = "/b2b/api/assistant/conversations/" + stored["conversation_id"]
+        history = response(c, "get", assistant_path)
+        check(history["items"][-1]["reply"]["can_browse_products"] is True
+              and history["items"][-1]["reply"]["products"] == stored["turn"]["reply"]["products"],
+              "current assistant regains enriched catalogue capability with original cards")
+        response(c, "get", assistant_path + "/turns/v024-catalogue/products")
         root = "/b2b/api/contact/requests"
         contact = load("contact")
         path = root + "/" + contact["receipt"]["request_id"]

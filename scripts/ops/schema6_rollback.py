@@ -153,7 +153,7 @@ def build(repo, *, execute=False):
         require(exists.returncode != 0, "Local candidate name already exists; refuse overwrite.")
         labels = {"org.opencontainers.image.source": SOURCE, "org.opencontainers.image.revision": BASE,
                   "org.opencontainers.image.description": "Local schema6 rollback qualification; not an official release",
-                  "io.stockpilot.rollback.migrations": APPROVED, "io.stockpilot.rollback.context": context,
+                  "io.stockpilot.rollback.migrations": APPROVED if name == "candidate" else BASE, "io.stockpilot.rollback.context": context,
                   "io.stockpilot.rollback.qualification": revision}
         with tempfile.TemporaryDirectory(prefix="stockpilot-rollback-build-") as directory:
             for path, content in files.items():
