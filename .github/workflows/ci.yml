@@ -114,11 +114,12 @@ jobs:
   containers:
     # Same MongoDB kernel compatibility requirement as integration-tests.
     runs-on: ubuntu-22.04
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+          fetch-depth: 0
           ref: ${{ inputs.release_sha || github.sha }}
       - run: docker build -t stockpilot-api:ci .
       - run: docker build -f frontend/Dockerfile -t stockpilot-web:ci .
@@ -130,6 +131,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$SHA"
           docker build --platform linux/amd64 --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$SHA" -f docker/keycloak/Dockerfile -t stockpilot-keycloak:ci docker/keycloak
           python3 scripts/ci/check_keycloak_image.py stockpilot-keycloak:ci --revision "$SHA" --source "https://github.com/$GITHUB_REPOSITORY"
+      - name: Build immutable schema6 rollback candidate (local only)
+        run: python3 scripts/ops/schema6_rollback.py --build --output "$RUNNER_TEMP/schema6-build.json"
       - name: Start disposable image-test services
         run: |
           if ! docker compose -f docker/compose.ci.yml up -d --wait; then
@@ -142,6 +145,19 @@ jobs:
           docker run -d --name ci-api --network stockpilot-ci_default -p 127.0.0.1:58000:8000 -e MONGO_URI='mongodb://mongo:27017/?replicaSet=rs0&directConnection=true' -e MONGO_DATABASE=stockpilot_ci_runtime -e POSTGRES_URL=postgresql://ci:ci@postgres:5432/stockpilot_ci -e OLLAMA_BASE_URL=http://127.0.0.1:9 stockpilot-api:ci
           docker run -d --name ci-web --network stockpilot-ci_default -p 127.0.0.1:58080:8080 -e API_UPSTREAM=http://ci-api:8000 stockpilot-web:ci
       - run: python3 scripts/ci/smoke_images.py
+      - name: Qualify schema6 migration, rollback and isolated restore
+        run: |
+          python3 scripts/ci/qualify_schema6_rollback.py --build-report "$RUNNER_TEMP/schema6-build.json" --current-image stockpilot-api:ci --keycloak-image stockpilot-keycloak:ci --output "$RUNNER_TEMP/schema6-qualification.json"
+      - name: Retain sanitized schema6 qualification proof
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: schema6-rollback-proof
+          path: |
+            ${{ runner.temp }}/schema6-build.json
+            ${{ runner.temp }}/schema6-qualification.json
+          if-no-files-found: error
+          retention-days: 14
       - if: always()
         run: |
           docker rm -f ci-web ci-api || true
