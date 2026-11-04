@@ -46,9 +46,9 @@ async function main() {
       ok(session.user_id === actor && session.organization_id === config.actors[actor].org
         && session.role === 'USER', 'native OIDC callback/session/tenant verified')
       stage = actor + '-catalogue'
-      await page.getByLabel('SKU exact', { exact: true }).fill('DRILL-001')
-      await page.getByLabel('SKU exact', { exact: true }).press('Enter')
-      await page.locator('[aria-label="Résultats du catalogue"]').getByText('DRILL-001', { exact: true }).waitFor()
+      await page.getByRole('combobox', { name: 'SKU exact', exact: true }).fill('DRILL-001')
+      await page.getByRole('combobox', { name: 'SKU exact', exact: true }).press('Enter')
+      await page.locator('.b2b-grid article').getByText('DRILL-001', { exact: true }).waitFor()
       ok(true, 'historical catalogue renders the exact synthetic SKU')
       stage = actor + '-stocks'
       await page.goto(origin + '/b2b-app/stock')
@@ -91,6 +91,7 @@ async function main() {
     scope: 'historical Web + schema6-compatible API + real Keycloak; synthetic read-only business recipe' }) + '\n')
 }
 main().catch(error => {
-  process.stdout.write(JSON.stringify({ success: false, stage, type: error.constructor.name }) + '\n')
+  process.stdout.write(JSON.stringify({ success: false, stage, checks, type: error.constructor.name,
+    reason: String(error.message).includes('strict mode violation') ? 'ambiguous locator' : 'browser assertion or dependency failure' }) + '\n')
   process.exitCode = 1
 })

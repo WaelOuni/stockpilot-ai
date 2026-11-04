@@ -42,7 +42,7 @@ def paired(tmp_path):
         for name in c.PROVENANCE_PATHS:
             archive.add(active / name, arcname=name)
     manifest = {"format": c.FORMAT, "installation": "synthetic-installation",
-                "provenance": c.source_provenance(active), "images": images}
+                "provenance": c.source_provenance(active), "images": images, "schema": capture()["schema"]}
     def seal():
         manifest["archives"] = {n: {"bytes": (backup / n).stat().st_size,
                                      "sha256": c.file_sha(backup / n)} for n in c.ARCHIVES}
@@ -247,3 +247,21 @@ def test_dynamic_mongo_inventory_preserves_unknown_collection_and_options():
     assert proof["future_fixture"]["options"] == {"validator": {"value": {"$type": "long"}}}
     assert proof["future_fixture"]["indexes"][0]["key"] == [
         ["tenant", {"$numberInt": "1"}], ["sku", {"$numberInt": "-1"}]]
+
+
+def test_manifest_schema_must_match_captured_schema(paired):
+    _, backup, manifest, _ = paired
+    manifest["schema"] = {"version": 4, "checksums": list(c.CHECKSUMS[:4])}
+    (backup / "manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(c.ContractError, match="captured schema"):
+        verify(paired)
+
+
+def test_lock_refuses_symlink_parent_before_creating_a_file(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir(mode=0o700)
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+    with pytest.raises(c.ContractError, match="parent"):
+        c.operation_lock(alias / "recovery.lock")
+    assert not (real / "recovery.lock").exists()

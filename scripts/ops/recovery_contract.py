@@ -286,6 +286,7 @@ def verify_backup(directory, expected_manifest_sha, *, installation, active_root
             and facts["mongo"][HISTORY].get("count") == version, "Schema capture mismatch.")
     require(version != 6 or NEW_COLLECTIONS <= set(facts["mongo"]), "v6 collections missing.")
     validate_capture(facts)
+    require(data.get("schema") == facts["schema"], "Manifest and captured schema differ.")
     images = data.get("images", {})
     require(set(images) == {"api", "web", "mongo", "postgres", "keycloak-db", "keycloak"}
             and all(isinstance(v, str) and re.fullmatch(r"[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}", v) for v in images.values()),
@@ -298,7 +299,9 @@ def verify_backup(directory, expected_manifest_sha, *, installation, active_root
 def operation_lock(path):
     """Retain this FD until process exit. Never unlink/steal an existing lock."""
     import fcntl
-    path = Path(path)
+    path = Path(path).absolute()
+    require(path.parent.is_dir() and path.parent.resolve() == path.parent,
+            "Unsafe recovery lock parent.")
     flags = os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC
     fd = os.open(path, flags, 0o600)
     try:

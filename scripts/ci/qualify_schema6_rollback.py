@@ -410,6 +410,16 @@ def run(build, current, keycloak, output, browser_build):
             require(json.loads((states["source"] / "physical-columns.json").read_text()) == {"dropped_column_slots": 1}
                     and json.loads((states["restore"] / "physical-columns.json").read_text()) == {"dropped_column_slots": 0},
                     "Physical dropped-column compaction not exercised.")
+            report["backup"] = {
+                "archives": archives, "logical_before_after_restore_equal": True,
+                "mongo_collections": len(before["mongo"]),
+                "application_tables": len([k for k in before["application"] if not k.startswith("_")]),
+                "keycloak_tables": len([k for k in before["keycloak"] if not k.startswith("_")]),
+                "facts": before, "independent_tmpfs": True, "restore_ports_published": False,
+                "roles": "globals restored into a fresh owner; only the extra restore_admin role is normalized",
+                "physical_column_compaction": {"source_dropped_slots": 1, "restored_dropped_slots": 0,
+                                               "logical_columns_identical": True},
+            }
             lab.keycloak("restored", networks["restore"], keycloak, kc_env, realm, cert, key, importing=False)
             phase("wait-restored", "wait-keycloak", side="restore")
             phase("restored-rollback", "rollback", build["images"]["candidate"]["image_id"], side="restore")
@@ -419,16 +429,7 @@ def run(build, current, keycloak, output, browser_build):
                 states["restore"], restore_probe_env, config, cert, key, probe, guards, contract)
             phase("browser-after", "browser-after", side="restore")
             phase("restored-current", "return", side="restore")
-            report.update(success=True, backup={
-                "archives": archives, "logical_before_after_restore_equal": True,
-                "mongo_collections": len(before["mongo"]),
-                "application_tables": len([k for k in before["application"] if not k.startswith("_")]),
-                "keycloak_tables": len([k for k in before["keycloak"] if not k.startswith("_")]),
-                "facts": before, "independent_tmpfs": True, "restore_ports_published": False,
-                "roles": "globals restored into a fresh owner; only the extra restore_admin role is normalized",
-                "physical_column_compaction": {"source_dropped_slots": 1, "restored_dropped_slots": 0,
-                                               "logical_columns_identical": True},
-            })
+            report["success"] = True
         except Exception as error:
             report["failure"] = {"stage": lab.stage, "type": type(error).__name__,
                                  "detail": str(error) if isinstance(error, QualificationError) else "qualification failed"}
