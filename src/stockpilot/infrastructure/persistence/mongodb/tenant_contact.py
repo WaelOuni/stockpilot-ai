@@ -16,7 +16,7 @@ REPLY_FIELDS = ("reply_id", "request_id", "body", "created_by", "created_at")
 
 
 class MongoTenantContact(MongoTenantUnitOfWork):
-    schema_version = 5
+    schema_version = 6
 
     @staticmethod
     def _permission(principal, permission):

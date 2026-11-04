@@ -143,10 +143,10 @@ def test_http_contract_csrf_origin_input_and_expired_session(http):
     assert c.get(url).status_code == 401
 
 
-def test_upgrade0004_to0005_contact_is_additive_repeatable_and_non_destructive(db):
+def test_upgrade0005_to0006_contact_is_additive_repeatable_and_non_destructive(db):
     from test_tenant_catalogue_mongo_integration import document
     from stockpilot.infrastructure.persistence.mongodb.schema_migrations import MigrationRunner, registry
-    MigrationRunner(db, registry()[:4]).apply(confirmation=db.name)
+    MigrationRunner(db, registry()[:5]).apply(confirmation=db.name)
     product = document()
     db.b2b_products.insert_one(product)
     names = db.list_collection_names()
@@ -154,12 +154,12 @@ def test_upgrade0004_to0005_contact_is_additive_repeatable_and_non_destructive(d
     indexes = {name: list(db[name].list_indexes()) for name in names}
     history = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
     runner = MigrationRunner(db)
-    assert [m.version for m in runner.plan()] == [5]
+    assert [m.version for m in runner.plan()] == [6]
     runner.apply(confirmation=db.name)
-    runner.require_version(5)
+    runner.require_version(6)
     assert {name: db[name].options() for name in names} == options
     assert {name: list(db[name].list_indexes()) for name in names} == indexes
-    assert list(db.stockpilot_schema_migrations.find().sort("_id", 1))[:4] == history
+    assert list(db.stockpilot_schema_migrations.find().sort("_id", 1))[:5] == history
     assert db.b2b_products.find_one({"_id": product["_id"]}) == product
     added = set(db.list_collection_names()) - set(names)
     assert added == {"b2b_contact_requests", "b2b_contact_replies", "b2b_contact_operations"}

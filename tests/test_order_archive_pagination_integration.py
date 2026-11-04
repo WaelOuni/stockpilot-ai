@@ -150,7 +150,8 @@ def test_upgrade0004_to0005_preserves_existing_data_validators_and_indexes(db):
     options = {name: db[name].options() for name in names}
     indexes = {name: list(db[name].list_indexes()) for name in names}
     history = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
-    runner = MigrationRunner(db)
+    # Preserve the historical archive upgrade independently of later migrations.
+    runner = MigrationRunner(db, registry()[:5])
     assert [m.version for m in runner.plan()] == [5]
     runner.apply(confirmation=db.name)
     runner.require_version(5)

@@ -1,6 +1,6 @@
 {
-  "version": 5,
-  "id": "0005_b2b_contact",
+  "version": 6,
+  "id": "0006_b2b_contact",
   "description": "Add tenant contact requests replies and idempotent quota receipts",
   "collections": [
     {
