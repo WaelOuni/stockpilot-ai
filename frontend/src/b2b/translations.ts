@@ -33,6 +33,56 @@ Résultat à vérifier : un nouvel essai conservera la même référence.|Result
 Réessayer la même préférence|Retry the same preference
 Confirmer la restauration|Confirm restore
 Confirmer l’archivage personnel|Confirm personal archive
+Aide & contact|Help & contact
+Choisissez le support de l’application ou votre administrateur d’entreprise.|Choose application support or your organization administrator.
+Contacter le support StockPilot|Contact StockPilot support
+Ce formulaire prépare un email sur votre appareil. Aucun message support n’est enregistré dans StockPilot.|This form prepares an email on your device. No support message is stored in StockPilot.
+Type de demande|Request type
+Problème technique|Technical problem
+Question sur l’application|Application question
+Suggestion d’amélioration|Improvement suggestion
+Autre|Other
+Objet obligatoire|Subject (required)
+Description obligatoire|Description (required)
+Décrivez le problème sans mot de passe, token ni données confidentielles.|Describe the problem without passwords, tokens or confidential data.
+Préparer mon email|Prepare my email
+Copier le message|Copy message
+Texte à copier|Text to copy
+Votre application de messagerie va s'ouvrir. Vérifiez puis envoyez votre email.|Your email application will open. Review and then send your email.
+Message copié. Collez-le dans votre application de messagerie.|Message copied. Paste it into your email application.
+Copie automatique indisponible. Sélectionnez et copiez le texte ci-dessous.|Automatic copy unavailable. Select and copy the text below.
+Renseignez un objet (100 caractères maximum) et une description (800 caractères maximum).|Enter a subject (100 characters maximum) and description (800 characters maximum).
+Ce message est trop long pour un lien email. Utilisez Copier le message.|This message is too long for an email link. Use Copy message.
+Contacter mon administrateur|Contact my administrator
+Ces demandes restent dans votre organisation. Ce canal ne transmet aucun email externe.|These requests stay within your organization. This channel sends no external email.
+La messagerie interne n’est pas disponible pour cette session.|Internal messaging is unavailable for this session.
+Demande d’accès|Access request
+Problème de catalogue|Catalogue problem
+Question sur une commande|Order question
+Problème de stock|Stock problem
+Enregistrer ma demande|Save my request
+Mes demandes|My requests
+Demandes de mon organisation|My organization's requests
+Périmètre des demandes|Request scope
+Ouverte|Open
+Résolue|Resolved
+Actualiser les demandes|Refresh requests
+Aucune demande à afficher.|No requests to display.
+Détail de la demande|Request details
+Réponses de l’administrateur|Administrator replies
+Aucune réponse pour le moment.|No replies yet.
+Réponse obligatoire|Reply (required)
+Enregistrer la réponse|Save reply
+Marquer comme résolue|Mark as resolved
+Rouvrir la demande|Reopen request
+demandes • Page|requests • Page
+réponses • Page|replies • Page
+Pages des demandes|Request pages
+Pages des réponses|Reply pages
+Trop de demandes. Attendez dix minutes avant de réessayer.|Too many requests. Wait ten minutes before trying again.
+Demande ou mise à jour enregistrée dans votre organisation. Aucun email envoyé.|Request or update saved in your organization. No email sent.
+Résultat à vérifier. Gardez cette page ouverte : le nouvel essai utilisera la même référence.|Result needs verification. Keep this page open: retrying will use the same reference.
+Réessayer la même demande|Retry the same request
 
 Connexion annulée. Choisissez votre organisation pour recommencer.|Login cancelled. Choose your organization to start again.
 La connexion a échoué. Choisissez votre organisation pour réessayer.|Login failed. Choose your organization to try again.

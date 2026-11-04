@@ -1,0 +1,357 @@
+{
+  "version": 6,
+  "id": "0006_b2b_contact",
+  "description": "Add tenant contact requests replies and idempotent quota receipts",
+  "collections": [
+    {
+      "collection": "b2b_contact_requests",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "created_by",
+              "created_at",
+              "request_id",
+              "subject",
+              "description",
+              "category",
+              "status",
+              "updated_at",
+              "revision"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "created_by": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "created_at": {
+                "bsonType": "date"
+              },
+              "request_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "subject": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "description": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "category": {
+                "enum": [
+                  "access",
+                  "catalogue",
+                  "order",
+                  "stock",
+                  "other"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "open",
+                  "resolved"
+                ]
+              },
+              "updated_at": {
+                "bsonType": "date"
+              },
+              "revision": {
+                "bsonType": [
+                  "int",
+                  "long"
+                ],
+                "minimum": 1
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_contact_request_id",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "request_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_contact_own_list",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "created_by",
+              1
+            ],
+            [
+              "created_at",
+              -1
+            ],
+            [
+              "request_id",
+              -1
+            ]
+          ],
+          "unique": false
+        },
+        {
+          "name": "b2b_contact_org_list",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "created_at",
+              -1
+            ],
+            [
+              "request_id",
+              -1
+            ]
+          ],
+          "unique": false
+        }
+      ]
+    },
+    {
+      "collection": "b2b_contact_replies",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "created_by",
+              "created_at",
+              "request_id",
+              "reply_id",
+              "body"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "created_by": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "created_at": {
+                "bsonType": "date"
+              },
+              "request_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "reply_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "body": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_contact_reply_id",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "reply_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_contact_reply_list",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "request_id",
+              1
+            ],
+            [
+              "created_at",
+              1
+            ],
+            [
+              "reply_id",
+              1
+            ]
+          ],
+          "unique": false
+        }
+      ]
+    },
+    {
+      "collection": "b2b_contact_operations",
+      "options": {
+        "collation": {
+          "locale": "simple"
+        },
+        "validationLevel": "strict",
+        "validationAction": "error",
+        "validator": {
+          "$jsonSchema": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "required": [
+              "_id",
+              "organization_id",
+              "user_id",
+              "operation_id",
+              "action",
+              "fingerprint",
+              "request_id",
+              "reply_id",
+              "created_at"
+            ],
+            "properties": {
+              "_id": {
+                "bsonType": "objectId"
+              },
+              "organization_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "user_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "operation_id": {
+                "bsonType": "string",
+                "pattern": "^\\S(?:.*\\S)?$",
+                "maxLength": 128
+              },
+              "action": {
+                "enum": [
+                  "create",
+                  "reply",
+                  "status"
+                ]
+              },
+              "fingerprint": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "request_id": {
+                "bsonType": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "reply_id": {
+                "bsonType": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "created_at": {
+                "bsonType": "date"
+              }
+            }
+          }
+        }
+      },
+      "indexes": [
+        {
+          "name": "b2b_contact_operation",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "user_id",
+              1
+            ],
+            [
+              "operation_id",
+              1
+            ]
+          ],
+          "unique": true
+        },
+        {
+          "name": "b2b_contact_quota",
+          "key": [
+            [
+              "organization_id",
+              1
+            ],
+            [
+              "action",
+              1
+            ],
+            [
+              "created_at",
+              -1
+            ],
+            [
+              "user_id",
+              1
+            ]
+          ],
+          "unique": false
+        }
+      ]
+    }
+  ]
+}

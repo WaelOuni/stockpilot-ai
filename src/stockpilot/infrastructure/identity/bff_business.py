@@ -1,6 +1,8 @@
 """Trusted composition of existing B1/B2/B3 ports, on the session identity DB."""
 
 from dataclasses import dataclass
+from stockpilot.application.services.tenant_contact import TenantContact
+from stockpilot.infrastructure.persistence.mongodb.tenant_contact import MongoTenantContact
 
 from stockpilot.application.ports.tenant_orders import TenantOrdersPort
 from stockpilot.application.ports.tenant_stock_operations import (
@@ -29,6 +31,7 @@ class BffBusiness:
     catalogue: MongoTenantCatalogue
     orders: TenantOrdersPort
     stock: TenantStockOperationsPort
+    contact: TenantContact | None = None
 
     @classmethod
     def compose(cls, database, sessions):
@@ -42,4 +45,5 @@ class BffBusiness:
             MongoTenantCatalogue(database, authorization),
             MongoTenantOrders(database, authorization),
             MongoTenantStockOperations(database, authorization),
+            TenantContact(MongoTenantContact(database, authorization), authorization),
         )
