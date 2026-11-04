@@ -5,6 +5,7 @@ const { execFileSync } = require('node:child_process')
 const assert = require('node:assert/strict')
 const config = JSON.parse(readFileSync('/inputs/config.json', 'utf8'))
 const stored = JSON.parse(readFileSync('/state/assistant-turn.json', 'utf8'))
+const orders = JSON.parse(readFileSync('/state/orders.json', 'utf8'))
 const origin = 'https://bff.example:8443'
 let stage = 'certificate-trust'
 const checks = []
@@ -70,8 +71,11 @@ async function main() {
       await page.goto(origin + '/b2b-app/orders')
       await visible(page, 'Commandes')
       await visible(page, 'Mon historique', 2)
-      if (actor === 'a1') await page.locator('.b2b-table tbody tr').first().waitFor()
-      ok(true, 'historical orders navigation and history render')
+      const ownOrder = actor === 'a1' ? orders.reserved.order_id : orders.foreign.order_id
+      const foreignOrder = actor === 'a1' ? orders.foreign.order_id : orders.reserved.order_id
+      await page.getByRole('cell', { name: ownOrder, exact: true }).waitFor()
+      ok(await page.getByRole('cell', { name: foreignOrder, exact: true }).count() === 0,
+        'historical orders render the owned order and exclude the other organization')
       stage = actor + '-assistant'
       await page.goto(origin + '/b2b-app/assistant/history')
       await visible(page, 'Historique des conversations')
