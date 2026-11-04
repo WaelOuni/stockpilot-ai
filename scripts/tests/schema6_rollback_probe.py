@@ -38,9 +38,8 @@ from stockpilot.infrastructure.config.bff_settings import BffSettings
 from stockpilot.bff import create_app
 from stockpilot.presentation.api.routes.bff_auth import SESSION_COOKIE, TRANSACTION_COOKIE
 
-logging.disable(logging.CRITICAL)
 STATE = Path("/state")
-CONFIG = json.loads(Path("/inputs/config.json").read_text())
+CONFIG = {}  # Explicitly loaded only by the container entrypoint, never on import.
 ORIGIN = "https://bff.example:8443"
 NEW = {"b2b_order_archives", "b2b_order_archive_operations", "b2b_contact_requests",
        "b2b_contact_replies", "b2b_contact_operations"}
@@ -58,7 +57,7 @@ def hashed(value):
 
 
 def canonical(value):
-    return json_util.dumps(value, sort_keys=True)
+    return json_util.dumps(value, sort_keys=True, json_options=json_util.CANONICAL_JSON_OPTIONS)
 
 
 def save(name, value):
@@ -146,7 +145,6 @@ class DdlMonitor(monitoring.CommandListener):
 
 
 MONITOR = DdlMonitor()
-monitoring.register(MONITOR)
 
 
 class LoginForm(HTMLParser):
@@ -640,6 +638,10 @@ def negative(db):
 
 
 def main():
+    global CONFIG
+    logging.disable(logging.CRITICAL)
+    CONFIG = json.loads(Path("/inputs/config.json").read_text())
+    monitoring.register(MONITOR)
     parser = argparse.ArgumentParser()
     parser.add_argument("phase", choices=("wait-keycloak", "seed-v4", "upgrade", "old-refusal", "rollback",
                                           "return", "negative", "snapshot"))

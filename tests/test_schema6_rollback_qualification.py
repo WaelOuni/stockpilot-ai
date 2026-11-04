@@ -175,3 +175,20 @@ def test_dump_inventory_is_dynamic_and_source_registry_not_mutated():
     assert 'case == "unknown-v7"' in source
     assert 'case == "validator"' in source
     assert 'MONITOR.enabled = True' in source
+
+def test_remote_context_cannot_be_hidden_by_local_host_override(monkeypatch):
+    monkeypatch.setenv("DOCKER_HOST", "unix:///var/run/docker.sock")
+    monkeypatch.setenv("DOCKER_CONTEXT", "remote")
+    monkeypatch.setattr(lab, "command", lambda *a, **k: json.dumps([{
+        "Endpoints": {"docker": {"Host": "ssh://protected"}}}]).encode())
+    with pytest.raises(build.QualificationError, match="Local Unix"):
+        lab.local_engine()
+
+
+def test_logical_fingerprints_preserve_bson_numeric_types_and_field_order():
+    from bson.int64 import Int64
+    from scripts.tests.schema6_rollback_probe import canonical
+    assert canonical({"value": 1}) != canonical({"value": Int64(1)})
+    assert canonical({"value": 1}) != canonical({"value": 1.0})
+    assert canonical({"key": [["org", 1], ["sku", 1]]}) != canonical({"key": [["sku", 1], ["org", 1]]})
+    assert canonical({"b": 1, "a": 2}) == canonical({"a": 2, "b": 1})

@@ -25,8 +25,12 @@ LABEL = "io.stockpilot.qualification.owner"
 
 def local_engine():
     context = json.loads(command(["docker", "context", "inspect"]))[0]
-    endpoint = os.environ.get("DOCKER_HOST") or context["Endpoints"]["docker"]["Host"]
-    require(endpoint.startswith("unix:///") and not os.environ.get("DOCKER_TLS_VERIFY"),
+    endpoint = context["Endpoints"]["docker"]["Host"]
+    override = os.environ.get("DOCKER_HOST", endpoint)
+    # Require BOTH configurations to be local: DOCKER_CONTEXT/DOCKER_HOST
+    # precedence must never turn an apparently local validation into remote I/O.
+    require(endpoint.startswith("unix:///") and override.startswith("unix:///")
+            and not os.environ.get("DOCKER_TLS_VERIFY"),
             "Local Unix Docker engine required.")
     require(command(["docker", "info", "--format", "{{.OSType}}"]).strip() == b"linux", "Linux engine required.")
 
