@@ -222,7 +222,7 @@ def test_browser_is_mandatory_within_existing_container_job():
 
 def browser_capture():
     from scripts.tests.schema6_rollback_probe import BROWSER_IDENTITY_SCOPES
-    return {"mongo": {"business": "exact-fields-and-structures"}, "application": {"table": "exact-data"},
+    return {"mongo": {"business": {"data": "exact-fields", "structure": "exact-structure"}}, "application": {"table": "exact-data"},
             "authorization_fences": {name: {
                 "principal": {"value": 2, "present": True, "allowed": True},
                 "other": {"value": 1, "present": True, "allowed": False}}
@@ -245,7 +245,7 @@ def test_browser_read_contract_never_hides_business_or_identity_changes(change):
         rows["principal"]["value"] += 3
     row = after["authorization_fences"]["b2b_users"]["principal"]
     if change == "business":
-        after["mongo"]["business"] = "role or reservation changed"
+        after["mongo"]["business"]["data"] = "role or reservation changed"
     elif change == "postgres":
         after["application"]["table"] = "conversation changed"
     elif change == "revoked":

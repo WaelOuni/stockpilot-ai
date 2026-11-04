@@ -87,7 +87,8 @@ def identities(db):
             for n in ("b2b_users", "b2b_memberships", "b2b_organizations", "b2b_buyers")}
 
 
-BROWSER_IDENTITY_SCOPES = ("b2b_users", "b2b_organizations", "b2b_memberships")
+# MongoTenantOrders.list fences each buyer association as well as the identity.
+BROWSER_IDENTITY_SCOPES = ("b2b_users", "b2b_organizations", "b2b_memberships", "b2b_buyers")
 
 
 def browser_business_facts(db):
@@ -113,8 +114,11 @@ def browser_business_facts(db):
 
 
 def compare_browser_business(before, after):
-    check(before["mongo"] == after["mongo"],
-          "browser preserves all Mongo business fields and structures outside explicit authorization counters")
+    check(set(before["mongo"]) == set(after["mongo"]), "browser Mongo inventory unchanged")
+    changed = {name: [key for key in before["mongo"][name]
+                     if before["mongo"][name][key] != after["mongo"][name].get(key)]
+               for name in before["mongo"] if before["mongo"][name] != after["mongo"][name]}
+    check(not changed, "browser Mongo business/structure differences: " + json.dumps(changed, sort_keys=True))
     check(before["application"] == after["application"],
           "browser preserves all PostgreSQL application data and structures")
     expected, actual = before["authorization_fences"], after["authorization_fences"]
