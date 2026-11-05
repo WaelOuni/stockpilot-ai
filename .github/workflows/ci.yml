@@ -110,7 +110,7 @@ jobs:
       - run: python scripts/ci/check_targets.py
       - run: python -m pytest -q -m "integration and not integration_optional" tests
       - if: always()
-        run: docker compose -f docker/compose.ci.yml down -v
+        run: docker compose -f docker/compose.ci.yml down
   containers:
     # Same MongoDB kernel compatibility requirement as integration-tests.
     runs-on: ubuntu-22.04
@@ -149,6 +149,7 @@ jobs:
       - run: python3 scripts/ci/smoke_images.py
       - name: Qualify schema6 migration, rollback and isolated restore
         run: |
+          docker pull postgres:15-alpine@sha256:dfcf0459185089e88a43197975780f5a3078acd5ece84824a14c9d6fbbab02d0
           python3 scripts/ci/qualify_schema6_rollback.py --build-report "$RUNNER_TEMP/schema6-build.json" --browser-build-report "$RUNNER_TEMP/schema6-browser-build.json" --current-image stockpilot-api:ci --keycloak-image stockpilot-keycloak:ci --output "$RUNNER_TEMP/schema6-qualification.json"
       - name: Retain sanitized schema6 qualification proof
         if: always()
@@ -164,7 +165,7 @@ jobs:
       - if: always()
         run: |
           docker rm -f ci-web ci-api || true
-          docker compose -f docker/compose.ci.yml down -v
+          docker compose -f docker/compose.ci.yml down
   e2e:
     # Existing harness requires real Ollama classification; see docs/ci-cd.md.
     if: ${{ false }}

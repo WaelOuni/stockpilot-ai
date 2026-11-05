@@ -122,7 +122,9 @@ class Lab:
             ["mongod", "--port", "27027", "--replSet", "rs0", "--bind_ip_all"],
             ["--network-alias", "mongo", "--tmpfs", "/data/db", "--tmpfs", "/data/configdb"])
         for key, port in (("application", "55432"), ("keycloak", "55433")):
-            result[key] = self.create(suffix + "-pg-" + key, "pgvector/pgvector:pg16", network,
+            image = ("pgvector/pgvector:pg16" if key == "application" else
+                     "postgres:15-alpine@sha256:dfcf0459185089e88a43197975780f5a3078acd5ece84824a14c9d6fbbab02d0")
+            result[key] = self.create(suffix + "-pg-" + key, image, network,
                 ["postgres", "-p", port],
                 ["--network-alias", "pg-" + key, "--env-file", str(pg_env[key]),
                  "--tmpfs", "/var/lib/postgresql/data"])
