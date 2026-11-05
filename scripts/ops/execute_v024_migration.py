@@ -104,8 +104,16 @@ def restore_admission(plan, manifest, proof, now):
 def inspect_sources(manifest):
     ids = command(["docker", "compose", "-p", PROJECT, "-f", str(ROOT / "private/compose.json"),
                    "ps", "-aq"]).decode().split()
-    require(len(ids) == 6, "Expected exactly six installation services.")
+    require(6 <= len(ids) <= 20, "Unexpected installation container inventory.")
     records = json.loads(command(["docker", "inspect", *ids]))
+    oneoffs = [r for r in records if r["Config"]["Labels"].get("com.docker.compose.oneoff") == "True"]
+    require(all(r["State"]["Status"] == "exited" and not r["State"]["Running"]
+                and r["Config"]["Labels"].get("com.docker.compose.project") == PROJECT
+                and r["Config"]["Labels"].get("stockpilot.installation")
+                    == migration.INSTALLATION.replace("-", "") for r in oneoffs),
+            "Historical administrative container is active or has foreign ownership.")
+    records = [r for r in records if r not in oneoffs]
+    require(len(records) == 6, "Expected exactly six regular installation services.")
     sources = {r["Config"]["Labels"].get("com.docker.compose.service"): r for r in records}
     require(set(sources) == SERVICES, "Unexpected source inventory.")
     for name, row in sources.items():

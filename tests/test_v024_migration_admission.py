@@ -112,6 +112,25 @@ def test_sources_require_stopped_writers_original_volumes_and_no_unknown_client(
         return json.dumps([{"Containers": clients}] if "network" in args else records).encode()
     monkeypatch.setattr(host, "command", command)
     assert set(host.inspect_sources(manifest)) == host.SERVICES
+    # Preserve the actual installation's old exited Compose one-off. An active
+    # one-off or duplicate regular replica must remain a hard refusal.
+    extra = deepcopy(records[0])
+    extra["Id"] = "historical-oneoff"
+    extra["Config"]["Labels"]["com.docker.compose.oneoff"] = "True"
+    extra["State"].update(Status="exited", Running=False)
+    records.append(extra)
+    # The command fake reports the full inventory just like compose ps -aq.
+    original_command = command
+    def with_oneoff(args):
+        if "compose" in args:
+            return " ".join(r["Id"] for r in records).encode()
+        return original_command(args)
+    monkeypatch.setattr(host, "command", with_oneoff)
+    assert set(host.inspect_sources(manifest)) == host.SERVICES
+    extra["State"].update(Status="running", Running=True)
+    with pytest.raises(migration.TransitionRefused, match="administrative"):
+        host.inspect_sources(manifest)
+    records.pop()
     baseline = deepcopy(records)
     for change in ("writer", "volume", "identity", "port", "health", "external"):
         records[:] = deepcopy(baseline)
