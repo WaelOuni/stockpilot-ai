@@ -86,7 +86,9 @@ def restore_admission(plan, manifest, proof, now):
             and now - captured < timedelta(hours=2), "Fresh paired backup from this window required.")
     require(manifest["database"] == migration.DATABASE
             and manifest["vm_installation_id"] == migration.INSTALLATION
-            and manifest["schema"]["version"] == 4, "Expected v4 source backup.")
+            and manifest["schema"]["version"] == 4
+            and manifest.get("resume_policy") == "quiesced-on-success",
+            "Expected v4 source backup with writers held quiescent.")
     require(proof.get("status") == "logical_restore_verified"
             and proof.get("backup") == plan["backup"]
             and proof.get("schema_version") == 4

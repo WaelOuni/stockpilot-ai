@@ -49,6 +49,7 @@ def restore():
     return {
         "captured_at": "20261105T115500Z", "database": migration.DATABASE,
         "vm_installation_id": migration.INSTALLATION, "schema": {"version": 4},
+        "resume_policy": "quiesced-on-success",
         "source_ids": {"mongo": "source-m", "test-postgres": "source-p", "keycloak-db": "source-k"},
     }, {
         "status": "logical_restore_verified", "backup": plan()["backup"], "schema_version": 4,
@@ -59,7 +60,7 @@ def restore():
     }
 
 
-@pytest.mark.parametrize("change", ["source-overlap", "missing-db", "old-backup", "wrong-version", "failed", "ports", "drift"])
+@pytest.mark.parametrize("change", ["source-overlap", "missing-db", "old-backup", "wrong-version", "failed", "ports", "drift", "writers-resumed"])
 def test_restore_proof_must_be_fresh_complete_and_isolated(change):
     manifest, proof = restore()
     host.restore_admission(plan(), manifest, proof, NOW)
@@ -73,6 +74,8 @@ def test_restore_proof_must_be_fresh_complete_and_isolated(change):
         manifest["schema"]["version"] = 6
     elif change == "failed":
         proof["all_structures_equal"] = False
+    elif change == "writers-resumed":
+        manifest["resume_policy"] = "resume"
     elif change == "ports":
         proof["no_published_ports"] = False
     else:

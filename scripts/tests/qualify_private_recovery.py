@@ -21,7 +21,7 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.ops.prepare_recovery_patch import prepare
-from scripts.ops.recovery_contract import file_sha, require, source_provenance, verify_backup
+from scripts.ops.recovery_contract import compare_capture, file_sha, require, source_provenance, verify_backup
 from scripts.ci.qualify_schema6_rollback import local_engine
 
 REPO = Path(__file__).resolve().parents[2]
@@ -208,14 +208,16 @@ HTTPServer(("0.0.0.0",8000),Handler).serve_forever()
         call(self.compose + ["up", "-d", "--pull", "never", "mongo", "test-postgres", "keycloak-db"])
         mongo = self.services()["mongo"]["Id"]
         auth = "const a=db.getSiblingDB('admin');if(!a.auth(process.env.MONGO_INITDB_ROOT_USERNAME,process.env.MONGO_INITDB_ROOT_PASSWORD))throw Error('auth');"
+        # The image first runs an authenticated standalone initialization server.
+        # Wait for the final rs0 process; authentication alone is not readiness.
         for _ in range(90):
-            if docker("exec", mongo, "mongosh", "--quiet", "--eval", auth + "print(1)", check=False).returncode == 0:
+            if docker("exec", mongo, "mongosh", "--quiet", "--eval", auth + "const o=a.adminCommand({getCmdLineOpts:1});if(o.parsed?.replication?.replSet!=='rs0')quit(2);print(1)", check=False).returncode == 0:
                 break
             time.sleep(1)
         else:
             raise RuntimeError("Synthetic Mongo bootstrap deadline.")
         docker("exec", mongo, "mongosh", "--quiet", "--eval",
-               auth + "rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]})")
+               auth + "const r=rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]});if(r.ok!==1)throw Error('replica initialization refused')")
         call(self.compose + ["up", "-d", "--pull", "never", "--wait", "--wait-timeout", "180"], timeout=240)
         self.seed(version)
         self.healthy()
@@ -299,12 +301,17 @@ print("HTTPS_DISCOVERY_VALIDATED")
                 "Unexpected private operator result: " + name)
         return result.stdout.decode()
 
-    def backup(self, *, fail=False, env=None):
+    def backup(self, *, fail=False, env=None, keep=False):
         before = set((self.root / "backups").iterdir())
         time.sleep(1.1)  # The pinned operator uses a one-second directory identity.
-        output = self.operator("backup_fresh.py", fail=fail, env=env)
+        output = self.operator("backup_fresh.py", *(["--keep-quiesced"] if keep else []), fail=fail, env=env)
         added = set((self.root / "backups").iterdir()) - before
-        self.healthy()
+        if keep and not fail:
+            require("SOURCE_WRITERS_REMAIN_QUIESCED" in output
+                    and all(self.services()[n]["State"]["Status"] == "exited" for n in ("bff", "keycloak")),
+                    "Successful hold mode resumed a writer.")
+        else:
+            self.healthy()
         if fail:
             return {"expected_failure": True, "partial_directories": len(added)}
         require(len(added) == 1, "Ambiguous fresh backup.")
@@ -313,6 +320,7 @@ print("HTTPS_DISCOVERY_VALIDATED")
         sha = file_sha(backup / "manifest.json")
         require("MANIFEST_SHA256 " + sha in output, "Independent manifest SHA absent.")
         m = verify_backup(backup, sha, installation=self.cfg["installation"], active_root=self.root)
+        require(m.get("resume_policy") == ("quiesced-on-success" if keep else "resume"), "Resume policy not recorded.")
         return backup, sha, m
 
     def test(self, version):
@@ -356,7 +364,14 @@ print("HTTPS_DISCOVERY_VALIDATED")
         require(proof["all_counts_and_hashes_equal"] and proof["all_structures_equal"]
                 and proof["schema_version"] == version and proof["no_published_ports"],
                 "Incomplete private restore qualification.")
-        migration_proof = self.migration_probe(backup, proof) if version == 4 and self.migration_image else None
+        migration_proof = None
+        self.healthy()
+        call(self.compose + ["stop", "bff", "keycloak"])
+        resumed_then_stopped = self.quiescent_facts()
+        captured = json.loads((backup / "facts.json").read_text())
+        restart_changes = sorted(n for n in captured["keycloak"]
+                                 if captured["keycloak"][n] != resumed_then_stopped["keycloak"].get(n))
+        call(self.compose + ["start", "keycloak", "bff"])
         self.healthy()
         # Fail an actual dump after Mongo capture and prove the finally resumes writers.
         shim = self.root / "shim"
@@ -368,6 +383,21 @@ print("HTTPS_DISCOVERY_VALIDATED")
                        "os.execv(" + repr(executable) + ",[" + repr(executable) + "]+sys.argv[1:])\n")
         write(shim / "docker", shim_source, 0o700)
         failed = self.backup(fail=True, env={**os.environ, "PATH": str(shim) + os.pathsep + os.environ["PATH"]})
+        failed_held = self.backup(fail=True, keep=True, env={**os.environ, "PATH": str(shim) + os.pathsep + os.environ["PATH"]})
+        held, held_sha, held_manifest = self.backup(keep=True)
+        held_expected = json.loads((held / "facts.json").read_text())
+        compare_capture(held_expected, self.quiescent_facts())
+        self.operator("restore_isolated.py", str(held), held_sha)
+        held_proofs = list(held.glob("restore-verification-*.json"))
+        require(len(held_proofs) == 1, "Held restore proof missing.")
+        held_proof = json.loads(held_proofs[0].read_text())
+        require(held_proof["all_counts_and_hashes_equal"] and held_proof["all_structures_equal"],
+                "Held restoration incomplete.")
+        compare_capture(held_expected, self.quiescent_facts())
+        if version == 4 and self.migration_image:
+            migration_proof = self.migration_probe(held, held_proof)
+        call(self.compose + ["start", "keycloak", "bff"])
+        self.healthy()
         return {"success": True, "schema": version, "manifest_sha256": sha,
                 "archives": manifest["archives"], "restore": {k: proof[k] for k in (
                     "mongo_collections", "application_tables", "keycloak_tables",
@@ -376,9 +406,32 @@ print("HTTPS_DISCOVERY_VALIDATED")
                            "actual paired backup", "provenance drift refused", "corrupt archive refused",
                            "actual independent three-database restore", "PostgreSQL Keycloak 15",
                            "partial backup failure and safe service recovery", "HTTPS and discovery valid"],
-                "partial_backup": failed, "migration_runtime": migration_proof,
+                "post_restart_keycloak_changes": restart_changes,
+                "partial_backup": failed, "partial_backup_hold_requested": failed_held,
+                "hold_success": {"manifest_sha256": held_sha, "strict_source_equal_before_after_restore": True,
+                                 "writers_held_until_explicit_resume": True, "restore_verified": True},
+                "migration_runtime": migration_proof,
                 "production_candidate_hashes": self.production_hashes,
                 "test_target_only_relocation": source_provenance(self.root)}
+
+    def quiescent_facts(self):
+        require(all(self.services()[n]["State"]["Status"] == "exited" for n in ("bff", "keycloak")),
+                "Fixture writers must be stopped.")
+        name = self.project + "-held-facts-" + uuid4().hex[:8]
+        args = ["create", "--name", name, "--network", self.project + "_application",
+                "--read-only", "--tmpfs", "/tmp", "--cap-drop", "ALL", "--user", "0", "--memory", "384m"]
+        for source, target in (
+            (self.root / "private/operator.json", "/run/stockpilot/operator.json"),
+            (self.root / "installation-id", "/run/stockpilot/vm-id"),
+            (self.root / "operations", "/operations"),
+        ):
+            args += ["-v", str(source) + ":" + target + ":ro"]
+        cid = docker(*args, self.images["api"], "python", "-B", "/operations/recovery_facts.py").stdout.decode().strip()
+        docker("network", "connect", self.project + "_identity", cid)
+        data = docker("start", "-a", cid)
+        require(rows("inspect", cid)[0]["State"]["ExitCode"] == 0, "Quiescent collector failed.")
+        return json.loads(data.stdout)
+
 
     def migration_probe(self, backup, proof):
         """Exercise the installed container entrypoint on the restored synthetic DBs."""
