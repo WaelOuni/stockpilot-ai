@@ -47,6 +47,26 @@ def amend(sources):
     b = replace_once(b, 'print("BACKUP_CREATED",str(B),flush=True)',
         'print("BACKUP_CREATED",str(B),flush=True)\n'
         ' print("MANIFEST_SHA256",file_sha(B/"manifest.json"),flush=True)')
+    # An explicitly requested migration window must retain the exact captured
+    # Keycloak state. Default behavior and every failure still resume writers.
+    b = replace_once(b, 'import pathlib,json,subprocess,hashlib,os,datetime',
+                     'import pathlib,json,subprocess,hashlib,os,datetime,argparse')
+    anchor = 'cfg=json.loads((P/"operator.json").read_text());assert cfg["purpose"]=="fresh-demo-v021"'
+    b = replace_once(b, anchor,
+        '_parser=argparse.ArgumentParser(description="Private paired recovery operator")\n'
+        '_parser.add_argument("--keep-quiesced",action="store_true")\n'
+        '_options=_parser.parse_args()\n' + anchor)
+    b = replace_once(b, 'stopped=False', 'stopped=False;_capture_complete=False')
+    b = replace_once(b, '"format":FORMAT,"provenance":provenance,',
+        '"format":FORMAT,"resume_policy":("quiesced-on-success" if _options.keep_quiesced else "resume"),'
+        '"provenance":provenance,')
+    b = replace_once(b, ' print("MANIFEST_SHA256",file_sha(B/"manifest.json"),flush=True)',
+        ' print("MANIFEST_SHA256",file_sha(B/"manifest.json"),flush=True)\n _capture_complete=True')
+    b = replace_once(b, 'finally:\n if stopped:',
+                     'finally:\n if stopped and (not _options.keep_quiesced or not _capture_complete):')
+    b = replace_once(b, 'print("SOURCE_SIX_SERVICES_RESTARTED_HEALTHY",flush=True)',
+        'print("SOURCE_WRITERS_REMAIN_QUIESCED" if _options.keep_quiesced and _capture_complete '
+        'else "SOURCE_SIX_SERVICES_RESTARTED_HEALTHY",flush=True)')
     result["backup_fresh.py"] = b
 
     r = sources["restore_isolated.py"]
