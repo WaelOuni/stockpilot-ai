@@ -169,7 +169,9 @@ def test_required_ci_runs_actual_roundtrip_and_never_publishes():
 
 def test_dump_inventory_is_dynamic_and_source_registry_not_mutated():
     source = (ROOT / "scripts/tests/schema6_rollback_probe.py").read_text()
-    assert "for coll in db.list_collections()" in source
+    collector = (ROOT / "scripts/ops/recovery_contract.py").read_text()
+    assert "return recovery_mongo_facts(db)" in source
+    assert "for collection in db.list_collections()" in collector
     assert 'db.client.drop_database(name)' in source
     assert 'db.client.drop_database(db.name)' not in source
     assert 'case == "unknown-v7"' in source
@@ -192,3 +194,69 @@ def test_logical_fingerprints_preserve_bson_numeric_types_and_field_order():
     assert canonical({"value": 1}) != canonical({"value": 1.0})
     assert canonical({"key": [["org", 1], ["sku", 1]]}) != canonical({"key": [["sku", 1], ["org", 1]]})
     assert canonical({"b": 1, "a": 2}) == canonical({"a": 2, "b": 1})
+
+
+@pytest.mark.parametrize("mode,kind,path", [
+    ("120000", "blob", "frontend/src/link"),
+    ("160000", "commit", "frontend/src/submodule"),
+    ("100644", "blob", "frontend/src/../secret"),
+    ("100644", "blob", "frontend/src/.env.private"),
+    ("100644", "blob", "/etc/passwd"),
+])
+def test_historical_web_context_rejects_unsafe_entries(monkeypatch, mode, kind, path):
+    from scripts.ci import build_schema6_browser as browser
+    monkeypatch.setattr(browser, "source_files", lambda _: {})
+    monkeypatch.setattr(browser, "git", lambda *args: f"{mode} {kind} {'1'*40}\t{path}\0".encode())
+    with pytest.raises(build.QualificationError, match="Unsafe"):
+        browser.web_files(ROOT)
+
+
+def test_browser_is_mandatory_within_existing_container_job():
+    ci = yaml.load((ROOT / ".github/workflows/ci.yml").read_text(), Loader=yaml.BaseLoader)
+    steps = ci["jobs"]["containers"]["steps"]
+    browser = next(s for s in steps if "build_schema6_browser.py" in s.get("run", ""))
+    roundtrip = next(s for s in steps if "qualify_schema6_rollback.py" in s.get("run", ""))
+    assert "if" not in browser and steps.index(browser) < steps.index(roundtrip)
+    assert '--browser-build-report "$RUNNER_TEMP/schema6-browser-build.json"' in roundtrip["run"]
+
+
+def browser_capture():
+    from scripts.tests.schema6_rollback_probe import BROWSER_IDENTITY_SCOPES
+    return {"mongo": {"business": {"data": "exact-fields", "structure": "exact-structure"}}, "application": {"table": "exact-data"},
+            "authorization_fences": {name: {
+                "principal": {"value": 2, "present": True, "allowed": True},
+                "other": {"value": 1, "present": True, "allowed": False}}
+                for name in BROWSER_IDENTITY_SCOPES}}
+
+
+def test_browser_read_contract_accepts_only_explicit_monotonic_authorization_fences():
+    from scripts.tests.schema6_rollback_probe import compare_browser_business
+    before, after = browser_capture(), browser_capture()
+    for rows in after["authorization_fences"].values():
+        rows["principal"]["value"] += 3
+    assert set(compare_browser_business(before, after).values()) == {3}
+
+
+@pytest.mark.parametrize("change", ["business", "postgres", "revoked", "removed", "decrement", "excess", "float"])
+def test_browser_read_contract_never_hides_business_or_identity_changes(change):
+    from scripts.tests.schema6_rollback_probe import compare_browser_business
+    before, after = browser_capture(), browser_capture()
+    for rows in after["authorization_fences"].values():
+        rows["principal"]["value"] += 3
+    row = after["authorization_fences"]["b2b_users"]["principal"]
+    if change == "business":
+        after["mongo"]["business"]["data"] = "role or reservation changed"
+    elif change == "postgres":
+        after["application"]["table"] = "conversation changed"
+    elif change == "revoked":
+        after["authorization_fences"]["b2b_users"]["other"]["value"] += 1
+    elif change == "removed":
+        row["present"] = False
+    elif change == "decrement":
+        row["value"] = 1
+    elif change == "excess":
+        row["value"] = 103
+    else:
+        row["value"] = 5.0
+    with pytest.raises(AssertionError):
+        compare_browser_business(before, after)

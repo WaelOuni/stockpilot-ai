@@ -28,6 +28,14 @@ from fastapi.testclient import TestClient
 from pymongo import monitoring
 
 from integration_targets import mongo_test_client, validate_postgres_test_uri, verify_postgres_identity
+try:
+    from recovery_contract import (mongo_facts as recovery_mongo_facts, postgres_facts,
+                                   mongo_preconditions, compare_capture, ContractError)
+except ModuleNotFoundError as error:
+    if error.name != "recovery_contract":
+        raise
+    from scripts.ops.recovery_contract import (mongo_facts as recovery_mongo_facts, postgres_facts,
+                                              mongo_preconditions, compare_capture, ContractError)
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.persistence.mongodb.schema_migrations import (
     HISTORY, LOCKS, MigrationError, MigrationRunner, registry,
@@ -69,17 +77,7 @@ def load(name):
 
 
 def mongo_facts(db):
-    # Dynamic inventory, including unknown-to-the-application collections.
-    result = {}
-    for coll in db.list_collections():
-        name = coll["name"]
-        documents = sorted(canonical(d) for d in db[name].find({}))
-        result[name] = {
-            "count": len(documents), "data": hashed("\n".join(documents)),
-            "options": json.loads(canonical(coll.get("options", {}))),
-            "indexes": json.loads(canonical(sorted(({**dict(i), "key": list(i["key"].items())} for i in db[name].list_indexes()), key=lambda i: i["name"]))),
-        }
-    return result
+    return recovery_mongo_facts(db)
 
 
 def identities(db):
@@ -89,41 +87,72 @@ def identities(db):
             for n in ("b2b_users", "b2b_memberships", "b2b_organizations", "b2b_buyers")}
 
 
-def pg_facts(uri):
+# MongoTenantOrders.list fences each buyer association as well as the identity.
+BROWSER_IDENTITY_SCOPES = ("b2b_users", "b2b_organizations", "b2b_memberships", "b2b_buyers")
+
+
+def browser_business_facts(db):
+    """Business reads fence authorization; only two synthetic principals are allowed."""
+    mongo = {k: v for k, v in mongo_facts(db).items()
+             if k not in {"bff_sessions", "bff_login_transactions"}}
+    fences = {}
+    for name in BROWSER_IDENTITY_SCOPES:
+        rows = list(db[name].find({}))
+        normalized, counters = [], {}
+        for row in rows:
+            value = row.get("authorization_fence", 0)
+            check(type(value) is int and value >= 0, "typed nonnegative authorization fence")
+            allowed = (row.get("organization_id") in {"org-a", "org-b"} if name == "b2b_organizations"
+                       else row.get("user_id") in {"a1", "b1"})
+            counters[hashed(canonical(row["_id"]))] = {
+                "value": value, "present": "authorization_fence" in row, "allowed": allowed}
+            normalized.append(canonical({k: v for k, v in row.items() if k != "authorization_fence"}))
+        mongo[name]["data"] = hashed("\n".join(sorted(normalized)))
+        fences[name] = counters
+    return {"mongo": mongo, "application": pg_facts(os.environ["POSTGRES_TEST_URI"]),
+            "authorization_fences": fences}
+
+
+def compare_browser_business(before, after):
+    check(set(before["mongo"]) == set(after["mongo"]), "browser Mongo inventory unchanged")
+    changed = {name: [key for key in before["mongo"][name]
+                     if before["mongo"][name][key] != after["mongo"][name].get(key)]
+               for name in before["mongo"] if before["mongo"][name] != after["mongo"][name]}
+    check(not changed, "browser Mongo business/structure differences: " + json.dumps(changed, sort_keys=True))
+    check(before["application"] == after["application"],
+          "browser preserves all PostgreSQL application data and structures")
+    expected, actual = before["authorization_fences"], after["authorization_fences"]
+    check(set(expected) == set(actual) == set(BROWSER_IDENTITY_SCOPES), "exact authorization fence scopes")
+    changes = {}
+    for name in BROWSER_IDENTITY_SCOPES:
+        check(set(expected[name]) == set(actual[name]), "authorization identity inventory preserved")
+        delta = 0
+        for identifier, old in expected[name].items():
+            new = actual[name][identifier]
+            check(set(old) == set(new) == {"value", "present", "allowed"}
+                  and all(type(row["value"]) is int and row["value"] >= 0
+                          and type(row["present"]) is bool and type(row["allowed"]) is bool
+                          for row in (old, new)), "typed authorization fence proof")
+            if old == new:
+                continue
+            check(old["allowed"] and new["allowed"] and new["present"]
+                  and type(new["value"]) is int and 0 < new["value"] - old["value"] <= 100,
+                  "only bounded monotonic fences of the two browser principals may change")
+            delta += new["value"] - old["value"]
+        changes[name] = delta
+    check(all(value > 0 for value in changes.values()), "historical order reads actually fence authorization")
+    CHECKS.append("only documented authorization_fence increments: " + json.dumps(changes, sort_keys=True))
+    return changes
+
+
+def pg_facts(uri, *, raw_roles=False):
     with psycopg.connect(uri) as c:
+        c.execute("SET TRANSACTION READ ONLY")
         verify_postgres_identity(c, uri)
-        tables = c.execute(
-            "SELECT schemaname,tablename FROM pg_tables "
-            "WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1,2"
-        ).fetchall()
-        result = {}
-        for schema, table in tables:
-            name = schema + "." + table
-            rows = c.execute(sql.SQL("SELECT row_to_json(t) FROM {}.{} t").format(
-                sql.Identifier(schema), sql.Identifier(table))).fetchall()
-            data = sorted(json.dumps(row[0], sort_keys=True, separators=(",", ":"), default=str) for row in rows)
-            columns = c.execute(
-                "SELECT a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,"
-                "pg_get_expr(d.adbin,d.adrelid),a.attidentity,a.attgenerated FROM pg_attribute a "
-                "JOIN pg_class t ON t.oid=a.attrelid JOIN pg_namespace n ON n.oid=t.relnamespace "
-                "LEFT JOIN pg_attrdef d ON d.adrelid=t.oid AND d.adnum=a.attnum "
-                "WHERE n.nspname=%s AND t.relname=%s AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum",
-                (schema, table)).fetchall()
-            indexes = c.execute("SELECT indexname,indexdef FROM pg_indexes WHERE schemaname=%s AND tablename=%s ORDER BY 1",
-                                (schema, table)).fetchall()
-            constraints = c.execute(
-                "SELECT conname,pg_get_constraintdef(x.oid),convalidated FROM pg_constraint x "
-                "JOIN pg_class t ON t.oid=x.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace "
-                "WHERE n.nspname=%s AND t.relname=%s ORDER BY 1", (schema, table)).fetchall()
-            result[name] = {"count": len(data), "data": hashed("\n".join(data)),
-                            "structure": hashed(json.dumps([columns, indexes, constraints], default=str))}
-        result["_sequences"] = hashed(json.dumps(c.execute(
-            "SELECT schemaname,sequencename,data_type,start_value,min_value,max_value,increment_by,cycle,cache_size,last_value "
-            "FROM pg_sequences WHERE schemaname NOT IN ('pg_catalog','information_schema') ORDER BY 1,2"
-        ).fetchall(), default=str))
-        result["_roles"] = hashed(json.dumps(c.execute(
-            "SELECT rolname,rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,rolreplication,rolconnlimit "
-            "FROM pg_roles ORDER BY rolname").fetchall(), default=str))
+        result = postgres_facts(c)
+        if not raw_roles and os.environ.get("SCHEMA6_RESTORE_ROLE") == "restore_admin":
+            check("restore_admin" in result["_roles"], "owned restore bootstrap role explicitly identified")
+            result["_roles"].pop("restore_admin")
         return result
 
 
@@ -339,6 +368,21 @@ def pg_setup():
         runner = PostgresTenantMigrations(uri)
         database, identity = runner.target(c)
     runner.apply(database=database, system_identifier=identity)
+    # Extra synthetic objects exercise dump/restore semantics missed by row counts.
+    with psycopg.connect(uri) as c:
+        verify_postgres_identity(c, uri)
+        c.execute("CREATE SCHEMA recovery_qualification")
+        c.execute("CREATE TABLE recovery_qualification.live_columns (id integer PRIMARY KEY, "
+                  "retired text, amount numeric(38,12) NOT NULL CHECK(amount>=0), payload bytea)")
+        c.execute("ALTER TABLE recovery_qualification.live_columns DROP COLUMN retired")
+        c.execute("INSERT INTO recovery_qualification.live_columns VALUES "
+                  "(1,12345678901234567890.123456789012,decode('00ff','hex'))")
+        c.execute("CREATE SEQUENCE recovery_qualification.stateful START 5 INCREMENT 3")
+        c.execute("SELECT setval('recovery_qualification.stateful',53,false)")
+        c.execute("CREATE ROLE qualification_reader NOLOGIN")
+        c.execute("GRANT USAGE ON SCHEMA recovery_qualification TO qualification_reader")
+        c.execute("GRANT SELECT ON recovery_qualification.live_columns TO qualification_reader")
+
 
 
 def pg_business(b, *, seed=False):
@@ -480,9 +524,11 @@ def read_business(b):
 
 def rollback(db):
     MigrationRunner(db).require_version(6)
+    prefix = "restored-rollback-" if os.environ.get("SCHEMA6_RESTORE_ROLE") else "rollback-"
     before, stock_before = mongo_facts(db), inventory(db)
     products_before = list(db.b2b_products.find({}))
     operations_before = list(db.b2b_order_operations.find({}))
+    orders_before = list(db.b2b_orders.find({}))
     with Bff(db, reuse=True) as b:
         read_business(b)
         c = b.browser()
@@ -506,26 +552,28 @@ def rollback(db):
              {"operation_id": "absent", "confirmed": True}),
         ):
             response(c, method, path, status=404, **({"json": payload} if payload is not None else {}))
-        order = prepare(c, "rollback-prepare")
+        order = prepare(c, prefix + "prepare")
         check(inventory(db) == stock_before, "preparation reserves nothing")
-        check(prepare(c, "rollback-prepare") == order, "preparation replay exact")
+        check(prepare(c, prefix + "prepare") == order, "preparation replay exact")
         path = "/b2b/api/orders/" + order["order_id"] + "/confirm"
         response(c, "post", path, status=422, json={"operation_id": "missing-confirmation", "preparation_digest": order["preparation_digest"]})
         response(c, "post", path, status=422, json={"operation_id": "false-confirmation", "preparation_digest": order["preparation_digest"], "confirmed": False})
         from concurrent.futures import ThreadPoolExecutor
         with ThreadPoolExecutor(2) as pool:
-            results = list(pool.map(lambda _: confirm(c, order, "rollback-confirm"), range(2)))
+            results = list(pool.map(lambda _: confirm(c, order, prefix + "confirm"), range(2)))
         check(results[0] == results[1] and inventory(db)[1] == stock_before[1] + 1,
               "concurrent explicit confirmation reserves atomically once")
-        check(confirm(c, order, "rollback-confirm") == results[0], "confirmed receipt replay exact")
-        cancelled = cancel(c, order, "rollback-cancel")
-        check(cancel(c, order, "rollback-cancel") == cancelled and inventory(db)[:2] == stock_before[:2],
+        check(confirm(c, order, prefix + "confirm") == results[0], "confirmed receipt replay exact")
+        cancelled = cancel(c, order, prefix + "cancel")
+        check(cancel(c, order, prefix + "cancel") == cancelled and inventory(db)[:2] == stock_before[:2],
               "cancellation replay releases only its reservation")
         b.remember_session()
     after = mongo_facts(db)
     check(set(after) == set(before), "candidate creates no collection")
     for row in operations_before:
         check(db.b2b_order_operations.find_one({"_id": row["_id"]}) == row, "preexisting ORDER receipt preserved")
+    for row in orders_before:
+        check(db.b2b_orders.find_one({"_id": row["_id"]}) == row, "every prior order preserved")
     for row in products_before:
         expected = dict(row)
         if row["organization_id"] == "org-a" and row["sku"] == "DRILL-001":
@@ -586,7 +634,8 @@ def negative(db):
     """Each corruption gets its own newly created disposable DB; source untouched."""
     from copy import deepcopy
     before = mongo_facts(db)
-    cases = ("unknown-v7", "gap", "checksum", "incomplete", "index", "validator")
+    cases = ("unknown-v7", "gap", "checksum", "incomplete", "index", "validator",
+             "pending-stock")
     for case in cases:
         name = "stockpilot_b2b_test_" + uuid4().hex
         target = db.client[name]
@@ -614,13 +663,25 @@ def negative(db):
                 target.b2b_contact_requests.create_index("subject", name="unexpected")
             elif case == "validator":
                 target.command({"collMod": "b2b_contact_requests", "validationLevel": "off"})
+            elif case.startswith("pending-"):
+                collection = "b2b_stock_operations"
+                row = target[collection].find_one()
+                check(row is not None, "pending fixture has an existing synthetic receipt")
+                target[collection].update_one({"_id": row["_id"]}, {"$set": {"status": "pending"}})
             corrupted = mongo_facts(target)
+            if not case.startswith("pending-"):
+                try:
+                    MigrationRunner(target).require_version(6)
+                except MigrationError:
+                    CHECKS.append("fail closed: " + case)
+                else:
+                    raise AssertionError("unsafe schema accepted: " + case)
             try:
-                MigrationRunner(target).require_version(6)
-            except MigrationError:
-                CHECKS.append("fail closed: " + case)
+                mongo_preconditions(target)
+            except ContractError:
+                CHECKS.append("recovery contract refuses: " + case)
             else:
-                raise AssertionError("unsafe schema accepted: " + case)
+                raise AssertionError("unsafe recovery capture accepted: " + case)
             check(mongo_facts(target) == corrupted, "failed validation never repairs: " + case)
         finally:
             # This name is minted above, on the attested private server only.
@@ -644,7 +705,7 @@ def main():
     monitoring.register(MONITOR)
     parser = argparse.ArgumentParser()
     parser.add_argument("phase", choices=("wait-keycloak", "seed-v4", "upgrade", "old-refusal", "rollback",
-                                          "return", "negative", "snapshot"))
+                                          "return", "negative", "snapshot", "serve-browser", "browser-before", "browser-after"))
     phase = parser.parse_args().phase
     if phase == "wait-keycloak":
         for _ in range(150):
@@ -663,7 +724,20 @@ def main():
     else:
         with mongo_test_client() as client:
             db = client[CONFIG["database"]]
-            if phase == "old-refusal":
+            if phase == "serve-browser":
+                import uvicorn
+                server = Bff(db)
+                # Real HTTPS upstream: no forwarded-header exception or TLS bypass.
+                uvicorn.run(server.app, host="0.0.0.0", port=8000,
+                    ssl_keyfile="/inputs/tls.key", ssl_certfile="/inputs/tls.crt",
+                    proxy_headers=False, access_log=False, log_level="critical")
+            elif phase in {"browser-before", "browser-after"}:
+                facts = browser_business_facts(db)
+                if phase == "browser-before":
+                    save("browser-business", facts)
+                else:
+                    compare_browser_business(load("browser-business"), facts)
+            elif phase == "old-refusal":
                 before = mongo_facts(db)
                 try:
                     MigrationRunner(db).require_version(4)
@@ -673,8 +747,14 @@ def main():
                     raise AssertionError("old binary unexpectedly accepts v6")
             elif phase == "snapshot":
                 save("snapshot", {"mongo": mongo_facts(db),
-                    "application": pg_facts(os.environ["POSTGRES_TEST_URI"]),
-                    "keycloak": pg_facts(CONFIG["keycloak_pg_uri"])})
+                     "application": pg_facts(os.environ["POSTGRES_TEST_URI"], raw_roles=True),
+                    "keycloak": pg_facts(CONFIG["keycloak_pg_uri"], raw_roles=True),
+                    "schema": mongo_preconditions(db), "excluded_ephemeral": []})
+                with psycopg.connect(os.environ["POSTGRES_TEST_URI"]) as connection:
+                    connection.execute("SET TRANSACTION READ ONLY")
+                    dropped = connection.execute("SELECT count(*) FROM pg_attribute WHERE "
+                        "attrelid='recovery_qualification.live_columns'::regclass AND attisdropped").fetchone()[0]
+                save("physical-columns", {"dropped_column_slots": dropped})
                 CHECKS.append("dynamic Mongo and both PostgreSQL inventories captured")
             else:
                 {"seed-v4": seed, "upgrade": upgrade, "rollback": rollback,
