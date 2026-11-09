@@ -1,6 +1,7 @@
 """Actual Mongo replica-set + PostgreSQL/pgvector/LangGraph, synthetic model only."""
 
 import asyncio
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -255,10 +256,9 @@ def test_rag_only_scoped_passages_reach_generator(assistant):
     )
     assert result["reply"]["intent"] == "RAG"
     prompt = a.llm.generate.await_args.kwargs["prompt"]
-    assert (
-        "<documents>\nALPHA confidential\n</documents>" in prompt
-        and "BETA foreign" not in prompt
-    )
+    records = json.loads(prompt.split('<documents>\n')[1].split('\n</documents>')[0])
+    assert records == [{'source': 'S1', 'document_id': 'same-document', 'chunk_id': 0, 'content': 'ALPHA confidential'}]
+    assert "BETA foreign" not in prompt
 
 
 def test_actual_mongo_commit_then_postgres_schema_failure_reconciles(

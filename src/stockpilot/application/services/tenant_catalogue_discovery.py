@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 
 from stockpilot.application.use_cases.catalogue_advice import (
     ClarificationRequired,
@@ -14,6 +15,107 @@ CATEGORY_ALIASES = {
     "SANDER": ("sander", "ponceuse", "ponceuses"),
     "SAW": ("saw", "scie", "scies"),
 }
+
+# These phrases describe an observation, never a forecast or an identity. Keep
+# the same spans for routing and stripping so that unknown qualifiers survive.
+_LOW_SIGNAL = (
+    r"\b(?:bientot (?:etre )?epuises?|presque (?:epuises?|en rupture)|"
+    r"risquent d'etre epuises?|(?:vont )?(?:bientot )?etre en rupture(?: de stock)?|"
+    r"commencent a manquer|tres peu de stock(?: disponible)?|"
+    r"risquent la rupture|n'ont presque plus de stock|au bord de la rupture|"
+    r"(?:vont )?s'epuiser|stocks? faibles?)\b"
+)
+
+_MONEY = re.compile(
+    r"(?:(?:avec un prix(?: de)?|(?:et )?cout(?:ent|ant)|qui coutent|"
+    r"(?:et )?sont dans un budget de|(?:pour un )?budget de)\s+)?"
+    r"(?P<bound>moins de|inferieur a|au plus|maximum|sous)?\s*"
+    r"(?P<amount>\d+(?:[.,]\d{1,2})?)\s*(?:euros?\b|eur\b|€)(?:\s+(?P<maximum>maximum))?"
+)
+
+
+def stock_budget(question):
+    matches = list(_MONEY.finditer(question))
+    if not matches:
+        return question, None
+    if len(matches) != 1:
+        raise ClarificationRequired("Précisez un seul plafond de prix en EUR.")
+    match = matches[0]
+    amount = Decimal(match['amount'].replace(',', '.'))
+    if amount <= 0 or amount * 100 > 2**63 - 1:
+        raise ClarificationRequired("Le plafond de prix en EUR doit être positif et borné.")
+    maximum = int(amount * 100) - int(match['bound'] in ('moins de', 'inferieur a', 'sous'))
+    return (question[:match.start()] + ' ' + question[match.end():]).strip(), maximum
+
+
+def catalogue_question(question):
+    """Normalize request scaffolding only; never rewrite a quoted name/SKU.
+
+    This B2B grammar is independent of ORDER and of the historical assistant.
+    Unknown suffixes are deliberately left to the existing exact resolver.
+    """
+    from stockpilot.application.use_cases.resolve_product import explicit_skus
+    category = re.fullmatch(r'\s*Montre les produits de la cat[eé]gorie ["«](.+)["»][.!?]?\s*', question, re.I)
+    if category:
+        return "Je cherche " + category[1]
+    if re.search(r'["«»]', question) or explicit_skus(question):
+        return question
+    value = normalize(question)
+    # Terminal explanatory clauses describe the result, not another filter.
+    # Restrict these rewrites to a complete generic category/budget request;
+    # unknown names, quoted identities and conflicting amounts stay literal.
+    category_budget = r"(?:(?:je cherche|trouve[- ]moi) )?(?:une? |des )?(?:perceuses?|visseuses?|scies?|ponceuses?)(?: disponibles?)? a (?:moins de )?\d+(?:[.,]\d{1,2})?\s*(?:€|euros?|eur)"
+    explanation = re.fullmatch(
+        rf"({category_budget}), sans confondre (\d+(?:[.,]\d{{1,2}})?)\s*(?:€|euros?|eur) et (\d+(?:[.,]\d{{1,2}})?)\s*(?:€|euros?|eur)[.!?]?",
+        value,
+    )
+    if explanation and 'moins de' in explanation[1]:
+        cap = re.search(r'moins de (\d+(?:[.,]\d{1,2})?)', explanation[1])[1]
+        amounts = [Decimal(v.replace(',', '.')) for v in (cap, explanation[2], explanation[3])]
+        if amounts[0] == amounts[1] and amounts[2] == amounts[0] - Decimal('0.01'):
+            value = explanation[1]
+    empty_clause = re.fullmatch(rf"({category_budget})(?: meme si aucun resultat| inexistante?)[.!?]?", value)
+    if empty_clause:
+        value = empty_clause[1]
+    bare = value.rstrip('.?! ')
+    if re.fullmatch(r'(?:seulement celles|toujours) disponibles', bare):
+        return 'Seulement celles qui sont disponibles'
+    if re.fullmatch(r'quel est son (?:stock|prix)', bare):
+        return 'ce produit'
+    if bare == 'retourne au catalogue complet':
+        return 'Je veux voir les produits actifs'
+    if re.fullmatch(r'et si je retire la limite de prix', bare):
+        return 'Et sans plafond'
+    value = re.sub(r'^je prefere les (?=(?:perceuses?|visseuses?|scies?|ponceuses?)\b)', 'je cherche des ', value)
+    value = re.sub(r'^maintenant a (?=moins de \d)', 'et uniquement a ', value)
+    if re.match(r'^avec un budget\b', value):
+        value = 'et ' + value
+    value = re.sub(r"\bune bonne (?=(?:perceuse|visseuse|scie|ponceuse)\b)", "une ", value)
+    value = re.sub(r"\bmoins cheres? que (?=\d)", "moins de ", value)
+    value = re.sub(
+        r"\b(?:avec un prix(?: de)?|dont le prix est|qui coutent|coutant|coutent)\s+",
+        " ", value,
+    )
+    value = re.sub(r"\bau plus\s+(?=\d)", "maximum ", value)
+    value = re.sub(r"\b(?:pour|avec) un budget\b", "budget", value)
+    value = re.sub(r"\bpour (?=\d+(?:[.,]\d+)?\s*(?:euros?\b|eur\b|€))", "a ", value)
+    value = re.sub(r"\b(?:et a|de) (?=moins de \d)", "a ", value)
+    value = re.sub(r"\b(\d+(?:[.,]\d{1,2})?\s*(?:euros?|eur|€)) de budget\b", r"budget de \1", value)
+    value = re.sub(r"\bavec budget\b", "budget", value)
+    value = re.sub(r"^(?:liste|as[- ]tu)\s+", "montre ", value)
+    value = re.sub(r"\b(?:retire la limite de prix|retire le plafond de prix)\b", "retire le budget", value)
+    return " ".join(value.split())
+
+
+def stock_question(question):
+    value = " ".join(normalize(question).split())
+    for word, number in (("zero", "0"), ("cinq", "5"), ("quinze", "15")):
+        value = re.sub(r"\b" + word + r"(?=\s+unites?\b)", number, value)
+    value = re.sub(r"\bzero stock\b", "0 unites", value)
+    value = re.sub(r"^c koi\b", "quels sont", value)
+    value = re.sub(r"^montre moa\b", "montre", value)
+    value = re.sub(r"\bki ont moin de\b", "qui ont moins de", value)
+    return re.sub(r"\s+(?:stp|svp)[.!?]?\s*$", "", value)
 
 
 def aliases(value):
@@ -79,10 +181,13 @@ def _stock_matches(text):
 
 
 def is_low_stock_request(question):
-    text = normalize(question)
+    text = stock_question(question)
+    from stockpilot.application.use_cases.resolve_product import explicit_skus
+    if explicit_skus(question) or re.search(r'["«»]', question):
+        return False
     # Remove only monetary amounts before testing stock-specific scaffolding.
     text = re.sub(r"\d+(?:[.,]\d+)?\s*(?:euros?\b|eur\b|€)", "", text)
-    if re.search(r"\b(?:rupture|stocks? faibles?|presque epuises?|s'epuiser)\b", text):
+    if re.search(_LOW_SIGNAL, text) or re.search(r"\b(?:rupture|stock est faible)\b", text):
         return True
     for _, match in _stock_matches(text):
         if re.search(r"\bstocks?\b", text):
@@ -100,16 +205,24 @@ class LowStockCriteria:
     label: str
     categories: tuple[str, ...]
     minimum: int = 0
+    maximum_price_minor: int | None = None
 
 
 def low_stock_criteria(question, categories):
-    text = normalize(question).strip().rstrip(".?!")
-    if re.search(r"€|\b(?:euros?|eur|inactifs?)\b", text):
+    text = stock_question(question).rstrip(".?!")
+    text, maximum_price = stock_budget(text)
+    if re.search(r"€|\b(?:euros?|eur|inactifs?|dollars?|usd)\b", text):
         raise ClarificationRequired(
             "Précisez un intervalle de stock disponible pour les produits actifs, sans budget."
         )
+    # Number words are accepted only in stock constraints, not product names.
+    text = re.sub(r"\bzero(?=\s+unite)", "0", text)
+    text = re.sub(r"\bzero stock\b", "0 unites", text)
+    exclude_zero = bool(re.search(r"\bmais pas zero\b", text))
+    text = re.sub(r"\bmais pas zero\b", "", text).rstrip(" ,")
     matches = _stock_matches(text)
-    rupture = bool(re.search(r"\b(?:en )?rupture(?: de stock)?\b", text))
+    text_without_low = re.sub(_LOW_SIGNAL, " ", text)
+    rupture = bool(re.search(r"\b(?:en )?rupture(?: de stock)?\b", text_without_low))
     if len(matches) + int(rupture) > 1:
         raise ClarificationRequired("Précisez un seul intervalle de stock disponible.")
     minimum = 0
@@ -144,11 +257,16 @@ def low_stock_criteria(question, categories):
     for _, match in reversed(matches):
         remainder = remainder[:match.start()] + " " + remainder[match.end():]
     remainder = re.sub(
-        r"\b(?:en )?rupture(?: de stock)?\b|\bpresque epuises?\b|\b(?:qui )?vont s'epuiser\b",
+        _LOW_SIGNAL + r"|\b(?:en )?rupture(?: de stock)?\b|\bstock est faible\b",
         "", remainder,
     )
     remainder = re.sub(
-        r"\b(?:quels|quelles|sont|les|des|un|une|produits?|articles?|unites?|liste|avec|qui|ont|ayant|en|de|stocks?|faibles?|disponibles?|montre(?:[- ]moi)?|affiche[- ]moi)\b",
+        r"^(?:je (?:voulais|voudrais|veux)(?: savoir)?|je (?:re)?cherche|y a[- ]t[- ]il|"
+        r"tu peux me|peux[- ]tu|montre[- ]moi|affiche[- ]moi)\s+", "", remainder,
+    )
+    remainder = re.sub(r"\bet uniquement ceux-la\b|\bceux\b", "", remainder)
+    remainder = re.sub(
+        r"\b(?:quels|quelles|sont|le|les|des|un|une|produits?|articles?|references?|unites?|liste|lister|avec|qui|ont|ayant|en|de|du|dont|la|categorie|mon catalogue|et|mais|a|stocks?|faibles?|disponibles?|montre(?:[- ]moi)?|affiche(?:[- ]moi)?)\b",
         " ", remainder,
     )
     remainder = " ".join(remainder.replace(",", " ").split())
@@ -157,4 +275,11 @@ def low_stock_criteria(question, categories):
         raise ClarificationRequired(
             "Catégorie inconnue : choisissez une catégorie de votre catalogue."
         )
-    return LowStockCriteria(maximum, label, selected, minimum)
+    if exclude_zero:
+        minimum = max(1, minimum)
+        if maximum is not None and maximum < minimum:
+            raise ClarificationRequired("Les contraintes de stock se contredisent.")
+        label += " ; hors ruptures"
+    if maximum_price is not None:
+        label += f" ; prix ≤ {Decimal(maximum_price) / 100} EUR"
+    return LowStockCriteria(maximum, label, selected, minimum, maximum_price)
