@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { t, dateLabel } from './preferences'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { t, dateLabel, assistantSound } from './preferences'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useB2B } from './session'
 import { assistantHistory, assistantTurn, conversationList, type AssistantTurn } from './assistant'
@@ -11,8 +11,30 @@ import { useTask } from './tasks'
 import { mutate } from './workflows'
 import ComparisonPanel from './ComparisonPanel.vue'
 import AssistantCatalogueResults from './AssistantCatalogueResults.vue'
+import AssistantResponseStatus from './AssistantResponseStatus.vue'
+import { createResponseFeedback } from './assistant-feedback'
 
-const props = defineProps<{ embedded?: boolean }>()
+const props = withDefaults(defineProps<{ embedded?: boolean; visible?: boolean }>(), { visible: true })
+const emit = defineEmits<{ completed: [] }>()
+const transcript = ref<HTMLElement>()
+const newResponse = ref(false)
+const feedback = createResponseFeedback(() => assistantSound.value, () => emit('completed'))
+const { waiting, slow, notice: responseNotice } = feedback
+const nearBottom = () => !transcript.value || transcript.value.scrollHeight - transcript.value.scrollTop - transcript.value.clientHeight < 64
+function revealResponse() {
+  if (transcript.value) transcript.value.scrollTop = transcript.value.scrollHeight
+  newResponse.value = false
+}
+function completed(turn: AssistantTurn) {
+  const follow = nearBottom()
+  if (feedback.accept(turn)) {
+    if (message.value.trim() === turn.message.trim()) message.value = ''
+    if (follow && props.visible !== false) void nextTick(revealResponse)
+    else newResponse.value = true
+  }
+}
+watch(assistantSound, enabled => { if (!enabled) feedback.silence() })
+watch(() => props.visible, visible => { if (visible && newResponse.value && nearBottom()) void nextTick(revealResponse) })
 const comparison = ref<string[]>([])
 
 const statusLabels = { prepared: 'Préparée — aucun stock réservé', reserved: 'Réservée', cancelled: 'Annulée' }
@@ -57,6 +79,7 @@ async function history(resume = false) {
     current(version)
     if (id.value !== selected || value.conversation_id !== selected) throw new StaleResponse()
     session.continuity.select(selected)
+    for (const turn of value.items) { completed(turn); feedback.remember(turn) }
     turns.value = value.items; hasMore.value = value.has_more; unknown.value = false
   } catch (error) {
     current(version)
@@ -67,6 +90,7 @@ async function history(resume = false) {
 }
 async function load() {
   const version = ++epoch
+  feedback.reset(); newResponse.value = false
   loadingHistory.value = true
   try {
   turns.value = []; unknown.value = false; confirmation.value = false; cancelConfirmation.value = false; historyOffset.value = 0
@@ -90,16 +114,25 @@ async function create() {
   })
 }
 async function send() {
-  if (loadingHistory.value || !id.value || !message.value.trim() || pending.value || unknown.value) return
+  if (busy.value || loadingHistory.value || !id.value || !message.value.trim() || pending.value || unknown.value) return
   const input = message.value.trim()
+  feedback.unlockSound() // Only within this explicit user gesture, never history.
   await run(async () => {
     const version = epoch
     const turnId = crypto.randomUUID()
+    feedback.start(turnId)
     unknown.value = true // Until a response or a durable history has been read.
+    try {
     const result = await session.client.request(base.value + '/messages', assistantTurn, {
       method: 'POST', body: { message_id: turnId, message: input, customer_id: buyer.value || null, read_only: globallyPending.value }, timeoutMs: 90000,
     })
-    current(version); turns.value = [...turns.value, result].slice(-20); if (message.value.trim() === input) message.value = ''; unknown.value = false; confirmation.value = false
+    current(version); completed(result); feedback.remember(result)
+    // Keep the message currently being read. A conversation is server-bounded
+    // to 100 turns; normal bottom-following retains the existing 20-turn window.
+    turns.value = [...turns.value, result].slice(nearBottom() ? -20 : -100)
+    if (result.status === 'completed' && message.value.trim() === input) message.value = ''
+    unknown.value = false; confirmation.value = false
+    } finally { if (epoch === version) feedback.stopWaiting() }
   })
 }
 async function retry() {
@@ -107,10 +140,13 @@ async function retry() {
   if (!turn || globallyPending.value || loadingHistory.value) return
   await run(async () => {
     const version = epoch
-    await session.client.request(base.value + '/turns/' + encodeURIComponent(turn.turn_id) + '/retry', assistantTurn, {
+    feedback.unlockSound(); feedback.start(turn.turn_id)
+    try {
+    const result = await session.client.request(base.value + '/turns/' + encodeURIComponent(turn.turn_id) + '/retry', assistantTurn, {
       method: 'POST', body: {}, timeoutMs: 90000,
     })
-    current(version); await history()
+    current(version); completed(result); await history()
+    } finally { if (epoch === version) feedback.stopWaiting() }
   })
 }
 async function action(namespace: 'confirm' | 'cancel') {
@@ -132,6 +168,9 @@ watch(id, () => {
   message.value = session.continuity.draft('assistant:' + id.value)
   void load().catch(e => { if (!(e instanceof StaleResponse)) error.value = e instanceof Error ? e.message : 'Action impossible.' })
 })
+watch(() => session.current.value && [session.current.value.user_id, session.current.value.organization_id, session.current.value.csrf_token].join('\0'), () => {
+  epoch++; feedback.reset(); newResponse.value = false; turns.value = []; message.value = ''; buyers.value = []; buyer.value = ''; comparison.value = []
+}, { flush: 'sync' })
 onMounted(() => { void run(async () => {
   message.value = session.continuity.draft('assistant:' + id.value)
   await load()
@@ -142,7 +181,7 @@ onMounted(() => { void run(async () => {
     if (buyers.value.length === 1) buyer.value = buyers.value[0]!.customer_id
   }
 }) })
-onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.value = [] })
+onUnmounted(() => { disposed = true; epoch++; feedback.reset(); turns.value = []; conversations.value = [] })
 </script>
 <template>
   <section>
@@ -211,13 +250,13 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
       </div>
       <template v-if="id">
         <p
-          v-if="busy"
+          v-if="busy && !waiting"
           role="status"
         >
           {{ t("Traitement en cours… Aucun nouvel essai automatique.") }}
         </p>
         <aside
-          v-if="unknown || pending"
+          v-if="(unknown || pending) && !waiting"
           class="b2b-notice"
           role="status"
         >
@@ -238,8 +277,12 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
           </button>
         </aside>
         <div
+          ref="transcript"
+          class="assistant-transcript"
+          role="region"
+          tabindex="0"
           :aria-label="t('Historique de conversation')"
-          aria-live="polite"
+          @scroll="nearBottom() && (newResponse = false)"
         >
           <article
             v-for="turn in turns"
@@ -313,6 +356,18 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
             {{ t("Posez une question ou recherchez un produit par son SKU.") }}
           </p>
         </div>
+        <AssistantResponseStatus
+          :waiting="waiting"
+          :slow="slow"
+          :notice="responseNotice"
+        />
+        <button
+          v-if="newResponse"
+          class="secondary"
+          @click="revealResponse"
+        >
+          {{ t('Nouvelle réponse') }}
+        </button>
         <nav
           class="b2b-actions"
           :aria-label="t('Pages de conversation')"
@@ -413,6 +468,8 @@ onUnmounted(() => { disposed = true; epoch++; turns.value = []; conversations.va
   </section>
 </template>
 <style scoped>
+.assistant-transcript { max-height:60vh; overflow-y:auto; overflow-anchor:none; padding:3px; }
+.assistant-transcript:focus-visible { outline:2px solid var(--brand, #4338ca); outline-offset:2px; }
 .assistant-turn { border-left:4px solid #94a3b8; }
 .assistant-turn > .hint { margin-top:0; font-size:.8rem; }
 .assistant-user { margin:8px 0 12px auto; padding:10px 14px; max-width:85%; border-radius:10px 10px 0 10px; background:#eef2ff; white-space:pre-wrap; }

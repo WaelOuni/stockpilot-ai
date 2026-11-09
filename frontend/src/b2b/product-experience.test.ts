@@ -50,7 +50,7 @@ it('switches interface language and stores only display preferences', async () =
   expect(wrapper.text()).toContain('Withdraw product from catalogue')
   expect(wrapper.text()).toContain(productFixture.name)
   expect(document.documentElement.dataset.theme).toBe('dark')
-  expect(JSON.parse(localStorage.getItem('stockpilot.preferences.v1')!)).toEqual({ language: 'en', theme: 'dark' })
+  expect(JSON.parse(localStorage.getItem('stockpilot.preferences.v1')!)).toEqual({ language: 'en', theme: 'dark', assistantSound: false })
   expect(localStorage.length).toBe(1)
   wrapper.unmount(); session.dispose()
 })
