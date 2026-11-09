@@ -42,3 +42,20 @@ jobs:
         working-directory: frontend
       - run: npx playwright test --config playwright.advice-synthetic.config.ts
         working-directory: frontend
+      - run: npx playwright test --config playwright.b2b-ux.config.ts --reporter=line,junit
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: /tmp/v025-browser.xml
+      - name: Export direct browser corpus evidence
+        if: always()
+        env:
+          QUALIFICATION_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: .venv/bin/python -m evals.assistant_v025.evidence --junit /tmp/v025-browser.xml --sha "$QUALIFICATION_HEAD_SHA" --output /tmp/v025-browser-qualified.json
+      - name: Retain sanitized browser qualification
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: assistant-v025-browser-proof
+          path: /tmp/v025-browser-qualified.json
+          if-no-files-found: error
+          retention-days: 14

@@ -101,6 +101,7 @@ class TenantProductQuery:
     maximum_available: int | None = None
     sort_by_available: bool = False
     minimum_available: int | None = None
+    exact_sku: str | None = None
 
     def __post_init__(self):
         for values in (self.categories, self.exclude_skus):
@@ -131,7 +132,7 @@ class TenantProductQuery:
             or not 0 <= self.offset <= 10000
         ):
             raise ValueError("Invalid pagination.")
-        for value in (self.category, self.attribute, self.currency, self.status):
+        for value in (self.category, self.attribute, self.currency, self.status, self.exact_sku):
             if value is not None and (
                 type(value) is not str or not value or len(value) > 128
             ):

@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from evals.assistant_v025.campaign import CORPUS, oracle, products, verify
+from evals.assistant_v025.campaign import CORPUS, PRIOR, oracle, products, verify
 from test_tenant_assistant_integration import assistant, environment, db, orders, stock, http  # noqa: F401
 from test_tenant_catalogue_mongo_integration import document
 from test_tenant_orders_mongo_integration import REQUESTS, context
@@ -30,6 +30,8 @@ def run(corpus_assistant, case, actor='a1', turn=None, customer=None):
     (service, _, env), _ = corpus_assistant
     ctx = context(env.orders, actor)
     conv = service.store.open(REQUESTS[actor], ctx, 'corpus-' + case['id']).conversation_id
+    if case['id'] in PRIOR:
+        asyncio.run(service.send(REQUESTS[actor], ctx, conv, 'prior-' + case['id'], PRIOR[case['id']]))
     return asyncio.run(service.send(REQUESTS[actor], ctx, conv, turn or case['id'], case['message'], customer)), conv
 
 

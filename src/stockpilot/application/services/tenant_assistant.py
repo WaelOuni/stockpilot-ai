@@ -43,6 +43,10 @@ from stockpilot.application.services.tenant_catalogue_discovery import (
 from stockpilot.application.services.tenant_assistant_catalogue import (
     TenantAssistantCatalogue,
 )
+from stockpilot.application.services.tenant_assistant_navigation import (
+    TenantAssistantNavigation,
+    is_navigation,
+)
 from stockpilot.application.use_cases.catalogue_advice import (
     ClarificationRequired,
     is_advice_followup,
@@ -121,6 +125,7 @@ class TenantAssistant:
             llm,
         )
         self.catalogue = TenantAssistantCatalogue(catalogue)
+        self.navigation = TenantAssistantNavigation(self.catalogue)
         self.admission = threading.BoundedSemaphore(concurrency)
 
     def current(self, request, context):
@@ -148,6 +153,10 @@ class TenantAssistant:
         """
         if explicit_order_request(question):
             return None
+        if is_navigation(question):
+            return "CATALOGUE_NAVIGATION"
+        if self.catalogue.is_grounded_request(question):
+            return "PRODUCT_ADVICE"
         if is_low_stock_request(question):
             return "STOCK_CHECK"
         if re.fullmatch(r"(?:et avec exactement \d+|exclue les ruptures|montre uniquement les (?:perceuses?|visseuses?|scies?|ponceuses?))[.!? ]*", normalize(question)):
@@ -237,6 +246,9 @@ class TenantAssistant:
         if lexical_intent:
             classification = {"intent": lexical_intent}
         try:
+            if lexical_intent == "CATALOGUE_NAVIGATION":
+                result = self.navigation.execute(request, context, question, state.get("catalogue_search"))
+                return self._reply(result["intent"], result["text"], **{k: v for k, v in result.items() if k not in {"intent", "text"}})
             if lexical_intent == "STOCK_REFINEMENT":
                 result = self.catalogue.refine_stock(request, context, question, state.get("catalogue_search"))
                 return self._reply(result["intent"], result["text"], **{k:v for k,v in result.items() if k not in {"intent","text"}})

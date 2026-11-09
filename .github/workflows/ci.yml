@@ -108,7 +108,22 @@ jobs:
             exit 1
           fi
       - run: python scripts/ci/check_targets.py
-      - run: python -m pytest -q -m "integration and not integration_optional" tests
+      - run: python -m pytest -q --junitxml=/tmp/v025-integration.xml -m "integration and not integration_optional" tests
+      - name: Export direct assistant corpus evidence
+        if: always()
+        env:
+          QUALIFICATION_HEAD_SHA: ${{ github.event.pull_request.head.sha || inputs.release_sha || github.sha }}
+        run: python -m evals.assistant_v025.evidence --junit /tmp/v025-integration.xml --sha "$QUALIFICATION_HEAD_SHA" --output /tmp/v025-qualified.json --markdown /tmp/v025-qualified.md
+      - name: Retain sanitized assistant qualification
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: assistant-v025-qualification
+          path: |
+            /tmp/v025-qualified.json
+            /tmp/v025-qualified.md
+          if-no-files-found: error
+          retention-days: 14
       - if: always()
         run: docker compose -f docker/compose.ci.yml down
   containers:

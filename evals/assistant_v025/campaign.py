@@ -31,15 +31,22 @@ DATASET = 'v025-boundaries-v1'
 MULTI_FINAL = {
     'G13-01': dict(kind='list',intent='PRODUCT_ADVICE',category='perceuses',available=True,price=9999,limit=3),
     'G13-02': dict(kind='list',intent='PRODUCT_ADVICE',category='perceuses',price=10000,limit=3),
-    'G13-03': dict(kind='target',reason='Compare two explicitly selected prior products'),
-    'G13-04': dict(kind='target',reason='Next current-results page preserving stock/category filters'),
+    'G13-03': dict(kind='list',intent='COMPARISON',category='perceuses',available=True,limit=2,selected_only=True),
+    'G13-04': dict(kind='list',intent='LOW_STOCK',minimum=1,maximum=4,available=True,offset=5,limit=5),
     'G13-05': dict(kind='list',intent='LOW_STOCK',minimum=5,maximum=5,limit=5),
     'G13-06': dict(kind='exact',sku='DEMO-01-0225'),
     'G13-07': dict(kind='list',intent='PRODUCT_ADVICE',category='visseuses',available=True,limit=3),
-    'G13-08': dict(kind='target',reason='Another verified cheaper alternative to prior exact product'),
+    'G13-08': dict(kind='list',intent='PRODUCT_ADVICE',category='visseuses',price=9998,limit=2),
     'G13-09': dict(kind='list',intent='PRODUCT_ADVICE',category='perceuses',price=10000,limit=3),
     'G13-13': dict(kind='list',intent='PRODUCT_ADVICE',category='visseuses',available=True,limit=2),
     'G13-14': dict(kind='list',intent='PRODUCT_ADVICE',limit=3),
+}
+
+PRIOR = {
+    **{f'G08-{n:02}': 'Quels produits ont moins de 15 unités disponibles ?' for n in range(1,15)},
+    'G09-09': 'Je cherche trois perceuses disponibles.',
+    'G09-11': 'Compare DEMO-01-0225 à une alternative.',
+    'G09-12': 'Je cherche DEMO-01-0225.',
 }
 
 
@@ -108,6 +115,7 @@ class Catalogue:
             if query.status and r['status'] != query.status: continue
             if query.categories and r['category'] not in query.categories: continue
             if query.category and r['category'] != query.category: continue
+            if query.exact_sku and r['sku'] != query.exact_sku: continue
             if r['sku'] in query.exclude_skus: continue
             if query.currency and r['currency'] != query.currency: continue
             if query.minimum_price_minor is not None and r['price'] < query.minimum_price_minor: continue
@@ -156,9 +164,29 @@ def oracle(case):
     if case['id'] in MULTI_FINAL:
         return dict(kind='multi',final=MULTI_FINAL[case['id']])
     if case['id']=='G06-13':
-        return dict(kind='target',intent='PRODUCT_ADVICE',reason='Explicit empty search with trailing explanatory clause is still treated as identity')
+        return dict(kind='list',intent='PRODUCT_ADVICE',category='scies',available=True,price=999,limit=3)
     if case['id']=='G17-11':
-        return dict(kind='target',intent='PRODUCT_ADVICE',reason='Expected empty price-filtered search, not identity clarification')
+        return dict(kind='list',intent='PRODUCT_ADVICE',category='perceuses',price=1,limit=3)
+    if case['id']=='G05-18':
+        return dict(kind='list',intent='PRODUCT_ADVICE',category='perceuses',price=9999,limit=3)
+    if group == 8:
+        if number in (13,14):
+            return dict(kind='clarify',reason='Explicit excessive pagination is refused without a database query')
+        if number == 12:
+            return dict(kind='target',reason='No literal SKU or previously identified SKU: cannot prove result-set membership')
+        return dict(kind='list',intent='PRODUCT_ADVICE' if number in (8,9) else 'LOW_STOCK',minimum=1 if number in (10,11) else 0,maximum=14,
+                    available=True if number==10 else None,limit=5,page_limit=20 if number==2 else 5,
+                    offset=5 if number in (1,2,3,4) else 0,last_page=number==6,
+                    sort='price' if number==8 else 'sku' if number==9 else 'available')
+    if group == 9 and number in (4,7,9,11,12,14):
+        return {
+            4:dict(kind='list',intent='COMPARISON',category='perceuses',available=True,limit=2,selected_only=True),
+            7:dict(kind='list',intent='PRODUCT_ADVICE',currency='EUR',limit=3),
+            9:dict(kind='stock_preference'),
+            11:dict(kind='list',intent='PRODUCT_ADVICE',category='visseuses',currency='EUR',available=True,exclude=['DEMO-01-0225'],limit=2),
+            12:dict(kind='exact',sku='DEMO-01-0225',explanation=True),
+            14:dict(kind='general_help'),
+        }[number]
     if case['id']=='G17-09':
         return dict(kind='layer',reason='Permission must be removed server-side; user wording is not authorization state')
     if group == 21:
@@ -255,6 +283,14 @@ def verify(case, reply, rows, org, before, after, writes, spec=None):
     elif spec['kind'] == 'exact':
         assert [c['sku'] for c in cards] == [spec['sku']], 'Exact identity lost'
         if spec.get('intent'): assert reply['intent']==spec['intent'], 'Wrong exact-read intent'
+        if spec.get('explanation'):
+            assert '99.99 EUR' in reply['text'] and '15' in reply['text'] and 'qualité' in reply['text']
+    elif spec['kind'] == 'general_help':
+        assert not cards and 'usage' in reply['text'] and 'performances' in reply['text']
+    elif spec['kind'] == 'stock_preference':
+        prior = sorted((r for r in rows if r['org']==org and r['status']=='active' and r['category']=='perceuses' and r['quantity']>r['reserved']),key=lambda r:(r['price'],r['sku']))[:3]
+        best = sorted(prior,key=lambda r:(-(r['quantity']-r['reserved']),r['sku']))[0]
+        assert [c['sku'] for c in cards] == [best['sku']]
     elif spec['kind'] == 'categories':
         assert not cards and reply['intent']=='CATALOGUE_CATEGORIES'
         assert reply['categories']==sorted({r['category'] for r in rows if r['org']==org and r['status']=='active'})
@@ -266,14 +302,22 @@ def verify(case, reply, rows, org, before, after, writes, spec=None):
         assert reply['intent'] == spec['intent'], 'Expected a list, not reference resolution'
         expected = [r for r in rows if r['org'] == org and r['status'] == 'active'
                     and (not spec.get('category') or r['category'] == spec['category'])
+                    and (not spec.get('currency') or r['currency'] == spec['currency'])
+                    and r['sku'] not in spec.get('exclude', [])
                     and (spec.get('price') is None or r['currency'] == 'EUR' and r['price'] <= spec['price'])
                     and (spec.get('available') is None or (r['quantity'] > r['reserved']) == spec['available'])
                     and r['quantity'] - r['reserved'] >= spec.get('minimum', 0)
                     and (spec.get('maximum') is None or r['quantity'] - r['reserved'] <= spec['maximum'])]
-        expected.sort(key=lambda r: (r['quantity']-r['reserved'],r['sku']) if spec['intent']=='LOW_STOCK' else (r['price'],r['sku']))
-        assert [c['sku'] for c in cards] == [r['sku'] for r in expected[:spec['limit']]], 'Result set/order mismatch'
-        assert reply['total'] == len(expected), 'Total mismatch'
-        if expected:
+        sort = spec.get('sort', 'available' if spec['intent']=='LOW_STOCK' else 'price')
+        expected.sort(key=lambda r: (r['quantity']-r['reserved'],r['sku']) if sort=='available' else (r['price'],r['sku']) if sort=='price' else (r['sku'],))
+        offset = (len(expected)-1)//5*5 if spec.get('last_page') else spec.get('offset',0)
+        assert [c['sku'] for c in cards] == [r['sku'] for r in expected[offset:offset+spec['limit']]], 'Result set/order mismatch'
+        if not spec.get('selected_only'):
+            assert reply['total'] == len(expected), 'Total mismatch'
+        if 'page_limit' in spec:
+            assert reply['catalogue_search']['offset'] == offset
+            assert reply['catalogue_search']['limit'] == spec['page_limit']
+        if expected and not spec.get('selected_only'):
             saved = reply['catalogue_search']
             assert saved['status'] == 'active'
             assert saved['maximum_price_minor'] == spec.get('price'), 'Price criterion missing'
@@ -302,6 +346,10 @@ async def run_corpus():
             before = deepcopy(h[1].rows)
             started = perf_counter()
             try:
+                state=None
+                if case['id'] in PRIOR:
+                    record['prior_conversation']=[PRIOR[case['id']]]
+                    _,state=await answer(h,PRIOR[case['id']])
                 if spec['kind']=='multi':
                     messages=[m.strip() for m in case['message'].split('⇒')]
                     record['prior_conversation']=messages[:-1]
@@ -312,7 +360,7 @@ async def run_corpus():
                                spec['final'] if index==len(messages)-1 else {'kind':'facts'})
                     record['observed_steps']=len(messages)
                 else:
-                    reply, _ = await answer(h, case['message'], {'customer_id':'synthetic-buyer'} if case['id'].startswith('G11') else None)
+                    reply, _ = await answer(h, case['message'], {'customer_id':'synthetic-buyer'} if case['id'].startswith('G11') else state)
                 record['observed_intent'] = reply['intent']
                 record['observed_skus'] = [c['sku'] for c in reply['products']]
                 if spec['kind']!='multi':
@@ -356,6 +404,7 @@ def digest():
 def markdown_report(records):
     counts=Counter(r['status'] for r in records)
     latencies=sorted(r['milliseconds'] for r in records if 'milliseconds' in r)
+    consolidated = any('layer_evidence' in r for r in records)
     lines=[
         '# Campagne assistant v0.2.5 — matrice des 301 demandes', '',
         'Corpus original conservé sans changement de texte, ID ou attente. SHA-256 : `' + digest() + '`.', '',
@@ -363,10 +412,13 @@ def markdown_report(records):
         'PASS inclut faits, identité, stock physique moins réservé, tenant, tri, cardinalité, total et absence de mutation selon l’oracle. '
         'Une clarification sûre ne valide pas une fonctionnalité attendue non disponible. '
         'SKIP désigne une preuve à une autre couche, pas un succès hérité de tests voisins.', '',
-        f"Résultat local : **{counts['PASS']} PASS / {counts['FAIL']} FAIL / {counts['SKIP']} SKIP**.",
+        f"Résultat {'consolidé avec preuves directes JUnit' if consolidated else 'local'} : **{counts['PASS']} PASS / {counts['FAIL']} FAIL / {counts['SKIP']} SKIP**.",
         f"Latence du harnais synthétique (y compris graphes/mocks ; aucun Ollama/DB/réseau) : P50 {latencies[len(latencies)//2]:.3f} ms, P95 {latencies[int(len(latencies)*.95)]:.3f} ms. Aucun SLA produit.", '',
         '| Famille | PASS | FAIL | SKIP |', '|---|---:|---:|---:|',
     ]
+    if consolidated:
+        proof = next(r['layer_evidence'] for r in records if 'layer_evidence' in r)
+        lines.extend(['', 'HEAD des preuves : `' + proof['head_sha'] + '`. Le JSON associe chaque ID aux tests exacts exécutés et à leur couche. Aucun succès hérité d’une suite voisine.', ''])
     for group in range(1,22):
         family=f'G{group:02}'
         values=Counter(r['status'] for r in records if r['id'].startswith(family+'-'))

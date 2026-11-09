@@ -316,6 +316,8 @@ class MongoTenantCatalogue:
             filters["category"] = {"$in": list(query.categories)}
         if query.exclude_skus:
             filters["sku"] = {"$nin": list(query.exclude_skus)}
+        if query.exact_sku is not None:
+            filters["sku"] = {**filters.get("sku", {}), "$eq": query.exact_sku}
         for key in ("category", "currency", "status"):
             if getattr(query, key) is not None:
                 filters[key] = getattr(query, key)

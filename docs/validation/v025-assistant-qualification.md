@@ -1,5 +1,10 @@
 # Assistant v0.2.5 — qualification et corrections ciblées
 
+La [deuxième passe](v025-assistant-second-pass.md) complète ce diagnostic initial :
+navigation textuelle, comparaisons factuelles, contexte et preuves directes des
+anciens SKIP. Les résultats historiques ci-dessous restent datés ; la matrice et
+les artefacts CI liés à la HEAD finale de #84 font autorité pour la recette actuelle.
+
 Travail du 9 novembre 2026, base GitHub main vérifiée à
 `f8ab2f5db5e089b182235f64ac8d17586def1c1b`. Branche
 `codex/v025-assistant-qualification`, worktree dédié. Les autres checkouts,

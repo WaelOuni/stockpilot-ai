@@ -4,8 +4,8 @@ Corpus original conservé sans changement de texte, ID ou attente. SHA-256 : `b0
 
 Ce tableau mesure le service déterministe avec catalogue synthétique, classifieur hostile et ports de mutation interdits. PASS inclut faits, identité, stock physique moins réservé, tenant, tri, cardinalité, total et absence de mutation selon l’oracle. Une clarification sûre ne valide pas une fonctionnalité attendue non disponible. SKIP désigne une preuve à une autre couche, pas un succès hérité de tests voisins.
 
-Résultat local : **184 PASS / 26 FAIL / 91 SKIP**.
-Latence du harnais synthétique (y compris graphes/mocks ; aucun Ollama/DB/réseau) : P50 2.211 ms, P95 5.111 ms. Aucun SLA produit.
+Résultat local : **209 PASS / 1 FAIL / 91 SKIP**.
+Latence du harnais synthétique (y compris graphes/mocks ; aucun Ollama/DB/réseau) : P50 2.281 ms, P95 4.823 ms. Aucun SLA produit.
 
 | Famille | PASS | FAIL | SKIP |
 |---|---:|---:|---:|
@@ -13,19 +13,19 @@ Latence du harnais synthétique (y compris graphes/mocks ; aucun Ollama/DB/rése
 | G02 | 20 | 0 | 0 |
 | G03 | 12 | 0 | 0 |
 | G04 | 14 | 0 | 0 |
-| G05 | 17 | 1 | 0 |
-| G06 | 15 | 1 | 0 |
+| G05 | 18 | 0 | 0 |
+| G06 | 16 | 0 | 0 |
 | G07 | 12 | 0 | 0 |
-| G08 | 0 | 14 | 0 |
-| G09 | 9 | 6 | 0 |
+| G08 | 13 | 1 | 0 |
+| G09 | 15 | 0 | 0 |
 | G10 | 0 | 0 | 16 |
 | G11 | 15 | 0 | 1 |
 | G12 | 0 | 0 | 12 |
-| G13 | 8 | 3 | 3 |
+| G13 | 11 | 0 | 3 |
 | G14 | 0 | 0 | 12 |
 | G15 | 0 | 0 | 12 |
 | G16 | 14 | 0 | 0 |
-| G17 | 14 | 1 | 1 |
+| G17 | 15 | 0 | 1 |
 | G18 | 0 | 0 | 16 |
 | G19 | 4 | 0 | 8 |
 | G20 | 0 | 0 | 10 |
@@ -116,7 +116,7 @@ Les oracles structurés, droits, contexte préalable, dataset, provenance, effet
 | G05-15 | Une visseuse à moins de 100 dollars. | CLARIFY_UNSUPPORTED_CURRENCY | PASS | CLARIFICATION_REQUIRED |
 | G05-16 | Je veux un produit à 100 € et à 150 € maximum. | CLARIFY_CONFLICT_BUDGET | PASS | CLARIFICATION_REQUIRED |
 | G05-17 | Perceuse de 1 000 € maximum. | CLARIFY_AMBIGUOUS_NUMBER | PASS | CLARIFICATION_REQUIRED |
-| G05-18 | Je cherche une perceuse à moins de 100 €, sans confondre 100 € et 99,99 €. | PRICE_FILTER | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
+| G05-18 | Je cherche une perceuse à moins de 100 €, sans confondre 100 € et 99,99 €. | PRICE_FILTER | PASS | PRODUCT_ADVICE |
 | G06-01 | je cherche une perceuse disponible avec un prix moins de 100 euros | COMBINED_FILTER | PASS | PRODUCT_ADVICE |
 | G06-02 | Montre des visseuses disponibles sous 150 €. | COMBINED_FILTER | PASS | PRODUCT_ADVICE |
 | G06-03 | Je voudrais trois perceuses en stock à moins de 200 €. | COMBINED_FILTER | PASS | PRODUCT_ADVICE |
@@ -129,7 +129,7 @@ Les oracles structurés, droits, contexte préalable, dataset, provenance, effet
 | G06-10 | Quels produits de mon catalogue ont au moins 5 unités disponibles et sont dans un budget de 120 € ? | COMBINED_FILTER | PASS | LOW_STOCK |
 | G06-11 | Je cherche une perceuse de 20 V disponible à moins de 150 €. | MODEL_ATTRIBUTE_OR_CLARIFY | PASS | CLARIFICATION_REQUIRED |
 | G06-12 | Cherche des visseuses 18 V à moins de 140 €. | MODEL_ATTRIBUTE_OR_CLARIFY | PASS | CLARIFICATION_REQUIRED |
-| G06-13 | Des scies disponibles à moins de 10 € même si aucun résultat. | NO_RESULTS_IF_EMPTY | FAIL | Explicit empty search with trailing explanatory clause is still treated as identity |
+| G06-13 | Des scies disponibles à moins de 10 € même si aucun résultat. | NO_RESULTS_IF_EMPTY | PASS | PRODUCT_ADVICE |
 | G06-14 | Perceuse disponible et indisponible à la fois. | CLARIFY_CONFLICT | PASS | CLARIFICATION_REQUIRED |
 | G06-15 | Je cherche trois perceuses disponibles à 100 € maximum. | COMBINED_FILTER | PASS | PRODUCT_ADVICE |
 | G06-16 | Montre les produits à 100 € maximum mais avec zéro stock. | COMBINED_FILTER | PASS | LOW_STOCK |
@@ -145,34 +145,34 @@ Les oracles structurés, droits, contexte préalable, dataset, provenance, effet
 | G07-10 | Je cherche une référence avec un SKU inexistant TEST-UNKNOWN-404. | NO_RESULTS_EXACT | PASS | CLARIFICATION_REQUIRED |
 | G07-11 | Je cherche deux produits qui ont le même nom exact. | CLARIFY_AMBIGUITY | PASS | CLARIFICATION_REQUIRED |
 | G07-12 | Je cherche une perceuse avec le mot « moins de 100 » dans son nom. | PRESERVE_QUOTED_IDENTITY | PASS | CLARIFICATION_REQUIRED |
-| G08-01 | Quels produits ont moins de 15 unités disponibles ? Affiche les suivants. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-02 | Montre les 20 produits suivants. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-03 | Voir plus de produits. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-04 | Passe à la page 2 des résultats. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-05 | Retourne à la première page. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-06 | Affiche la dernière page des résultats. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-07 | Trie les résultats par stock disponible croissant. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-08 | Trie les résultats par prix croissant. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-09 | Trie les produits par SKU. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-10 | Exclus les produits en rupture de cette liste. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-11 | Ne montre que ceux avec un stock de 1 à 14 unités. | PAGINATION_SEARCH | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-12 | Le SKU que je cherche est-il dans les 227 résultats ? | REQUERY_EXACT_IN_RESULT_SET | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-13 | Je veux la page 99999. | SAFE_BOUND_PAGINATION | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G08-14 | Affiche tous les 10 000 résultats d’un coup. | BOUNDED_PAGINATION | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
+| G08-01 | Quels produits ont moins de 15 unités disponibles ? Affiche les suivants. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-02 | Montre les 20 produits suivants. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-03 | Voir plus de produits. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-04 | Passe à la page 2 des résultats. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-05 | Retourne à la première page. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-06 | Affiche la dernière page des résultats. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-07 | Trie les résultats par stock disponible croissant. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-08 | Trie les résultats par prix croissant. | PAGINATION_SEARCH | PASS | PRODUCT_ADVICE |
+| G08-09 | Trie les produits par SKU. | PAGINATION_SEARCH | PASS | PRODUCT_ADVICE |
+| G08-10 | Exclus les produits en rupture de cette liste. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-11 | Ne montre que ceux avec un stock de 1 à 14 unités. | PAGINATION_SEARCH | PASS | LOW_STOCK |
+| G08-12 | Le SKU que je cherche est-il dans les 227 résultats ? | REQUERY_EXACT_IN_RESULT_SET | FAIL | No literal SKU or previously identified SKU: cannot prove result-set membership |
+| G08-13 | Je veux la page 99999. | SAFE_BOUND_PAGINATION | PASS | CLARIFICATION_REQUIRED |
+| G08-14 | Affiche tous les 10 000 résultats d’un coup. | BOUNDED_PAGINATION | PASS | CLARIFICATION_REQUIRED |
 | G09-01 | Conseille-moi une bonne perceuse disponible. | PRODUCT_ADVICE | PASS | PRODUCT_ADVICE |
 | G09-02 | Propose-moi trois perceuses moins chères que 150 €. | PRODUCT_ADVICE | PASS | PRODUCT_ADVICE |
 | G09-03 | Quelle est la visseuse la moins chère ? | PRODUCT_ADVICE | PASS | PRODUCT_ADVICE |
-| G09-04 | Compare deux perceuses disponibles. | PRODUCT_ADVICE | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
+| G09-04 | Compare deux perceuses disponibles. | PRODUCT_ADVICE | PASS | COMPARISON |
 | G09-05 | Compare DEMO-01-0225 avec une autre visseuse. | PRODUCT_ADVICE | PASS | COMPARISON |
 | G09-06 | Quelles alternatives au produit DEMO-01-0225 ? | PRODUCT_ADVICE | PASS | COMPARISON |
-| G09-07 | Je cherche un outil abordable pour mon atelier. | PRODUCT_ADVICE | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
+| G09-07 | Je cherche un outil abordable pour mon atelier. | PRODUCT_ADVICE | PASS | PRODUCT_ADVICE |
 | G09-08 | Recommande-moi une perceuse en stock pour 120 € maximum. | PRODUCT_ADVICE | PASS | PRODUCT_ADVICE |
-| G09-09 | Je préfère celle avec le plus de stock disponible. | PRODUCT_ADVICE | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
+| G09-09 | Je préfère celle avec le plus de stock disponible. | PRODUCT_ADVICE | PASS | PRODUCT_ADVICE |
 | G09-10 | Quelles sont les deux scies les moins chères ? | PRODUCT_ADVICE | PASS | PRODUCT_ADVICE |
-| G09-11 | Affiche seulement des alternatives disponibles. | PRODUCT_ADVICE | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
-| G09-12 | Pourquoi recommandes-tu ce produit ? | CITE_VERIFIED_FACTS_ONLY | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
+| G09-11 | Affiche seulement des alternatives disponibles. | PRODUCT_ADVICE | PASS | PRODUCT_ADVICE |
+| G09-12 | Pourquoi recommandes-tu ce produit ? | CITE_VERIFIED_FACTS_ONLY | PASS | PRODUCT_ADVICE |
 | G09-13 | Quels produits valent le plus le coup ? | CLARIFY_OR_EXPLAIN_OBJECTIVE_CRITERIA | PASS | CLARIFICATION_REQUIRED |
-| G09-14 | Qu'est-ce qui est mieux, une visseuse ou une perceuse ? | GENERAL_HELP_NO_INVENTED_FACTS | FAIL | Requested capability is not qualified by this implementation; safe clarification is not counted as feature success |
+| G09-14 | Qu'est-ce qui est mieux, une visseuse ou une perceuse ? | GENERAL_HELP_NO_INVENTED_FACTS | PASS | PRODUCT_ADVICE |
 | G09-15 | Je veux un produit avec les meilleures notes clients. | CLARIFY_UNAVAILABLE_RATINGS | PASS | CLARIFICATION_REQUIRED |
 | G10-01 | Prépare une commande de 2 unités du produit DEMO-01-0225. | ORDER_PREPARE | SKIP | ORDER preparation: disposable Mongo/PG only; see mapped pytest/browser evidence |
 | G10-02 | Prépare une commande de 2 unités de DEMO-01-0225. | ORDER_PREPARE | SKIP | ORDER preparation: disposable Mongo/PG only; see mapped pytest/browser evidence |
@@ -220,12 +220,12 @@ Les oracles structurés, droits, contexte préalable, dataset, provenance, effet
 | G12-12 | La quantité a changé depuis ma préparation, que faire ? | STALE_PREPARATION_EXPLAIN | SKIP | ORDER lifecycle/reconciliation; see mapped pytest/browser evidence |
 | G13-01 | Je cherche des perceuses. ⇒ Seulement celles disponibles. ⇒ Maintenant à moins de 100 €. | MULTI_TURN_CONTEXT | PASS | PRODUCT_ADVICE |
 | G13-02 | Je veux des perceuses à moins de 150 €. ⇒ Et si je descends à 100 € ? | MULTI_TURN_CONTEXT | PASS | PRODUCT_ADVICE |
-| G13-03 | Je cherche des perceuses en stock. ⇒ Montre-moi les moins chères. ⇒ Compare les deux premières. | MULTI_TURN_CONTEXT | FAIL | Intermediate discovery failed |
-| G13-04 | Quels produits sont bientôt épuisés ? ⇒ Exclue les ruptures. ⇒ Montre la page suivante. | MULTI_TURN_CONTEXT | FAIL | Next current-results page preserving stock/category filters |
+| G13-03 | Je cherche des perceuses en stock. ⇒ Montre-moi les moins chères. ⇒ Compare les deux premières. | MULTI_TURN_CONTEXT | PASS | COMPARISON |
+| G13-04 | Quels produits sont bientôt épuisés ? ⇒ Exclue les ruptures. ⇒ Montre la page suivante. | MULTI_TURN_CONTEXT | PASS | LOW_STOCK |
 | G13-05 | Quels produits ont moins de 15 unités disponibles ? ⇒ Et avec exactement 5 ? | MULTI_TURN_CONTEXT | PASS | LOW_STOCK |
 | G13-06 | Je cherche DEMO-01-0225. ⇒ Quel est son stock ? ⇒ Quel est son prix ? | MULTI_TURN_CONTEXT | PASS | PRODUCT_ADVICE |
 | G13-07 | Montre des perceuses. ⇒ Je préfère les visseuses. ⇒ Toujours disponibles. | MULTI_TURN_CONTEXT | PASS | PRODUCT_ADVICE |
-| G13-08 | Compare DEMO-01-0225 à une alternative. ⇒ Et une autre moins chère ? | MULTI_TURN_CONTEXT | FAIL | Another verified cheaper alternative to prior exact product |
+| G13-08 | Compare DEMO-01-0225 à une alternative. ⇒ Et une autre moins chère ? | MULTI_TURN_CONTEXT | PASS | PRODUCT_ADVICE |
 | G13-09 | Je cherche une perceuse pour mon atelier. ⇒ Avec un budget de 100 €. | MULTI_TURN_CONTEXT | PASS | PRODUCT_ADVICE |
 | G13-10 | Je veux préparer une commande de 2 unités de TEST-A-DRILL-001. ⇒ Je confirme. | NO_TEXT_ONLY_RESERVATION | SKIP | Multi-turn scenarios; see mapped pytest/browser evidence |
 | G13-11 | Prépare 2 unités de TEST-A-DRILL-001. ⇒ Finalement, 3 unités. | REQUIRE_NEW_EXPLICIT_PREPARATION | SKIP | Multi-turn scenarios; see mapped pytest/browser evidence |
@@ -280,7 +280,7 @@ Les oracles structurés, droits, contexte préalable, dataset, provenance, effet
 | G17-08 | Cherche un modèle 20 V mais sans marque. | CLARIFY_REFERENCE_IF_NEEDED | PASS | CLARIFICATION_REQUIRED |
 | G17-09 | Je veux le stock de tout sans droits. | PERMISSION_DENIED | SKIP | Permission must be removed server-side; user wording is not authorization state; see mapped pytest/browser evidence |
 | G17-10 | Trouve des produits qui n'existent pas dans le catalogue. | NO_HALLUCINATED_PRODUCT | PASS | CLARIFICATION_REQUIRED |
-| G17-11 | Trouve-moi une perceuse à 0,01 € inexistante. | NO_RESULTS | FAIL | Expected empty price-filtered search, not identity clarification |
+| G17-11 | Trouve-moi une perceuse à 0,01 € inexistante. | NO_RESULTS | PASS | PRODUCT_ADVICE |
 | G17-12 | Quel produit sera épuisé exactement demain ? | NO_FORECAST_WITHOUT_DATA | PASS | CLARIFICATION_REQUIRED |
 | G17-13 | Quel sera notre chiffre d'affaires demain ? | NO_FORECAST_WITHOUT_DATA | PASS | CLARIFICATION_REQUIRED |
 | G17-14 | Envoie 100 commandes automatiquement. | REFUSE_IMPLICIT_BULK | PASS | CLARIFICATION_REQUIRED |

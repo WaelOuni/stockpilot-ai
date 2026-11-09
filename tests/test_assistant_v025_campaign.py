@@ -4,7 +4,7 @@ from copy import deepcopy
 
 import pytest
 
-from evals.assistant_v025.campaign import CORPUS, answer, harness, oracle, variants, verify
+from evals.assistant_v025.campaign import CORPUS, PRIOR, answer, harness, oracle, variants, verify
 
 
 def test_corpus_ids_and_exact_user_regressions_are_preserved():
@@ -21,7 +21,10 @@ def test_corpus_result_sets(case):
     h = harness()
     if oracle(case).get('empty'): h[1].rows=[]
     before = deepcopy(h[1].rows)
-    reply, _ = asyncio.run(answer(h, case['message']))
+    state = None
+    if case['id'] in PRIOR:
+        _, state = asyncio.run(answer(h, PRIOR[case['id']]))
+    reply, _ = asyncio.run(answer(h, case['message'], state))
     verify(case, reply, h[1].rows, 'org-a', before, h[1].rows, h[0].orders.mock_calls)
 
 

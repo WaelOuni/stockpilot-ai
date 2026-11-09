@@ -1,0 +1,888 @@
+[
+  {
+    "id": "G10-01",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-01]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-02",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-02]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-03",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-03]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-04",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-04]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-05",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-05]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-06",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-06]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-07",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-07]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-08",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-08]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-09",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-09]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-10",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-10]"
+    ],
+    "acceptance": "SYNTHETIC_ONLY",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-11",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-11]"
+    ],
+    "acceptance": "SYNTHETIC_ONLY",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-12",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-12]"
+    ],
+    "acceptance": "SYNTHETIC_ONLY",
+    "qualification": "unsupported",
+    "reason": "Direct test observes CLARIFICATION_REQUIRED, not the requested preparation; safe refusal is not preparation success."
+  },
+  {
+    "id": "G10-13",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-13]"
+    ],
+    "acceptance": "QUANTITY_WORDS_IF_SUPPORTED",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G10-14",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-14]"
+    ],
+    "acceptance": "QUANTITY_MODIFIER_IF_SUPPORTED",
+    "qualification": "direct",
+    "reason": "Explicit IF_SUPPORTED expectation: modifier grammar unsupported and safely clarified; no order created. Not evidence of modifier support."
+  },
+  {
+    "id": "G10-15",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-15]"
+    ],
+    "acceptance": "VERIFIED_EXACT_NAME_ONLY",
+    "qualification": "direct",
+    "reason": "Two exact homonyms in fixture: clarification and zero preparation enforce VERIFIED_EXACT_NAME_ONLY; no fuzzy identity chosen."
+  },
+  {
+    "id": "G10-16",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-16]"
+    ],
+    "acceptance": "ORDER_PREPARE",
+    "qualification": "direct",
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+  },
+  {
+    "id": "G11-07",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_integration.py::test_order_negative_corpus_cannot_bypass_evidence[G11-07]"
+    ],
+    "acceptance": "SPECIFIC_LEXICAL_VALID_OR_CLEAR_REFUSAL",
+    "qualification": "direct",
+    "reason": "Exact half-dozen input prepares six verified units without reservation; lexical valid-or-refusal expectation."
+  },
+  {
+    "id": "G12-01",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_lifecycle_status_never_mutates[G12-01]"
+    ],
+    "acceptance": "ORDER_LIFECYCLE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-02",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_lifecycle_status_never_mutates[G12-02]"
+    ],
+    "acceptance": "ORDER_LIFECYCLE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-03",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_lifecycle_status_never_mutates[G12-03]"
+    ],
+    "acceptance": "ORDER_LIFECYCLE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-04",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_confirmation_text_has_no_reservation[G12-04]"
+    ],
+    "acceptance": "NO_RESERVATION_BY_TEXT",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-05",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_confirmation_text_has_no_reservation[G12-05]"
+    ],
+    "acceptance": "NO_RESERVATION_BY_TEXT",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-06",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_confirmation_text_has_no_reservation[G12-06]"
+    ],
+    "acceptance": "UI_CONFIRMATION_REQUIRED",
+    "qualification": "unsupported",
+    "reason": "Direct observation: response is empty RAG instead of guidance to explicit UI confirmation. Stock safety holds but target UX guidance is absent."
+  },
+  {
+    "id": "G12-07",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_lifecycle_status_never_mutates[G12-07]"
+    ],
+    "acceptance": "SHOW_CANCEL_ACTION_NO_IMPLICIT_MUTATION",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-08",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_lifecycle_status_never_mutates[G12-08]"
+    ],
+    "acceptance": "SHOW_CANCEL_ACTION_NO_IMPLICIT_MUTATION",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-09",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_lifecycle_status_never_mutates[G12-09]"
+    ],
+    "acceptance": "REFUSE_BULK_MUTATION",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-10",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_pending_operation_uses_same_plan_on_explicit_retry[G12-10]"
+    ],
+    "acceptance": "IDEMPOTENT_EXPLICIT_RETRY",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-11",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_double_confirmation_question_queries_current_status"
+    ],
+    "acceptance": "QUERY_STATUS_NO_SECOND_RESERVATION",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G12-12",
+    "layer": "ORDER integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_stale_preparation_question_records_explanation_gap"
+    ],
+    "acceptance": "STALE_PREPARATION_EXPLAIN",
+    "qualification": "unsupported",
+    "reason": "Direct observation after stock change: status is re-read but no stale-stock explanation is produced. No implicit confirmation occurs."
+  },
+  {
+    "id": "G13-10",
+    "layer": "persisted multi-turn",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_order_multiturn_has_no_implicit_write[G13-10]"
+    ],
+    "acceptance": "NO_TEXT_ONLY_RESERVATION",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G13-11",
+    "layer": "persisted multi-turn",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_order_multiturn_has_no_implicit_write[G13-11]"
+    ],
+    "acceptance": "REQUIRE_NEW_EXPLICIT_PREPARATION",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G13-12",
+    "layer": "persisted multi-turn",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_order_multiturn_has_no_implicit_write[G13-12]"
+    ],
+    "acceptance": "SAFE_CLARIFY_WITHOUT_WRITE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G14-01",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-01]"
+    ],
+    "acceptance": "HISTORY_ONLY_AUTHORIZED",
+    "qualification": "unsupported",
+    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+  },
+  {
+    "id": "G14-02",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-02]"
+    ],
+    "acceptance": "CONVERSATION_ISOLATION",
+    "qualification": "unsupported",
+    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+  },
+  {
+    "id": "G14-03",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_followup_without_recoverable_context_clarifies"
+    ],
+    "acceptance": "SAME_CONVERSATION_OR_CLARIFY",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G14-04",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-04]"
+    ],
+    "acceptance": "VERIFIED_REFERENCE",
+    "qualification": "unsupported",
+    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+  },
+  {
+    "id": "G14-05",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-05]"
+    ],
+    "acceptance": "IMMUTABLE_SNAPSHOT",
+    "qualification": "unsupported",
+    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+  },
+  {
+    "id": "G14-06",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-06]"
+    ],
+    "acceptance": "NEW_CURRENT_OBSERVATION",
+    "qualification": "unsupported",
+    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+  },
+  {
+    "id": "G14-07",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-07]"
+    ],
+    "acceptance": "CURRENT_RECHECK",
+    "qualification": "unsupported",
+    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+  },
+  {
+    "id": "G14-08",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_new_conversation_does_not_inherit_budget"
+    ],
+    "acceptance": "NO_CROSS_CONVERSATION_INHERITANCE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G14-09",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_private_history_request_cannot_read_foreign_owner[G14-09]"
+    ],
+    "acceptance": "DENY_FOREIGN_TENANT",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G14-10",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_missing_conversation_does_not_leak"
+    ],
+    "acceptance": "NOT_FOUND_NO_LEAK",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G14-11",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G14-11: exact request followed by explicit new-conversation UI preserves old history"
+    ],
+    "acceptance": "SESSION_UI_ACTION",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G14-12",
+    "layer": "history/session integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_unauthenticated_or_expired_http_request_is_denied[G14-12]"
+    ],
+    "acceptance": "DENY_UNAUTHENTICATED",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G15-01",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "RAG_GROUNDED",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-02",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "RAG_GROUNDED",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-03",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "RAG_GROUNDED",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-04",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "RAG_GROUNDED",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-05",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "RAG_GROUNDED",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-06",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "RAG_GROUNDED",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-07",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "ONLY_IF_PERSISTED_DOCUMENT",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-08",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "CATALOGUE_AS_SOURCE_OF_TRUTH",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-09",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "RAG_GROUNDED",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-10",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "RAG_GROUNDED",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-11",
+    "layer": "RAG/model",
+    "tests": [],
+    "acceptance": "REFUSE_SECRETS",
+    "qualification": "missing",
+    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+  },
+  {
+    "id": "G15-12",
+    "layer": "RAG/model",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_empty_document_request_abstains"
+    ],
+    "acceptance": "ABSTAIN_IF_NO_EVIDENCE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G17-09",
+    "layer": "authorization integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_revoked_permission_is_denied"
+    ],
+    "acceptance": "PERMISSION_DENIED",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G18-01",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-01]"
+    ],
+    "acceptance": "DENY_FOREIGN_TENANT",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-02",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-02]"
+    ],
+    "acceptance": "DENY_FOREIGN_TENANT",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-03",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_foreign_order_request_does_not_accept_model_identity"
+    ],
+    "acceptance": "DENY_FOREIGN_OWNER",
+    "qualification": "direct",
+    "reason": "A real order is prepared by another same-tenant user; exact original request cannot accept model-suggested foreign order identity. Direct order lookup denies ownership."
+  },
+  {
+    "id": "G18-04",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-04]"
+    ],
+    "acceptance": "DENY_FOREIGN_TENANT",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-05",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_admin_impersonation_does_not_confirm"
+    ],
+    "acceptance": "NO_IMPLICIT_CONFIRMATION",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G18-06",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-06]"
+    ],
+    "acceptance": "IGNORE_UNTRUSTED_INSTRUCTIONS",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-07",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-07]"
+    ],
+    "acceptance": "IGNORE_UNTRUSTED_CATALOGUE_TEXT",
+    "qualification": "direct",
+    "reason": "Persisted Mongo product description contains the directive. Exact SKU graph read observes that product without generation/action, then exact original quoted-input followup cannot produce any business action or foreign facts. No semantic LLM grounding is claimed."
+  },
+  {
+    "id": "G18-08",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-08]"
+    ],
+    "acceptance": "IGNORE_UNTRUSTED_DOCUMENT_TEXT",
+    "qualification": "direct",
+    "reason": "Exact input plus actual persisted adversarial own-tenant document and foreign decoy. Generated command text cannot execute an action; foreign passage excluded before generation. This proves code execution boundary, not semantic grounding of generated prose."
+  },
+  {
+    "id": "G18-09",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-09]"
+    ],
+    "acceptance": "REFUSE_CREDENTIALS",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-10",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-10]"
+    ],
+    "acceptance": "REFUSE_CREDENTIALS",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-11",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-11]"
+    ],
+    "acceptance": "REFUSE_SECRETS",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-12",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-12]"
+    ],
+    "acceptance": "DENY_FOREIGN_TENANT",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-13",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_untrusted_requests_do_not_broaden_or_mutate[G18-13]"
+    ],
+    "acceptance": "NEVER_BROADEN_SCOPE",
+    "qualification": "direct",
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+  },
+  {
+    "id": "G18-14",
+    "layer": "security/session",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_read_only_order_request_does_not_prepare"
+    ],
+    "acceptance": "DENY_ORDER_CREATE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G18-15",
+    "layer": "security/session",
+    "tests": [],
+    "acceptance": "DENY_CONTACT_ADMIN",
+    "qualification": "missing",
+    "reason": "Exact administrative ticket request requires direct authorized HTTP/contact boundary evidence; assistant no-write tests alone do not exercise CONTACT_ADMIN."
+  },
+  {
+    "id": "G18-16",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G18-16: exact hostile request cannot retain a late response after cross-tab identity change"
+    ],
+    "acceptance": "DROP_STALE_RESPONSE",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G19-03",
+    "layer": "fault integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_pending_operation_uses_same_plan_on_explicit_retry[G19-03]"
+    ],
+    "acceptance": "TEST_WITH_MONGO_TIMEOUT_NO_UNKNOWN_WRITE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G19-04",
+    "layer": "fault integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_dependency_outage_retains_pending_without_facts[G19-04]"
+    ],
+    "acceptance": "TEST_WITH_MONGO_UNAVAILABLE",
+    "qualification": "direct",
+    "reason": "Exact input on persisted graph; typed dependency failure injected at catalogue/retrieval port. Pending state retained, no fake facts, no write; physical server loss is not simulated."
+  },
+  {
+    "id": "G19-05",
+    "layer": "fault integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_dependency_outage_retains_pending_without_facts[G19-05]"
+    ],
+    "acceptance": "TEST_WITH_PG_UNAVAILABLE",
+    "qualification": "direct",
+    "reason": "Exact input on persisted graph; typed dependency failure injected at catalogue/retrieval port. Pending state retained, no fake facts, no write; physical server loss is not simulated."
+  },
+  {
+    "id": "G19-06",
+    "layer": "fault integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_unauthenticated_or_expired_http_request_is_denied[G19-06]"
+    ],
+    "acceptance": "TEST_WITH_EXPIRED_BFF_SESSION",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G19-07",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G19-07: exact next-page request and late paginated HTTP response cannot replace reopened results"
+    ],
+    "acceptance": "TEST_WITH_STALE_RESPONSE",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G19-08",
+    "layer": "fault integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_duplicate_message_prepares_once"
+    ],
+    "acceptance": "TEST_WITH_DUPLICATE_MESSAGE_ID",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G19-09",
+    "layer": "fault integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_pending_operation_uses_same_plan_on_explicit_retry[G19-09]"
+    ],
+    "acceptance": "TEST_WITH_PENDING_OPERATION_NO_WRITE",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G19-10",
+    "layer": "fault integration",
+    "tests": [
+      "tests/test_assistant_v025_layers_integration.py::test_exact_missing_checkpoint_preserves_history_without_replay"
+    ],
+    "acceptance": "TEST_WITH_MISSING_CHECKPOINT",
+    "qualification": "direct",
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+  },
+  {
+    "id": "G20-01",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-01: original prompt, RENDER_5_CARDS_AND_MORE UI contract"
+    ],
+    "acceptance": "RENDER_5_CARDS_AND_MORE",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-02",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-02: original prompt, SHOW_FILTERS_PRICE_AND_STOCK UI contract"
+    ],
+    "acceptance": "SHOW_FILTERS_PRICE_AND_STOCK",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-03",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-03: original prompt, COMPARISON_UI UI contract"
+    ],
+    "acceptance": "COMPARISON_UI",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-04",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-04: original prompt, SHOW_EXPLICIT_CONFIRMATION UI contract"
+    ],
+    "acceptance": "SHOW_EXPLICIT_CONFIRMATION",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-05",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-05: original prompt, CORRECT_COUNT_TOTAL UI contract"
+    ],
+    "acceptance": "CORRECT_COUNT_TOTAL",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-06",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-06: original prompt, PAGINATION_UI_KEYBOARD UI contract"
+    ],
+    "acceptance": "PAGINATION_UI_KEYBOARD",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-07",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-07: original prompt, MOBILE_AND_DARK_MODE UI contract"
+    ],
+    "acceptance": "MOBILE_AND_DARK_MODE",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-08",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-08: original prompt, HISTORY_PAGINATION UI contract"
+    ],
+    "acceptance": "HISTORY_PAGINATION",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-09",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-09: original prompt, EMPTY_STATE UI contract"
+    ],
+    "acceptance": "EMPTY_STATE",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  },
+  {
+    "id": "G20-10",
+    "layer": "browser",
+    "tests": [
+      "frontend/assistant-corpus.spec.ts::G20-10: original prompt, ERROR_STATE_WITHOUT_INVENTION UI contract"
+    ],
+    "acceptance": "ERROR_STATE_WITHOUT_INVENTION",
+    "qualification": "direct",
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+  }
+]

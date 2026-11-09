@@ -61,6 +61,22 @@ def catalogue_question(question):
     if re.search(r'["«»]', question) or explicit_skus(question):
         return question
     value = normalize(question)
+    # Terminal explanatory clauses describe the result, not another filter.
+    # Restrict these rewrites to a complete generic category/budget request;
+    # unknown names, quoted identities and conflicting amounts stay literal.
+    category_budget = r"(?:(?:je cherche|trouve[- ]moi) )?(?:une? |des )?(?:perceuses?|visseuses?|scies?|ponceuses?)(?: disponibles?)? a (?:moins de )?\d+(?:[.,]\d{1,2})?\s*(?:€|euros?|eur)"
+    explanation = re.fullmatch(
+        rf"({category_budget}), sans confondre (\d+(?:[.,]\d{{1,2}})?)\s*(?:€|euros?|eur) et (\d+(?:[.,]\d{{1,2}})?)\s*(?:€|euros?|eur)[.!?]?",
+        value,
+    )
+    if explanation and 'moins de' in explanation[1]:
+        cap = re.search(r'moins de (\d+(?:[.,]\d{1,2})?)', explanation[1])[1]
+        amounts = [Decimal(v.replace(',', '.')) for v in (cap, explanation[2], explanation[3])]
+        if amounts[0] == amounts[1] and amounts[2] == amounts[0] - Decimal('0.01'):
+            value = explanation[1]
+    empty_clause = re.fullmatch(rf"({category_budget})(?: meme si aucun resultat| inexistante?)[.!?]?", value)
+    if empty_clause:
+        value = empty_clause[1]
     bare = value.rstrip('.?! ')
     if re.fullmatch(r'(?:seulement celles|toujours) disponibles', bare):
         return 'Seulement celles qui sont disponibles'

@@ -52,6 +52,112 @@ class TenantAssistantCatalogue:
         self.catalogue = catalogue
 
     @staticmethod
+    def is_grounded_request(question):
+        value = normalize(question).strip().rstrip('.?!').strip()
+        return bool(re.fullmatch(
+            r"compare (?:deux|2) (?:perceuses?|visseuses?|scies?|ponceuses?) disponibles|"
+            r"je cherche un outil abordable pour mon atelier|"
+            r"je prefere celle avec le plus de stock disponible|"
+            r"affiche seulement des alternatives disponibles|"
+            r"pourquoi recommandes-tu ce produit|"
+            r"qu'est-ce qui est mieux, une visseuse ou une perceuse|"
+            r"montre-moi les moins cheres|compare les deux premieres|et une autre moins chere",
+            value,
+        ))
+
+    @staticmethod
+    def _saved_query(state):
+        if not state.get('catalogue_search'):
+            raise ClarificationRequired("Commencez par une recherche dans cette conversation.")
+        values = dict(state['catalogue_search'])
+        for name in ('categories', 'exclude_skus'):
+            values[name] = tuple(values.get(name, ()))
+        return TenantProductQuery(**values)
+
+    def _query_reply(self, request, context, query, state, explanation):
+        page = self.catalogue.search_stock(request, context, query)
+        observed = datetime.now(UTC).isoformat()
+        cards = [self.card(request, context, p.product, p.stock, observed) for p in page.items[:5]]
+        return {
+            'intent': 'PRODUCT_ADVICE',
+            'text': ('Aucun produit ne correspond aux critères. ' if not cards else f'{page.total} résultat(s) vérifié(s). ') + explanation,
+            'products': cards, 'total': page.total,
+            'criteria': state.get('criteria'),
+            'catalogue_categories': list(query.categories),
+            'advice_skus': [p['sku'] for p in cards],
+            'catalogue_search': asdict(query),
+        }
+
+    async def _grounded_advice(self, request, context, question, state):
+        value = normalize(question).strip().rstrip('.?!').strip()
+        if value.startswith("qu'est-ce qui est mieux"):
+            return {'intent': 'PRODUCT_ADVICE', 'products': [], 'total': 0,
+                    'text': "Le choix dépend de votre usage. Le catalogue ne permet pas d'établir qu'une visseuse ou une perceuse est meilleure : performances, qualité et notes clients ne sont pas renseignées. Pour des références précises, je peux comparer uniquement leur prix, leur devise et leur stock disponible vérifiés."}
+        if value == 'je cherche un outil abordable pour mon atelier':
+            return self._query_reply(request, context, TenantProductQuery(limit=3, status='active', currency='EUR', sort_by_price=True), {},
+                "Les prix EUR les plus bas du catalogue sont affichés ; aucun budget personnel n'est supposé et aucune qualité ou adéquation à l'atelier n'est établie.")
+        if re.fullmatch(r'compare (?:deux|2) (?:perceuses?|visseuses?|scies?|ponceuses?) disponibles', value):
+            reply = await self.advice(request, context, re.sub(r'^compare (?:deux|2)', 'Je cherche deux', question, flags=re.I), {})
+            reply['intent'] = 'COMPARISON'
+            reply['text'] += " Comparaison limitée aux prix, devises et stocks vérifiés ; aucune qualité ou performance supposée."
+            return reply
+        if value == 'montre-moi les moins cheres':
+            query = replace(self._saved_query(state), limit=5, offset=0, sort_by_price=True, sort_by_available=False)
+            if query.currency is None:
+                currencies = set()
+                for sku in state.get('advice_skus', [])[:5]:
+                    product = self.catalogue.by_sku(request, context, sku)
+                    if product is None or product.status != 'active':
+                        raise ClarificationRequired('Une référence précédente n’est plus accessible ; relancez la recherche.')
+                    currencies.add(product.currency)
+                if len(currencies) != 1:
+                    raise ClarificationRequired('Choisissez une recherche dans une seule devise ; aucune conversion n’est supposée.')
+                query = replace(query, currency=next(iter(currencies)))
+            return self._query_reply(request, context, query, state,
+                f'Prix {query.currency} croissants, puis SKU ; autres devises non comparées. Filtres conservés, observation actuelle sans réservation.')
+        if value in ('affiche seulement des alternatives disponibles', 'et une autre moins chere'):
+            criteria = state.get('criteria') or {}
+            if criteria.get('mode') != 'compare' or not criteria.get('reference'):
+                raise ClarificationRequired('Comparez d’abord un produit par son SKU dans cette conversation.')
+            anchor = await self.resolve(request, context, criteria['reference'])
+            query = self._saved_query(state)
+            query = replace(query, offset=0, sort_by_price=True, sort_by_available=False,
+                            categories=(anchor.category,), currency=anchor.currency,
+                            exclude_skus=tuple(dict.fromkeys((*query.exclude_skus, anchor.sku))))
+            if value == 'affiche seulement des alternatives disponibles':
+                query = replace(query, available=True)
+            else:
+                if anchor.price_minor == 0:
+                    raise ClarificationRequired('Aucun prix positif ne peut être inférieur à ce prix nul.')
+                cap = min(anchor.price_minor - 1, query.maximum_price_minor) if query.maximum_price_minor is not None else anchor.price_minor - 1
+                query = replace(query, limit=1, maximum_price_minor=cap,
+                                exclude_skus=tuple(dict.fromkeys((*query.exclude_skus, *state.get('advice_skus', [])))))
+            return self._query_reply(request, context, query, state,
+                'Alternatives de la même catégorie et devise, critères revérifiés dans le catalogue courant ; aucune équivalence de performance supposée.')
+        skus = state.get('advice_skus', [])[:5]
+        needed = 2 if value == 'compare les deux premieres' else 1
+        if len(skus) < needed or value == 'pourquoi recommandes-tu ce produit' and len(skus) != 1:
+            raise ClarificationRequired('Précisez les références concernées dans cette conversation.')
+        cards = []
+        for sku in skus[:2] if needed == 2 else skus:
+            product = self.catalogue.by_sku(request, context, sku)
+            if product is None or product.status != 'active':
+                raise ClarificationRequired('Une référence précédente n’est plus accessible ; relancez la recherche.')
+            cards.append(self.card(request, context, product))
+        if value == 'je prefere celle avec le plus de stock disponible':
+            cards = sorted(cards, key=lambda p: (-p['available'], p['sku']))[:1]
+            explanation = 'Stock disponible le plus élevé parmi les références précédemment affichées, revérifiées maintenant ; aucune réservation.'
+        elif needed == 2:
+            explanation = 'Comparaison des deux premières références affichées : prix, devises et stocks actuels uniquement ; aucune performance supposée.'
+        else:
+            p = cards[0]
+            explanation = f"Faits revérifiés pour {p['sku']} : prix {Decimal(p['price_minor']) / 100} {p['currency']}, stock physique {p['quantity']}, réservé {p['reserved']}, disponible {p['available']}. Ce sont les seules raisons vérifiables ; aucune qualité, note client ou performance n'est déduite."
+        return {'intent': 'COMPARISON' if needed == 2 else 'PRODUCT_ADVICE', 'products': cards,
+                'total': len(cards), 'text': explanation, 'criteria': state.get('criteria'),
+                'catalogue_categories': state.get('catalogue_categories', []),
+                'catalogue_search': None, 'advice_skus': [p['sku'] for p in cards]}
+
+    @staticmethod
     def criteria(question, previous):
         # A generic workshop context is not a product-name discriminant. Strip
         # it only when the remaining request is an explicit category search;
@@ -212,6 +318,8 @@ class TenantAssistantCatalogue:
         }
 
     async def advice(self, request, context, question, state):
+        if self.is_grounded_request(question):
+            return await self._grounded_advice(request, context, question, state)
         previous = (
             AdviceCriteria(**state["criteria"]) if state.get("criteria") else None
         )
