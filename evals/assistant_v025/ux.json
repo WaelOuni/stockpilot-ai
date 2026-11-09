@@ -1,0 +1,98 @@
+[
+  {
+    "id": "UXP-01",
+    "requirement": "état idle, aucun spinner ou badge de fin intempestif."
+  },
+  {
+    "id": "UXP-02",
+    "requirement": "clic Envoyer → feedback visuel immédiat, sans duplicata de message."
+  },
+  {
+    "id": "UXP-03",
+    "requirement": "réponse serveur très rapide → aucun scintillement gênant, aucun retard artificiel."
+  },
+  {
+    "id": "UXP-04",
+    "requirement": "réponse retardée >10s → indication honnête de traitement long ; pas de % fictif."
+  },
+  {
+    "id": "UXP-05",
+    "requirement": "texte + produits `completed` → résultat visible, indicateur retiré, signal « Réponse prête » unique."
+  },
+  {
+    "id": "UXP-06",
+    "requirement": "résultat `NO_RESULTS` → message exact / état vide, sans prétendre trouver un produit."
+  },
+  {
+    "id": "UXP-07",
+    "requirement": "`CLARIFICATION_REQUIRED` et `ORDER_REFUSED` → rendu neutre/refus, pas de son de réussite."
+  },
+  {
+    "id": "UXP-08",
+    "requirement": "`ORDER_PREPARE` → état « préparation à vérifier », pas « commande confirmée/réservée »."
+  },
+  {
+    "id": "UXP-09",
+    "requirement": "attente avec `timeoutMs=90000` / panne réseau → statut incertain géré, texte utilisateur conservé."
+  },
+  {
+    "id": "UXP-10",
+    "requirement": "`pending` récupéré puis terminé → une notification au plus, pas de double POST."
+  },
+  {
+    "id": "UXP-11",
+    "requirement": "reprise / retry contrôlé et réconciliation idempotente → aucune double notification."
+  },
+  {
+    "id": "UXP-12",
+    "requirement": "consultation du seul historique / pages anciennes → aucun son ni toast nouveau."
+  },
+  {
+    "id": "UXP-13",
+    "requirement": "panneau réduit pendant une réponse → badge de nouvelle réponse puis effacement à la consultation."
+  },
+  {
+    "id": "UXP-14",
+    "requirement": "passage assistant dock ↔ page complète → aucune fuite ou notification de réponse obsolète."
+  },
+  {
+    "id": "UXP-15",
+    "requirement": "changement d'organisation ou utilisateur pendant le traitement → annuler/ignorer tout feedback appartenant à l'ancienne identité."
+  },
+  {
+    "id": "UXP-16",
+    "requirement": "logout ou session expirée pendant l'attente → aucun son / badge / donnée d'un ancien utilisateur."
+  },
+  {
+    "id": "UXP-17",
+    "requirement": "préférence son OFF par défaut ; réponse terminée → 0 audio mais feedback visuel présent."
+  },
+  {
+    "id": "UXP-18",
+    "requirement": "préférence son ON via geste → une courte notification sonore originale au plus."
+  },
+  {
+    "id": "UXP-19",
+    "requirement": "Web Audio API indisponible/autoplay refusé → aucun crash, notification visuelle toujours présente."
+  },
+  {
+    "id": "UXP-20",
+    "requirement": "préférence conservée sur l'appareil sans casser langue/thème existants ; OFF réversible."
+  },
+  {
+    "id": "UXP-21",
+    "requirement": "FR/EN et clair/sombre, responsive mobile, notification non bloquante, boutons cliquables."
+  },
+  {
+    "id": "UXP-22",
+    "requirement": "lecteur d'écran/ARIA → annonce concise une fois ; `prefers-reduced-motion` sans animation excessive."
+  },
+  {
+    "id": "UXP-23",
+    "requirement": "utilisateur lit un ancien message plus haut → pas d'auto-scroll agressif ; repère nouveau résultat."
+  },
+  {
+    "id": "UXP-24",
+    "requirement": "deux événements HTTP tardifs ou séquences de réponses → déduplication par tour, absence de toast/son inter-tenant."
+  }
+]

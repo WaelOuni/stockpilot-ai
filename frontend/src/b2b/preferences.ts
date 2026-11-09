@@ -2,17 +2,18 @@ import { ref, watch } from 'vue'
 import { english } from './translations'
 
 const key = 'stockpilot.preferences.v1'
-type Preferences = { language: 'fr' | 'en'; theme: 'light' | 'dark' }
+type Preferences = { language: 'fr' | 'en'; theme: 'light' | 'dark'; assistantSound: boolean }
 function initial(): Preferences {
-  const defaults: Preferences = { language: 'fr', theme: typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light' }
+  const defaults: Preferences = { language: 'fr', theme: typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', assistantSound: false }
   try {
     const data = JSON.parse(localStorage.getItem(key) ?? '{}')
-    return { language: data.language === 'en' ? 'en' : 'fr', theme: ['light', 'dark'].includes(data.theme) ? data.theme : defaults.theme }
+    return { language: data.language === 'en' ? 'en' : 'fr', theme: ['light', 'dark'].includes(data.theme) ? data.theme : defaults.theme, assistantSound: data.assistantSound === true }
   } catch { return defaults }
 }
 const defaults = initial()
 export const language = ref<'fr' | 'en'>(defaults.language)
 export const theme = ref<'light' | 'dark'>(defaults.theme)
+export const assistantSound = ref(defaults.assistantSound)
 export function t(source: string): string {
   if (language.value === 'fr') return source
   if (english[source]) return english[source]
@@ -29,7 +30,7 @@ function apply() {
   document.documentElement.lang = language.value
   document.documentElement.dataset.theme = theme.value
   document.documentElement.style.colorScheme = theme.value
-  try { localStorage.setItem(key, JSON.stringify({ language: language.value, theme: theme.value })) } catch { /* Preferences stay usable in memory. */ }
+  try { localStorage.setItem(key, JSON.stringify({ language: language.value, theme: theme.value, assistantSound: assistantSound.value })) } catch { /* Preferences stay usable in memory. */ }
 }
-watch([language, theme], apply)
+watch([language, theme, assistantSound], apply)
 export function applyPreferences() { apply() }

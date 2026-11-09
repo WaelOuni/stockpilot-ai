@@ -1,6 +1,14 @@
 // User-facing application copy only. Product descriptions and conversations are not translated.
 // Only interface copy is translated. Catalogue data and conversation text remain verbatim.
 export const english: Record<string, string> = Object.fromEntries(`
+Son à la fin des réponses de l’assistant|Sound when the assistant finishes a response
+StockPilot prépare sa réponse…|StockPilot is preparing its response…
+La réponse prend un peu plus de temps. Ne renvoyez pas la demande.|The response is taking a little longer. Please do not resend your request.
+Réponse prête|Response ready
+Réponse reçue|Response received
+Préparation à vérifier|Preparation to review
+Nouvelle réponse|New response
+Réponse disponible|Response available
 Voir plus de produits|See more products
 Résultats actualisés|Current results
 Cette liste utilise le stock actuel. Les cartes du message initial restent inchangées.|This list uses current stock. The original message cards remain unchanged.

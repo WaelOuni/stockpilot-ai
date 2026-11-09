@@ -151,3 +151,20 @@ it('keeps new typing when an earlier submitted message replies late', async () =
   expect(wrapper.get('textarea').element.value).toBe('Next unsent question')
   wrapper.unmount(); session.dispose()
 })
+
+it.each(['logout', 'replace'])('UXP-15/16: %s during waiting discards the old identity response and all feedback', async change => {
+  let deliver!: (value: Response) => void
+  const { wrapper, session } = await setup(path => path.endsWith('/messages') ? new Promise<Response>(resolve => { deliver = resolve }) : respond(path))
+  await wrapper.get('textarea').setValue('Private question')
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  expect(wrapper.find('.response-dots').exists()).toBe(true)
+  if (change === 'logout') await session.logout()
+  else session.current.value = { ...session.current.value!, user_id: 'user-b', organization_id: 'org-b', csrf_token: 'different-session' }
+  await flushPromises()
+  deliver(json({ ...turn, message: 'Private old identity response' })); await flushPromises()
+  expect(wrapper.text()).not.toContain('Private old identity response')
+  expect(wrapper.find('.response-dots').exists()).toBe(false)
+  expect(wrapper.text()).not.toContain('Réponse prête')
+  expect(wrapper.find('textarea').exists() ? wrapper.get('textarea').element.value : '').toBe('')
+  wrapper.unmount(); session.dispose()
+})
