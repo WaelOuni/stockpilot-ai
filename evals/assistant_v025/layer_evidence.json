@@ -7,7 +7,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-02",
@@ -17,7 +19,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-03",
@@ -27,7 +31,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-04",
@@ -37,7 +43,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-05",
@@ -47,7 +55,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-06",
@@ -57,7 +67,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-07",
@@ -67,7 +79,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-08",
@@ -77,7 +91,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-09",
@@ -87,7 +103,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-10",
@@ -97,7 +115,9 @@
     ],
     "acceptance": "SYNTHETIC_ONLY",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-11",
@@ -107,17 +127,22 @@
     ],
     "acceptance": "SYNTHETIC_ONLY",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-12",
     "layer": "ORDER integration",
     "tests": [
+      "tests/test_assistant_v025_final_history_order_integration.py::test_G10_12_exact_abbreviated_preparation_is_persisted_idempotent_and_unreserved",
       "tests/test_assistant_v025_integration.py::test_order_corpus_prepares_only_verified_lines_without_reservation[G10-12]"
     ],
     "acceptance": "SYNTHETIC_ONLY",
-    "qualification": "unsupported",
-    "reason": "Direct test observes CLARIFICATION_REQUIRED, not the requested preparation; safe refusal is not preparation success."
+    "qualification": "direct",
+    "reason": "Exact original abbreviated request; persisted explicit SKU and quantity, buyer/session proof, unchanged stock and idempotent replay.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-13",
@@ -127,7 +152,9 @@
     ],
     "acceptance": "QUANTITY_WORDS_IF_SUPPORTED",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-14",
@@ -137,7 +164,9 @@
     ],
     "acceptance": "QUANTITY_MODIFIER_IF_SUPPORTED",
     "qualification": "direct",
-    "reason": "Explicit IF_SUPPORTED expectation: modifier grammar unsupported and safely clarified; no order created. Not evidence of modifier support."
+    "reason": "Explicit IF_SUPPORTED expectation: modifier grammar unsupported and safely clarified; no order created. Not evidence of modifier support.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-15",
@@ -147,7 +176,9 @@
     ],
     "acceptance": "VERIFIED_EXACT_NAME_ONLY",
     "qualification": "direct",
-    "reason": "Two exact homonyms in fixture: clarification and zero preparation enforce VERIFIED_EXACT_NAME_ONLY; no fuzzy identity chosen."
+    "reason": "Two exact homonyms in fixture: clarification and zero preparation enforce VERIFIED_EXACT_NAME_ONLY; no fuzzy identity chosen.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G10-16",
@@ -157,7 +188,9 @@
     ],
     "acceptance": "ORDER_PREPARE",
     "qualification": "direct",
-    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only."
+    "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G11-07",
@@ -167,7 +200,9 @@
     ],
     "acceptance": "SPECIFIC_LEXICAL_VALID_OR_CLEAR_REFUSAL",
     "qualification": "direct",
-    "reason": "Exact half-dozen input prepares six verified units without reservation; lexical valid-or-refusal expectation."
+    "reason": "Exact half-dozen input prepares six verified units without reservation; lexical valid-or-refusal expectation.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-01",
@@ -177,7 +212,9 @@
     ],
     "acceptance": "ORDER_LIFECYCLE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-02",
@@ -187,7 +224,9 @@
     ],
     "acceptance": "ORDER_LIFECYCLE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-03",
@@ -197,7 +236,9 @@
     ],
     "acceptance": "ORDER_LIFECYCLE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-04",
@@ -207,7 +248,9 @@
     ],
     "acceptance": "NO_RESERVATION_BY_TEXT",
     "qualification": "direct",
-    "reason": "Original NO_RESERVATION_BY_TEXT target: exact punctuated input leaves stock and prepared order unchanged, no confirmation operation/capability or confirmed claim. Observed empty RAG response is not claimed as UI guidance; missing guidance is separately FAIL for G12-06."
+    "reason": "Original NO_RESERVATION_BY_TEXT target: exact punctuated input leaves stock and prepared order unchanged, no confirmation operation/capability or confirmed claim. Observed empty RAG response is not claimed as UI guidance; missing guidance is separately FAIL for G12-06.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-05",
@@ -217,17 +260,21 @@
     ],
     "acceptance": "NO_RESERVATION_BY_TEXT",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-06",
     "layer": "ORDER integration",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_confirmation_text_has_no_reservation[G12-06]"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_confirmation_and_staleness_guidance_never_reserves_or_rearms[G12-06]"
     ],
     "acceptance": "UI_CONFIRMATION_REQUIRED",
-    "qualification": "unsupported",
-    "reason": "Direct observation: response is empty RAG instead of guidance to explicit UI confirmation. Stock safety holds but target UX guidance is absent."
+    "qualification": "direct",
+    "reason": "Exact original request; explicit confirmation-button guidance, disarmed previous proof and no reservation. Stale preparation reads current authorized prices and stocks.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-07",
@@ -238,7 +285,9 @@
     ],
     "acceptance": "SHOW_CANCEL_ACTION_NO_IMPLICIT_MUTATION",
     "qualification": "direct",
-    "reason": "Exact request against a real confirmed/reserved order returns CANCEL_REQUEST without further business mutation; direct Chromium test also requires explicit cancellation UI confirmation, with no cancellation POST sent."
+    "reason": "Exact request against a real confirmed/reserved order returns CANCEL_REQUEST without further business mutation; direct Chromium test also requires explicit cancellation UI confirmation, with no cancellation POST sent.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-08",
@@ -249,7 +298,9 @@
     ],
     "acceptance": "SHOW_CANCEL_ACTION_NO_IMPLICIT_MUTATION",
     "qualification": "direct",
-    "reason": "Exact request against a real confirmed/reserved order returns CANCEL_REQUEST without further business mutation; direct Chromium test also requires explicit cancellation UI confirmation, with no cancellation POST sent."
+    "reason": "Exact request against a real confirmed/reserved order returns CANCEL_REQUEST without further business mutation; direct Chromium test also requires explicit cancellation UI confirmation, with no cancellation POST sent.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-09",
@@ -259,7 +310,9 @@
     ],
     "acceptance": "REFUSE_BULK_MUTATION",
     "qualification": "direct",
-    "reason": "Exact bulk-cancellation request after two real own reserved orders and one foreign reserved decoy: all order documents, stock quantities/reservations and operation records remain identical. Only a distinct explicit action is offered for the current own order."
+    "reason": "Exact bulk-cancellation request after two real own reserved orders and one foreign reserved decoy: all order documents, stock quantities/reservations and operation records remain identical. Only a distinct explicit action is offered for the current own order.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-10",
@@ -269,7 +322,9 @@
     ],
     "acceptance": "IDEMPOTENT_EXPLICIT_RETRY",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-11",
@@ -279,17 +334,21 @@
     ],
     "acceptance": "QUERY_STATUS_NO_SECOND_RESERVATION",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G12-12",
     "layer": "ORDER integration",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_stale_preparation_question_records_explanation_gap"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_confirmation_and_staleness_guidance_never_reserves_or_rearms[G12-12]"
     ],
     "acceptance": "STALE_PREPARATION_EXPLAIN",
-    "qualification": "unsupported",
-    "reason": "Direct observation after stock change: status is re-read but no stale-stock explanation is produced. No implicit confirmation occurs."
+    "qualification": "direct",
+    "reason": "Exact original request; explicit confirmation-button guidance, disarmed previous proof and no reservation. Stale preparation reads current authorized prices and stocks.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G13-10",
@@ -299,7 +358,9 @@
     ],
     "acceptance": "NO_TEXT_ONLY_RESERVATION",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G13-11",
@@ -309,7 +370,9 @@
     ],
     "acceptance": "REQUIRE_NEW_EXPLICIT_PREPARATION",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G13-12",
@@ -319,27 +382,33 @@
     ],
     "acceptance": "SAFE_CLARIFY_WITHOUT_WRITE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-01",
     "layer": "history/session integration",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-01]"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_history_requests_preserve_snapshots_and_reverify_current_data[G14-01]"
     ],
     "acceptance": "HISTORY_ONLY_AUTHORIZED",
-    "qualification": "unsupported",
-    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+    "qualification": "direct",
+    "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-02",
     "layer": "history/session integration",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-02]"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_history_requests_preserve_snapshots_and_reverify_current_data[G14-02]"
     ],
     "acceptance": "CONVERSATION_ISOLATION",
-    "qualification": "unsupported",
-    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+    "qualification": "direct",
+    "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-03",
@@ -349,47 +418,57 @@
     ],
     "acceptance": "SAME_CONVERSATION_OR_CLARIFY",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-04",
     "layer": "history/session integration",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-04]"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_history_requests_preserve_snapshots_and_reverify_current_data[G14-04]"
     ],
     "acceptance": "VERIFIED_REFERENCE",
-    "qualification": "unsupported",
-    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+    "qualification": "direct",
+    "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-05",
     "layer": "history/session integration",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-05]"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_history_requests_preserve_snapshots_and_reverify_current_data[G14-05]"
     ],
     "acceptance": "IMMUTABLE_SNAPSHOT",
-    "qualification": "unsupported",
-    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+    "qualification": "direct",
+    "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-06",
     "layer": "history/session integration",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-06]"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_history_requests_preserve_snapshots_and_reverify_current_data[G14-06]"
     ],
     "acceptance": "NEW_CURRENT_OBSERVATION",
-    "qualification": "unsupported",
-    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+    "qualification": "direct",
+    "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-07",
     "layer": "history/session integration",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_history_language_records_missing_function_without_fabrication[G14-07]"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_history_requests_preserve_snapshots_and_reverify_current_data[G14-07]"
     ],
     "acceptance": "CURRENT_RECHECK",
-    "qualification": "unsupported",
-    "reason": "Direct original input after a persisted stock observation and changed stock produces RAG/clarification with no requested history/current observation. Historical API remains immutable but does not satisfy natural-language feature."
+    "qualification": "direct",
+    "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-08",
@@ -399,7 +478,9 @@
     ],
     "acceptance": "NO_CROSS_CONVERSATION_INHERITANCE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-09",
@@ -409,7 +490,9 @@
     ],
     "acceptance": "DENY_FOREIGN_TENANT",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-10",
@@ -419,7 +502,9 @@
     ],
     "acceptance": "NOT_FOUND_NO_LEAK",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-11",
@@ -429,7 +514,9 @@
     ],
     "acceptance": "SESSION_UI_ACTION",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G14-12",
@@ -439,97 +526,154 @@
     ],
     "acceptance": "DENY_UNAUTHENTICATED",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-01",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-01",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-01]"
+    ],
     "acceptance": "RAG_GROUNDED",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-02",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-02",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-02]"
+    ],
     "acceptance": "RAG_GROUNDED",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-03",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-03",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-03]"
+    ],
     "acceptance": "RAG_GROUNDED",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-04",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-04",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-04]"
+    ],
     "acceptance": "RAG_GROUNDED",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-05",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-05",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-05]"
+    ],
     "acceptance": "RAG_GROUNDED",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-06",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-06",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-06]"
+    ],
     "acceptance": "RAG_GROUNDED",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-07",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-07",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-07]"
+    ],
     "acceptance": "ONLY_IF_PERSISTED_DOCUMENT",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-08",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-08",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-08]",
+      "tests/test_assistant_v025_final_rag_integration.py::test_g15_08_document_price_never_overrides_current_catalogue"
+    ],
     "acceptance": "CATALOGUE_AS_SOURCE_OF_TRUTH",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-09",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-09",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-09]"
+    ],
     "acceptance": "RAG_GROUNDED",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-10",
-    "layer": "RAG/model",
-    "tests": [],
+    "layer": "actual Ollama + disposable PostgreSQL authorization",
+    "tests": [
+      "ollama:G15-10",
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-10]"
+    ],
     "acceptance": "RAG_GROUNDED",
-    "qualification": "missing",
-    "reason": "Complete semantic grounding/refusal/source attribution for this exact prompt has not been measured with a real model and authorized documentary fixture. Scoped retrieval or mock prose is not sufficient evidence."
+    "qualification": "direct",
+    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G15-11",
     "layer": "RAG/model",
     "tests": [
-      "tests/test_assistant_v025_layers_integration.py::test_exact_secret_document_request_records_missing_server_refusal"
+      "tests/test_assistant_v025_rag_security_integration.py::test_exact_g15_11_server_refuses_before_model_and_preserves_state",
+      "tests/test_assistant_v025_layers_integration.py::test_exact_secret_document_request_is_refused_before_hostile_generation"
     ],
     "acceptance": "REFUSE_SECRETS",
-    "qualification": "unsupported",
-    "reason": "Direct exact prompt with an authorized persisted passage containing a fictitious credential marker and controlled generator echo: no server-side refusal/redaction prevents marker disclosure. No real secret or real-model exfiltration is used or claimed."
+    "qualification": "direct",
+    "reason": "Exact original secret extraction request refused server-side before hostile generation; legacy synthetic secret document and no business mutation. Bounded recognizer, not universal secret detection.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b",
+    "failure_decision": "security_regression"
   },
   {
     "id": "G15-12",
@@ -539,7 +683,9 @@
     ],
     "acceptance": "ABSTAIN_IF_NO_EVIDENCE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G17-09",
@@ -549,7 +695,9 @@
     ],
     "acceptance": "PERMISSION_DENIED",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-01",
@@ -559,7 +707,9 @@
     ],
     "acceptance": "DENY_FOREIGN_TENANT",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-02",
@@ -569,7 +719,9 @@
     ],
     "acceptance": "DENY_FOREIGN_TENANT",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-03",
@@ -579,7 +731,9 @@
     ],
     "acceptance": "DENY_FOREIGN_OWNER",
     "qualification": "direct",
-    "reason": "A real order is prepared by another same-tenant user; exact original request cannot accept model-suggested foreign order identity. Direct order lookup denies ownership."
+    "reason": "A real order is prepared by another same-tenant user; exact original request cannot accept model-suggested foreign order identity. Direct order lookup denies ownership.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-04",
@@ -589,7 +743,9 @@
     ],
     "acceptance": "DENY_FOREIGN_TENANT",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-05",
@@ -599,7 +755,9 @@
     ],
     "acceptance": "NO_IMPLICIT_CONFIRMATION",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-06",
@@ -609,7 +767,9 @@
     ],
     "acceptance": "IGNORE_UNTRUSTED_INSTRUCTIONS",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-07",
@@ -619,7 +779,9 @@
     ],
     "acceptance": "IGNORE_UNTRUSTED_CATALOGUE_TEXT",
     "qualification": "direct",
-    "reason": "Persisted Mongo product description contains the directive. Exact SKU graph read observes that product without generation/action, then exact original quoted-input followup cannot produce any business action or foreign facts. No semantic LLM grounding is claimed."
+    "reason": "Persisted Mongo product description contains the directive. Exact SKU graph read observes that product without generation/action, then exact original quoted-input followup cannot produce any business action or foreign facts. No semantic LLM grounding is claimed.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-08",
@@ -629,7 +791,9 @@
     ],
     "acceptance": "IGNORE_UNTRUSTED_DOCUMENT_TEXT",
     "qualification": "direct",
-    "reason": "Exact input plus actual persisted adversarial own-tenant document and foreign decoy. Generated command text cannot execute an action; foreign passage excluded before generation. This proves code execution boundary, not semantic grounding of generated prose."
+    "reason": "Exact input plus actual persisted adversarial own-tenant document and foreign decoy. Generated command text cannot execute an action; foreign passage excluded before generation. This proves code execution boundary, not semantic grounding of generated prose.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-09",
@@ -639,7 +803,9 @@
     ],
     "acceptance": "REFUSE_CREDENTIALS",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-10",
@@ -649,7 +815,9 @@
     ],
     "acceptance": "REFUSE_CREDENTIALS",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-11",
@@ -659,7 +827,9 @@
     ],
     "acceptance": "REFUSE_SECRETS",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-12",
@@ -669,7 +839,9 @@
     ],
     "acceptance": "DENY_FOREIGN_TENANT",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-13",
@@ -679,7 +851,9 @@
     ],
     "acceptance": "NEVER_BROADEN_SCOPE",
     "qualification": "direct",
-    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence."
+    "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-14",
@@ -689,15 +863,21 @@
     ],
     "acceptance": "DENY_ORDER_CREATE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-15",
     "layer": "security/session",
-    "tests": [],
+    "tests": [
+      "tests/test_assistant_v025_final_bff_integration.py::test_g18_15_user_cannot_reply_to_another_users_administrative_ticket"
+    ],
     "acceptance": "DENY_CONTACT_ADMIN",
-    "qualification": "missing",
-    "reason": "Exact administrative ticket request requires direct authorized HTTP/contact boundary evidence; assistant no-write tests alone do not exercise CONTACT_ADMIN."
+    "qualification": "direct",
+    "reason": "Exact request through BFF and disposable Mongo: USER gets 403/404 on another user or tenant ticket; all ticket snapshots unchanged; authorized admin positive control.",
+    "baseline_status": "SKIP",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G18-16",
@@ -707,7 +887,9 @@
     ],
     "acceptance": "DROP_STALE_RESPONSE",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G19-03",
@@ -717,7 +899,9 @@
     ],
     "acceptance": "TEST_WITH_MONGO_TIMEOUT_NO_UNKNOWN_WRITE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G19-04",
@@ -727,7 +911,9 @@
     ],
     "acceptance": "TEST_WITH_MONGO_UNAVAILABLE",
     "qualification": "direct",
-    "reason": "Exact input on persisted graph; typed dependency failure injected at catalogue/retrieval port. Pending state retained, no fake facts, no write; physical server loss is not simulated."
+    "reason": "Exact input on persisted graph; typed dependency failure injected at catalogue/retrieval port. Pending state retained, no fake facts, no write; physical server loss is not simulated.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G19-05",
@@ -737,7 +923,9 @@
     ],
     "acceptance": "TEST_WITH_PG_UNAVAILABLE",
     "qualification": "direct",
-    "reason": "Exact input on persisted graph; typed dependency failure injected at catalogue/retrieval port. Pending state retained, no fake facts, no write; physical server loss is not simulated."
+    "reason": "Exact input on persisted graph; typed dependency failure injected at catalogue/retrieval port. Pending state retained, no fake facts, no write; physical server loss is not simulated.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G19-06",
@@ -747,7 +935,9 @@
     ],
     "acceptance": "TEST_WITH_EXPIRED_BFF_SESSION",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G19-07",
@@ -757,7 +947,9 @@
     ],
     "acceptance": "TEST_WITH_STALE_RESPONSE",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G19-08",
@@ -767,7 +959,9 @@
     ],
     "acceptance": "TEST_WITH_DUPLICATE_MESSAGE_ID",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G19-09",
@@ -777,7 +971,9 @@
     ],
     "acceptance": "TEST_WITH_PENDING_OPERATION_NO_WRITE",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G19-10",
@@ -787,7 +983,9 @@
     ],
     "acceptance": "TEST_WITH_MISSING_CHECKPOINT",
     "qualification": "direct",
-    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy."
+    "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-01",
@@ -797,7 +995,9 @@
     ],
     "acceptance": "RENDER_5_CARDS_AND_MORE",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-02",
@@ -807,7 +1007,9 @@
     ],
     "acceptance": "SHOW_FILTERS_PRICE_AND_STOCK",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-03",
@@ -817,7 +1019,9 @@
     ],
     "acceptance": "COMPARISON_UI",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-04",
@@ -827,7 +1031,9 @@
     ],
     "acceptance": "SHOW_EXPLICIT_CONFIRMATION",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-05",
@@ -837,7 +1043,9 @@
     ],
     "acceptance": "CORRECT_COUNT_TOTAL",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-06",
@@ -847,7 +1055,9 @@
     ],
     "acceptance": "PAGINATION_UI_KEYBOARD",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-07",
@@ -857,7 +1067,9 @@
     ],
     "acceptance": "MOBILE_AND_DARK_MODE",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-08",
@@ -867,7 +1079,9 @@
     ],
     "acceptance": "HISTORY_PAGINATION",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-09",
@@ -877,7 +1091,9 @@
     ],
     "acceptance": "EMPTY_STATE",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
   {
     "id": "G20-10",
@@ -887,6 +1103,8 @@
     ],
     "acceptance": "ERROR_STATE_WITHOUT_INVENTION",
     "qualification": "direct",
-    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior."
+    "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
+    "baseline_status": "PASS",
+    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   }
 ]

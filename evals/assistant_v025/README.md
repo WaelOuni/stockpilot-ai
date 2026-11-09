@@ -61,3 +61,26 @@ fonctionnalités absentes restent FAIL même si leurs tests de sûreté passent.
 
 Voir la [matrice complète](../../docs/validation/v025-assistant-corpus.md) et le
 [rapport](../../docs/validation/v025-assistant-qualification.md).
+
+La [passe finale](../../docs/validation/v025-assistant-final-pass.md) reprend les
+11 FAIL et 11 SKIP de la HEAD `c77e910`. Le résultat consolidé final, ses preuves
+et la CI exacte sont liés dans #84. Les chiffres des rapports précédents sont
+historiques ; le tableau de service seul ne qualifie ni ORDER ni Ollama.
+
+Pour une instance Ollama isolée déjà créée (port non standard, corpus synthétique
+uniquement), depuis un checkout propre :
+
+```sh
+.venv/bin/python -m evals.assistant_v025.real_rag \
+  --url http://127.0.0.1:11587 --isolated-synthetic-only \
+  --output /tmp/v025-real-rag.json
+.venv/bin/python -m evals.assistant_v025.evidence \
+  --sha "$(git rev-parse HEAD)" \
+  --proof /tmp/v025-qualified.json --proof /tmp/v025-browser-qualified.json \
+  --model-proof /tmp/v025-real-rag.json \
+  --output /tmp/v025-final.json --markdown /tmp/v025-final.md
+```
+
+`--windows-curl` utilise le transport loopback Windows depuis WSL lorsque le
+serveur isolé appartient à Windows. Le harnais ne crée aucun serveur et ne lit
+aucun environnement applicatif. Les artefacts restent hors du dépôt.

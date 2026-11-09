@@ -47,6 +47,14 @@ from stockpilot.application.services.tenant_assistant_navigation import (
     TenantAssistantNavigation,
     is_navigation,
 )
+from stockpilot.application.services.tenant_assistant_history import (
+    TenantAssistantHistory,
+    abbreviated_preparation,
+    confirmation_guidance,
+    history_kind,
+    stale_preparation_question,
+)
+from stockpilot.application.services.tenant_rag_safety import RAG_SENSITIVE_REFUSAL, safe_public
 from stockpilot.application.use_cases.catalogue_advice import (
     ClarificationRequired,
     is_advice_followup,
@@ -113,6 +121,7 @@ class AssistantState(TypedDict, total=False):
     catalogue_search: dict | None
     last_order_id: str | None
     preparation_armed: bool
+    historical_turn_id: str | None
     reply: dict
 
 
@@ -126,6 +135,7 @@ class TenantAssistant:
         )
         self.catalogue = TenantAssistantCatalogue(catalogue)
         self.navigation = TenantAssistantNavigation(self.catalogue)
+        self.history = TenantAssistantHistory(store, self.catalogue)
         self.admission = threading.BoundedSemaphore(concurrency)
 
     def current(self, request, context):
@@ -151,6 +161,16 @@ class TenantAssistant:
         Unknown language still requires the classifier; this is no global-list
         fallback and never uses a model-suggested product or quantity.
         """
+        if history_kind(question):
+            return "HISTORY"
+        if confirmation_guidance(question):
+            return "CONFIRMATION_REQUIRED"
+        if stale_preparation_question(question):
+            return "STALE_PREPARATION"
+        if abbreviated_preparation(question):
+            return "ORDER"
+        if self.catalogue.is_document_price_question(question):
+            return "CURRENT_CATALOGUE_PRICE"
         if explicit_order_request(question):
             return None
         if is_navigation(question):
@@ -212,6 +232,8 @@ class TenantAssistant:
             started = perf_counter()
             reply = await self._answer(request, context, conversation_id, state)
             self.current(request, context)
+            if not safe_public(reply):
+                reply = self._reply("RAG_REFUSED", RAG_SENSITIVE_REFUSAL)
             reply["timing_ms"] = {
                 "classification": state["reply"]["classification_ms"],
                 "processing": round((perf_counter() - started) * 1000, 2),
@@ -228,6 +250,7 @@ class TenantAssistant:
                 if reply.get("order")
                 else state.get("last_order_id"),
                 "preparation_armed": reply.get("can_confirm", False),
+                "historical_turn_id": reply.get("historical_turn_id"),
             }
 
         graph = StateGraph(AssistantState)
@@ -246,6 +269,31 @@ class TenantAssistant:
         if lexical_intent:
             classification = {"intent": lexical_intent}
         try:
+            if lexical_intent == "CURRENT_CATALOGUE_PRICE":
+                result = self.catalogue.current_reference_price(request, context, state)
+                return self._reply(result["intent"], result["text"], **{k: v for k, v in result.items() if k not in {"intent", "text"}})
+            if lexical_intent == "HISTORY":
+                result = self.history.execute(request, context, conversation_id, state)
+                return self._reply(result["intent"], result["text"], **{k: v for k, v in result.items() if k not in {"intent", "text"}})
+            if lexical_intent == "CONFIRMATION_REQUIRED":
+                return self._reply("CONFIRMATION_REQUIRED", "Le texte ne confirme aucune commande et ne réserve aucun stock. Ce message désarme la préparation précédente. Pour continuer, préparez à nouveau après avoir revérifié stocks et prix, puis utilisez le bouton de confirmation du nouveau récapitulatif.")
+            if lexical_intent == "STALE_PREPARATION":
+                if not state.get("last_order_id"):
+                    raise ClarificationRequired("Aucune préparation identifiable dans cette conversation. Précisez la commande ; il faut revérifier stocks et prix avant toute nouvelle préparation ou confirmation.")
+                order = self.orders.get(request, context, state["last_order_id"])
+                cards, changes = [], []
+                for line in order.lines:
+                    product = self.catalogue.catalogue.by_sku(request, context, line.sku)
+                    if product is None or product.status != "active" or product.product_id != line.product_id:
+                        raise ClarificationRequired("Une référence préparée n’est plus accessible ou a changé d’identité. Revérifiez stocks et prix avant une nouvelle préparation ; aucune mutation effectuée.")
+                    card = self.catalogue.card(request, context, product)
+                    cards.append(card)
+                    if (product.price_minor, product.currency) != (line.price_minor, line.currency):
+                        changes.append("un prix a changé")
+                    if card["available"] < line.quantity:
+                        changes.append("le stock disponible ne couvre plus une quantité préparée")
+                explanation = "; ".join(dict.fromkeys(changes)) or "les prix et disponibilités viennent d’être relus"
+                return self._reply("ORDER_STATUS", "État courant autorisé : " + explanation + ". Il faut revérifier les stocks et les prix avant toute nouvelle préparation ou confirmation. Une préparation périmée doit être recréée explicitement, puis confirmée avec le bouton du récapitulatif. Aucune commande ni réservation modifiée.", order=order_snapshot(order), products=cards[:5])
             if lexical_intent == "CATALOGUE_NAVIGATION":
                 result = self.navigation.execute(request, context, question, state.get("catalogue_search"), state.get("criteria"))
                 return self._reply(result["intent"], result["text"], **{k: v for k, v in result.items() if k not in {"intent", "text"}})
@@ -334,28 +382,31 @@ class TenantAssistant:
                 value,
             )
             catalogue_question = "Je cherche " + purchase[1] if purchase else question
-            if explicit_order_request(question) and not purchase:
+            order_question = abbreviated_preparation(question) or question
+            if explicit_order_request(order_question) and not purchase:
                 if state.get("read_only"):
                     return self._reply("ORDER_REFUSED", "Consultation uniquement : vérifiez d’abord l’opération en attente.")
                 product = await self.catalogue.resolve(
-                    request, context, question, order=True
+                    request, context, order_question, order=True
                 )
                 # Bind the complete literal catalogue name before treating its
                 # numeric model tokens as identity. The untouched quantity prefix
                 # still goes through the shared strict evidence parser.
                 named = re.search(
                     r"(?<![\w-])" + re.escape(product.name) + r"\s*[?!.]?\s*$",
-                    question,
+                    order_question,
                     re.IGNORECASE,
                 )
                 quantity_question = (
-                    question[: named.start()] + "SKU " + product.sku
+                    order_question[: named.start()] + "SKU " + product.sku
                     if named and re.match(r"[^\W\d_]", product.name)
-                    else question
+                    else order_question
                 )
                 evidence = concordant_quantity(
                     quantity_question, classification.get("quantity")
                 )
+                if evidence.quantity > 1_000_000:
+                    raise InvalidOrderQuantityError("La quantité doit être un entier positif inférieur ou égal à 1 000 000.")
                 if P.ORDER_CREATE not in context.principal.permissions:
                     raise AuthorizationDenied("Order creation permission required.")
                 if not state.get("customer_id"):
@@ -490,7 +541,7 @@ class TenantAssistant:
                     ),
                 }
         action = turn.get("action")
-        return {
+        public = {
             "turn_id": turn["turn_id"],
             "kind": turn["kind"],
             "message": turn["input"].get("message", ""),
@@ -501,6 +552,15 @@ class TenantAssistant:
             if action
             else None,
         }
+        if not safe_public(public):
+            # Historical storage stays immutable. Never replay a recognized
+            # credential through text, cards, citations, metadata or user input.
+            metadata = {k: public[k] for k in ("turn_id", "kind", "status", "created_at")}
+            if not safe_public(metadata):
+                raise TenantDataUnavailable("Assistant history unavailable.")
+            public = {**metadata, "message": "Message masqué : contenu sensible.",
+                      "reply": self._reply("RAG_REFUSED", RAG_SENSITIVE_REFUSAL), "operation": None}
+        return public
 
     def catalogue_results(self, request, context, conversation_id, turn_id, **filters):
         self.current(request, context)

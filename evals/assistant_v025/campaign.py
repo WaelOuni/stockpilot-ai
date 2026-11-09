@@ -375,6 +375,7 @@ async def run_corpus():
                 record['status'] = 'FAIL'
                 record['reason'] = str(error) or type(error).__name__
             record['milliseconds'] = round((perf_counter()-started)*1000, 3)
+        record['decision'] = decision(record)
         results.append(record)
     return results
 
@@ -401,6 +402,24 @@ def digest():
     return hashlib.sha256((ROOT/'corpus.json').read_bytes()).hexdigest()
 
 
+def decision(record):
+    """Keep the verdict distinct from an accepted clarification or absent proof."""
+    if record['status'] == 'SKIP':
+        return 'proof_absent'
+    if record['id'] == 'G08-12':
+        return 'ambiguous_clarification'
+    if record['status'] == 'PASS':
+        if record.get('observed_intent') == 'CLARIFICATION_REQUIRED':
+            return 'accepted_clarification'
+        return 'function_validated'
+    evidence = record.get('layer_evidence', {})
+    if evidence.get('failure_decision'):
+        return evidence['failure_decision']
+    if evidence.get('qualification') == 'unsupported':
+        return 'unsupported_function'
+    return 'failed_assertion_requires_review'
+
+
 def markdown_report(records):
     counts=Counter(r['status'] for r in records)
     latencies=sorted(r['milliseconds'] for r in records if 'milliseconds' in r)
@@ -425,9 +444,9 @@ def markdown_report(records):
         lines.append(f"| {family} | {values['PASS']} | {values['FAIL']} | {values['SKIP']} |")
     lines += ['', 'Les oracles structurés, droits, contexte préalable, dataset, provenance, effets attendus et HTTP sont exportés par la commande JSON documentée dans le README. '
               'Cette matrice ne compte ni les 1 200 variantes ni les 100 séquences générées ni les 24 états UX comme questions supplémentaires.', '',
-              '| ID | Phrase originale | Attente originale | Décision locale | Observation / limite |', '|---|---|---|---|---|']
+              '| ID | Phrase originale | Attente originale | Résultat | Décision | Observation / limite |', '|---|---|---|---|---|---|']
     for row in records:
-        fields=[row['id'], row['message'], row['expected'], row['status'],row.get('reason',row.get('observed_intent',''))]
+        fields=[row['id'], row['message'], row['expected'], row['status'],decision(row),row.get('reason',row.get('observed_intent',''))]
         lines.append('| '+' | '.join(str(v).replace('|','\\|').replace('\n',' ') for v in fields)+' |')
     return '\n'.join(lines)+'\n'
 

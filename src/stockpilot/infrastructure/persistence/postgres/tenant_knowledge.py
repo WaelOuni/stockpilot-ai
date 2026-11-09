@@ -5,7 +5,6 @@ import json
 from dataclasses import asdict
 from uuid import uuid4
 
-import httpx
 from pgvector import Vector
 from pgvector.psycopg import register_vector
 from psycopg import sql
@@ -27,6 +26,7 @@ from stockpilot.domain.identity_validation import require_identifier
 from stockpilot.infrastructure.persistence.postgres.tenant_boundary import (
     TenantPostgresBoundary,
 )
+from stockpilot.application.services.tenant_rag_safety import contains_sensitive
 
 
 def digest(value):
@@ -52,12 +52,25 @@ class PgTenantKnowledge(TenantPostgresBoundary):
         with self.connection(request, context, P.RAG_READ) as c:
             rows = c.execute(
                 sql.SQL(
-                    "SELECT document_id,title,revision,status,embedding_model,embedding_version FROM {} "
+                    "SELECT document_id,title,revision,status,embedding_model,embedding_version,active_generation FROM {} "
                     "WHERE organization_id=%s AND title=%s AND status='ready' ORDER BY document_id LIMIT 20"
                 ).format(self.t("documents")),
                 (context.organization_id, title),
             ).fetchall()
-            return [TenantDocument(context.organization_id, *r) for r in rows]
+            return [TenantDocument(context.organization_id, *r[:6]) for r in rows
+                    if self._safe_document(c, context.organization_id, r[0], r[1], r[6], *r[4:6])]
+
+    def _safe_document(self, connection, org, document_id, title, generation, *metadata):
+        """Classify the complete bounded generation, including legacy metadata."""
+        if any(contains_sensitive(value) for value in (document_id, title, *metadata)):
+            return False
+        if generation is None:
+            return True
+        chunks = connection.execute(sql.SQL(
+            'SELECT content FROM {} WHERE organization_id=%s AND document_id=%s AND generation_id=%s ORDER BY chunk_id LIMIT 33'
+        ).format(self.t('chunks')), (org, document_id, generation)).fetchall()
+        content = ''.join(chunk[0] for chunk in chunks)
+        return len(chunks) <= 32 and len(content) <= 64000 and not contains_sensitive(content)
 
     def _document(self, c, org, document_id, *, lock=False):
         row = c.execute(
@@ -76,6 +89,8 @@ class PgTenantKnowledge(TenantPostgresBoundary):
         require_identifier(document_id)
         with self.connection(request, context, P.RAG_READ) as c:
             row = self._document(c, context.organization_id, document_id)
+            if not self._safe_document(c, context.organization_id, document_id, row[0], row[5], *row[3:5]):
+                raise TenantDataNotFound('Document unavailable.')
             return TenantDocument(context.organization_id, document_id, *row[:5])
 
     def _begin(self, request, context, command, proof):
@@ -163,6 +178,11 @@ class PgTenantKnowledge(TenantPostgresBoundary):
             self.version,
         ):
             raise TenantDataConflict("Server embedding configuration mismatch.")
+        if any(contains_sensitive(value) for value in (
+            command.operation_id, command.document_id, command.title, command.content,
+            command.embedding_model, command.embedding_version,
+        )):
+            raise TenantDataConflict('Document contains credential-like material; remove it before ingestion.')
         proof = digest({"actor": context.principal.user_id, **asdict(command)})
         generation, replay = self._begin(request, context, command, proof)
         if replay:
@@ -175,7 +195,7 @@ class PgTenantKnowledge(TenantPostgresBoundary):
             embeddings = [
                 vector(await self.embeddings.embed(chunk)) for chunk in chunks
             ]
-        except (httpx.HTTPError, TimeoutError, ConnectionError, ValueError):
+        except Exception:
             self._fail(request, context, command)
             raise TenantDataUnavailable(
                 "Embedding generation failed; operation retained."
@@ -257,6 +277,11 @@ class PgTenantKnowledge(TenantPostgresBoundary):
             ).fetchone()
             if not row:
                 raise TenantDataNotFound("Ingestion unavailable.")
+            document = self._document(c, context.organization_id, row[0])
+            if contains_sensitive(operation_id) or not self._safe_document(
+                c, context.organization_id, row[0], document[0], document[5], *document[3:5]
+            ):
+                raise TenantDataNotFound('Ingestion unavailable.')
             return IngestionResult(operation_id, *row)
 
     def search(self, request, context, embedding, *, model, version, limit=3):
@@ -271,18 +296,26 @@ class PgTenantKnowledge(TenantPostgresBoundary):
             # MATERIALIZED enforces tenant/active/model scope before exact distance sort.
             rows = c.execute(
                 sql.SQL(
-                    "WITH scoped AS MATERIALIZED (SELECT d.organization_id,d.document_id,k.chunk_id,k.content,k.embedding "
+                    "WITH scoped AS MATERIALIZED (SELECT d.organization_id,d.document_id,k.chunk_id,k.content,k.embedding,d.title,k.generation_id "
                     "FROM {} d JOIN {} k ON k.organization_id=d.organization_id AND k.document_id=d.document_id "
                     "AND k.generation_id=d.active_generation JOIN {} i ON i.organization_id=k.organization_id "
                     "AND i.document_id=k.document_id AND i.generation_id=k.generation_id "
                     "WHERE d.organization_id=%s AND d.status='ready' AND i.status='ready' "
                     "AND d.embedding_model=%s AND d.embedding_version=%s) "
-                    "SELECT organization_id,document_id,chunk_id,content,embedding <=> %s AS distance "
+                    "SELECT organization_id,document_id,chunk_id,content,embedding <=> %s AS distance,title,generation_id "
                     "FROM scoped ORDER BY distance,document_id,chunk_id LIMIT %s"
                 ).format(self.t("documents"), self.t("chunks"), self.t("ingestions")),
                 (org, model, version, Vector(list(embedding)), limit),
             ).fetchall()
-            return [TenantPassage(*r) for r in rows]
+            # Existing documents may predate the ingestion guard. Classify the
+            # complete exact generation, not just a matching chunk: a label and
+            # its value can straddle the deterministic 2000-character boundary.
+            allowed = {}
+            for row in rows:
+                key = row[1], row[6]
+                if key not in allowed:
+                    allowed[key] = self._safe_document(c, org, row[1], row[5], row[6])
+            return [TenantPassage(*r[:5]) for r in rows if allowed[(r[1], r[6])]]
 
     def delete(self, request, context, document_id, *, operation_id, expected_revision):
         self.current(request, context, P.RAG_MANAGE)

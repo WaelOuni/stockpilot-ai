@@ -1,6 +1,7 @@
 """Failure/concurrency and migration proofs on actual disposable PostgreSQL."""
 
 import asyncio
+import json
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
@@ -88,9 +89,10 @@ def test_generator_uses_existing_llm_port_signature(environment):
     )
     assert (
         asyncio.run(service.execute(REQUESTS["a1"], context(e.orders), "question"))
-        == "grounded answer"
+        == 'grounded answer\n\nDocuments consultés (ne prouvent pas chaque affirmation) :\n[S1] "same-document", passage 0'
     )
-    assert "<documents>\nA confidential\n</documents>" in generator.prompt
+    records = json.loads(generator.prompt.split('<documents>\n')[1].split('\n</documents>')[0])
+    assert records == [{'source': 'S1', 'document_id': 'same-document', 'chunk_id': 0, 'content': 'A confidential'}]
 
 
 def test_real_langgraph_interrupt_resume_after_new_saver(environment):

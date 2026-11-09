@@ -77,14 +77,14 @@ def test_order_corpus_prepares_only_verified_lines_without_reservation(corpus_as
     service.llm.classify_intent.return_value=IntentResult(intent='ORDER')
     before=list(db.b2b_products.find({}).sort('_id',1))
     turn,conv=run(corpus_assistant,case,customer='customer-org-a')
-    if case['id'] in ('G10-12','G10-14','G10-15'):
+    if case['id'] in ('G10-14','G10-15'):
         assert turn['reply']['intent']=='CLARIFICATION_REQUIRED'
         assert turn['reply']['order'] is None
         assert db.b2b_orders.count_documents({})==0
     else:
         assert turn['reply']['intent']=='ORDER_PREPARE'
         order=turn['reply']['order']
-        expected_sku='TEST-A-DRILL-001' if case['id']=='G10-10' else 'TEST-A-DRILL-002' if case['id']=='G10-11' else 'DEMO-01-0225'
+        expected_sku='TEST-A-DRILL-001' if case['id'] in ('G10-10','G10-12') else 'TEST-A-DRILL-002' if case['id']=='G10-11' else 'DEMO-01-0225'
         quantity=4 if case['id']=='G10-10' else 3 if case['id']=='G10-07' else 1 if case['id'] in ('G10-03','G10-11','G10-13') else 2
         assert order['status']=='prepared' and order['organization_id']=='org-a' and order['created_by']=='a1'
         assert [(line['sku'],line['quantity']) for line in order['lines']]==[(expected_sku,quantity)]

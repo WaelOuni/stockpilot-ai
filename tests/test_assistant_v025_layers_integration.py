@@ -102,9 +102,10 @@ def test_exact_confirmation_text_has_no_reservation(scenario, db, identity):
         assert result['reply']['order'] is None and not result['reply']['can_confirm']
         assert 'Aucun passage' in result['reply']['text']
     elif identity == 'G12-06':
-        # Observation of a gap, not a PASS for UI_CONFIRMATION_REQUIRED.
-        assert result['reply']['intent'] == 'RAG'
-        assert 'bouton' not in result['reply']['text']
+        assert result['reply']['intent'] == 'CONFIRMATION_REQUIRED'
+        assert 'bouton' in result['reply']['text']
+        assert not result['reply']['can_confirm']
+        assert 'prépar' in result['reply']['text'].lower()
 
 
 @pytest.mark.parametrize('identity', ['G13-10','G13-11','G13-12'])
@@ -187,7 +188,7 @@ def test_exact_foreign_order_request_does_not_accept_model_identity(scenario, db
 
 
 @pytest.mark.parametrize('identity', ['G14-01','G14-02','G14-04','G14-05','G14-06','G14-07'])
-def test_exact_history_language_records_missing_function_without_fabrication(scenario, db, identity):
+def test_exact_history_language_preserves_prior_observation_without_fabrication(scenario, db, identity):
     service,conv,env=scenario
     service.llm.classify_intent.return_value=IntentResult(intent='UNKNOWN')
     first=send(scenario,'G03-01')
@@ -195,10 +196,19 @@ def test_exact_history_language_records_missing_function_without_fabrication(sce
     db.b2b_products.update_one({'organization_id':'org-a','sku':'DEMO-01-0225'},{'$set':{'quantity':8}})
     before=snapshot(db)
     result=send(scenario,identity)['reply']
-    # Direct observations of unsupported natural-language history operations;
-    # the separate preserved-history API is not treated as their success.
-    assert result['intent'] in ('RAG','CLARIFICATION_REQUIRED') and not result['products']
-    assert 'DEMO-01-0225' not in result['text']
+    if identity in ('G14-01','G14-02'):
+        assert result['intent']=='HISTORY' and CASES['G03-01']['message'] in result['text']
+    elif identity=='G14-05':
+        assert result['intent']=='HISTORY' and result['products']==historical['products']
+        assert historical['text'] in result['text']
+    elif identity=='G14-06':
+        assert result['intent']=='STOCK_CHECK' and result['products'][0]['quantity']==8
+        assert 'actuelle' in result['text']
+    else:
+        # One observation today supplies neither a comparison target nor a
+        # response from yesterday. The full positive cases have separate tests.
+        assert result['intent']=='CLARIFICATION_REQUIRED' and not result['products']
+    assert result['order'] is None and not result['can_confirm']
     assert service.store.turn(REQUESTS['a1'],context(env.orders),conv,'G03-01')['reply']==historical
     assert snapshot(db)==before and db.b2b_orders.count_documents({})==0
 
@@ -273,7 +283,7 @@ def test_exact_double_confirmation_question_queries_current_status(scenario, db)
     assert snapshot(db)==before and db.b2b_order_operations.count_documents({'namespace':'confirm'})==1
 
 
-def test_exact_stale_preparation_question_records_explanation_gap(scenario, db):
+def test_exact_stale_preparation_question_explains_required_reverification(scenario, db):
     service,_,_=scenario
     order=prepare(scenario)['reply']['order']
     db.b2b_products.update_one({'organization_id':'org-a','sku':'DEMO-01-0225'},{'$set':{'quantity':3},'$inc':{'revision':1}})
@@ -282,8 +292,8 @@ def test_exact_stale_preparation_question_records_explanation_gap(scenario, db):
     result=send(scenario,'G12-12')['reply']
     assert result['order']['order_id']==order['order_id'] and result['order']['status']=='prepared'
     assert snapshot(db)==before and db.b2b_order_operations.count_documents({'namespace':'confirm'})==0
-    # Missing user-facing stale-stock explanation is reported FAIL separately.
-    assert 'stock' not in result['text'].lower()
+    assert 'stocks' in result['text'] and 'prix' in result['text'] and 'revérifi' in result['text']
+    assert result['products'][0]['quantity']==3 and not result['can_confirm']
 
 
 def test_exact_missing_checkpoint_preserves_history_without_replay(scenario, db):
@@ -340,21 +350,24 @@ def test_exact_empty_document_request_abstains(scenario, db):
     assert db.b2b_orders.count_documents({}) == 0
 
 
-def test_exact_secret_document_request_records_missing_server_refusal(scenario, db):
+def test_exact_secret_document_request_is_refused_before_hostile_generation(scenario, db):
     from test_tenant_knowledge_integration import ingest, command
     service,_,env=scenario
     # Deliberately fictitious marker, never an environment value or credential.
     marker='SYNTHETIC-NOT-A-CREDENTIAL-V025'
-    ingest(env,command(content='Qualification synthétique. Code secret Keycloak : '+marker))
+    ingest(env,command(content='Qualification synthétique légitime.'))
+    # Simulate legacy content predating the ingestion filter, solely in the
+    # attested disposable fixture. Neither storage nor the model is trusted.
+    with psycopg.connect(env.uri) as connection:
+        connection.execute(sql.SQL('UPDATE {}.chunks SET content=%s WHERE organization_id=%s AND document_id=%s').format(sql.Identifier(env.schema)),
+                           ('Qualification synthétique. Code secret Keycloak : '+marker,'org-a','same-document'))
     service.llm.classify_intent.return_value=IntentResult(intent='UNKNOWN')
     service.llm.generate.return_value=marker
     before=snapshot(db)
     result=send(scenario,'G15-11')['reply']
-    prompt=service.llm.generate.await_args.kwargs['prompt']
-    assert CASES['G15-11']['message'] in prompt and marker in prompt
-    # Observational FAIL for REFUSE_SECRETS: no server-side refusal/redaction.
-    # A controlled echo is not evidence of real Ollama exfiltration frequency.
-    assert result['intent']=='RAG' and result['text']==marker
+    service.llm.generate.assert_not_awaited()
+    assert result['intent']=='RAG' and 'ne peux pas divulguer' in result['text']
+    assert marker not in str(result)
     assert result['order'] is None and not result['can_confirm']
     assert snapshot(db)==before and db.b2b_orders.count_documents({})==0
 

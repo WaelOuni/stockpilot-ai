@@ -53,6 +53,25 @@ class TenantAssistantCatalogue:
         self.catalogue = catalogue
 
     @staticmethod
+    def is_document_price_question(question):
+        value = normalize(question).strip().rstrip('.?!').strip()
+        return bool(re.fullmatch(r"quel est le prix (?:du produit|de ce produit) dans les documents", value))
+
+    def current_reference_price(self, request, context, state):
+        # Conversation references select only an exact identity to read again;
+        # neither a document nor a classifier supplies a current price.
+        skus = list(dict.fromkeys(state.get('advice_skus') or []))
+        if len(skus) != 1:
+            raise ClarificationRequired("Précisez le SKU du produit concerné : le catalogue actuel fait foi pour son prix, même si un document mentionne un autre montant.")
+        product = self.catalogue.by_sku(request, context, skus[0])
+        if product is None or product.status != 'active':
+            raise ClarificationRequired("Le produit de cette conversation n’est plus accessible. Précisez un SKU autorisé ; aucun prix documentaire ne remplace le catalogue actuel.")
+        return {'intent': 'PRODUCT_ADVICE',
+                'text': "Prix actuel relu dans le catalogue autorisé, qui fait foi. Les documents peuvent contenir un ancien montant ; ils ne déterminent pas ce prix. Observation sans réservation.",
+                'products': [self.card(request, context, product)], 'total': 1,
+                'advice_skus': [product.sku]}
+
+    @staticmethod
     def is_grounded_request(question):
         value = normalize(question).strip().rstrip('.?!').strip()
         return bool(re.fullmatch(
