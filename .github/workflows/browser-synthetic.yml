@@ -42,3 +42,5 @@ jobs:
         working-directory: frontend
       - run: npx playwright test --config playwright.advice-synthetic.config.ts
         working-directory: frontend
+      - run: npx playwright test --config playwright.b2b-ux.config.ts
+        working-directory: frontend

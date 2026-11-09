@@ -49,6 +49,10 @@ npm run build
 npx playwright test --config=playwright.b2b-ux.config.ts
 ```
 
+Le job GitHub `advice-browser` exécute aussi cette suite UX après la recette
+advice synthétique existante. Il conserve son runner hébergé jetable, ses actions
+épinglées et sa permission `contents: read`, sans déclencher d'évaluation réelle.
+
 Résultats locaux : **635 tests frontend, 66 scénarios Chromium, 3942 tests Python
 et 122 évaluations enrichies réussis**. Les 641 intégrations désélectionnées par
 pytest ne sont pas comptées comme réussies ; 370 sous-tests Python et un
