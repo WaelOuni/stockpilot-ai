@@ -3,6 +3,7 @@
 from time import perf_counter
 import json
 import re
+import hashlib
 
 from stockpilot.application.ports.tenant_knowledge import TenantDataUnavailable
 from stockpilot.application.services.identity_authorization import AuthorizationDenied
@@ -10,7 +11,7 @@ from stockpilot.domain.entities.tenant_knowledge import text, vector
 from stockpilot.domain.enums.permission import Permission
 from stockpilot.application.services.tenant_rag_safety import (
     RAG_SENSITIVE_REFUSAL, RAG_CITATION_REFUSAL, requests_secret,
-    sensitive_values, output_is_safe,
+    sensitive_values, output_is_safe, safe_public,
 )
 
 
@@ -31,7 +32,82 @@ class TenantRetrieval:
         # escapes control characters/quotes and we protect envelope delimiters.
         return json.dumps(value, ensure_ascii=False).replace('[', r'\u005b').replace(']', r'\u005d').replace('<', r'\u003c').replace('>', r'\u003e')
 
-    async def execute(self, request, context, question, *, timings=None):
+    @staticmethod
+    def _reference(passage):
+        return {'organization_id': passage.organization_id,
+                'document_id': passage.document_id,
+                'generation_id': passage.generation_id,
+                'chunk_id': passage.chunk_id,
+                'content_sha256': hashlib.sha256(passage.content.encode('utf-8')).hexdigest()}
+
+    def revalidate_citations(self, request, context, references):
+        """All-or-nothing exact source reads; old/malformed proofs fail closed.
+
+        No question, embedding or generator participates in this operation.
+        The conversation owner/session boundary remains the caller's duty.
+        """
+        self.repository.current(request, context, Permission.RAG_READ)
+        fields = {'organization_id', 'document_id', 'generation_id', 'chunk_id', 'content_sha256'}
+        if not isinstance(references, list) or not 1 <= len(references) <= 20:
+            return []
+        verified = []
+        seen = set()
+        for source in references:
+            if not isinstance(source, dict) or set(source) != fields:
+                return []
+            if any(not isinstance(source[k], str) or not source[k].strip()
+                   or source[k] != source[k].strip() or len(source[k]) > 128 or '\x00' in source[k]
+                   for k in ('organization_id', 'document_id', 'generation_id')):
+                return []
+            if source['organization_id'] != context.organization_id:
+                return []
+            if type(source['chunk_id']) is not int or not 0 <= source['chunk_id'] < 32:
+                return []
+            if not isinstance(source['content_sha256'], str) or not re.fullmatch('[0-9a-f]{64}', source['content_sha256']):
+                return []
+            if not safe_public(source):
+                return []
+            identity = source['document_id'], source['generation_id'], source['chunk_id']
+            if identity in seen:
+                return []
+            seen.add(identity)
+            try:
+                passage = self.repository.cited_passage(
+                    request, context, source['document_id'], source['generation_id'], source['chunk_id']
+                )
+            except AuthorizationDenied:
+                raise
+            except Exception:
+                raise TenantDataUnavailable('Citation dependency unavailable.') from None
+            if passage is None:
+                return []
+            try:
+                current = self._reference(passage)
+            except (AttributeError, TypeError, ValueError, UnicodeError):
+                return []
+            if current != source or not safe_public(current) or not output_is_safe(passage.content):
+                return []
+            verified.append(dict(source))
+        self.repository.current(request, context, Permission.RAG_READ)
+        return verified
+
+    def render_citations(self, references):
+        """Render previously revalidated identities, never historical content."""
+        public = 'Sources documentaires effectivement citées dans la réponse précédente :\n' + '\n'.join(
+            f'- {self.source_identifier(source["document_id"])}, passage {source["chunk_id"]}'
+            for source in references
+        )
+        if len(public) > 8000:
+            raise TenantDataUnavailable('Documentary response exceeds the public bound.')
+        return public if output_is_safe(public) else RAG_SENSITIVE_REFUSAL
+
+    async def execute(self, request, context, question, *, timings=None, citations=None, consulted_sources=None):
+        for collection in (citations, consulted_sources):
+            if collection is None:
+                continue
+            if type(collection) is not list:
+                raise TypeError('A per-call citation list is required.')
+            collection.clear()
         text(question, 4000)
         self.repository.current(request, context, Permission.RAG_READ)
         if requests_secret(question):
@@ -104,11 +180,28 @@ class TenantRetrieval:
         self.repository.current(request, context, Permission.RAG_READ)
         if not output_is_safe(result, protected):
             return RAG_SENSITIVE_REFUSAL
-        cited = {label.upper() for label in re.findall(r'\[(?:source\s*:\s*)?(S[\w-]+)\]', result, re.I)}
+        matches = re.findall(
+            r'\[(?:source\s*:\s*)?(S[\w-]+)\]|\b(?:document|source)\s+(S\d+)\b', result, re.I
+        )
+        cited = {label.upper() for match in matches for label in match if label}
         if cited - sources.keys():
             return RAG_CITATION_REFUSAL
         provenance = '\n'.join(f'[{label}] {self.source_identifier(p.document_id)}, passage {p.chunk_id}' for label,p in sources.items())
         public = result + '\n\nDocuments consultés (ne prouvent pas chaque affirmation) :\n' + provenance
         if len(public) > 8000:
             raise TenantDataUnavailable('Documentary response exceeds the public bound.')
-        return public if output_is_safe(public, protected) else RAG_SENSITIVE_REFUSAL
+        if not output_is_safe(public, protected):
+            return RAG_SENSITIVE_REFUSAL
+        # A source can be withdrawn or replaced while the model is running.
+        # Verify all consulted inputs before publishing their prose/provenance,
+        # then retain only sources the model actually cited in its own answer.
+        # Old adapters still return text, but cannot create historical proofs.
+        if all(getattr(p, 'generation_id', None) is not None for p in passages):
+            references = [self._reference(p) for p in passages]
+            if not self.revalidate_citations(request, context, references):
+                return RAG_CITATION_REFUSAL
+            if consulted_sources is not None:
+                consulted_sources.extend(references)
+            if citations is not None:
+                citations.extend(self._reference(p) for label, p in sources.items() if label in cited)
+        return public

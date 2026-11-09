@@ -315,7 +315,35 @@ class PgTenantKnowledge(TenantPostgresBoundary):
                 key = row[1], row[6]
                 if key not in allowed:
                     allowed[key] = self._safe_document(c, org, row[1], row[5], row[6])
-            return [TenantPassage(*r[:5]) for r in rows if allowed[(r[1], r[6])]]
+            return [TenantPassage(*r[:5], generation_id=r[6]) for r in rows if allowed[(r[1], r[6])]]
+
+    def cited_passage(self, request, context, document_id, generation_id, chunk_id):
+        """Re-read an exact still-published source, never a semantic substitute."""
+        for value in (document_id, generation_id):
+            require_identifier(value)
+            if len(value) > 128 or '\x00' in value:
+                raise ValueError('Bounded citation identifier required.')
+        if type(chunk_id) is not int or not 0 <= chunk_id < 32:
+            raise ValueError('Bounded passage identifier required.')
+        with self.connection(request, context, P.RAG_READ) as c:
+            row = c.execute(sql.SQL(
+                'SELECT d.title,d.embedding_model,d.embedding_version,k.content '
+                'FROM {} d JOIN {} k ON k.organization_id=d.organization_id '
+                'AND k.document_id=d.document_id AND k.generation_id=d.active_generation '
+                'JOIN {} i ON i.organization_id=k.organization_id '
+                'AND i.document_id=k.document_id AND i.generation_id=k.generation_id '
+                "WHERE d.organization_id=%s AND d.document_id=%s AND d.status='ready' "
+                "AND i.status='ready' AND k.generation_id=%s AND k.chunk_id=%s "
+                'AND d.embedding_model=%s AND d.embedding_version=%s'
+            ).format(self.t('documents'), self.t('chunks'), self.t('ingestions')),
+                (context.organization_id, document_id, generation_id, chunk_id,
+                 self.model, self.version)).fetchone()
+            if row is None or not self._safe_document(
+                c, context.organization_id, document_id, row[0], generation_id, *row[1:3]
+            ):
+                return None
+            return TenantPassage(context.organization_id, document_id, chunk_id,
+                                 row[3], 0.0, generation_id)
 
     def delete(self, request, context, document_id, *, operation_id, expected_revision):
         self.current(request, context, P.RAG_MANAGE)

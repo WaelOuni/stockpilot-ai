@@ -27,6 +27,10 @@ class TenantKnowledgePort(Protocol):
         self, request: object, context: TenantContext, command: IngestTenantDocument
     ): ...
     def document(self, request: object, context: TenantContext, document_id: str): ...
+    def cited_passage(
+        self, request: object, context: TenantContext, document_id: str,
+        generation_id: str, chunk_id: int,
+    ): ...
     def search(
         self,
         request: object,

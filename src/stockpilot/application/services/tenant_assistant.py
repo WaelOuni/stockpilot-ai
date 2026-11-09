@@ -55,6 +55,9 @@ from stockpilot.application.services.tenant_assistant_history import (
     stale_preparation_question,
 )
 from stockpilot.application.services.tenant_rag_safety import RAG_SENSITIVE_REFUSAL, safe_public
+from stockpilot.application.services.tenant_assistant_citations import (
+    TenantAssistantCitations, citation_question, EMPTY_RAG,
+)
 from stockpilot.application.use_cases.catalogue_advice import (
     ClarificationRequired,
     is_advice_followup,
@@ -135,7 +138,8 @@ class TenantAssistant:
         )
         self.catalogue = TenantAssistantCatalogue(catalogue)
         self.navigation = TenantAssistantNavigation(self.catalogue)
-        self.history = TenantAssistantHistory(store, self.catalogue)
+        self.citations = TenantAssistantCitations(store, retrieval)
+        self.history = TenantAssistantHistory(store, self.catalogue, self.citations.public_reply)
         self.admission = threading.BoundedSemaphore(concurrency)
 
     def current(self, request, context):
@@ -161,6 +165,8 @@ class TenantAssistant:
         Unknown language still requires the classifier; this is no global-list
         fallback and never uses a model-suggested product or quantity.
         """
+        if citation_question(question):
+            return "RAG_CITATION"
         if history_kind(question):
             return "HISTORY"
         if confirmation_guidance(question):
@@ -269,6 +275,8 @@ class TenantAssistant:
         if lexical_intent:
             classification = {"intent": lexical_intent}
         try:
+            if lexical_intent == "RAG_CITATION":
+                return self.citations.previous(request, context, conversation_id, state.get("turn_id"))
             if lexical_intent == "CURRENT_CATALOGUE_PRICE":
                 result = self.catalogue.current_reference_price(request, context, state)
                 return self._reply(result["intent"], result["text"], **{k: v for k, v in result.items() if k not in {"intent", "text"}})
@@ -503,15 +511,20 @@ class TenantAssistant:
                 raise ClarificationRequired(
                     "Précisez explicitement la quantité et le SKU pour préparer une commande."
                 )
-            timings = {}
+            timings, citations, consulted = {}, [], []
             answer = await self.retrieval.execute(
-                request, context, question, timings=timings
+                request, context, question, timings=timings,
+                citations=citations, consulted_sources=consulted,
             )
             return self._reply(
                 "RAG",
                 answer
-                or "Aucun passage documentaire compatible n’est disponible dans votre organisation.",
+                or EMPTY_RAG,
                 rag_timing_ms=timings,
+                cited_sources=citations,
+                source_turn_id=state.get("turn_id"),
+                _rag_read_sources=consulted,
+                _citation_scope=self.citations.scope(context, conversation_id) if consulted else None,
             )
         except TenantOrderConflict:
             return self._reply(
@@ -521,8 +534,8 @@ class TenantAssistant:
         except (ClarificationRequired, InvalidOrderQuantityError) as error:
             return self._reply("CLARIFICATION_REQUIRED", str(error))
 
-    def _public_turn(self, request, context, turn):
-        reply = turn["reply"]
+    def _public_turn(self, request, context, turn, conversation_id=None):
+        reply = self.citations.public_reply(request, context, conversation_id, turn)
         if reply and reply.get("order"):
             try:
                 self.orders.get(request, context, reply["order"]["order_id"])
@@ -592,7 +605,7 @@ class TenantAssistant:
                 )
                 old = self.store.turn(request, context, conversation_id, turn_id)
                 if old["status"] == "completed":
-                    return self._public_turn(request, context, old)
+                    return self._public_turn(request, context, old, conversation_id)
                 if old["action"]:
                     return await self._reconcile(request, context, conversation_id, old)
                 saver = self.store.bind(request, context, conversation_id)
@@ -614,6 +627,7 @@ class TenantAssistant:
                     request,
                     context,
                     self.store.turn(request, context, conversation_id, turn_id),
+                    conversation_id,
                 )
         finally:
             self.admission.release()
@@ -628,6 +642,7 @@ class TenantAssistant:
             request,
             context,
             self.store.turn(request, context, conversation_id, turn_id),
+            conversation_id,
         )
 
     async def _project(self, request, context, conversation_id, turn, order):
@@ -657,6 +672,7 @@ class TenantAssistant:
             request,
             context,
             self.store.turn(request, context, conversation_id, turn["turn_id"]),
+            conversation_id,
         )
 
     async def _reconcile(self, request, context, conversation_id, turn):
@@ -676,7 +692,7 @@ class TenantAssistant:
         if old is None:
             raise TenantDataNotFound("Turn unavailable.")
         if old["status"] == "completed":
-            return self._public_turn(request, context, old)
+            return self._public_turn(request, context, old, conversation_id)
         if not old["action"]:
             return await self.send(
                 request,
@@ -740,7 +756,7 @@ class TenantAssistant:
             "conversation_id": conversation_id,
             **history,
             "items": [
-                self._public_turn(request, context, turn) for turn in history["items"]
+                self._public_turn(request, context, turn, conversation_id) for turn in history["items"]
             ],
         }
 
@@ -789,7 +805,7 @@ class TenantAssistant:
             }
             self.store.plan(request, context, conversation_id, operation_id, action)
             if old and old["status"] == "completed":
-                return self._public_turn(request, context, old)
+                return self._public_turn(request, context, old, conversation_id)
             try:
                 # Always the existing B2 engine; no reservation logic exists in this graph.
                 if namespace == "confirm":

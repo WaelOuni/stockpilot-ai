@@ -9,7 +9,8 @@ base métier, donnée VM ou fichier privé d'environnement n'est chargé.
 ```sh
 PYTHONDONTWRITEBYTECODE=1 LOG_FILE= .venv/bin/python -m evals.assistant_v025.real_rag \
   --url http://127.0.0.1:11587 --isolated-synthetic-only \
-  --windows-curl --output /tmp/stockpilot-final-real-rag.json
+  --windows-curl --output /tmp/stockpilot-final-real-rag.json \
+  --permutations-output /tmp/stockpilot-final-citation-permutations.json
 ```
 
 `--windows-curl` est seulement un transport WSL vers une instance Windows propre
@@ -40,7 +41,30 @@ retrouver par hasard une source fixe ne suffit pas. G15-08 a comme préalable
 une recherche du SKU DEMO-01-0225, puis exige le prix courant du catalogue.
 Les demandes et attentes originales restent inchangées.
 
-Les vérifications séparent les citations générées du pied de page de provenance.
+Le suivi G15-06 ne relance désormais ni classifieur, ni génération, ni embedding,
+ni recherche sémantique. Le harnais conserve les tours effectivement produits
+par le graphe dans un journal synthétique privé, avec identités de tours
+distinctes. Il exige que les références structurées rendues correspondent
+exactement aux documents et passages réellement cités par le modèle dans le
+tour précédent, ainsi qu'à son `source_turn_id`. Les labels locaux S1/S2 ne
+servent jamais d'identifiants persistants. Chaque référence contient une
+génération synthétique stable ; sa lecture exacte est revalidée avant restitution.
+Le journal synthétique vérifie conversation, propriétaire, organisation et
+session courante ; cela ne remplace pas les preuves PostgreSQL de persistance.
+
+L'option `--permutations-output` produit un fichier **séparé** : six ordres des
+trois sujets (livraison, stock, réservation), soit dix-huit suivis, puis neuf
+scénarios supplémentaires : plusieurs sources citées, retour au catalogue,
+suppression, retrait, autre conversation, autre utilisateur, autre organisation,
+changement de session et replay après suppression. Chaque préalable documentaire
+est une véritable génération Ollama validée, jamais une réponse injectée.
+Les seeds historiques sont distribuées de façon déterministe entre ces quinze
+scénarios. Les documents consultés mais non cités sont exclus par l'égalité
+exacte avec les références du préalable. Les essais supplémentaires n'augmentent
+pas le nombre de demandes du corpus original et ne remplacent aucun de ses
+trente essais. Tout échec est conservé avec son contexte et son résultat.
+
+Les vérifications des réponses initiales séparent les citations générées du pied de page de provenance.
 Ce dernier prouve les documents consultés, pas que chaque phrase est étayée.
 Une citation doit identifier un document qui contient le fait demandé; ses
 formes `[S2]`, `[source: S2]` ou « document S2 » sont sémantiquement équivalentes.

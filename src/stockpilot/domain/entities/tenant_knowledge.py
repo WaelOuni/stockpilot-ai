@@ -85,6 +85,9 @@ class TenantPassage:
     chunk_id: int
     content: str
     distance: float
+    # Optional for old adapters/checkpoints. Missing identity never grants a
+    # verifiable historical citation; labels S1/S2 are deliberately not stored.
+    generation_id: str | None = None
 
 
 @dataclass(frozen=True)

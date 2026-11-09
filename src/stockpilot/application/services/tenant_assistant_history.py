@@ -41,8 +41,9 @@ def stale_preparation_question(question):
 
 
 class TenantAssistantHistory:
-    def __init__(self, store, catalogue):
+    def __init__(self, store, catalogue, documentary_reply=None):
         self.store, self.catalogue = store, catalogue
+        self.documentary_reply = documentary_reply
 
     def _turns(self, request, context, conversation_id, turn_id):
         turns = []
@@ -118,6 +119,10 @@ class TenantAssistantHistory:
         products = self._current_products(request, context, cards) if cards else []
         reference = {'historical_turn_id': selected['turn_id']}
         if kind == 'snapshot':
+            if selected['reply'].get('intent') in {'RAG', 'RAG_CITATION'}:
+                verified = self.documentary_reply(request, context, conversation_id, selected) if self.documentary_reply else None
+                if not verified or verified.get('text') != selected['reply'].get('text'):
+                    raise ClarificationRequired("La source historique n’est plus vérifiable ou accessible. Son contenu n’est pas reproduit.")
             old_text = selected['reply'].get('text', '')
             if len(old_text) > 7000:
                 raise ClarificationRequired("Consultez cette réponse dans l’historique pour son contenu intégral.")

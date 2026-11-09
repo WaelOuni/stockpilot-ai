@@ -67,6 +67,11 @@ La [passe finale](../../docs/validation/v025-assistant-final-pass.md) reprend le
 et la CI exacte sont liés dans #84. Les chiffres des rapports précédents sont
 historiques ; le tableau de service seul ne qualifie ni ORDER ni Ollama.
 
+La [correction de citation](../../docs/validation/v025-rag-citation-fix.md) lie
+G15-06 aux sources structurées du tour précédent, revalidées dans les stores.
+G08-12 conserve son FAIL original ; une dérogation de recette est proposée
+explicitement à décision humaine, sans modification de l'oracle ni du score.
+
 Pour une instance Ollama isolée déjà créée (port non standard, corpus synthétique
 uniquement), depuis un checkout propre :
 

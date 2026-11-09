@@ -263,6 +263,13 @@ def test_abbreviated_preparation_passes_exact_evidence_to_existing_order_engine(
 def test_history_snapshot_can_replay_plain_documentary_text_without_a_product():
     h,turns=setup_history()
     turns[0]['reply'].update(intent='RAG',text='Procédure synthétique autorisée [Guide#1].',products=[])
+    # A historical documentary snapshot now requires a current source proof;
+    # its lack of product cards does not remove that authorization boundary.
+    ref={'organization_id':'org-a','document_id':'guide','generation_id':'generation',
+         'chunk_id':0,'content_sha256':'a'*64}
+    turns[0]['reply'].update(cited_sources=[ref],_rag_read_sources=[ref],source_turn_id='old-0',
+                            _citation_scope=h[0].citations.scope(h[3],'private-conversation'))
+    h[0].retrieval.revalidate_citations=lambda request,context,refs: deepcopy(refs)
     before=deepcopy(turns)
     reply,_=answer(h,'G14-05')
     assert reply['intent']=='HISTORY' and turns[0]['reply']['text'] in reply['text']

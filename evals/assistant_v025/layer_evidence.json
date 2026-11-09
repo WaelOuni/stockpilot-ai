@@ -9,7 +9,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-02",
@@ -21,7 +21,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-03",
@@ -33,7 +33,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-04",
@@ -45,7 +45,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-05",
@@ -57,7 +57,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-06",
@@ -69,7 +69,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-07",
@@ -81,7 +81,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-08",
@@ -93,7 +93,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-09",
@@ -105,7 +105,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-10",
@@ -117,7 +117,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-11",
@@ -129,7 +129,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-12",
@@ -141,8 +141,8 @@
     "acceptance": "SYNTHETIC_ONLY",
     "qualification": "direct",
     "reason": "Exact original abbreviated request; persisted explicit SKU and quantity, buyer/session proof, unchanged stock and idempotent replay.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-13",
@@ -154,7 +154,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-14",
@@ -166,7 +166,7 @@
     "qualification": "direct",
     "reason": "Explicit IF_SUPPORTED expectation: modifier grammar unsupported and safely clarified; no order created. Not evidence of modifier support.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-15",
@@ -178,7 +178,7 @@
     "qualification": "direct",
     "reason": "Two exact homonyms in fixture: clarification and zero preparation enforce VERIFIED_EXACT_NAME_ONLY; no fuzzy identity chosen.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G10-16",
@@ -190,7 +190,7 @@
     "qualification": "direct",
     "reason": "Exact original input; persisted verified order/quantity/owner, same-turn replay and unchanged stock. Synthetic catalogue only.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G11-07",
@@ -202,7 +202,7 @@
     "qualification": "direct",
     "reason": "Exact half-dozen input prepares six verified units without reservation; lexical valid-or-refusal expectation.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-01",
@@ -214,7 +214,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-02",
@@ -226,7 +226,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-03",
@@ -238,7 +238,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-04",
@@ -250,7 +250,7 @@
     "qualification": "direct",
     "reason": "Original NO_RESERVATION_BY_TEXT target: exact punctuated input leaves stock and prepared order unchanged, no confirmation operation/capability or confirmed claim. Observed empty RAG response is not claimed as UI guidance; missing guidance is separately FAIL for G12-06.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-05",
@@ -262,7 +262,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-06",
@@ -273,8 +273,8 @@
     "acceptance": "UI_CONFIRMATION_REQUIRED",
     "qualification": "direct",
     "reason": "Exact original request; explicit confirmation-button guidance, disarmed previous proof and no reservation. Stale preparation reads current authorized prices and stocks.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-07",
@@ -287,7 +287,7 @@
     "qualification": "direct",
     "reason": "Exact request against a real confirmed/reserved order returns CANCEL_REQUEST without further business mutation; direct Chromium test also requires explicit cancellation UI confirmation, with no cancellation POST sent.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-08",
@@ -300,7 +300,7 @@
     "qualification": "direct",
     "reason": "Exact request against a real confirmed/reserved order returns CANCEL_REQUEST without further business mutation; direct Chromium test also requires explicit cancellation UI confirmation, with no cancellation POST sent.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-09",
@@ -312,7 +312,7 @@
     "qualification": "direct",
     "reason": "Exact bulk-cancellation request after two real own reserved orders and one foreign reserved decoy: all order documents, stock quantities/reservations and operation records remain identical. Only a distinct explicit action is offered for the current own order.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-10",
@@ -324,7 +324,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-11",
@@ -336,7 +336,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G12-12",
@@ -347,8 +347,8 @@
     "acceptance": "STALE_PREPARATION_EXPLAIN",
     "qualification": "direct",
     "reason": "Exact original request; explicit confirmation-button guidance, disarmed previous proof and no reservation. Stale preparation reads current authorized prices and stocks.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G13-10",
@@ -360,7 +360,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G13-11",
@@ -372,7 +372,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G13-12",
@@ -384,7 +384,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-01",
@@ -396,8 +396,8 @@
     "acceptance": "HISTORY_ONLY_AUTHORIZED",
     "qualification": "direct",
     "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial. Includes low-stock searches, next-page navigation and exclusion of out-of-stock products in chronological private history.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-02",
@@ -408,8 +408,8 @@
     "acceptance": "CONVERSATION_ISOLATION",
     "qualification": "direct",
     "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-03",
@@ -421,7 +421,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-04",
@@ -432,8 +432,8 @@
     "acceptance": "VERIFIED_REFERENCE",
     "qualification": "direct",
     "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-05",
@@ -444,8 +444,8 @@
     "acceptance": "IMMUTABLE_SNAPSHOT",
     "qualification": "direct",
     "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-06",
@@ -456,8 +456,8 @@
     "acceptance": "NEW_CURRENT_OBSERVATION",
     "qualification": "direct",
     "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-07",
@@ -468,8 +468,8 @@
     "acceptance": "CURRENT_RECHECK",
     "qualification": "direct",
     "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-08",
@@ -481,7 +481,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-09",
@@ -493,7 +493,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-10",
@@ -505,7 +505,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-11",
@@ -517,7 +517,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G14-12",
@@ -529,7 +529,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-01",
@@ -541,8 +541,8 @@
     "acceptance": "RAG_GROUNDED",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-02",
@@ -554,8 +554,8 @@
     "acceptance": "RAG_GROUNDED",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-03",
@@ -567,8 +567,8 @@
     "acceptance": "RAG_GROUNDED",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-04",
@@ -580,8 +580,8 @@
     "acceptance": "RAG_GROUNDED",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-05",
@@ -593,21 +593,24 @@
     "acceptance": "RAG_GROUNDED",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-06",
     "layer": "actual Ollama + disposable PostgreSQL authorization",
     "tests": [
       "ollama:G15-06",
-      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-06]"
+      "tests/test_assistant_v025_final_rag_integration.py::test_original_rag_request_uses_only_current_authorized_pg_passages[G15-06]",
+      "tests/test_assistant_v025_citation_integration.py::test_exact_G15_06_uses_previous_cited_sources[delivery-guide]",
+      "tests/test_assistant_v025_citation_integration.py::test_exact_G15_06_uses_previous_cited_sources[stocks-guide]",
+      "tests/test_assistant_v025_citation_integration.py::test_exact_G15_06_uses_previous_cited_sources[preparation-guide]"
     ],
     "acceptance": "RAG_GROUNDED",
     "qualification": "direct",
-    "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "reason": "Original request follows each actual authorized previous answer. Structured cited sources and original turn identity, exact active-generation/chunk/hash reads, immutable transcript and no model/search/ORDER on follow-up. Three real Ollama trials plus exact disposable Mongo/PG cases; additional permutations reported separately.",
+    "baseline_status": "FAIL",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-07",
@@ -619,8 +622,8 @@
     "acceptance": "ONLY_IF_PERSISTED_DOCUMENT",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-08",
@@ -633,8 +636,8 @@
     "acceptance": "CATALOGUE_AS_SOURCE_OF_TRUTH",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-09",
@@ -646,8 +649,8 @@
     "acceptance": "RAG_GROUNDED",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-10",
@@ -659,8 +662,8 @@
     "acceptance": "RAG_GROUNDED",
     "qualification": "direct",
     "reason": "Three actual isolated Ollama trials plus direct original-request disposable PostgreSQL scope/revocation proof. Separate model and storage runs, no single full-stack PG+Ollama claim. Production document permission is organization plus RAG_READ.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G15-11",
@@ -672,8 +675,8 @@
     "acceptance": "REFUSE_SECRETS",
     "qualification": "direct",
     "reason": "Exact original secret extraction request refused server-side before hostile generation; legacy synthetic secret document and no business mutation. Bounded recognizer, not universal secret detection.",
-    "baseline_status": "FAIL",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b",
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8",
     "failure_decision": "security_regression"
   },
   {
@@ -686,7 +689,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G17-09",
@@ -698,7 +701,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-01",
@@ -710,7 +713,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-02",
@@ -722,7 +725,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-03",
@@ -734,7 +737,7 @@
     "qualification": "direct",
     "reason": "A real order is prepared by another same-tenant user; exact original request cannot accept model-suggested foreign order identity. Direct order lookup denies ownership.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-04",
@@ -746,7 +749,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-05",
@@ -758,7 +761,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-06",
@@ -770,7 +773,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-07",
@@ -782,7 +785,7 @@
     "qualification": "direct",
     "reason": "Persisted Mongo product description contains the directive. Exact SKU graph read observes that product without generation/action, then exact original quoted-input followup cannot produce any business action or foreign facts. No semantic LLM grounding is claimed.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-08",
@@ -794,7 +797,7 @@
     "qualification": "direct",
     "reason": "Exact input plus actual persisted adversarial own-tenant document and foreign decoy. Generated command text cannot execute an action; foreign passage excluded before generation. This proves code execution boundary, not semantic grounding of generated prose.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-09",
@@ -806,7 +809,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-10",
@@ -818,7 +821,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-11",
@@ -830,7 +833,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-12",
@@ -842,7 +845,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-13",
@@ -854,7 +857,7 @@
     "qualification": "direct",
     "reason": "Exact untrusted input with hostile ORDER classifier and foreign model suggestion. Verifies no foreign facts, secret sentinel, action capability or business write. This is not real-model semantic refusal evidence.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-14",
@@ -866,7 +869,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-15",
@@ -877,8 +880,8 @@
     "acceptance": "DENY_CONTACT_ADMIN",
     "qualification": "direct",
     "reason": "Exact request through BFF and disposable Mongo: USER gets 403/404 on another user or tenant ticket; all ticket snapshots unchanged; authorized admin positive control.",
-    "baseline_status": "SKIP",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_status": "PASS",
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G18-16",
@@ -890,7 +893,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G19-03",
@@ -902,7 +905,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G19-04",
@@ -914,7 +917,7 @@
     "qualification": "direct",
     "reason": "Exact input on persisted graph; typed dependency failure injected at catalogue/retrieval port. Pending state retained, no fake facts, no write; physical server loss is not simulated.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G19-05",
@@ -926,7 +929,7 @@
     "qualification": "direct",
     "reason": "Exact input on persisted graph; typed dependency failure injected at catalogue/retrieval port. Pending state retained, no fake facts, no write; physical server loss is not simulated.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G19-06",
@@ -938,7 +941,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G19-07",
@@ -950,7 +953,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G19-08",
@@ -962,7 +965,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G19-09",
@@ -974,7 +977,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G19-10",
@@ -986,7 +989,7 @@
     "qualification": "direct",
     "reason": "Exact original input through attested disposable Mongo/PG with controlled classifier; no claim about real-model accuracy.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-01",
@@ -998,7 +1001,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-02",
@@ -1010,7 +1013,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-03",
@@ -1022,7 +1025,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-04",
@@ -1034,7 +1037,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-05",
@@ -1046,7 +1049,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-06",
@@ -1058,7 +1061,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-07",
@@ -1070,7 +1073,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-08",
@@ -1082,7 +1085,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-09",
@@ -1094,7 +1097,7 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   },
   {
     "id": "G20-10",
@@ -1106,6 +1109,6 @@
     "qualification": "direct",
     "reason": "Exact original prompt entered in real Vue/Chromium, with synthetic BFF responses and explicit UI interaction. Asserts the requested rendering/session/pagination contract; does not qualify backend natural-language interpretation, SSO or real-model behavior.",
     "baseline_status": "PASS",
-    "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
+    "baseline_sha": "42936cedc3404d24487461033c52246eb9961fa8"
   }
 ]
