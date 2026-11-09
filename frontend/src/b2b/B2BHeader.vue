@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { language, theme, t } from './preferences'
+import { language, theme, assistantSound, t } from './preferences'
 import { useB2B } from './session'
 
 defineProps<{ busy: boolean }>()
@@ -123,6 +123,10 @@ onUnmounted(() => document.removeEventListener('click', outside))
           >
             {{ theme === 'dark' ? t('Mode clair') : t('Mode sombre') }}
           </button>
+          <label><span><input
+            v-model="assistantSound"
+            type="checkbox"
+          /> {{ t('Son à la fin des réponses de l’assistant') }}</span></label>
         </div>
         <template v-if="current">
           <button
@@ -149,7 +153,7 @@ onUnmounted(() => document.removeEventListener('click', outside))
 .workspace-header .b2b-brand { display:grid; text-decoration:none; color:inherit; align-self:center; flex-shrink:0; gap:2px; }
 .workspace-header .b2b-brand strong { font-size:1.05rem; color:var(--brand); }
 .workspace-header .b2b-brand span { color:var(--muted); font-size:.75rem; }
-.workspace-nav { display:flex; align-items:center; gap:4px; flex:1; min-width:0; }
+.workspace-nav { display:flex; align-items:center; gap:4px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:thin; }
 .workspace-nav a { flex-shrink:0; display:flex; align-items:center; min-height:44px; padding:10px 12px; color:var(--muted); font-weight:600; text-decoration:none; border-radius:8px; }
 .workspace-nav a:hover { background:var(--soft); color:var(--ink); }
 .workspace-nav a.router-link-active:not([href='/b2b-app/']), .workspace-nav a.router-link-exact-active { background:var(--soft); color:var(--brand); box-shadow:inset 0 -3px var(--brand); }
