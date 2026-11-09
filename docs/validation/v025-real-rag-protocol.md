@@ -32,8 +32,11 @@ Le corpus documentaire est entièrement synthétique : procédure de stock,
 préparation sans réservation, confirmation explicite, livraison sept jours,
 garantie vingt-quatre mois, retours quatorze jours pour produit inutilisé,
 ancien prix documentaire et leurres non autorisés. Son hash figure au rapport.
-G15-05 utilise un corpus autorisé vide. G15-06 a comme préalable explicite la
-question G15-03, puis demande la source de cette réponse. G15-08 a comme préalable
+G15-05 utilise un corpus autorisé vide. G15-06 a comme préalable explicite les
+questions G15-03, G15-01 et G15-04, respectivement pour les trois seeds, puis
+demande la source de cette réponse. Le préalable est lui-même vérifié et la
+source attendue (livraison, stocks, préparation) figure par essai au rapport :
+retrouver par hasard une source fixe ne suffit pas. G15-08 a comme préalable
 une recherche du SKU DEMO-01-0225, puis exige le prix courant du catalogue.
 Les demandes et attentes originales restent inchangées.
 

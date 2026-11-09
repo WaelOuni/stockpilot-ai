@@ -397,7 +397,10 @@ def test_real_langgraph_async_resume_and_history_after_new_adapter(environment):
         result = await service.execute(
             REQUESTS["a1"], context(e.orders), conv.conversation_id, "question"
         )
-        assert result["answer"] == "A answer"
+        assert result["answer"] == (
+            'A answer\n\nDocuments consultés (ne prouvent pas chaque affirmation) :\n'
+            '[S1] "same-document", passage 0'
+        )
         restarted = PgTenantConversations(e.uri, e.orders[0].authorization, e.schema)
         resumed = TenantRagConversation(restarted, retrieval)
         state = await resumed.state(

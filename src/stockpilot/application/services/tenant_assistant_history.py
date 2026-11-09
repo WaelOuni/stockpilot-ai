@@ -78,7 +78,7 @@ class TenantAssistantHistory:
         if kind in {'messages', 'searches'}:
             messages = [t['input'].get('message', '') for t in turns if t['kind'] == 'message'
                         and (kind == 'messages' or (t.get('reply') or {}).get('intent') in
-                             {'STOCK_CHECK', 'PRODUCT_ADVICE', 'COMPARISON', 'CATALOGUE_NAVIGATION', 'CATALOGUE_CATEGORIES'})]
+                             {'STOCK_CHECK', 'LOW_STOCK', 'PRODUCT_ADVICE', 'COMPARISON', 'CATALOGUE_NAVIGATION', 'CATALOGUE_CATEGORIES'})]
             if not messages:
                 raise ClarificationRequired("Aucun message historique correspondant dans cette conversation autorisée.")
             excerpts = [m if len(m) <= 1000 else m[:1000] + ' [extrait tronqué]' for m in messages[-5:]]

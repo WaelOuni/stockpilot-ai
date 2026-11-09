@@ -115,7 +115,7 @@ class ScopedDocuments:
         return [TenantPassage(d['org'], d['id'], 0, d['content'], distance(d)) for d in candidates]
 
 
-def verify(case, reply, h, docs, calls):
+def verify(case, reply, h, docs, calls, *, expected_source=None):
     value = reply['text']
     folded = value.lower()
     assert reply['order'] is None and reply['can_confirm'] is False
@@ -145,7 +145,7 @@ def verify(case, reply, h, docs, calls):
     assert all(1 <= int(number) <= len(allowed) for number in citations), 'Fabricated source label'
     assert len(re.sub(r'\[S\d+\]|\W', '', generated)) >= 20, 'Source labels alone do not deliver the requested answer'
     supports = {'G15-01': 'stocks-guide', 'G15-02': 'preparation-guide', 'G15-03': 'delivery-guide',
-                'G15-04': 'preparation-guide', 'G15-06': 'delivery-guide', 'G15-07': 'delivery-guide',
+                'G15-04': 'preparation-guide', 'G15-06': expected_source, 'G15-07': 'delivery-guide',
                 'G15-09': 'preparation-guide', 'G15-10': 'delivery-guide'}
     assert supports[identity] in [allowed[int(number)-1] for number in citations], 'Cited source does not support requested fixture fact'
     assert not re.search(r'\b(?:30|48|72|365|50|1000)\b', generated), 'Unsupported numeric policy'
@@ -193,6 +193,7 @@ async def run(args):
             before = deepcopy(h[1].rows)
             start, call_start, error_start = perf_counter(), len(provider.calls), len(provider.transport_errors)
             trial = {'seed': seed, 'status': 'FAIL'}
+            expected_source, prior_failure = None, None
             try:
                 with patch('stockpilot.infrastructure.llm.ollama_adapter.post_ollama', provider.post):
                     state = None
@@ -200,15 +201,28 @@ async def run(args):
                         _, state = await answer(h, 'Je cherche DEMO-01-0225.')
                         trial['prior_messages'] = ['Je cherche DEMO-01-0225.']
                     if case['id'] == 'G15-06':
-                        prior = next(c['message'] for c in CORPUS if c['id'] == 'G15-03')
-                        prior_reply, state = await answer(h, prior)
-                        trial['prior_messages'], trial['prior_reply'] = [prior], prior_reply
+                        prior_id, expected_source = {
+                            25051: ('G15-03', 'delivery-guide'),
+                            25052: ('G15-01', 'stocks-guide'),
+                            25053: ('G15-04', 'preparation-guide'),
+                        }[seed]
+                        prior_case = next(c for c in CORPUS if c['id'] == prior_id)
+                        prior_reply, state = await answer(h, prior_case['message'])
+                        trial.update(prior_messages=[prior_case['message']], prior_reply=prior_reply,
+                                     prior_case_id=prior_id, expected_source_id=expected_source)
+                        try:
+                            trial['prior_assertions'] = verify(prior_case, prior_reply, h, repository, provider.calls[call_start:])
+                            trial['prior_status'] = 'PASS'
+                        except AssertionError as error:
+                            prior_failure = str(error)
+                            trial.update(prior_status='FAIL', prior_reason=prior_failure)
                     reply, _ = await answer(h, case['message'], state)
                 trial['reply'] = reply
                 if len(provider.transport_errors) > error_start:
                     raise ConnectionError('Isolated provider transport unavailable')
                 assert before == h[1].rows
-                trial['assertions'] = verify(case, reply, h, repository, provider.calls[call_start:])
+                trial['assertions'] = verify(case, reply, h, repository, provider.calls[call_start:], expected_source=expected_source)
+                assert prior_failure is None, 'Previous answer was not qualified: ' + str(prior_failure)
                 trial['status'] = 'PASS'
             except (TimeoutError, ConnectionError, httpx.HTTPError) as error:
                 trial.update(status='SKIP', reason=type(error).__name__ + ': isolated model unavailable')

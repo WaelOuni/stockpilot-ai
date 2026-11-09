@@ -26,7 +26,10 @@ class TenantRetrieval:
     @staticmethod
     def source_identifier(value):
         # Source metadata is data, not Markdown/citation syntax or prompt tags.
-        return json.dumps(value, ensure_ascii=True).replace('[', r'\u005b').replace(']', r'\u005d').replace('<', r'\u003c').replace('>', r'\u003e')
+        # Preserve readable French source text: escaping every accent caused
+        # the real model to misread "préparation" as "prédiction". JSON still
+        # escapes control characters/quotes and we protect envelope delimiters.
+        return json.dumps(value, ensure_ascii=False).replace('[', r'\u005b').replace(']', r'\u005d').replace('<', r'\u003c').replace('>', r'\u003e')
 
     async def execute(self, request, context, question, *, timings=None):
         text(question, 4000)

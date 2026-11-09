@@ -138,3 +138,27 @@ def test_history_rechecks_permissions_session_tenant_and_product_identity(corpus
         with pytest.raises((AuthorizationDenied,TenantDataNotFound)):
             asyncio.run(service.send(REQUESTS['a1'],old_context,conv,'refresh',CASES['G14-06']['message']))
     assert database_facts(db)==before
+
+
+def test_G14_01_keeps_low_stock_search_navigation_and_refinement_in_private_history(corpus_assistant,db):
+    service,env,conv=open_conversation(corpus_assistant,'low-stock-history')
+    messages=['Quels produits ont moins de 15 unités disponibles ?', 'Affiche les suivants.', 'Exclue les ruptures.']
+    before=database_facts(db)
+    snapshots=[]
+    for index,message in enumerate(messages):
+        turn=send(service,env,conv,'low-stock-'+str(index),message)
+        assert turn['reply']['intent']=='LOW_STOCK'
+        snapshots.append(service.store.turn(REQUESTS['a1'],context(env.orders),conv,turn['turn_id']))
+    reply=send(service,env,conv,'history',CASES['G14-01']['message'])['reply']
+    assert reply['intent']=='HISTORY' and not reply['can_confirm'] and reply['order'] is None
+    assert all(message in reply['text'] for message in messages)
+    assert [reply['text'].index(message) for message in messages]==sorted(reply['text'].index(message) for message in messages)
+    assert [service.store.turn(REQUESTS['a1'],context(env.orders),conv,t['turn_id']) for t in snapshots]==snapshots
+    for actor in ('a3','b1'):
+        with pytest.raises((AuthorizationDenied,TenantDataNotFound)):
+            send(service,env,conv,'foreign-'+actor,CASES['G14-01']['message'],actor=actor)
+    other=service.store.open(REQUESTS['a1'],context(env.orders),'empty-low-stock-history').conversation_id
+    absent=send(service,env,other,'empty',CASES['G14-01']['message'])['reply']
+    assert absent['intent']=='CLARIFICATION_REQUIRED'
+    assert database_facts(db)==before
+    service.llm.classify_intent.assert_not_awaited()

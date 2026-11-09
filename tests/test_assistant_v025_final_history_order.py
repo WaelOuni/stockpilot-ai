@@ -297,3 +297,23 @@ def test_G15_08_ambiguous_missing_or_foreign_context_never_uses_document_price(s
     h[0].retrieval.execute.assert_not_awaited()
     h[0].llm.classify_intent.assert_not_awaited()
     assert not h[0].orders.mock_calls
+
+
+@pytest.mark.parametrize('intent',['STOCK_CHECK','LOW_STOCK','PRODUCT_ADVICE','COMPARISON','CATALOGUE_NAVIGATION','CATALOGUE_CATEGORIES'])
+def test_G14_01_includes_every_catalogue_read_intent(intent):
+    h,turns=setup_history()
+    turns[0]['reply']['intent']=intent
+    original=deepcopy(turns)
+    reply,_=answer(h,'G14-01')
+    assert reply['intent']=='HISTORY' and turns[0]['input']['message'] in reply['text']
+    assert turns==original and not h[0].orders.mock_calls
+
+
+def test_G14_01_does_not_relabel_order_or_clarification_as_catalogue_search():
+    h,turns=setup_history()
+    source=deepcopy(turns[0])
+    for intent in ('ORDER_PREPARE','ORDER_STATUS','CONFIRMATION_REQUIRED','CLARIFICATION_REQUIRED','HISTORY'):
+        turns.append({**deepcopy(source),'turn_id':intent,'input':{'message':'non-search-'+intent},'reply':{**source['reply'],'intent':intent}})
+    reply,_=answer(h,'G14-01')
+    assert reply['intent']=='HISTORY' and source['input']['message'] in reply['text']
+    assert 'non-search-' not in reply['text']

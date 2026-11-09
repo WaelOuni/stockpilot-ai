@@ -31,6 +31,15 @@ injecte désormais ce document ancien dans le schéma jetable puis exige le refu
 Les anciens tests de non-mutation restent présents, avec des assertions positives
 pour les fonctionnalités désormais implémentées.
 
+La revue indépendante a également retrouvé une omission des recherches
+`LOW_STOCK` dans G14-01. Leur recherche, pagination et affinage sont maintenant
+inclus dans l'historique et possèdent une preuve d'intégration directe.
+Un essai Ollama A/B à données et seeds identiques a isolé une autre cause :
+l'échappement ASCII systématique des accents du JSON faisait transformer
+« préparation » en « prédiction » (3/3 échecs). Le texte UTF-8 lisible a donné
+3/3 réponses correctes dans cet essai exploratoire. Les délimiteurs et contrôles
+JSON restent échappés ; cette observation ne remplace pas la campagne finale.
+
 ## Preuves et limites
 
 `layer_evidence.json` garde les 91 cas nécessitant d'autres couches et leur statut

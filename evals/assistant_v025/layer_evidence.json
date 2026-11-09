@@ -390,11 +390,12 @@
     "id": "G14-01",
     "layer": "history/session integration",
     "tests": [
-      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_history_requests_preserve_snapshots_and_reverify_current_data[G14-01]"
+      "tests/test_assistant_v025_final_history_order_integration.py::test_exact_history_requests_preserve_snapshots_and_reverify_current_data[G14-01]",
+      "tests/test_assistant_v025_final_history_order_integration.py::test_G14_01_keeps_low_stock_search_navigation_and_refinement_in_private_history"
     ],
     "acceptance": "HISTORY_ONLY_AUTHORIZED",
     "qualification": "direct",
-    "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial.",
+    "reason": "Exact original request in appropriate synthetic conversation; unchanged historical snapshot, current authorized product identities and prices/stock when requested, no business mutation, owner/tenant and fresh-conversation denial. Includes low-stock searches, next-page navigation and exclusion of out-of-stock products in chronological private history.",
     "baseline_status": "FAIL",
     "baseline_sha": "c77e910bc491c3e33fe7484362c94c29567f0e1b"
   },
