@@ -19,6 +19,7 @@ from stockpilot.application.use_cases.resolve_product import (
 )
 from stockpilot.domain.entities.tenant_product import TenantProductQuery
 from stockpilot.application.services.tenant_catalogue_discovery import (
+    catalogue_question,
     custom_category_question,
     low_stock_criteria,
     persisted_categories,
@@ -55,6 +56,20 @@ class TenantAssistantCatalogue:
         # A generic workshop context is not a product-name discriminant. Strip
         # it only when the remaining request is an explicit category search;
         # named/quoted references and unknown technical qualifiers stay literal.
+        quoted = re.fullmatch(
+            r'\s*(?:je (?:re)?cherche|montre(?:-moi)?)\s+(?:(?:un|le) produit (?:appele|appelé)\s+)?["«](.+?)["»][.!?]?\s*',
+            question, re.I,
+        )
+        if quoted:
+            return replace(previous or AdviceCriteria(), mode="product", reference=quoted[1], category_explicit=False)
+        question = catalogue_question(question)
+        if re.fullmatch(r"(?:quels outils sont presents dans le catalogue|je veux voir les produits actifs)", normalize(question).rstrip(".!? ")):
+            return AdviceCriteria()
+        cheapest = re.fullmatch(r"(?:quelle est la|quelles sont les) (?:(deux|trois|[1-5]) )?(perceuses?|visseuses?|scies?|ponceuses?) (?:la|les) moins cheres?", normalize(question).rstrip(".!? "))
+        if cheapest:
+            return extract_criteria(f"Je cherche {cheapest[1] or 'exactement une'} {cheapest[2]}", previous)
+        if re.fullmatch(r"(?:je veux )?(?:moins de|plus de|au moins) \d+[.!?]?", question):
+            raise ClarificationRequired("Précisez la catégorie et l’unité : prix en EUR ou stock disponible.")
         usage = re.search(r"\s+pour (?:mon|notre) atelier[?!.]?\s*$", question, re.I)
         if usage:
             generic = extract_criteria(question[: usage.start()], previous)
@@ -63,8 +78,18 @@ class TenantAssistantCatalogue:
                 and generic.reference is None
                 and generic.mode == "search"
             ):
-                return generic
-        return extract_criteria(question, previous)
+                return TenantAssistantCatalogue.criteria(question[: usage.start()], previous)
+        criteria = extract_criteria(question, previous)
+        amounts = re.findall(r"(?<![\w.,])\d+(?:[.,]\d{1,2})?(?=\s*(?:€|euros?\b|eur\b))", question)
+        if not amounts:
+            amounts = re.findall(r"\b(?:moins de|sous|maximum|maxi|budget|plafond|descends|monte)\s*(?::|de|a)?\s*(\d+(?:[.,]\d{1,2})?)", question)
+        if criteria.maximum is not None and amounts:
+            exact = Decimal(amounts[0].replace(',', '.'))
+            if exact != Decimal(str(criteria.maximum)) or exact * 100 > 2**63 - 1:
+                raise ClarificationRequired("Ce plafond ne peut pas être représenté exactement en centimes ; précisez un montant plus petit.")
+        if criteria.maximum is not None and re.search(r"\bexactement\s+\d+\s*(?:€|euros?)", question):
+            raise ClarificationRequired("Précisez un plafond de prix ; le prix exact n’est pas pris en charge.")
+        return criteria
 
     def card(self, request, context, product, stock=None, observed_at=None):
         stock = (
@@ -127,6 +152,8 @@ class TenantAssistantCatalogue:
             limit=5, status="active", categories=criteria.categories,
             minimum_available=criteria.minimum,
             maximum_available=max(0, criteria.maximum) if criteria.maximum is not None else None,
+            maximum_price_minor=criteria.maximum_price_minor,
+            currency="EUR" if criteria.maximum_price_minor is not None else None,
             sort_by_available=True,
         )
         page = self.catalogue.search_stock(request, context, query)
@@ -155,6 +182,33 @@ class TenantAssistantCatalogue:
             "catalogue_categories": [],
             "advice_skus": [],
             "catalogue_search": None if empty else asdict(query),
+        }
+
+    def refine_stock(self, request, context, question, saved):
+        if not saved:
+            raise ClarificationRequired("Commencez par une recherche dans cette conversation.")
+        values = dict(saved)
+        for field in ("categories", "exclude_skus"):
+            values[field] = tuple(values.get(field, ()))
+        query = TenantProductQuery(**values)
+        value = normalize(question).rstrip('.?! ')
+        if value.startswith('et avec exactement '):
+            criteria = low_stock_criteria('Produits avec ' + value[8:] + ' unités disponibles', ())
+            query = replace(query, minimum_available=criteria.minimum, maximum_available=criteria.maximum)
+        elif value == 'exclue les ruptures':
+            query = replace(query, available=True)
+        else:
+            categories = persisted_categories(value.removeprefix('montre uniquement les '), self.catalogue.categories(request, context))
+            if not categories:
+                raise ClarificationRequired("Choisissez une catégorie du catalogue.")
+            query = replace(query, categories=categories)
+        query = replace(query, offset=0, limit=5)
+        page = self.catalogue.search_stock(request, context, query)
+        observed = datetime.now(UTC).isoformat()
+        return {
+            'intent':'LOW_STOCK', 'text':f'{page.total} produit(s) actif(s). Filtres de cette conversation conservés ; observation actuelle, sans réservation.',
+            'products':[self.card(request, context, p.product, p.stock, observed) for p in page.items],
+            'total':page.total, 'criteria':None, 'catalogue_categories':[], 'advice_skus':[], 'catalogue_search':asdict(query),
         }
 
     async def advice(self, request, context, question, state):
@@ -226,6 +280,8 @@ class TenantAssistantCatalogue:
             if criteria.minimum is not None
             else None
         )
+        if any(bound is not None and not 0 <= bound <= 2**63 - 1 for bound in (minimum, maximum)):
+            raise ClarificationRequired("Le plafond de prix dépasse les bornes du catalogue.")
         if reference and criteria.mode == "compare" and not criteria.category_explicit:
             categories, category_requested = (reference.category,), True
         cards = []

@@ -36,6 +36,7 @@ from stockpilot.application.resource_errors import (
 )
 from stockpilot.application.services.identity_authorization import AuthorizationDenied
 from stockpilot.application.services.tenant_catalogue_discovery import (
+    catalogue_question as normalize_catalogue_question,
     custom_category_question,
     is_low_stock_request,
 )
@@ -105,6 +106,7 @@ class AssistantState(TypedDict, total=False):
     criteria: dict | None
     advice_skus: list[str]
     catalogue_categories: list[str]
+    catalogue_search: dict | None
     last_order_id: str | None
     preparation_armed: bool
     reply: dict
@@ -137,12 +139,45 @@ class TenantAssistant:
             **fields,
         }
 
+    def _lexical_discovery(self, question):
+        """Read/clarification routes are independent of provider availability.
+
+        An explicit ORDER remains on its existing evidence/permission path.
+        Unknown language still requires the classifier; this is no global-list
+        fallback and never uses a model-suggested product or quantity.
+        """
+        if explicit_order_request(question):
+            return None
+        if is_low_stock_request(question):
+            return "STOCK_CHECK"
+        if re.fullmatch(r"(?:et avec exactement \d+|exclue les ruptures|montre uniquement les (?:perceuses?|visseuses?|scies?|ponceuses?))[.!? ]*", normalize(question)):
+            return "STOCK_REFINEMENT"
+        from stockpilot.application.use_cases.resolve_product import explicit_skus
+        value = normalize(normalize_catalogue_question(question))
+        if re.fullmatch(r"(?:je veux voir les produits actifs|affiche toutes les categories de mon organisation)[.!?]?", value.strip()):
+            return "PRODUCT_ADVICE"
+        if explicit_skus(question):
+            if re.search(r"\b(stock|disponibilite|disponible|reste|physiques|reservees|disposer|rupture)\b", value):
+                return "STOCK_CHECK"
+            if re.search(r"\b(cherche|montre|connais|fiche|compare|alternatives?)\b", value):
+                return "PRODUCT_ADVICE"
+        if is_catalogue_advice(value) or is_advice_followup(value):
+            return "PRODUCT_ADVICE"
+        try:
+            criteria = self.catalogue.criteria(question, None)
+        except ClarificationRequired:
+            return None
+        if criteria.category_explicit or criteria.maximum is not None:
+            return "PRODUCT_ADVICE"
+        return None
+
     def _graph(self, request, context, conversation_id, saver):
         async def understand(state):
             started = perf_counter()
             self.current(request, context)
-            if is_low_stock_request(state["question"]) and not explicit_order_request(state["question"]):
-                return {"reply": {"classification": {"intent": "STOCK_CHECK"}, "classification_ms": 0}}
+            lexical = self._lexical_discovery(state["question"])
+            if lexical:
+                return {"reply": {"classification": {"intent": lexical}, "classification_ms": 0}}
             try:
                 classification = await self.llm.classify_intent(state["question"])
             except (
@@ -178,6 +213,7 @@ class TenantAssistant:
                 "catalogue_categories": reply.get(
                     "catalogue_categories", state.get("catalogue_categories", [])
                 ),
+                "catalogue_search": reply.get("catalogue_search", state.get("catalogue_search")),
                 "advice_skus": reply.get("advice_skus", state.get("advice_skus", [])),
                 "last_order_id": reply["order"]["order_id"]
                 if reply.get("order")
@@ -197,13 +233,29 @@ class TenantAssistant:
         question = state["question"]
         value = normalize(question).strip()
         classification = state["reply"]["classification"]
+        lexical_intent = self._lexical_discovery(question)
+        if lexical_intent:
+            classification = {"intent": lexical_intent}
         try:
+            if lexical_intent == "STOCK_REFINEMENT":
+                result = self.catalogue.refine_stock(request, context, question, state.get("catalogue_search"))
+                return self._reply(result["intent"], result["text"], **{k:v for k,v in result.items() if k not in {"intent","text"}})
             if is_low_stock_request(question) and not explicit_order_request(question):
                 result = self.catalogue.low_stock(request, context, question)
                 return self._reply(
                     result["intent"], result["text"],
                     **{k: v for k, v in result.items() if k not in {"intent", "text"}},
                 )
+            if re.fullmatch(r"affiche toutes les categories de mon organisation[.!?]?", value):
+                categories = self.catalogue.catalogue.categories(request, context)
+                return self._reply("CATALOGUE_CATEGORIES", "Catégories du catalogue actif : " + ", ".join(categories), categories=list(categories))
+            if lexical_intent == "STOCK_CHECK":
+                from stockpilot.application.use_cases.resolve_product import explicit_skus
+                skus = explicit_skus(question)
+                if skus:
+                    product = await self.catalogue.resolve(request, context, question)
+                    return self._reply("STOCK_CHECK", "Stock vérifié sans réservation.",
+                                       products=[self.catalogue.card(request, context, product)])
             if (
                 re.search(r"\b(annul\w*|statut|ou en est|derniere commande)\b", value)
                 or classification["intent"] == "ORDER_STATUS"
