@@ -120,13 +120,17 @@ for (const item of cases) test(`${item.id}: original prompt, ${item.expected} UI
 
 async function boundaryFixture(context: BrowserContext, identity: string) {
   const prompt = corpus.find(c => c.id === identity)!.message
+  const cancellation = identity === 'G12-07' || identity === 'G12-08'
   const state = { session: { ...sessionFixture, assistant_available: true },
     pending: undefined as Route | undefined, pagePending: undefined as Route | undefined,
     messageId: '', created: false, writes: [] as string[] }
   const turn = () => ({ turn_id: state.messageId, kind: 'message', message: prompt,
     status: 'completed', created_at: observed, operation: null,
-    reply: { intent: 'PRODUCT_ADVICE', text: 'Réponse synthétique conservée.', products: [card(0)],
-      order: null, can_confirm: false, can_browse_products: true } })
+    reply: { intent: cancellation ? 'CANCEL_REQUEST' : 'PRODUCT_ADVICE',
+      text: cancellation ? 'État courant vérifié. Toute annulation exige une action distincte.' : 'Réponse synthétique conservée.',
+      products: cancellation ? [] : [card(0)],
+      order: cancellation ? { ...orderFixture, status: 'reserved', reserved_at: observed, revision: 2 } : null,
+      can_confirm: false, can_browse_products: !cancellation } })
   const results = (offset: number, name: string) => ({ items: [{ ...card(offset), name }], total: 126,
     has_more: true, limit: 20, offset, observed_at: observed,
     filters: { minimum_available: 0, maximum_available: 14, exclude_sold_out: false, sort: 'available' } })
@@ -159,6 +163,27 @@ async function boundaryFixture(context: BrowserContext, identity: string) {
   })
   return { state, prompt, turn, results }
 }
+
+for (const identity of ['G12-07', 'G12-08']) test(`${identity}: reserved order cancellation requires explicit UI confirmation`, async ({ page, context }) => {
+  const h = await boundaryFixture(context, identity)
+  await page.goto('/b2b-app/assistant/conv')
+  await page.getByRole('textbox', { name: 'Votre message' }).fill(h.prompt)
+  await page.getByRole('button', { name: 'Envoyer le message', exact: true }).click()
+  await expect(page.locator('.assistant-user')).toContainText(h.prompt)
+  await expect(page.locator('.assistant-order-summary')).toContainText('Réservée')
+  const confirm = page.getByRole('button', { name: 'Confirmer l’annulation', exact: true })
+  const choice = page.getByRole('checkbox', { name: 'Je demande l’annulation de cette commande.', exact: true })
+  await expect(confirm).toBeVisible()
+  await expect(confirm).toBeDisabled()
+  await expect(choice).not.toBeChecked()
+  await choice.check()
+  await expect(confirm).toBeEnabled()
+  expect(h.state.writes).toEqual(['/b2b/api/assistant/conversations/conv/messages'])
+  await choice.uncheck()
+  await expect(confirm).toBeDisabled()
+  await expect(page.locator('.assistant-order-summary')).toContainText('Réservée')
+  expect(h.state.writes.some(path => path.endsWith('/cancel'))).toBe(false)
+})
 
 test('G14-11: exact request followed by explicit new-conversation UI preserves old history', async ({ page, context }) => {
   const h = await boundaryFixture(context, 'G14-11')

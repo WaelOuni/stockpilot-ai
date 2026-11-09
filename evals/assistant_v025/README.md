@@ -52,5 +52,12 @@ objectif, explications de comparaison et formulations à clauses supplémentaire
 restent à qualifier. Une clarification conservatrice n’est pas présentée comme
 une capacité de navigation ou de recherche satisfaite.
 
+La [deuxième passe](../../docs/validation/v025-assistant-second-pass.md) complète
+ces limites initiales : 209 PASS, 1 FAIL et 91 SKIP dans le harnais de service.
+`layer_evidence.json` relie chacun des 91 anciens SKIP à des tests directs ou à
+une limite. `python -m evals.assistant_v025.evidence` consolide leurs JUnit et
+artefacts uniquement à SHA/hash du corpus identiques ; les observations de
+fonctionnalités absentes restent FAIL même si leurs tests de sûreté passent.
+
 Voir la [matrice complète](../../docs/validation/v025-assistant-corpus.md) et le
 [rapport](../../docs/validation/v025-assistant-qualification.md).

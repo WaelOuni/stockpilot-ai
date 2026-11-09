@@ -39,7 +39,7 @@ class TenantAssistantNavigation:
     def __init__(self, catalogue):
         self.catalogue = catalogue
 
-    def execute(self, request, context, question, saved):
+    def execute(self, request, context, question, saved, previous_criteria=None):
         value = normalize(question).strip().rstrip('.?! ')
         # One explicit search followed by navigation is parsed as two clauses,
         # never by removing arbitrary qualifiers from the original request.
@@ -72,6 +72,8 @@ class TenantAssistantNavigation:
             update.update(offset=0, sort_by_price=sorting[1] == 'prix croissant', sort_by_available=sorting[1] == 'stock disponible croissant')
         elif value == 'exclus les produits en rupture de cette liste':
             update.update(offset=0, available=True)
+            if previous_criteria:
+                seed_context['criteria'] = {**previous_criteria, 'available': True}
         elif bounds := re.fullmatch(r'ne montre que ceux avec un stock de (\d+) a (\d+) unites', value):
             update.update(offset=0, minimum_available=int(bounds[1]), maximum_available=int(bounds[2]))
         elif re.fullmatch(r'(?:le sku .+? est-il|cherche (?:le sku )?.+?) dans les (?:\d+ )?resultats', value):

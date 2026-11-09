@@ -5,7 +5,7 @@ Corpus original conservé sans changement de texte, ID ou attente. SHA-256 : `b0
 Ce tableau mesure le service déterministe avec catalogue synthétique, classifieur hostile et ports de mutation interdits. PASS inclut faits, identité, stock physique moins réservé, tenant, tri, cardinalité, total et absence de mutation selon l’oracle. Une clarification sûre ne valide pas une fonctionnalité attendue non disponible. SKIP désigne une preuve à une autre couche, pas un succès hérité de tests voisins.
 
 Résultat local : **209 PASS / 1 FAIL / 91 SKIP**.
-Latence du harnais synthétique (y compris graphes/mocks ; aucun Ollama/DB/réseau) : P50 2.281 ms, P95 4.823 ms. Aucun SLA produit.
+Latence du harnais synthétique (y compris graphes/mocks ; aucun Ollama/DB/réseau) : P50 2.366 ms, P95 5.427 ms. Aucun SLA produit.
 
 | Famille | PASS | FAIL | SKIP |
 |---|---:|---:|---:|

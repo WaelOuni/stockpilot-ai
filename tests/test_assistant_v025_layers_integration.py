@@ -53,16 +53,36 @@ def prepare(scenario):
 @pytest.mark.parametrize('identity', ['G12-01','G12-02','G12-03','G12-07','G12-08','G12-09'])
 def test_exact_lifecycle_status_never_mutates(scenario, db, identity):
     prepared = prepare(scenario)
-    before, order = snapshot(db), prepared['reply']['order']
+    order = prepared['reply']['order']
+    reserved = identity in ('G12-07','G12-08','G12-09')
+    if reserved:
+        service,conv,env=scenario
+        confirmed=asyncio.run(service.action(REQUESTS['a1'],context(env.orders),conv,'confirm','seed-confirm',order['order_id'],order['preparation_digest']))
+        assert confirmed['reply']['order']['status']=='reserved'
+    if identity=='G12-09':
+        order=send(scenario,'G10-02')['reply']['order']
+        confirmed=asyncio.run(service.action(REQUESTS['a1'],context(env.orders),conv,'confirm','seed-confirm-2',order['order_id'],order['preparation_digest']))
+        assert confirmed['reply']['order']['status']=='reserved'
+        from test_tenant_orders_mongo_integration import prepare as prepare_order, confirm_command
+        from stockpilot.domain.entities.tenant_order import RequestedLine
+        foreign=prepare_order(env.orders,user='b1',operation='foreign-seed',lines=(RequestedLine('DEMO-01-0225',2),))
+        service.orders.confirm(REQUESTS['b1'],context(env.orders,'b1'),confirm_command(foreign,operation='foreign-confirm'))
+        assert db.b2b_orders.count_documents({'organization_id':'org-a','status':'reserved'})==2
+        assert db.b2b_orders.count_documents({'organization_id':'org-b','status':'reserved'})==1
+    before = snapshot(db)
+    orders_before=list(db.b2b_orders.find({}).sort('_id',1))
+    operations_before=list(db.b2b_order_operations.find({}).sort('_id',1))
     scenario[0].llm.classify_intent.return_value = IntentResult(intent='ORDER_STATUS')
     result = send(scenario, identity)['reply']
     assert result['intent'] == ('CANCEL_REQUEST' if identity in ('G12-07','G12-08','G12-09') else 'ORDER_STATUS')
     assert result['order']['order_id'] == order['order_id']
-    assert result['order']['status'] == 'prepared'
+    assert result['order']['status'] == ('reserved' if reserved else 'prepared')
     assert not result['can_confirm']
     assert 'action distincte' in result['text']
-    assert snapshot(db) == before and db.b2b_orders.count_documents({}) == 1
-    assert db.b2b_order_operations.count_documents({'namespace': {'$in': ['confirm','cancel']}}) == 0
+    assert snapshot(db) == before and list(db.b2b_orders.find({}).sort('_id',1))==orders_before
+    assert list(db.b2b_order_operations.find({}).sort('_id',1))==operations_before
+    assert db.b2b_order_operations.count_documents({'namespace':'confirm'}) == (3 if identity=='G12-09' else int(reserved))
+    assert db.b2b_order_operations.count_documents({'namespace':'cancel'}) == 0
 
 
 @pytest.mark.parametrize('identity', ['G12-04','G12-05','G12-06'])
@@ -75,8 +95,12 @@ def test_exact_confirmation_text_has_no_reservation(scenario, db, identity):
     assert snapshot(db) == before and db.b2b_orders.count_documents({'status':'prepared'}) == 1
     assert db.b2b_order_operations.count_documents({'namespace':'confirm'}) == 0
     if identity == 'G12-04':
-        assert result['reply']['intent'] == 'CONFIRMATION_REQUIRED'
-        assert 'bouton' in result['reply']['text']
+        # Original target is NO_RESERVATION_BY_TEXT, not UI guidance. The
+        # punctuated phrase currently falls through to empty RAG; it must not
+        # advertise a confirmed operation or grant a confirmation capability.
+        assert result['reply']['intent'] == 'RAG'
+        assert result['reply']['order'] is None and not result['reply']['can_confirm']
+        assert 'Aucun passage' in result['reply']['text']
     elif identity == 'G12-06':
         # Observation of a gap, not a PASS for UI_CONFIRMATION_REQUIRED.
         assert result['reply']['intent'] == 'RAG'
@@ -252,7 +276,7 @@ def test_exact_double_confirmation_question_queries_current_status(scenario, db)
 def test_exact_stale_preparation_question_records_explanation_gap(scenario, db):
     service,_,_=scenario
     order=prepare(scenario)['reply']['order']
-    db.b2b_products.update_one({'organization_id':'org-a','sku':'DEMO-01-0225'},{'$set':{'quantity':3},'$inc':{'version':1}})
+    db.b2b_products.update_one({'organization_id':'org-a','sku':'DEMO-01-0225'},{'$set':{'quantity':3},'$inc':{'revision':1}})
     before=snapshot(db)
     service.llm.classify_intent.return_value=IntentResult(intent='ORDER_STATUS')
     result=send(scenario,'G12-12')['reply']
@@ -314,6 +338,25 @@ def test_exact_empty_document_request_abstains(scenario, db):
     assert not result['products'] and result['order'] is None
     service.llm.generate.assert_not_awaited()
     assert db.b2b_orders.count_documents({}) == 0
+
+
+def test_exact_secret_document_request_records_missing_server_refusal(scenario, db):
+    from test_tenant_knowledge_integration import ingest, command
+    service,_,env=scenario
+    # Deliberately fictitious marker, never an environment value or credential.
+    marker='SYNTHETIC-NOT-A-CREDENTIAL-V025'
+    ingest(env,command(content='Qualification synthétique. Code secret Keycloak : '+marker))
+    service.llm.classify_intent.return_value=IntentResult(intent='UNKNOWN')
+    service.llm.generate.return_value=marker
+    before=snapshot(db)
+    result=send(scenario,'G15-11')['reply']
+    prompt=service.llm.generate.await_args.kwargs['prompt']
+    assert CASES['G15-11']['message'] in prompt and marker in prompt
+    # Observational FAIL for REFUSE_SECRETS: no server-side refusal/redaction.
+    # A controlled echo is not evidence of real Ollama exfiltration frequency.
+    assert result['intent']=='RAG' and result['text']==marker
+    assert result['order'] is None and not result['can_confirm']
+    assert snapshot(db)==before and db.b2b_orders.count_documents({})==0
 
 
 def test_exact_duplicate_message_prepares_once(scenario, db):

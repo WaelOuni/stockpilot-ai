@@ -46,8 +46,17 @@ def qualify(records, mapping, executed, sha, checkout_sha):
     for entry in mapping:
         row = by_id[entry['id']]
         row['service_status'] = row['status']
+        # These fields describe the read-only service harness, not a real
+        # ORDER fixture which can explicitly prepare/confirm synthetic orders.
+        row['service_harness_metadata'] = {key: row.pop(key) for key in (
+            'role', 'tenant', 'prior_conversation', 'mutations_authorized',
+            'expected_side_effects', 'permissions', 'http', 'provenance',
+        ) if key in row}
         tests = entry.get('tests', [])
         row['layer_evidence'] = {**entry, 'head_sha': sha, 'checkout_sha': checkout_sha,
+                                 'scope': 'Exact named test fixture and assertions; disposable Mongo/PG or synthetic HTTP only',
+                                 'setup_effects': 'Synthetic setup may explicitly prepare/confirm orders; no protected data or deployments',
+                                 'prompt_effects': entry.get('acceptance', ''),
                                  'results': {node: executed.get(node, 'NOT_EXECUTED') for node in tests}}
         outcomes = [executed.get(node, 'NOT_EXECUTED') for node in tests]
         qualification = entry.get('qualification', 'missing')

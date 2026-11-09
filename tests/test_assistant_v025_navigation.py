@@ -162,3 +162,31 @@ def test_compound_new_search_clears_previous_comparison_anchor_and_empty_page_se
     assert not empty['products'] and state['advice_skus'] == []
     reply, _ = asyncio.run(answer(h, 'Compare les deux premières.', state))
     assert reply['intent'] == 'CLARIFICATION_REQUIRED'
+
+
+def test_budget_followup_keeps_explicit_exclusion_of_sold_out_products():
+    h = harness()
+    next(r for r in h[1].rows if r['org'] == 'org-a' and r['sku'] == 'MODEL-LOW-020')['quantity'] = 3
+    original, state = asyncio.run(answer(h, 'Je cherche des perceuses à moins de 150 €.'))
+    snapshot = deepcopy(original)
+    _, state = asyncio.run(answer(h, 'Exclus les produits en rupture de cette liste.', state))
+    reply, state = asyncio.run(answer(h, 'Et uniquement à moins de 100 euros.', state))
+    assert state['criteria']['available'] is True and state['catalogue_search']['available'] is True
+    assert reply['products'] and all(p['available'] > 0 and p['price_minor'] < 10000 for p in reply['products'])
+    assert 'MODEL-LOW-020' not in [p['sku'] for p in reply['products']]
+    assert original == snapshot and not h[0].orders.mock_calls
+
+
+def test_unrepresentable_stock_range_followup_clarifies_and_explicit_reset_works():
+    h = harness()
+    _, state = asyncio.run(answer(h, 'Je cherche des perceuses à moins de 150 €.'))
+    _, state = asyncio.run(answer(h, 'Ne montre que ceux avec un stock de 1 à 14 unités.', state))
+    saved = deepcopy(state['catalogue_search'])
+    reply, state = asyncio.run(answer(h, 'Et uniquement à moins de 100 euros.', state))
+    assert reply['intent'] == 'CLARIFICATION_REQUIRED' and not reply['products']
+    assert state['catalogue_search'] == saved
+    reset, state = asyncio.run(answer(h, 'Retourne au catalogue complet.', state))
+    assert reset['intent'] == 'PRODUCT_ADVICE' and reset['products']
+    assert state['catalogue_search']['minimum_available'] is None
+    assert state['catalogue_search']['maximum_available'] is None
+    assert state['catalogue_search']['maximum_price_minor'] is None

@@ -19,6 +19,30 @@ def send(service, env, conv, identity, question):
     return asyncio.run(service.send(REQUESTS['a1'], context(env.orders), conv, identity, question))
 
 
+def test_navigation_budget_continuity_and_unrepresentable_range_survive_checkpoint(corpus_assistant, db):
+    (service, _, env), _ = corpus_assistant
+    service.llm.classify_intent.side_effect = AssertionError('Explicit discovery does not use classifier')
+    db.b2b_products.update_one({'organization_id': 'org-a', 'sku': 'MODEL-LOW-020'}, {'$set': {'quantity': 3}})
+    before = list(db.b2b_products.find({}).sort('_id', 1))
+    conv = service.store.open(REQUESTS['a1'], context(env.orders), 'navigation-budget').conversation_id
+    original = send(service, env, conv, 'initial', 'Je cherche des perceuses à moins de 150 €.')['reply']
+    historical = deepcopy(original)
+    send(service, env, conv, 'exclude', 'Exclus les produits en rupture de cette liste.')
+    reply = send(service, env, conv, 'budget', 'Et uniquement à moins de 100 euros.')['reply']
+    assert reply['products'] and all(p['available'] > 0 and p['price_minor'] < 10000 for p in reply['products'])
+    assert reply['catalogue_search']['available'] is True and reply['criteria']['available'] is True
+    send(service, env, conv, 'range', 'Ne montre que ceux avec un stock de 1 à 14 unités.')
+    refused = send(service, env, conv, 'range-budget', 'Et uniquement à moins de 50 euros.')['reply']
+    assert refused['intent'] == 'CLARIFICATION_REQUIRED' and not refused['products']
+    reset = send(service, env, conv, 'reset', 'Retourne au catalogue complet.')['reply']
+    assert reset['catalogue_search']['minimum_available'] is None
+    assert reset['catalogue_search']['maximum_available'] is None
+    assert reset['catalogue_search']['maximum_price_minor'] is None
+    assert service.store.turn(REQUESTS['a1'], context(env.orders), conv, 'initial')['reply'] == historical
+    assert list(db.b2b_products.find({}).sort('_id', 1)) == before
+    assert db.b2b_orders.count_documents({}) == db.b2b_order_operations.count_documents({}) == 0
+
+
 def test_original_navigation_and_refinement_replay_through_persisted_checkpoints(corpus_assistant, db):
     (service, _, env), rows = corpus_assistant
     service.llm.classify_intent.side_effect = AssertionError('Navigation never calls a classifier')

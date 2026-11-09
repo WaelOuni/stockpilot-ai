@@ -10,6 +10,7 @@ from stockpilot.application.use_cases.catalogue_advice import (
     ClarificationRequired,
     criteria_context,
     extract_criteria,
+    is_advice_followup,
     normalize,
     resolve_advice_reference,
 )
@@ -320,6 +321,14 @@ class TenantAssistantCatalogue:
     async def advice(self, request, context, question, state):
         if self.is_grounded_request(question):
             return await self._grounded_advice(request, context, question, state)
+        value = normalize(catalogue_question(question)).strip()
+        follows = is_advice_followup(value) or re.match(r'^(?:et|seulement|toujours|sans|retire|parmi|maintenant)\b', value)
+        if follows and state.get('catalogue_search'):
+            saved = self._saved_query(state)
+            # AdviceCriteria has price/availability fields but no stock range.
+            # Never rebuild a wider query by silently dropping such a range.
+            if saved.minimum_available is not None or saved.maximum_available is not None or not state.get('criteria'):
+                raise ClarificationRequired('Cette recherche conserve des filtres de stock non représentables par cet affinage. Précisez une nouvelle recherche complète ou revenez explicitement au catalogue complet.')
         previous = (
             AdviceCriteria(**state["criteria"]) if state.get("criteria") else None
         )

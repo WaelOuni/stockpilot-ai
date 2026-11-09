@@ -68,10 +68,11 @@ exécutées ; leurs comptes et éventuels échecs sont consignés sur la HEAD fi
 dans #84. Docker local reste indisponible : la CI utilise les services jetables
 attestés. Le job e2e historique désactivé ne compte pas comme réussite.
 
-Résultats locaux avant commit : 5487 tests Python et 370 sous-tests réussis,
-739 intégrations désélectionnées, avertissement JWT synthétique préexistant ;
+Résultats locaux finaux avant commit : 5489 tests Python et 370 sous-tests réussis,
+741 intégrations désélectionnées, avertissement JWT synthétique préexistant ;
 122 évaluations enrichies sans échec ; 618 tests frontend, typecheck, lint et
-build réussis ; 11 scénarios advice et 67 scénarios UX Chromium réussis.
+build réussis ; 11 scénarios advice et 67 scénarios UX Chromium réussis,
+puis les deux scénarios d'annulation ajoutés (15 cas de corpus navigateur).
 Le premier lancement complet avait exposé une incompatibilité de position de
 l'option JUnit avec la garde CI existante ; l'option a été déplacée avant le
 sélecteur, sans affaiblir le test, puis la suite complète a été rejouée.
@@ -79,8 +80,24 @@ sélecteur, sans affaiblir le test, puis la suite complète a été rejouée.
 La revue indépendante a détecté et fait corriger : plus de cinq cartes après
 une grande page, une sélection contextuelle restée sur la page précédente,
 un ancien contexte de comparaison après une nouvelle recherche composée,
-et une comparaison de prix entre devises. Les nouveaux tests couvrent ces
+une comparaison de prix entre devises et la perte de l'exclusion des ruptures
+lors d'un affinage de budget. Un affinage non représentable conserve la requête
+et clarifie au lieu d'élargir les résultats. Les nouveaux tests couvrent ces
 enchaînements. Aucun taux de réussite de modèle réel n'en est déduit.
+
+La première CI de deuxième passe a exécuté 736 intégrations avec deux échecs de
+test : champ de fixture Mongo `version` au lieu de `revision`, et attente de
+guidage UI ajoutée à G12-04 alors que le corpus exige seulement l'absence de
+réservation textuelle. La fixture et l'assertion supplémentaire ont été corrigées,
+avec les assertions métier conservées ; G12-06 garde son FAIL de guidage absent.
+G12-07/08 nécessitent maintenant une commande réservée et les deux preuves,
+intégration et navigateur. G12-09 vérifie plusieurs réservations de deux tenants.
+
+Le probe G15-11 utilise exclusivement un marqueur fictif et un générateur
+contrôlé : il documente l'absence de refus serveur lorsqu'une réponse reproduit
+un secret d'un document autorisé. Ce FAIL ne prétend ni avoir exposé un secret
+réel ni avoir mesuré la propension d'Ollama à le faire. Le grounding réel reste
+une preuve distincte manquante.
 
 L'intégration temporaire de #84 et #85 utilise un worktree détaché dédié,
 sans fusion de branche. La source UX de #85 est appliquée sur #84 ; le workflow

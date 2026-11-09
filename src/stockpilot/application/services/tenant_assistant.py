@@ -247,7 +247,7 @@ class TenantAssistant:
             classification = {"intent": lexical_intent}
         try:
             if lexical_intent == "CATALOGUE_NAVIGATION":
-                result = self.navigation.execute(request, context, question, state.get("catalogue_search"))
+                result = self.navigation.execute(request, context, question, state.get("catalogue_search"), state.get("criteria"))
                 return self._reply(result["intent"], result["text"], **{k: v for k, v in result.items() if k not in {"intent", "text"}})
             if lexical_intent == "STOCK_REFINEMENT":
                 result = self.catalogue.refine_stock(request, context, question, state.get("catalogue_search"))

@@ -14,10 +14,13 @@ def test_exact_evidence_does_not_promote_neighbor_or_hide_failure(tmp_path):
     nodes = junit_results([report])
     rows = [{'id': f'X{i}', 'status': 'SKIP'} for i in range(91)]
     rows[4]['status'] = 'FAIL'
+    rows[0]['mutations_authorized'] = False
     mapping = [{'id': row['id'], 'qualification': 'direct', 'tests': [f'tests/test_direct.py::test_case[G10-{i+1:02}]']} for i, row in enumerate(rows)]
     actual = qualify(deepcopy(rows), mapping, nodes, 'a' * 40, 'b' * 40)
     assert [row['status'] for row in actual[:5]] == ['PASS', 'FAIL', 'SKIP', 'SKIP', 'FAIL']
     assert actual[0]['layer_evidence']['head_sha'] == 'a' * 40
+    assert 'mutations_authorized' not in actual[0]
+    assert actual[0]['service_harness_metadata']['mutations_authorized'] is False
     mapping[0]['qualification'] = 'unsupported'
     assert qualify(deepcopy(rows), mapping, nodes, 'a' * 40, 'b' * 40)[0]['status'] == 'FAIL'
 
