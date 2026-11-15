@@ -221,3 +221,41 @@ def test_real_advisory_connection_loss_fences_the_old_running_graph(assistant, d
             original.result(timeout=15)
     assert durable(assistant) == completed
     assert business(db) == before
+
+
+def test_actual_asgi_task_cancellation_eventually_finalizes_and_releases_worker(assistant, db):
+    import threading
+    import anyio
+    from types import SimpleNamespace
+    from stockpilot.presentation.api.routes.b2b_assistant import invoke
+    a, conv, e = assistant
+    entered = threading.Event()
+    before = business(db)
+    async def slow(*values, **kwargs):
+        entered.set()
+        await asyncio.sleep(20)
+    a.llm.classify_intent.side_effect = slow
+    async def connected():
+        return False
+    async def run():
+        request = SimpleNamespace(
+            app=SimpleNamespace(state=SimpleNamespace(bff_assistant=a,
+                bff_settings=SimpleNamespace(mode='b2b_business_test'), business_limiter=anyio.CapacityLimiter(2))),
+            state=SimpleNamespace(tenant_request=REQUESTS['a1'], tenant_context=context(e.orders)), is_disconnected=connected)
+        task = asyncio.create_task(invoke(request, lambda service: service.send, conv, 'cancelled', MESSAGE, None, True))
+        assert await asyncio.to_thread(entered.wait, 10)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        # The ASGI waiter can leave before the non-abandoned thread. The worker
+        # retains admission until its writes and failure finalization drain.
+        for _ in range(100):
+            turn = await asyncio.to_thread(durable, assistant)
+            if turn['execution']['state'] == 'failed':
+                break
+            await asyncio.sleep(.05)
+        assert turn['status'] == 'pending' and turn['execution']['code'] == 'server_cancelled'
+        assert a.admission.acquire(blocking=False)
+        a.admission.release()
+    asyncio.run(run())
+    assert business(db) == before

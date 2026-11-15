@@ -34,6 +34,8 @@ export class BffClient {
     if (normalized.origin !== location.origin || normalized.pathname !== path.split('?')[0]) throw new ContractError()
     const controller = new AbortController()
     const started = performance.now()
+    const duration = Math.min(options.timeoutMs ?? this.timeout, 90000)
+    const deadline = started + duration
     const assistantRequest = path.startsWith('/b2b/api/assistant/')
     let timedOut = false
     let httpStatus: number | null = null
@@ -44,7 +46,7 @@ export class BffClient {
     const abort = () => controller.abort()
     options.signal?.addEventListener('abort', abort, { once: true })
     if (options.signal?.aborted) abort()
-    const timer = setTimeout(() => { timedOut = true; abort() }, Math.min(options.timeoutMs ?? this.timeout, 90000))
+    const timer = setTimeout(() => { timedOut = true; abort() }, duration)
     const mutation = options.method === 'POST'
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (!mutation && path.startsWith('/b2b/api/')) {
@@ -76,6 +78,8 @@ export class BffClient {
       // Responses are bounded by the BFF. No raw server error is displayed or logged.
       const data: unknown = await response.json()
       if (generation !== this.hooks.generation()) throw new StaleResponse()
+      // A suspended/busy tab may delay the timer callback beyond its deadline.
+      if (performance.now() >= deadline) { timedOut = true; abort() }
       if (controller.signal.aborted) throw new DOMException('Request aborted', 'AbortError')
       if (!response.ok) {
         if (response.status === 409) {

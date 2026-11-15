@@ -42,6 +42,14 @@ describe('dedicated same-origin cookie transport', () => {
       expect(client.lastAssistantTiming?.outcome).toBe('client_timeout')
     } finally { vi.useRealTimers() }
   })
+  it('checks the monotonic deadline even before a delayed timer callback runs', async () => {
+    const clock = vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(90001)
+    try {
+      const client = new BffClient(hooks(), vi.fn().mockResolvedValue(json('late')), 90000)
+      await expect(client.request('/b2b/api/assistant/conversations/x/messages', text, { method: 'POST', body: {} })).rejects.toMatchObject({ status: 0, uncertain: true })
+      expect(client.lastAssistantTiming?.outcome).toBe('client_timeout')
+    } finally { clock.mockRestore() }
+  })
   it('sends credentials and current CSRF only to BFF paths', async () => {
     const fetcher = vi.fn().mockResolvedValue(json({ ok: 'yes' }))
     const client = new BffClient(hooks(), fetcher)
