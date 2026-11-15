@@ -74,6 +74,21 @@ conserve sa provenance ; il n'est pas appelé timeout. HTTPX distingue connexion
 lecture, écriture et pool. Un TimeoutException de phase inconnue devient
 `transport_timeout`, jamais un ReadTimeout supposé.
 
+Après consommation bornée du corps par la boundary et parsing des routes typées,
+un seul watcher attend directement `http.disconnect`. Le polling
+`Request.is_disconnected()` peut manquer cet événement à travers une réception
+AnyIO, car son contexte est immédiatement annulé. Les enveloppes inutilisées
+GET/resume sont consommées ; le watcher est annulé et attendu avant le retour.
+Une réponse streaming ou un corps lu tardivement nécessiterait une nouvelle revue.
+
+Le transport navigateur utilise `referrerPolicy: strict-origin`. Avec
+`mode: same-origin`, `no-referrer` peut produire `Origin: null` et faire refuser
+un POST légitime. La nouvelle politique transmet seulement l'origine HTTPS
+déjà connue du BFF ; ni chemin privé ni query. Les gardes Origin exact, CSRF,
+URL même origine, redirections refusées et TLS restent inchangées. Voir
+[l'algorithme Fetch](https://fetch.spec.whatwg.org/#append-a-request-origin-header)
+et [la politique strict-origin](https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-strict-origin).
+
 ## Observations sans contenu
 
 `stockpilot.assistant.runtime` émet des JSON à champs autorisés : corrélation

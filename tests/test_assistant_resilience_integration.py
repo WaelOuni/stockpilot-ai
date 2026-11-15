@@ -11,6 +11,7 @@ import pytest
 from langgraph.checkpoint.base import empty_checkpoint
 
 from test_tenant_assistant_integration import assistant  # noqa: F401
+from test_b2b_http_mongo_integration import http  # noqa: F401
 from test_tenant_knowledge_integration import environment  # noqa: F401
 from test_tenant_orders_mongo_integration import REQUESTS, context, db, orders  # noqa: F401
 from test_tenant_stock_operations_mongo_integration import stock  # noqa: F401
@@ -236,12 +237,12 @@ def test_actual_asgi_task_cancellation_eventually_finalizes_and_releases_worker(
         await asyncio.sleep(20)
     a.llm.classify_intent.side_effect = slow
     async def connected():
-        return False
+        await asyncio.Future()
     async def run():
         request = SimpleNamespace(
             app=SimpleNamespace(state=SimpleNamespace(bff_assistant=a,
                 bff_settings=SimpleNamespace(mode='b2b_business_test'), business_limiter=anyio.CapacityLimiter(2))),
-            state=SimpleNamespace(tenant_request=REQUESTS['a1'], tenant_context=context(e.orders)), is_disconnected=connected)
+            state=SimpleNamespace(tenant_request=REQUESTS['a1'], tenant_context=context(e.orders)), receive=connected)
         task = asyncio.create_task(invoke(request, lambda service: service.send, conv, 'cancelled', MESSAGE, None, True))
         assert await asyncio.to_thread(entered.wait, 10)
         task.cancel()
@@ -259,3 +260,31 @@ def test_actual_asgi_task_cancellation_eventually_finalizes_and_releases_worker(
         a.admission.release()
     asyncio.run(run())
     assert business(db) == before
+
+
+def test_origin_and_csrf_guards_still_reject_without_admitting_a_turn(http, environment):
+    from stockpilot.application.services.tenant_assistant import TenantAssistant
+    from stockpilot.presentation.api.routes.b2b_assistant import router
+    from test_b2b_http_mongo_integration import ORIGIN
+    import psycopg
+    from psycopg import sql
+    h, e = http, environment
+    store = PgTenantAssistant(e.uri, h.bundle.authorization, e.schema)
+    h.app.state.bff_assistant = TenantAssistant(store,h.bundle.catalogue,h.bundle.orders,None,None)
+    h.app.include_router(router)
+    before = business(h.db)
+    variants = ['absent','null','foreign','multiple','csrf_absent','csrf_wrong']
+    for variant in variants:
+        c = h.browser()
+        headers = None
+        if variant == 'absent': c.headers.pop('Origin')
+        elif variant == 'null': c.headers['Origin'] = 'null'
+        elif variant == 'foreign': c.headers['Origin'] = 'https://foreign.invalid'
+        elif variant == 'multiple': headers = [('Origin',ORIGIN),('Origin',ORIGIN)]
+        elif variant == 'csrf_absent': c.headers.pop('X-BFF-CSRF')
+        else: c.headers['X-BFF-CSRF'] = 'wrong-synthetic'
+        assert c.post('/b2b/api/assistant/conversations',json={'thread_id':uuid4().hex},headers=headers).status_code == 403
+    with psycopg.connect(e.uri) as c:
+        assert c.execute(sql.SQL('SELECT count(*) FROM {}').format(sql.Identifier(e.schema,'conversations'))).fetchone()[0] == 0
+    assert h.browser().post('/b2b/api/assistant/conversations',json={'thread_id':'authorized'}).status_code == 200
+    assert business(h.db) == before

@@ -147,15 +147,92 @@ def test_asgi_disconnect_reaches_the_worker_read_budget():
                 with phase('classification'):
                     await bounded_read(asyncio.sleep(10))
         async def disconnected():
-            return True
+            return {"type": "http.disconnect"}
         request = SimpleNamespace(
             app=SimpleNamespace(state=SimpleNamespace(bff_assistant=Assistant(),
                 bff_settings=SimpleNamespace(mode='b2b_business_test'), business_limiter=anyio.CapacityLimiter(2))),
-            state=SimpleNamespace(tenant_request=object(), tenant_context=object()), is_disconnected=disconnected)
+            state=SimpleNamespace(tenant_request=object(), tenant_context=object()), receive=disconnected)
         with pytest.raises(ReadOnlyInterrupted) as caught:
             await invoke(request, lambda a: a.read)
         assert caught.value.code == 'client_cancelled'
         assert len(request.state.assistant_correlation) == 32
+    asyncio.run(run())
+
+
+def test_disconnect_is_received_through_an_anyio_stream_after_body_parsing():
+    """The cancelled polling receive used by is_disconnected misses this stream."""
+    import anyio
+    import threading
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from stockpilot.presentation.api.routes.b2b_assistant import invoke
+    from stockpilot.application.assistant_runtime import current
+    async def run():
+        entered = threading.Event()
+        class Assistant:
+            def current(self, *args): pass
+            async def read(self, *args):
+                current().deadline = monotonic() + 1
+                entered.set()
+                with phase('classification'):
+                    await bounded_read(asyncio.sleep(10))
+        sender, receiver = anyio.create_memory_object_stream(2)
+        active, maximum = 0, 0
+        async def receive():
+            nonlocal active, maximum
+            active += 1; maximum = max(maximum, active)
+            try:
+                await anyio.lowlevel.checkpoint()
+                return await receiver.receive()
+            finally:
+                active -= 1
+        app = SimpleNamespace(state=SimpleNamespace(bff_assistant=Assistant(),
+            bff_settings=SimpleNamespace(mode='b2b_business_test'), business_limiter=anyio.CapacityLimiter(2)))
+        request = Request({'type':'http', 'app':app, 'state':{'tenant_request':object(),'tenant_context':object()}}, receive)
+        async def disconnect():
+            assert await asyncio.to_thread(entered.wait, 2)
+            await sender.send({'type':'http.request', 'body':b'', 'more_body':False})
+            await sender.send({'type':'http.disconnect'})
+        producer = asyncio.create_task(disconnect())
+        try:
+            with pytest.raises(ReadOnlyInterrupted) as caught:
+                await invoke(request, lambda a: a.read)
+            assert caught.value.code == 'client_cancelled'
+            assert active == 0 and maximum == 1
+            await producer
+        finally:
+            producer.cancel()
+            await sender.aclose(); await receiver.aclose()
+    asyncio.run(run())
+
+
+def test_normal_response_joins_receive_watcher_without_claiming_client_cancellation():
+    import anyio
+    from types import SimpleNamespace
+    from starlette.requests import Request
+    from stockpilot.presentation.api.routes.b2b_assistant import invoke
+    from stockpilot.application.assistant_runtime import current
+    captured = []
+    async def run():
+        class Assistant:
+            def current(self, *args): pass
+            async def read(self, *args):
+                captured.append(current())
+                await asyncio.sleep(.02)
+                return 'completed'
+        sender, receiver = anyio.create_memory_object_stream(1)
+        active = 0
+        async def receive():
+            nonlocal active
+            active += 1
+            try: return await receiver.receive()
+            finally: active -= 1
+        app = SimpleNamespace(state=SimpleNamespace(bff_assistant=Assistant(),
+            bff_settings=SimpleNamespace(mode='b2b_business_test'), business_limiter=anyio.CapacityLimiter(2)))
+        request = Request({'type':'http','app':app,'state':{'tenant_request':object(),'tenant_context':object()}},receive)
+        assert await invoke(request, lambda a:a.read) == 'completed'
+        assert active == 0 and not captured[0].cancelled.is_set()
+        await sender.aclose(); await receiver.aclose()
     asyncio.run(run())
 
 

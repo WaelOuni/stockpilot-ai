@@ -137,10 +137,15 @@ async def invoke(request, method, *args):
             return asyncio.run(value) if inspect.isawaitable(value) else value
         async def watch_disconnect():
             while True:
-                if await request.is_disconnected():
+                # The boundary has consumed/bounded the body; typed routes have
+                # parsed it. GET/resume may still replay its unused envelope.
+                # Await the ASGI event with a single remaining consumer:
+                # is_disconnected() uses an immediately cancelled receive and
+                # can miss disconnects behind AnyIO/BaseHTTPMiddleware streams.
+                message = await request.receive()
+                if message["type"] == "http.disconnect":
                     runtime.cancel("client_cancelled")
                     return
-                await asyncio.sleep(0.05)
         watcher = asyncio.create_task(watch_disconnect())
         try:
             return await worker(request, execute)

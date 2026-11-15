@@ -63,7 +63,9 @@ export class BffClient {
     try {
       const response = await this.fetcher(path, {
         method: options.method ?? 'GET', credentials: 'include', mode: 'same-origin', redirect: 'error',
-        cache: 'no-store', referrerPolicy: 'no-referrer', headers, signal: controller.signal,
+        // Fetch can serialize Origin as null for same-origin POSTs under
+        // no-referrer. Send only the already-known origin, never a private path.
+        cache: 'no-store', referrerPolicy: 'strict-origin', headers, signal: controller.signal,
         body: options.csv ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       })
       httpStatus = response.status

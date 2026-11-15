@@ -56,7 +56,7 @@ describe('dedicated same-origin cookie transport', () => {
     await client.request('/b2b/api/orders/prepare', object({ ok: text }), { method: 'POST', body: { operation_id: 'same' } })
     const [path, options] = fetcher.mock.calls[0]!
     expect(path).toBe('/b2b/api/orders/prepare')
-    expect(options).toMatchObject({ credentials: 'include', mode: 'same-origin', redirect: 'error', cache: 'no-store', headers: { 'X-BFF-CSRF': 'csrf-a' } })
+    expect(options).toMatchObject({ credentials: 'include', mode: 'same-origin', redirect: 'error', referrerPolicy: 'strict-origin', cache: 'no-store', headers: { 'X-BFF-CSRF': 'csrf-a' } })
     expect(options.headers).not.toHaveProperty('Authorization')
     for (const forbidden of ['/api/orders', '//evil/b2b/api/orders', 'https://evil/b2b/api/orders', '/b2b/api/../api/orders#frag']) {
       await expect(client.request(forbidden, text)).rejects.toThrow()
