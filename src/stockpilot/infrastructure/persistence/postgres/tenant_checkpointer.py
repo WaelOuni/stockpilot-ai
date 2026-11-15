@@ -1,6 +1,7 @@
 """Dedicated root-graph saver, not a wrapper exposing a global saver."""
 
 import asyncio
+from stockpilot.application.assistant_runtime import observed
 from contextlib import contextmanager
 from uuid import uuid4
 
@@ -145,6 +146,7 @@ class PgTenantCheckpointSaver(BaseCheckpointSaver):
             context,
             conversation_id,
         )
+        self.read_fence = None
 
     def config(self, checkpoint_id=None):
         c = {"thread_id": self.conversation_id, "checkpoint_ns": ""}
@@ -180,6 +182,8 @@ class PgTenantCheckpointSaver(BaseCheckpointSaver):
 
     def _owned(self, c):
         self.conversations._owned(c, self.context, self.conversation_id)
+        if self.read_fence is not None:
+            self.conversations._read_guard(c, self.context, self.conversation_id, *self.read_fence)
 
     def _get(self, c, checkpoint_id=None):
         rows = c.execute(
@@ -252,6 +256,7 @@ class PgTenantCheckpointSaver(BaseCheckpointSaver):
         # Materialize under the authorized transaction; do not keep a cursor/global iterator.
         return iter(result)
 
+    @observed("checkpoint")
     def put(self, config, checkpoint, metadata, new_versions):
         parent = self._config(config)
         cid = identifier(checkpoint["id"])
@@ -282,6 +287,7 @@ class PgTenantCheckpointSaver(BaseCheckpointSaver):
                 raise TenantDataConflict("Checkpoint identity collision.")
         return self.config(cid)
 
+    @observed("checkpoint_writes")
     def put_writes(self, config, writes, task_id, task_path=""):
         cid = self._config(config)
         identifier(task_id)
@@ -329,14 +335,22 @@ class PgTenantCheckpointSaver(BaseCheckpointSaver):
             yield row
 
     async def aput(self, config, checkpoint, metadata, new_versions):
-        return await asyncio.to_thread(
-            self.put, config, checkpoint, metadata, new_versions
-        )
+        return await self._write_thread(self.put, config, checkpoint, metadata, new_versions)
 
     async def aput_writes(self, config, writes, task_id, task_path=""):
-        return await asyncio.to_thread(
-            self.put_writes, config, writes, task_id, task_path
-        )
+        return await self._write_thread(self.put_writes, config, writes, task_id, task_path)
+
+    async def _write_thread(self, function, *args):
+        if self.read_fence is None:
+            return await asyncio.to_thread(function, *args)
+        task = asyncio.create_task(asyncio.to_thread(function, *args))
+        try:
+            return await asyncio.shield(task)
+        except asyncio.CancelledError:
+            # A cancelled await does not stop a synchronous PostgreSQL writer.
+            # Drain it before the service persists a terminal attempt outcome.
+            await asyncio.gather(task, return_exceptions=True)
+            raise
 
     async def adelete_thread(self, thread_id):
         return await asyncio.to_thread(self.delete_thread, thread_id)

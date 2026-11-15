@@ -32,6 +32,38 @@ function respond(path: string) {
 it('rejects malformed amounts in assistant cards', () => {
   expect(() => assistantTurn({ ...turn, reply: { ...turn.reply, products: [{ price_minor: 4.9 }] } })).toThrow()
 })
+it('keeps failed consultations pending and rejects inconsistent execution states', () => {
+  const execution = { state: 'failed', attempt_id: 'a'.repeat(32), code: 'provider_http_500', retryable: true }
+  const failed = assistantTurn({ ...turn, status: 'pending', execution })
+  expect(failed.status).toBe('pending')
+  expect(failed.execution?.code).toBe('provider_http_500')
+  expect(() => assistantTurn({ ...turn, execution })).toThrow()
+  expect(() => assistantTurn({ ...turn, status: 'pending', execution: { ...execution, attempt_id: 'private' } })).toThrow()
+})
+it('refreshes each failed explicit retry without resending and uses the new attempt identity', async () => {
+  let attempt = 'a'.repeat(32)
+  let retried = 0
+  const { wrapper, session, fetcher } = await setup((path, init) => {
+    if (path.endsWith('/retry')) {
+      expect(JSON.parse(String(init?.body)).expected_attempt).toBe(attempt)
+      attempt = (++retried === 1 ? 'b' : 'c').repeat(32)
+      return json({ code: 'UNAVAILABLE' }, 503)
+    }
+    if (path.includes('/conversations/conv?')) return json({ conversation_id: 'conv', items: [{
+      ...turn, status: 'pending', reply: { ...turn.reply, order: null, can_confirm: false },
+      execution: { state: 'failed', attempt_id: attempt, code: 'provider_http_500', retryable: true },
+    }], has_more: false, limit: 20, offset: 0 })
+    return respond(path)
+  })
+  const retry = () => wrapper.findAll('button').find(b => b.text().includes('Rejouer explicitement'))!
+  expect(wrapper.text()).toContain('consultation')
+  await retry().trigger('click'); await flushPromises()
+  expect(retried).toBe(1)
+  await retry().trigger('click'); await flushPromises()
+  expect(retried).toBe(2)
+  expect(fetcher.mock.calls.filter(([p]) => String(p).endsWith('/messages') || String(p).endsWith('/resume'))).toHaveLength(0)
+  wrapper.unmount(); session.dispose()
+})
 it('restores snapshots and requires distinct confirmation with CSRF', async () => {
   const { wrapper, session, fetcher } = await setup((path, init) => {
     if (path.endsWith('/confirm')) {

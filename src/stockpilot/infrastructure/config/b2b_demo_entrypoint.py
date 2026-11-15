@@ -35,6 +35,10 @@ def main():
     logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler())
     logger.propagate = False
+    runtime = logging.getLogger("stockpilot.assistant.runtime")
+    runtime.setLevel(logging.INFO)
+    runtime.addHandler(logging.StreamHandler())
+    runtime.propagate = False
     import uvicorn
 
     uvicorn.run(

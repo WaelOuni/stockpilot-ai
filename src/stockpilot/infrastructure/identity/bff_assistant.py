@@ -71,4 +71,5 @@ def compose_assistant(settings, business):
             version="v1",
         ),
         llm,
+        read_budget_seconds=settings.assistant_read_budget_seconds,
     )

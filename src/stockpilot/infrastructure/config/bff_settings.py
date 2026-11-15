@@ -44,6 +44,7 @@ class BffSettings(BaseSettings):
     assistant_model: str = "qwen2.5:7b"
     assistant_embedding_model: str = "nomic-embed-text"
     assistant_timeout_seconds: float = Field(default=60, ge=1, le=90)
+    assistant_read_budget_seconds: float = Field(default=75, ge=1, le=75)
 
     def validate_assistant(self):
         from psycopg.conninfo import conninfo_to_dict

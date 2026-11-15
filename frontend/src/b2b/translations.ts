@@ -1,6 +1,10 @@
 // User-facing application copy only. Product descriptions and conversations are not translated.
 // Only interface copy is translated. Catalogue data and conversation text remain verbatim.
 export const english: Record<string, string> = Object.fromEntries(`
+Consultation uniquement (aucune commande)|Read-only consultation (no orders)
+La consultation a échoué. Aucun résultat réussi n’a été enregistré.|The consultation failed. No successful result was recorded.
+Une reprise est toujours explicite et conserve le même message.|A retry is always explicit and keeps the same message.
+Une exécution est encore observée. Vérifiez son résultat avant de reprendre.|An execution is still observed. Check its result before retrying.
 Son à la fin des réponses de l’assistant|Sound when the assistant finishes a response
 StockPilot prépare sa réponse…|StockPilot is preparing its response…
 La réponse prend un peu plus de temps. Ne renvoyez pas la demande.|The response is taking a little longer. Please do not resend your request.
