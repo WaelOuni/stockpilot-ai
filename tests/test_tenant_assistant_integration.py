@@ -738,7 +738,11 @@ def test_retry_of_read_only_turn_retains_mode_after_model_outage(assistant, db):
             "Je veux commander 1 unité du SKU DRILL-001", "customer-org-a", read_only=True))
     a.llm.classify_intent.side_effect = None
     a.llm.classify_intent.return_value = IntentResult(intent="ORDER", quantity=1)
-    turn = asyncio.run(a.retry(REQUESTS["a1"], context(e.orders), conv, "consult-retry"))
+    # Explicit retries bind to the durable attempt read by the user; the
+    # existing ORDER-refusal oracle below is deliberately unchanged.
+    failed = a.read(REQUESTS["a1"], context(e.orders), conv)["items"][0]
+    turn = asyncio.run(a.retry(REQUESTS["a1"], context(e.orders), conv, "consult-retry",
+                              expected_attempt=failed["execution"]["attempt_id"]))
     assert turn["reply"]["intent"] == "ORDER_REFUSED"
     assert turn["operation"] is None
     assert db.b2b_orders.count_documents({}) == 0 and facts(db)[1] == 0

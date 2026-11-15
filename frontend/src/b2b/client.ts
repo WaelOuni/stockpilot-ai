@@ -19,8 +19,12 @@ const messages: Record<number, string> = {
 }
 export class StaleResponse extends Error {}
 type Hooks = { generation: () => number; invalid: (status: number) => void; csrf: () => string | undefined; activity?: () => void }
+export type AssistantTiming = { duration_ms: number; correlation_id: string | null; http_status: number | null;
+  outcome: 'success' | 'http_error' | 'client_timeout' | 'client_cancelled' | 'network_error' | 'decode_error' | 'stale' }
 export class BffClient {
   private controllers = new Set<AbortController>()
+  // One content-free observation, never a growing history of private requests.
+  lastAssistantTiming: AssistantTiming | null = null
   constructor(private hooks: Hooks, private fetcher: typeof fetch = (...args) => fetch(...args), private timeout = 15000) {}
   abort() { for (const c of this.controllers) c.abort(); this.controllers.clear() }
   async request<T>(path: string, decode: Decoder<T>, options: { body?: unknown; csv?: string; login?: boolean; csrf?: string; method?: 'POST'; signal?: AbortSignal; timeoutMs?: number } = {}): Promise<T> {
@@ -29,12 +33,20 @@ export class BffClient {
     const normalized = new URL(path, location.origin)
     if (normalized.origin !== location.origin || normalized.pathname !== path.split('?')[0]) throw new ContractError()
     const controller = new AbortController()
+    const started = performance.now()
+    const duration = Math.min(options.timeoutMs ?? this.timeout, 90000)
+    const deadline = started + duration
+    const assistantRequest = path.startsWith('/b2b/api/assistant/')
+    let timedOut = false
+    let httpStatus: number | null = null
+    let correlation: string | null = null
+    let outcome: AssistantTiming['outcome'] = 'network_error'
     const generation = this.hooks.generation()
     this.controllers.add(controller)
     const abort = () => controller.abort()
     options.signal?.addEventListener('abort', abort, { once: true })
     if (options.signal?.aborted) abort()
-    const timer = setTimeout(abort, Math.min(options.timeoutMs ?? this.timeout, 90000))
+    const timer = setTimeout(() => { timedOut = true; abort() }, duration)
     const mutation = options.method === 'POST'
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (!mutation && path.startsWith('/b2b/api/')) {
@@ -51,9 +63,15 @@ export class BffClient {
     try {
       const response = await this.fetcher(path, {
         method: options.method ?? 'GET', credentials: 'include', mode: 'same-origin', redirect: 'error',
-        cache: 'no-store', referrerPolicy: 'no-referrer', headers, signal: controller.signal,
+        // Fetch can serialize Origin as null for same-origin POSTs under
+        // no-referrer. Send only the already-known origin, never a private path.
+        cache: 'no-store', referrerPolicy: 'strict-origin', headers, signal: controller.signal,
         body: options.csv ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       })
+      httpStatus = response.status
+      const observed = response.headers.get('x-assistant-correlation-id')
+      correlation = observed && /^[0-9a-f]{32}$/.test(observed) ? observed : null
+      outcome = response.ok ? 'decode_error' : 'http_error'
       if (generation !== this.hooks.generation()) throw new StaleResponse()
       if (response.status === 401 || response.status === 403) {
         this.hooks.invalid(response.status)
@@ -62,6 +80,9 @@ export class BffClient {
       // Responses are bounded by the BFF. No raw server error is displayed or logged.
       const data: unknown = await response.json()
       if (generation !== this.hooks.generation()) throw new StaleResponse()
+      // A suspended/busy tab may delay the timer callback beyond its deadline.
+      if (performance.now() >= deadline) { timedOut = true; abort() }
+      if (controller.signal.aborted) throw new DOMException('Request aborted', 'AbortError')
       if (!response.ok) {
         if (response.status === 409) {
           // B3 rejected is a durable typed result, unlike a generic 409 conflict.
@@ -76,13 +97,21 @@ export class BffClient {
         throw new BffError(response.status, code, mutation && (response.status >= 500 || response.status === 202))
       }
       const decoded = decode(data)
+      outcome = 'success'
       if (path.startsWith('/b2b/api/')) this.hooks.activity?.()
       return decoded
     } catch (error) {
+      if (generation !== this.hooks.generation() || error instanceof StaleResponse) outcome = 'stale'
+      else if (controller.signal.aborted) outcome = timedOut ? 'client_timeout' : 'client_cancelled'
       if (generation !== this.hooks.generation()) throw new StaleResponse()
       if (error instanceof BffError || error instanceof ContractError || error instanceof StaleResponse) throw error
       throw new BffError(0, 'NETWORK', mutation)
     } finally {
+      if (assistantRequest) {
+        this.lastAssistantTiming = { duration_ms: Math.max(0, performance.now() - started), correlation_id: correlation, http_status: httpStatus, outcome }
+        // Operators/tests can consume this event without URLs, payloads or IDs.
+        window.dispatchEvent(new CustomEvent('stockpilot:assistant-timing', { detail: { ...this.lastAssistantTiming } }))
+      }
       clearTimeout(timer); this.controllers.delete(controller)
       options.signal?.removeEventListener('abort', abort)
     }

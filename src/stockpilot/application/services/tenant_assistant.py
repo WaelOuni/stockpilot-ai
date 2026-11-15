@@ -1,6 +1,13 @@
 """Tenant LangGraph composition. Mongo ORDER is the only stock mutation engine."""
 
 import hashlib
+import asyncio
+from contextlib import ExitStack
+from uuid import uuid4
+from stockpilot.application.assistant_runtime import (
+    observation, current as runtime_current, phase, emit, check_budget,
+    bounded_read, error_code,
+)
 import json
 import re
 import threading
@@ -24,6 +31,7 @@ from stockpilot.application.ports.tenant_knowledge import (
     TenantDataConflict,
     TenantDataNotFound,
     TenantDataUnavailable,
+    TenantDataOutcomeUnknown,
 )
 from stockpilot.application.ports.tenant_orders import (
     TenantOrderConflict,
@@ -129,7 +137,7 @@ class AssistantState(TypedDict, total=False):
 
 
 class TenantAssistant:
-    def __init__(self, store, catalogue, orders, retrieval, llm, *, concurrency=1):
+    def __init__(self, store, catalogue, orders, retrieval, llm, *, concurrency=1, read_budget_seconds=75):
         self.store, self.orders, self.retrieval, self.llm = (
             store,
             orders,
@@ -141,6 +149,9 @@ class TenantAssistant:
         self.citations = TenantAssistantCitations(store, retrieval)
         self.history = TenantAssistantHistory(store, self.catalogue, self.citations.public_reply)
         self.admission = threading.BoundedSemaphore(concurrency)
+        if not 0 < read_budget_seconds <= 75:
+            raise ValueError("Read budget must fit within the browser deadline.")
+        self.read_budget_seconds = read_budget_seconds
 
     def current(self, request, context):
         current = self.store.current(request, context, P.CONVERSATION_OWN)
@@ -214,7 +225,8 @@ class TenantAssistant:
             if lexical:
                 return {"reply": {"classification": {"intent": lexical}, "classification_ms": 0}}
             try:
-                classification = await self.llm.classify_intent(state["question"])
+                with phase("classification"):
+                    classification = await self.llm.classify_intent(state["question"])
             except (
                 ModelTimeoutError,
                 ModelUnavailableError,
@@ -222,6 +234,8 @@ class TenantAssistant:
                 httpx.HTTPError,
                 TimeoutError,
                 ValueError,
+                KeyError,
+                TypeError,
                 ValidationError,
             ):
                 raise TenantDataUnavailable(
@@ -238,8 +252,9 @@ class TenantAssistant:
             started = perf_counter()
             reply = await self._answer(request, context, conversation_id, state)
             self.current(request, context)
-            if not safe_public(reply):
-                reply = self._reply("RAG_REFUSED", RAG_SENSITIVE_REFUSAL)
+            with phase("validation"):
+                if not safe_public(reply):
+                    reply = self._reply("RAG_REFUSED", RAG_SENSITIVE_REFUSAL)
             reply["timing_ms"] = {
                 "classification": state["reply"]["classification_ms"],
                 "processing": round((perf_counter() - started) * 1000, 2),
@@ -565,6 +580,11 @@ class TenantAssistant:
             if action
             else None,
         }
+        if conversation_id and hasattr(self.store, "read_execution"):
+            public["execution"] = self.store.read_execution(request, context, conversation_id, turn)
+            # Never expose the private attempt envelope through a service caller.
+            if isinstance(public["reply"], dict):
+                public["reply"] = {k: v for k, v in public["reply"].items() if k != "_read_attempt"}
         if not safe_public(public):
             # Historical storage stays immutable. Never replay a recognized
             # credential through text, cards, citations, metadata or user input.
@@ -587,29 +607,57 @@ class TenantAssistant:
         return result
 
     async def send(
-        self, request, context, conversation_id, turn_id, message, customer_id=None, read_only=False
+        self, request, context, conversation_id, turn_id, message, customer_id=None, read_only=False,
+        *, _retry=False, expected_attempt=None,
     ):
+        with observation(runtime_current()) as runtime:
+            if read_only is True:
+                runtime.deadline = runtime.started + self.read_budget_seconds
+            with phase("request", budget=False):
+                return await self._send(request, context, conversation_id, turn_id, message,
+                    customer_id, read_only, _retry=_retry, expected_attempt=expected_attempt)
+
+    async def _send(self, request, context, conversation_id, turn_id, message,
+                    customer_id, read_only, *, _retry, expected_attempt):
         text(message, 4000)
-        if not self.admission.acquire(blocking=False):
-            raise AssistantBusy()
+        runtime = runtime_current()
+        with phase("admission", budget=False):
+            if not self.admission.acquire(blocking=False):
+                emit("admission", "rejected", code="busy")
+                raise AssistantBusy()
+        identity = uuid4().hex if read_only is True else None
+        admitted_read = False
         try:
             self.current(request, context)
-            with self.store.execution(request, context, conversation_id):
-                self.store.begin(
+            with ExitStack() as execution:
+              with phase("execution_lock", budget=False):
+                execution.enter_context(self.store.execution(request, context, conversation_id))
+              try:
+                fresh = self.store.begin(
                     request,
                     context,
                     conversation_id,
                     turn_id,
                     "message",
                     {"message": message, "customer_id": customer_id, **({"read_only": True} if read_only else {})},
+                    **({"read_attempt": identity} if identity else {}),
                 )
+                admitted_read = bool(identity and fresh)
                 old = self.store.turn(request, context, conversation_id, turn_id)
                 if old["status"] == "completed":
                     return self._public_turn(request, context, old, conversation_id)
                 if old["action"]:
                     return await self._reconcile(request, context, conversation_id, old)
-                saver = self.store.bind(request, context, conversation_id)
-                result = await self._graph(
+                if identity:
+                    if not fresh:
+                        if not _retry:
+                            raise TenantDataConflict("Explicit retry of the original consultation required.")
+                        self.store.restart_read(request, context, conversation_id, turn_id, identity, expected_attempt)
+                    admitted_read = True
+                    saver = self.store.bind_read(request, context, conversation_id, turn_id, identity)
+                else:
+                    saver = self.store.bind(request, context, conversation_id)
+                work = self._graph(
                     request, context, conversation_id, saver
                 ).ainvoke(
                     {
@@ -620,15 +668,34 @@ class TenantAssistant:
                     },
                     saver.config(),
                 )
-                self.store.finish(
-                    request, context, conversation_id, turn_id, result["reply"]
-                )
+                result = await bounded_read(work) if identity else await work
+                check_budget()
+                if identity:
+                    self.store.finish_read(request, context, conversation_id, turn_id, identity, result["reply"])
+                else:
+                    self.store.finish(request, context, conversation_id, turn_id, result["reply"])
                 return self._public_turn(
                     request,
                     context,
                     self.store.turn(request, context, conversation_id, turn_id),
                     conversation_id,
                 )
+              except (Exception, asyncio.CancelledError) as error:
+                # Unknown commit/permission outcomes must never be relabelled as
+                # a definite failure. The storage CAS also refuses completed or
+                # superseded attempts, including a late failure after finish.
+                if admitted_read and not isinstance(error, (TenantDataOutcomeUnknown, AuthorizationDenied, TenantDataConflict)):
+                    runtime.enforcing = False
+                    failed_phase, code = runtime.failure or ("request", error_code(error))
+                    try:
+                        self.store.fail_read(request, context, conversation_id, turn_id, identity, code, failed_phase)
+                    except Exception:
+                        # Keep the original outcome unknown; no alternate writer,
+                        # no bypass of current rights, and no automatic retry.
+                        raise TenantDataOutcomeUnknown("Consultation outcome requires a durable reread.") from None
+                    finally:
+                        runtime.enforcing = True
+                raise
         finally:
             self.admission.release()
 
@@ -687,7 +754,7 @@ class TenantAssistant:
             raise AssistantPending("Original operation not yet reconciled.") from None
         return await self._project(request, context, conversation_id, turn, order)
 
-    async def retry(self, request, context, conversation_id, turn_id):
+    async def retry(self, request, context, conversation_id, turn_id, expected_attempt=None):
         old = self.store.turn(request, context, conversation_id, turn_id)
         if old is None:
             raise TenantDataNotFound("Turn unavailable.")
@@ -702,6 +769,7 @@ class TenantAssistant:
                 old["input"]["message"],
                 old["input"].get("customer_id"),
                 old["input"].get("read_only", False),
+                _retry=True, expected_attempt=expected_attempt,
             )
         with self.store.execution(request, context, conversation_id):
             action = old["action"]

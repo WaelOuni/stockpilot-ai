@@ -4,6 +4,7 @@ from time import perf_counter
 import json
 import re
 import hashlib
+from stockpilot.application.assistant_runtime import phase
 
 from stockpilot.application.ports.tenant_knowledge import TenantDataUnavailable
 from stockpilot.application.services.identity_authorization import AuthorizationDenied
@@ -114,16 +115,18 @@ class TenantRetrieval:
             return RAG_SENSITIVE_REFUSAL
         started = perf_counter()
         try:
-            embedding = vector(await self.embeddings.embed(question))
+            with phase("embeddings"):
+                embedding = vector(await self.embeddings.embed(question))
         except Exception:
             raise TenantDataUnavailable("Embedding dependency unavailable.") from None
         if timings is not None:
             timings["embedding"] = round((perf_counter() - started) * 1000, 2)
         started = perf_counter()
         try:
-            passages = self.repository.search(
-                request, context, embedding, model=self.model, version=self.version
-            )
+            with phase("retrieval"):
+                passages = self.repository.search(
+                    request, context, embedding, model=self.model, version=self.version
+                )
         except AuthorizationDenied:
             raise
         except Exception:
@@ -171,8 +174,10 @@ class TenantRetrieval:
         )
         started = perf_counter()
         try:
-            result = await self.generator.generate(prompt=prompt)
-            text(result, 8000)
+            with phase("generation"):
+                result = await self.generator.generate(prompt=prompt)
+            with phase("validation"):
+                text(result, 8000)
             if timings is not None:
                 timings["generation"] = round((perf_counter() - started) * 1000, 2)
         except Exception:

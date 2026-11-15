@@ -244,7 +244,13 @@ class BusinessBoundary:
                     }
                 return await receive()
 
-            await self.app(scope, replay, send)
+            async def correlated_send(message):
+                correlation = getattr(request.state, "assistant_correlation", None)
+                if message["type"] == "http.response.start" and correlation:
+                    message = {**message, "headers": [*message.get("headers", []),
+                        (b"x-assistant-correlation-id", correlation.encode("ascii"))]}
+                await send(message)
+            await self.app(scope, replay, correlated_send)
         except (
             BffUnauthenticated,
             BffForbidden,

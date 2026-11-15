@@ -48,6 +48,7 @@ const turns = ref<AssistantTurn[]>([])
 const buyers = ref<ReturnType<typeof buyerDecoder>[]>([])
 const buyer = ref('')
 const message = ref('')
+const consultation = ref(false)
 const confirmation = ref(false)
 const cancelConfirmation = ref(false)
 const unknown = ref(false)
@@ -116,6 +117,7 @@ async function create() {
 async function send() {
   if (busy.value || loadingHistory.value || !id.value || !message.value.trim() || pending.value || unknown.value) return
   const input = message.value.trim()
+  const readOnly = consultation.value || globallyPending.value
   feedback.unlockSound() // Only within this explicit user gesture, never history.
   await run(async () => {
     const version = epoch
@@ -124,7 +126,7 @@ async function send() {
     unknown.value = true // Until a response or a durable history has been read.
     try {
     const result = await session.client.request(base.value + '/messages', assistantTurn, {
-      method: 'POST', body: { message_id: turnId, message: input, customer_id: buyer.value || null, read_only: globallyPending.value }, timeoutMs: 90000,
+      method: 'POST', body: { message_id: turnId, message: input, customer_id: buyer.value || null, read_only: readOnly }, timeoutMs: 90000,
     })
     current(version); completed(result); feedback.remember(result)
     // Keep the message currently being read. A conversation is server-bounded
@@ -132,20 +134,30 @@ async function send() {
     turns.value = [...turns.value, result].slice(nearBottom() ? -20 : -100)
     if (result.status === 'completed' && message.value.trim() === input) message.value = ''
     unknown.value = false; confirmation.value = false
+    } catch (failure) {
+      // Read the durable outcome once; never resend or invoke reconciliation.
+      if (readOnly && epoch === version && !disposed) { try { await history() } catch { /* outcome remains unknown */ } }
+      throw failure
     } finally { if (epoch === version) feedback.stopWaiting() }
   })
 }
 async function retry() {
   const turn = pending.value
-  if (!turn || globallyPending.value || loadingHistory.value) return
+  if (!turn || busy.value || globallyPending.value || loadingHistory.value || turn.execution?.retryable === false) return
   await run(async () => {
     const version = epoch
     feedback.unlockSound(); feedback.start(turn.turn_id)
     try {
     const result = await session.client.request(base.value + '/turns/' + encodeURIComponent(turn.turn_id) + '/retry', assistantTurn, {
-      method: 'POST', body: {}, timeoutMs: 90000,
+      method: 'POST', body: { expected_attempt: turn.execution?.attempt_id ?? null }, timeoutMs: 90000,
     })
     current(version); completed(result); await history()
+    } catch (failure) {
+      if (epoch === version && !disposed) {
+        unknown.value = true
+        try { await history() } catch { /* outcome remains unknown */ }
+      }
+      throw failure
     } finally { if (epoch === version) feedback.stopWaiting() }
   })
 }
@@ -260,7 +272,16 @@ onUnmounted(() => { disposed = true; epoch++; feedback.reset(); turns.value = []
           class="b2b-notice"
           role="status"
         >
-          <p>{{ t("Une réponse reste à vérifier. Le délai réseau ne prouve ni un échec ni une annulation.") }}</p>
+          <p v-if="pending?.execution?.state === 'failed'">
+            {{ t("La consultation a échoué. Aucun résultat réussi n’a été enregistré.") }}
+            {{ t("Une reprise est toujours explicite et conserve le même message.") }}
+          </p>
+          <p v-else-if="pending?.execution?.state === 'running'">
+            {{ t("Une exécution est encore observée. Vérifiez son résultat avant de reprendre.") }}
+          </p>
+          <p v-else>
+            {{ t("Une réponse reste à vérifier. Le délai réseau ne prouve ni un échec ni une annulation.") }}
+          </p>
           <button
             :disabled="busy"
             @click="run(() => history(true))"
@@ -270,7 +291,7 @@ onUnmounted(() => { disposed = true; epoch++; feedback.reset(); turns.value = []
           <button
             v-if="pending"
             class="secondary"
-            :disabled="busy"
+            :disabled="busy || pending.execution?.retryable === false"
             @click="retry"
           >
             {{ t("Rejouer explicitement la même demande") }}
@@ -431,6 +452,11 @@ onUnmounted(() => { disposed = true; epoch++; feedback.reset(); turns.value = []
           class="b2b-card"
           @submit.prevent="send"
         >
+          <label><span><input
+            v-model="consultation"
+            type="checkbox"
+            :disabled="busy || loadingHistory || !!pending || unknown"
+          /> {{ t("Consultation uniquement (aucune commande)") }}</span></label>
           <label v-if="session.has('order:create')">{{ t("Acheteur pour une préparation") }}
             <select
               v-model="buyer"

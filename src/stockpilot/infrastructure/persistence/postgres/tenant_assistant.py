@@ -5,6 +5,8 @@ import json
 
 from psycopg import sql
 from psycopg.types.json import Jsonb
+from stockpilot.application.assistant_runtime import observed
+from stockpilot.application.services.assistant_read_attempt import attempt, envelope
 
 from stockpilot.application.ports.tenant_knowledge import TenantDataConflict
 from stockpilot.domain.enums.permission import Permission as P
@@ -95,7 +97,8 @@ class PgTenantAssistant(PgTenantConversations):
                 "offset": offset,
             }
 
-    def begin(self, request, context, conversation_id, turn_id, kind, value):
+    @observed("begin")
+    def begin(self, request, context, conversation_id, turn_id, kind, value, *, read_attempt=None):
         identifier(turn_id)
         if (
             kind not in {"message", "confirm", "cancel"}
@@ -103,6 +106,9 @@ class PgTenantAssistant(PgTenantConversations):
         ):
             raise ValueError("Invalid bounded turn.")
         proof = hashlib.sha256(canonical([kind, value]).encode()).hexdigest()
+        if read_attempt is not None and (kind != "message" or value.get("read_only") is not True):
+            raise ValueError("Consultation required.")
+        initial_reply = envelope(read_attempt) if read_attempt is not None else None
         with self.connection(request, context, P.CONVERSATION_OWN, write=True) as c:
             self._owned(c, context, conversation_id)
             old = c.execute(
@@ -115,7 +121,7 @@ class PgTenantAssistant(PgTenantConversations):
             if old:
                 if old[0] != proof:
                     raise TenantDataConflict("Turn id/content conflict.")
-                return
+                return False
             pending = c.execute(
                 sql.SQL(
                     "SELECT count(*),count(*) FILTER (WHERE status='pending') FROM {} "
@@ -133,8 +139,8 @@ class PgTenantAssistant(PgTenantConversations):
                 )
             c.execute(
                 sql.SQL(
-                    "INSERT INTO {} (organization_id,owner_user_id,conversation_id,turn_id,fingerprint,kind,input) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s)"
+                    "INSERT INTO {} (organization_id,owner_user_id,conversation_id,turn_id,fingerprint,kind,input,reply) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
                 ).format(self.t("assistant_turns")),
                 (
                     *self._key(context, conversation_id),
@@ -142,8 +148,84 @@ class PgTenantAssistant(PgTenantConversations):
                     proof,
                     kind,
                     Jsonb(value),
+                    Jsonb(initial_reply) if initial_reply is not None else None,
                 ),
             )
+        return True
+
+    def _read_guard(self, c, context, conversation_id, turn_id, identity):
+        row = c.execute(sql.SQL(
+            "SELECT reply FROM {} WHERE organization_id=%s AND owner_user_id=%s AND conversation_id=%s "
+            "AND turn_id=%s AND kind='message' AND input->'read_only'='true'::jsonb "
+            "AND action IS NULL AND status='pending' FOR UPDATE"
+        ).format(self.t("assistant_turns")), (*self._key(context, conversation_id), identifier(turn_id))).fetchone()
+        saved = attempt(row[0]) if row else None
+        if saved is None or saved["id"] != identity or saved["state"] != "running":
+            raise TenantDataConflict("Consultation attempt is no longer current.")
+
+    def restart_read(self, request, context, conversation_id, turn_id, identity, expected):
+        if identity == expected:
+            raise TenantDataConflict("A distinct consultation attempt is required.")
+        replacement = envelope(identity)
+        with self.connection(request, context, P.CONVERSATION_OWN, write=True) as c:
+            self._owned(c, context, conversation_id)
+            row = c.execute(sql.SQL(
+                "SELECT reply FROM {} WHERE organization_id=%s AND owner_user_id=%s AND conversation_id=%s "
+                "AND turn_id=%s AND kind='message' AND input->'read_only'='true'::jsonb "
+                "AND action IS NULL AND status='pending' FOR UPDATE"
+            ).format(self.t("assistant_turns")), (*self._key(context, conversation_id), identifier(turn_id))).fetchone()
+            if row is None:
+                raise TenantDataConflict("Pending consultation required.")
+            saved = attempt(row[0])
+            if ((saved is None and (expected is not None or row[0] is not None))
+                or (saved is not None and (saved["id"] != expected or not saved["retryable"]))):
+                raise TenantDataConflict("Refresh the original consultation before retry.")
+            c.execute(sql.SQL("UPDATE {} SET reply=%s WHERE organization_id=%s AND owner_user_id=%s "
+                "AND conversation_id=%s AND turn_id=%s").format(self.t("assistant_turns")),
+                (Jsonb(replacement), *self._key(context, conversation_id), turn_id))
+
+    def bind_read(self, request, context, conversation_id, turn_id, identity):
+        saver = self.bind(request, context, conversation_id)
+        saver.read_fence = (turn_id, identity)
+        return saver
+
+    @observed("failure_persistence")
+    def fail_read(self, request, context, conversation_id, turn_id, identity, code, phase):
+        reply = envelope(identity, code=code, phase=phase)
+        with self.connection(request, context, P.CONVERSATION_OWN, write=True) as c:
+            self._owned(c, context, conversation_id)
+            self._read_guard(c, context, conversation_id, turn_id, identity)
+            c.execute(sql.SQL("UPDATE {} SET reply=%s WHERE organization_id=%s AND owner_user_id=%s "
+                "AND conversation_id=%s AND turn_id=%s").format(self.t("assistant_turns")),
+                (Jsonb(reply), *self._key(context, conversation_id), turn_id))
+
+    @observed("finalization")
+    def finish_read(self, request, context, conversation_id, turn_id, identity, reply):
+        if len(canonical(reply).encode()) > 65536 or "_read_attempt" in reply:
+            raise ValueError("Invalid successful consultation reply.")
+        with self.connection(request, context, P.CONVERSATION_OWN, write=True) as c:
+            self._owned(c, context, conversation_id)
+            self._read_guard(c, context, conversation_id, turn_id, identity)
+            c.execute(sql.SQL("UPDATE {} SET reply=%s,status='completed' WHERE organization_id=%s AND owner_user_id=%s "
+                "AND conversation_id=%s AND turn_id=%s").format(self.t("assistant_turns")),
+                (Jsonb(reply), *self._key(context, conversation_id), turn_id))
+
+    def read_execution(self, request, context, conversation_id, turn):
+        if turn["status"] == "completed":
+            return {"state": "completed", "attempt_id": None, "code": None, "retryable": False}
+        saved = attempt(turn["reply"])
+        if turn["input"].get("read_only") is not True or turn["action"] is not None:
+            return {"state": "unknown", "attempt_id": None, "code": None, "retryable": True}
+        with self.connection(request, context, P.CONVERSATION_OWN) as c:
+            self._owned(c, context, conversation_id)
+            key = repr(self._key(context, conversation_id))
+            active = c.execute("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND granted "
+                "AND database=(SELECT oid FROM pg_database WHERE datname=current_database()) "
+                "AND classid=((hashtextextended(%s,7)>>32)&4294967295)::oid "
+                "AND objid=(hashtextextended(%s,7)&4294967295)::oid AND objsubid=1)", (key, key)).fetchone()[0]
+        return {"state": "running" if active else "failed" if saved and saved["state"] == "failed" else "unknown",
+                "attempt_id": saved["id"] if saved else None, "code": saved["code"] if saved and not active else None,
+                "retryable": not active and (saved["retryable"] if saved else True)}
 
     def plan(self, request, context, conversation_id, turn_id, action):
         # This commit precedes every Mongo write. A retry must reuse this exact plan.
@@ -186,6 +268,7 @@ class PgTenantAssistant(PgTenantConversations):
                 (Jsonb(action), *self._key(context, conversation_id), turn_id),
             )
 
+    @observed("finalization")
     def finish(self, request, context, conversation_id, turn_id, reply):
         if len(canonical(reply).encode()) > 65536:
             raise ValueError("Reply too large.")

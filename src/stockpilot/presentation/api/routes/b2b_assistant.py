@@ -2,7 +2,9 @@
 
 import asyncio
 import inspect
+from time import monotonic
 from typing import Annotated, Literal
+from stockpilot.application.assistant_runtime import observation, emit
 
 from fastapi import APIRouter, Request
 from pydantic import Field, StrictBool, StrictStr, field_validator
@@ -35,6 +37,10 @@ class MessageIn(Contract):
 
 class ActionIn(ConfirmIn):
     order_id: Identifier
+
+
+class RetryIn(Contract):
+    expected_attempt: Annotated[StrictStr, Field(pattern=r"^[0-9a-f]{32}$")] | None = None
 
 
 class CancelIn(Contract):
@@ -88,6 +94,11 @@ def public_turn(turn):
         k: turn[k]
         for k in ("turn_id", "kind", "message", "status", "created_at", "operation")
     }
+    if isinstance(turn.get("execution"), dict):
+        value = turn["execution"]
+        if value.get("state") not in {"running", "failed", "unknown", "completed"}:
+            raise BffUnavailable("Invalid assistant execution state.")
+        result["execution"] = {k: value[k] for k in ("state", "attempt_id", "code", "retryable")}
     reply = turn["reply"]
     if reply is None:
         result["reply"] = None
@@ -115,13 +126,35 @@ async def invoke(request, method, *args):
         raise BffUnavailable("Assistant unavailable.")
     source, context = request.state.tenant_request, request.state.tenant_context
 
-    def execute():
-        assistant.current(source, context)
-        value = method(assistant)(source, context, *args)
-        # The synchronous PostgreSQL checkpointer never blocks the ASGI event loop.
-        return asyncio.run(value) if inspect.isawaitable(value) else value
-
-    return await worker(request, execute)
+    with observation() as runtime:
+        request.state.assistant_correlation = runtime.correlation
+        admitted = monotonic()
+        def execute():
+            emit("admission", "observed", (monotonic() - admitted) * 1000)
+            assistant.current(source, context)
+            value = method(assistant)(source, context, *args)
+            # The synchronous PostgreSQL checkpointer never blocks the ASGI loop.
+            return asyncio.run(value) if inspect.isawaitable(value) else value
+        async def watch_disconnect():
+            while True:
+                # The boundary has consumed/bounded the body; typed routes have
+                # parsed it. GET/resume may still replay its unused envelope.
+                # Await the ASGI event with a single remaining consumer:
+                # is_disconnected() uses an immediately cancelled receive and
+                # can miss disconnects behind AnyIO/BaseHTTPMiddleware streams.
+                message = await request.receive()
+                if message["type"] == "http.disconnect":
+                    runtime.cancel("client_cancelled")
+                    return
+        watcher = asyncio.create_task(watch_disconnect())
+        try:
+            return await worker(request, execute)
+        except asyncio.CancelledError:
+            runtime.cancel("server_cancelled")
+            raise
+        finally:
+            watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
 
 
 @router.get("/conversations")
@@ -187,9 +220,9 @@ async def resume(request: Request, conversation_id: Identifier):
 
 
 @router.post("/conversations/{conversation_id}/turns/{turn_id}/retry")
-async def retry(request: Request, conversation_id: Identifier, turn_id: Identifier):
+async def retry(request: Request, conversation_id: Identifier, turn_id: Identifier, body: RetryIn):
     return public_turn(
-        await invoke(request, lambda a: a.retry, conversation_id, turn_id)
+        await invoke(request, lambda a: a.retry, conversation_id, turn_id, body.expected_attempt)
     )
 
 
