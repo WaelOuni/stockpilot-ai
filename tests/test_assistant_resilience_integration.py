@@ -184,6 +184,7 @@ def test_real_advisory_connection_loss_fences_the_old_running_graph(assistant, d
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
     import psycopg
+    from integration_targets import verify_postgres_identity
     from stockpilot.application.dto.intent_result import IntentResult
     from stockpilot.application.services.tenant_assistant import TenantAssistant
     a, conv, e = assistant
@@ -206,7 +207,7 @@ def test_real_advisory_connection_loss_fences_the_old_running_graph(assistant, d
                 asyncio.run(peer.retry(*args(assistant), 'original', expected_attempt=running['execution']['attempt_id']))
             key = repr(a.store._key(context(e.orders), conv))
             with psycopg.connect(e.uri) as connection:
-                assert connection.execute('SELECT current_database()').fetchone()[0] == 'stockpilot_ci'
+                verify_postgres_identity(connection, e.uri)
                 pids = connection.execute("SELECT pid FROM pg_locks WHERE locktype='advisory' AND granted "
                     "AND database=(SELECT oid FROM pg_database WHERE datname=current_database()) "
                     "AND classid=((hashtextextended(%s,7)>>32)&4294967295)::oid "

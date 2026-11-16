@@ -5,6 +5,7 @@ test schema, never through a production bypass or an application database.
 """
 import asyncio
 from dataclasses import replace
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -85,10 +86,18 @@ def test_legacy_generation_is_filtered_across_chunk_boundary_and_metadata_reads(
         e.repo.document(REQUESTS['a1'], context(e.orders), 'unsafe')
     with pytest.raises(TenantDataNotFound, match='Ingestion unavailable'):
         e.repo.ingestion(REQUESTS['admin-a'], context(e.orders, 'admin-a'), 'publish-unsafe')
-    llm = SimpleNamespace(generate=AsyncMock(return_value='Tous les six mois [S1].'))
+    excerpt = 'La maintenance se fait tous les six mois.'
+    llm = SimpleNamespace(generate=AsyncMock(return_value=json.dumps({
+        'answerable': True, 'excerpts': [{'source_id': 'S1', 'excerpt': excerpt}],
+    })))
     service = TenantRetrieval(e.repo, e.embeddings, llm, model='synthetic-768', version='v1')
-    result = asyncio.run(service.execute(REQUESTS['a1'], context(e.orders), 'Quelle maintenance ?'))
-    assert 'Tous les six mois [S1].' in result and '"safe", passage 0' in result
+    cited, consulted = [], []
+    result = asyncio.run(service.execute(REQUESTS['a1'], context(e.orders), 'Quelle maintenance ?',
+                                        citations=cited, consulted_sources=consulted))
+    assert result == f'[S1] « {excerpt} »'
+    assert cited == consulted and len(cited) == 1
+    assert cited[0]['organization_id'] == 'org-a' and cited[0]['document_id'] == 'safe'
+    assert cited[0]['chunk_id'] == 0 and cited[0]['generation_id'] == search(e)[0].generation_id
     prompt = llm.generate.await_args.kwargs['prompt']
     assert MARKER not in prompt and 'FOREIGN-DOCUMENT-ONLY' not in prompt
 

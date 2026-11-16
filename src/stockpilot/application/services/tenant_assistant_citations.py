@@ -2,7 +2,7 @@
 from copy import deepcopy
 
 from stockpilot.application.services.tenant_rag_safety import (
-    RAG_CITATION_REFUSAL, RAG_SENSITIVE_REFUSAL, safe_public,
+    RAG_CITATION_REFUSAL, RAG_INSUFFICIENT_EVIDENCE, RAG_SENSITIVE_REFUSAL, safe_public,
 )
 from stockpilot.application.use_cases.catalogue_advice import normalize
 
@@ -110,7 +110,8 @@ class TenantAssistantCitations:
         if reply.get('intent') not in {'RAG', 'RAG_CITATION'}:
             return reply
         if (reply.get('text') in {NO_SOURCE, SOURCE_UNAVAILABLE, EMPTY_RAG,
-                                 RAG_SENSITIVE_REFUSAL, RAG_CITATION_REFUSAL}
+                                 RAG_SENSITIVE_REFUSAL, RAG_CITATION_REFUSAL,
+                                 RAG_INSUFFICIENT_EVIDENCE}
                 and not reply.get('cited_sources') and not reply.get('_rag_read_sources')):
             return {k: deepcopy(v) for k,v in reply.items()
                     if k not in {'_citation_scope', '_rag_read_sources'}}

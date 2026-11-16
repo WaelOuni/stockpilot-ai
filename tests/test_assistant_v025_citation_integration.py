@@ -23,6 +23,8 @@ from test_tenant_stock_operations_mongo_integration import stock  # noqa: F401
 from stockpilot.application.dto.intent_result import IntentResult
 from stockpilot.application.ports.tenant_knowledge import TenantDataNotFound
 from stockpilot.application.services.identity_authorization import AuthorizationDenied
+from stockpilot.application.services.tenant_rag_safety import RAG_CITATION_REFUSAL, RAG_INSUFFICIENT_EVIDENCE
+from stockpilot.application.services.tenant_retrieval import RAG_EXCERPT_RESPONSE_FORMAT
 
 pytestmark = pytest.mark.integration
 CASES = {row['id']: row for row in CORPUS}
@@ -52,21 +54,38 @@ def publish_sources(a):
 def generate_cited(a, cited, *, question=None, turn='documentary-answer', fabricated=False):
     service, _, _ = a
     selected = tuple(cited)
+    labels = {}
 
-    async def generate(*, prompt):
+    async def generate(*, prompt, response_format=None):
+        assert response_format == RAG_EXCERPT_RESPONSE_FORMAT
         records = json.loads(prompt.split('<documents>\n', 1)[1].split('\n</documents>', 1)[0])
         assert {p['document_id'] for p in records} == set(DOCUMENTS)
         assert 'FOREIGN-ONLY-CONTENT' not in prompt
-        labels = {p['document_id']: p['source'] for p in records}
+        labels.update({p['document_id']: p['source'] for p in records})
         if fabricated:
-            return 'La livraison prend 7 jours [S99].'
+            return json.dumps({'answerable': True, 'excerpts': [
+                {'source_id': 'S99', 'excerpt': DOCUMENTS['delivery-guide']},
+            ]})
         if not selected:
+            # Deliberately retain the unstructured negative fixture.
             return 'La livraison synthétique prend 7 jours ouvrés.'
-        return ' '.join(DOCUMENTS[identity] + ' [' + labels[identity] + ']' for identity in selected)
+        return json.dumps({'answerable': True, 'excerpts': [
+            {'source_id': labels[identity], 'excerpt': DOCUMENTS[identity]}
+            for identity in selected
+        ]})
 
     service.llm.generate.side_effect = generate
     message = question or CASES[PRIOR[selected[0] if selected else 'delivery-guide']]['message']
-    return send(a, message, turn=turn)
+    result = send(a, message, turn=turn)
+    if fabricated or not selected:
+        assert result['reply']['text'] == (RAG_CITATION_REFUSAL if fabricated else RAG_INSUFFICIENT_EVIDENCE)
+        assert not result['reply']['cited_sources']
+    else:
+        assert result['reply']['text'] == '\n'.join(
+            f'[{labels[identity]}] « {DOCUMENTS[identity]} »' for identity in selected
+        )
+        assert [r['document_id'] for r in result['reply']['cited_sources']] == list(selected)
+    return result
 
 
 def forbid_model_and_search(a):
@@ -125,8 +144,11 @@ def test_multiple_citations_exclude_consulted_but_uncited_documents(assistant, d
     original = generate_cited(assistant, ['stocks-guide', 'preparation-guide'])
     refs = stored(assistant, original['turn_id'])['reply']['cited_sources']
     assert {r['document_id'] for r in refs} == {'stocks-guide', 'preparation-guide'}
-    # delivery-guide really was consulted and remains in the original footer.
-    assert 'delivery-guide' in original['reply']['text']
+    # Consulted inputs remain private; only the selected excerpts are published.
+    read_sources = stored(assistant, original['turn_id'])['reply']['_rag_read_sources']
+    assert {r['document_id'] for r in read_sources} == set(DOCUMENTS)
+    assert 'delivery-guide' not in original['reply']['text']
+    assert DOCUMENTS['delivery-guide'] not in original['reply']['text']
     forbid_model_and_search(assistant)
     reply = send(assistant, QUESTION)['reply']
     assert {r['document_id'] for r in reply['cited_sources']} == {'stocks-guide', 'preparation-guide'}
@@ -255,7 +277,8 @@ def test_G14_05_documentary_snapshot_replay_cannot_bypass_later_revocation(assis
     forbid_model_and_search(assistant)
     historical = send(assistant, CASES['G14-05']['message'], turn='historical-documentary-copy')
     assert historical['reply']['intent'] == 'HISTORY'
-    assert 'delivery-guide' in historical['reply']['text']
+    assert original['reply']['text'] in historical['reply']['text']
+    assert 'Documents consultés' not in historical['reply']['text']
     saved_origin = deepcopy(stored(assistant, original['turn_id']))
     saved_copy = deepcopy(stored(assistant, historical['turn_id']))
     env.repo.delete(REQUESTS['admin-a'], context(env.orders, 'admin-a'), 'delivery-guide',

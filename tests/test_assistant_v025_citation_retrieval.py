@@ -1,5 +1,6 @@
 """Stable references are server-owned evidence, never local model labels."""
 import asyncio
+import json
 from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -13,7 +14,19 @@ from stockpilot.application.services.tenant_retrieval import TenantRetrieval
 from stockpilot.domain.entities.tenant_knowledge import TenantPassage
 
 
-def harness(answer='La livraison prend sept jours [S2].'):
+def document_answer(*excerpts):
+    return json.dumps({"answerable": True, "excerpts": [
+        {"source_id": source, "excerpt": content} for source, content in excerpts
+    ]})
+
+
+def abstention():
+    return json.dumps({"answerable": False, "excerpts": []})
+
+
+def harness(answer=None):
+    if answer is None:
+        answer = document_answer(('S2', 'La livraison prend sept jours.'))
     passages = [
         TenantPassage('org-a', 'stocks-guide', 0, 'Le contrôle du stock est quotidien.', .1, 'generation-stock'),
         TenantPassage('org-a', 'delivery-guide', 2, 'La livraison prend sept jours.', .2, 'generation-delivery'),
@@ -37,7 +50,7 @@ def test_only_actually_cited_sources_have_stable_references_and_consulted_is_sep
     h = harness()
     cited, consulted = [{'stale': True}], [{'stale': True}]
     result = execute(h, cited, consulted)
-    assert 'sept jours [S2]' in result
+    assert result == '[S2] « La livraison prend sept jours. »'
     assert [r['document_id'] for r in cited] == ['delivery-guide']
     assert [r['document_id'] for r in consulted] == ['stocks-guide','delivery-guide','preparation-guide']
     assert cited[0] == h[0]._reference(h[1].search.return_value[1])
@@ -47,14 +60,16 @@ def test_only_actually_cited_sources_have_stable_references_and_consulted_is_sep
     # Changing retrieval order only renames local labels; permanent identities
     # continue to refer to the exact passage that was actually cited.
     h[1].search.return_value.reverse()
-    h[3].generate.return_value='Le contrôle du stock est quotidien [S3].'
+    h[3].generate.return_value=document_answer(('S3', 'Le contrôle du stock est quotidien.'))
     execute(h, cited, consulted)
     assert [r['document_id'] for r in cited] == ['stocks-guide']
 
 
 @pytest.mark.parametrize('answer', [
-    'Stock quotidien [S1] et livraison sept jours [S2].',
-    'Stock quotidien [source: S1], livraison sept jours, document S2.',
+    document_answer(('S1', 'Le contrôle du stock est quotidien.'),
+                    ('S2', 'La livraison prend sept jours.')),
+    document_answer(('S1', 'Le contrôle du stock est quotidien.'),
+                    ('S2', 'La livraison prend sept jours.')),
 ])
 def test_multiple_citations_preserve_exact_passages_without_consulted_only_source(answer):
     h=harness(answer); citations=[]
@@ -65,13 +80,17 @@ def test_multiple_citations_preserve_exact_passages_without_consulted_only_sourc
 
 
 def test_server_consulted_footer_does_not_create_a_model_citation():
-    h=harness('Les informations sont présentes dans les documents.')
+    h=harness(abstention())
     citations=[]; consulted=[]
-    assert '[S1]' in execute(h,citations,consulted)
-    assert citations == [] and len(consulted)==3
+    assert execute(h,citations,consulted).startswith("Je n'ai pas trouvé suffisamment")
+    assert citations == consulted == []
 
 
-@pytest.mark.parametrize('answer', ['Inventé [S99].','Inventé [source: S99].','Inventé selon le document S99.'])
+@pytest.mark.parametrize('answer', [
+    document_answer(('S99', 'Fait inventé.')),
+    json.dumps({"answerable": True, "excerpts": [{"source_id": "S99", "excerpt": "Fait inventé."}]}),
+    document_answer(('S99', 'Inventé selon le document.')),
+])
 def test_unknown_model_reference_cannot_create_proof(answer):
     h=harness(answer); citations=[]; consulted=[]
     assert execute(h,citations,consulted)==RAG_CITATION_REFUSAL
@@ -97,7 +116,7 @@ def test_source_changed_during_generation_blocks_prose_and_all_provenance(change
         elif change=='replacement': h[5][key]=replace(old,generation_id='replacement')
         elif change=='content': h[5][key]=replace(old,content='Different content')
         else: h[5][key]=replace(old,content='password=FICTITIOUS-CITATION-TEST-VALUE')
-        return 'La livraison prend sept jours [S2].'
+        return document_answer(('S2', 'La livraison prend sept jours.'))
     h[3].generate.side_effect=changed
     assert execute(h,citations,consulted)==RAG_CITATION_REFUSAL
     assert citations==consulted==[]
@@ -107,7 +126,7 @@ def test_authorization_revocation_during_generation_cannot_publish_refs():
     h=harness(); citations=[]; consulted=[]
     async def revoke(**kwargs):
         h[1].current.side_effect=AuthorizationDenied('revoked')
-        return 'Livraison sept jours [S2].'
+        return document_answer(('S2', 'La livraison prend sept jours.'))
     h[3].generate.side_effect=revoke
     with pytest.raises(AuthorizationDenied): execute(h,citations,consulted)
     assert citations==consulted==[]
@@ -141,7 +160,7 @@ def test_historical_current_passage_has_same_identity_but_changed_hash_is_reject
 def test_legacy_adapter_without_generation_cannot_create_historical_proof():
     h=harness(); h[1].search.return_value=[replace(p,generation_id=None) for p in h[1].search.return_value]
     cited=[]; consulted=[]
-    assert 'sept jours' in execute(h,cited,consulted)
+    assert execute(h,cited,consulted).startswith("Je n'ai pas trouvé suffisamment")
     assert cited==consulted==[]
     h[1].cited_passage.assert_not_called()
 
@@ -176,9 +195,9 @@ def test_concurrent_calls_have_separate_citation_collectors():
     async def generate(**kwargs):
         if 'first question' in kwargs['prompt']:
             await seen.wait()
-            return 'Stock quotidien [S1].'
+            return document_answer(('S1', 'Le contrôle du stock est quotidien.'))
         seen.set()
-        return 'Livraison sept jours [S2].'
+        return document_answer(('S2', 'La livraison prend sept jours.'))
     h[3].generate.side_effect=generate
     async def scenario():
         first=[]; second=[]
