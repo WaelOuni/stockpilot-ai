@@ -66,6 +66,7 @@ from stockpilot.application.services.tenant_rag_safety import RAG_SENSITIVE_REFU
 from stockpilot.application.services.tenant_assistant_citations import (
     TenantAssistantCitations, citation_question, EMPTY_RAG,
 )
+from stockpilot.application.services.tenant_documentary_routing import documentary_route
 from stockpilot.application.use_cases.catalogue_advice import (
     ClarificationRequired,
     is_advice_followup,
@@ -190,6 +191,9 @@ class TenantAssistant:
             return "CURRENT_CATALOGUE_PRICE"
         if explicit_order_request(question):
             return None
+        documentary = documentary_route(question)
+        if documentary:
+            return documentary
         if is_navigation(question):
             return "CATALOGUE_NAVIGATION"
         if self.catalogue.is_grounded_request(question):
@@ -290,6 +294,13 @@ class TenantAssistant:
         if lexical_intent:
             classification = {"intent": lexical_intent}
         try:
+            if lexical_intent == "DOCUMENTARY":
+                return await self._documentary_reply(request, context, conversation_id, state)
+            if lexical_intent == "DOCUMENTARY_CLARIFICATION":
+                return self._reply(
+                    "CLARIFICATION_REQUIRED",
+                    "Distinguez la consultation des documents de la recherche du stock ou prix courant et des actions de commande. Formulez une seule demande.",
+                )
             if lexical_intent == "RAG_CITATION":
                 return self.citations.previous(request, context, conversation_id, state.get("turn_id"))
             if lexical_intent == "CURRENT_CATALOGUE_PRICE":
@@ -526,21 +537,7 @@ class TenantAssistant:
                 raise ClarificationRequired(
                     "Précisez explicitement la quantité et le SKU pour préparer une commande."
                 )
-            timings, citations, consulted = {}, [], []
-            answer = await self.retrieval.execute(
-                request, context, question, timings=timings,
-                citations=citations, consulted_sources=consulted,
-            )
-            return self._reply(
-                "RAG",
-                answer
-                or EMPTY_RAG,
-                rag_timing_ms=timings,
-                cited_sources=citations,
-                source_turn_id=state.get("turn_id"),
-                _rag_read_sources=consulted,
-                _citation_scope=self.citations.scope(context, conversation_id) if consulted else None,
-            )
+            return await self._documentary_reply(request, context, conversation_id, state)
         except TenantOrderConflict:
             return self._reply(
                 "ORDER_REFUSED",
@@ -548,6 +545,19 @@ class TenantAssistant:
             )
         except (ClarificationRequired, InvalidOrderQuantityError) as error:
             return self._reply("CLARIFICATION_REQUIRED", str(error))
+
+    async def _documentary_reply(self, request, context, conversation_id, state):
+        timings, citations, consulted = {}, [], []
+        answer = await self.retrieval.execute(
+            request, context, state["question"], timings=timings,
+            citations=citations, consulted_sources=consulted,
+        )
+        return self._reply(
+            "RAG", answer or EMPTY_RAG,
+            rag_timing_ms=timings, cited_sources=citations,
+            source_turn_id=state.get("turn_id"), _rag_read_sources=consulted,
+            _citation_scope=self.citations.scope(context, conversation_id) if consulted else None,
+        )
 
     def _public_turn(self, request, context, turn, conversation_id=None):
         reply = self.citations.public_reply(request, context, conversation_id, turn)
