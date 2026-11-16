@@ -71,7 +71,7 @@ def test_early_pending_writes_are_invisible_and_deleted_without_resurrection(
 
 
 def test_generator_uses_existing_llm_port_signature(environment):
-    from stockpilot.application.services.tenant_retrieval import TenantRetrieval
+    from stockpilot.application.services.tenant_retrieval import TenantRetrieval, RAG_EXCERPT_RESPONSE_FORMAT
 
     e = environment
     ingest(e)
@@ -81,16 +81,22 @@ def test_generator_uses_existing_llm_port_signature(environment):
 
         async def generate(self, prompt, response_format=None):
             self.prompt = prompt
-            return "grounded answer"
+            self.response_format = response_format
+            return json.dumps({"answerable": True, "excerpts": [
+                {"source_id": "S1", "excerpt": "A confidential"},
+            ]})
 
     generator = StrictGenerator()
     service = TenantRetrieval(
         e.repo, e.embeddings, generator, model="synthetic-768", version="v1"
     )
-    assert (
-        asyncio.run(service.execute(REQUESTS["a1"], context(e.orders), "question"))
-        == 'grounded answer\n\nDocuments consultés (ne prouvent pas chaque affirmation) :\n[S1] "same-document", passage 0'
-    )
+    cited = []
+    assert asyncio.run(service.execute(
+        REQUESTS["a1"], context(e.orders), "question", citations=cited,
+    )) == '[S1] « A confidential »'
+    assert generator.response_format == RAG_EXCERPT_RESPONSE_FORMAT
+    assert len(cited) == 1 and cited[0]['document_id'] == 'same-document'
+    assert cited[0]['organization_id'] == 'org-a' and cited[0]['chunk_id'] == 0
     records = json.loads(generator.prompt.split('<documents>\n')[1].split('\n</documents>')[0])
     assert records == [{'source': 'S1', 'document_id': 'same-document', 'chunk_id': 0, 'content': 'A confidential'}]
 

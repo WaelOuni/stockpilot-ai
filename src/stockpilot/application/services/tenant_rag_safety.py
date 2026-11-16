@@ -10,6 +10,7 @@ from urllib.parse import unquote
 
 RAG_SENSITIVE_REFUSAL = 'Je ne peux pas divulguer de secrets, mots de passe ou jetons. Consultez la procédure autorisée de gestion des accès.'
 RAG_CITATION_REFUSAL = 'La réponse documentaire contient une référence non vérifiable. Reformulez la question ou consultez les documents autorisés.'
+RAG_INSUFFICIENT_EVIDENCE = "Je n'ai pas trouvé suffisamment d'informations dans les documents disponibles pour répondre de manière fiable."
 
 _LABEL = r'(?:api[ _-]?key|cle[ _-]?(?:api|secrete|privee)|client[ _-]?secret|code secret(?: [a-z0-9_-]{1,32})?|mot de passe|password|passwd|secret|access[ _-]?token|refresh[ _-]?token|authorization|cookie)'
 _ASSIGNMENT = re.compile(r'\b' + _LABEL + r'[\s"\x27]*[:=][\s"\x27]*(?:bearer\s+)?([^\s"\x27,;}<>]{4,})', re.I)
