@@ -274,7 +274,7 @@ class TenantRetrieval:
             return RAG_INSUFFICIENT_EVIDENCE
 
         cited = []
-        seen = set()
+        cited_references = {}
         for item in draft["excerpts"]:
             if not isinstance(item, dict) or set(item) != {"source_id", "excerpt"}:
                 return RAG_INSUFFICIENT_EVIDENCE
@@ -286,9 +286,8 @@ class TenantRetrieval:
                 return RAG_INSUFFICIENT_EVIDENCE
             identity = (reference["organization_id"], reference["document_id"],
                         reference["generation_id"], reference["chunk_id"])
-            if identity in seen:
-                return RAG_CITATION_REFUSAL
-            seen.add(identity)
+            # Every excerpt is validated above; only passage proofs are unique.
+            cited_references.setdefault(identity, reference)
             cited.append((source_id, excerpt, reference))
 
         public = "\n".join(f"[{source_id}] « {excerpt} »" for source_id, excerpt, _ in cited)
@@ -308,5 +307,5 @@ class TenantRetrieval:
         if consulted_sources is not None:
             consulted_sources.extend(references)
         if citations is not None:
-            citations.extend(reference for _, _, reference in cited)
+            citations.extend(cited_references.values())
         return public
