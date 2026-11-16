@@ -1,6 +1,7 @@
 """Real scoped stores, persisted citations and no ORDER effect for document reads."""
 
 import asyncio
+import json
 from uuid import uuid4
 
 import pytest
@@ -29,7 +30,13 @@ def test_document_read_is_scoped_cited_persisted_and_never_mutates_order(assista
     service, conversation, e = assistant
     ingest(e, command("stock-procedure", "ingest-stock", "Le disponible est la quantité physique moins la quantité réservée."))
     ingest(e, command("foreign-guide", "ingest-foreign", "FOREIGN_DOCUMENTARY_DECOY_912"), "admin-b")
-    service.llm.generate.return_value = "Le disponible est la quantité physique moins la quantité réservée [S1]."
+    service.llm.generate.return_value = json.dumps({
+        "answerable": True,
+        "excerpts": [{
+            "source_id": "S1",
+            "excerpt": "Le disponible est la quantité physique moins la quantité réservée.",
+        }],
+    })
     watched = ("b2b_products", "b2b_orders", "b2b_order_operations", "b2b_stock_movements")
     before = {name: list(db[name].find({}).sort("_id", 1)) for name in watched}
     turn_id = uuid4().hex
