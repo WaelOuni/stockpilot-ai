@@ -31,6 +31,10 @@ class BffForbidden(Exception):
     """Authenticated human does not have active provisioned application access."""
 
 
+class BffLoginDenied(BffForbidden):
+    """Verified login without provisioned access; no tenant session was created."""
+
+
 def token_hash(token: str) -> str:
     return sha256(token.encode()).hexdigest()
 
@@ -162,7 +166,16 @@ class BffSessionService:
         ):
             raise BffUnauthenticated("Incomplete authentication transaction.")
         verified = self.provider.exchange(code, transaction.nonce, transaction.verifier)
-        principal = self._resolve(verified.identity, transaction.organization_id)
+        try:
+            principal = self._resolve(verified.identity, transaction.organization_id)
+        except BffForbidden:
+            # A completed identity switch must not leave the previous tenant usable.
+            # Only the session bound to the consumed transaction can be revoked.
+            if transaction.previous_session_hash:
+                self.store.revoke_session(
+                    transaction.previous_session_hash, self.policy.configuration
+                )
+            raise BffLoginDenied("Application access refused.") from None
         now = self.clock()
         expiry = min(
             verified.expires_at, now + timedelta(seconds=self.policy.absolute_seconds)
