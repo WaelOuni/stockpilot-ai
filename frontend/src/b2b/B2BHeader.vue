@@ -71,6 +71,12 @@ onUnmounted(() => document.removeEventListener('click', outside))
       >
         {{ t('Stocks') }}
       </RouterLink>
+      <RouterLink
+        v-if="session.has('analytics:read') && ['MANAGER', 'ORGANIZATION_ADMIN'].includes(session.current.value?.role ?? '')"
+        to="/b2b-app/intelligence"
+      >
+        Intelligence
+      </RouterLink>
       <RouterLink to="/b2b-app/contact">
         {{ t('Aide & contact') }}
       </RouterLink>

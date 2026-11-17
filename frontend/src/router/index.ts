@@ -24,6 +24,7 @@ export const router = createRouter({
       { path: "orders", component: () => import("../b2b/OrdersView.vue") },
       { path: "contact", component: () => import("../b2b/ContactView.vue") },
       { path: "stock", component: () => import("../b2b/StockView.vue") },
+      { path: "intelligence", component: () => import("../b2b/IntelligenceView.vue") },
       { path: ":pathMatch(.*)*", redirect: "/b2b-app/" },
     ] },
     { path: '/admin/login', component: AdminLoginPage },
