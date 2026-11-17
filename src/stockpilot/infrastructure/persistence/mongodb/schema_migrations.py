@@ -38,6 +38,8 @@ B2B_COLLECTIONS = frozenset(
         "b2b_contact_requests",
         "b2b_contact_replies",
         "b2b_contact_operations",
+        "b2b_demand_days",
+        "b2b_analytics_profiles",
     }
 )
 

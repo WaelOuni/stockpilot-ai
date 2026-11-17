@@ -30,12 +30,12 @@ from pymongo import monitoring
 from integration_targets import mongo_test_client, validate_postgres_test_uri, verify_postgres_identity
 try:
     from recovery_contract import (mongo_facts as recovery_mongo_facts, postgres_facts,
-                                   mongo_preconditions, compare_capture, ContractError)
+                                   mongo_preconditions, compare_capture, ContractError, CHECKSUMS)
 except ModuleNotFoundError as error:
     if error.name != "recovery_contract":
         raise
     from scripts.ops.recovery_contract import (mongo_facts as recovery_mongo_facts, postgres_facts,
-                                              mongo_preconditions, compare_capture, ContractError)
+                                              mongo_preconditions, compare_capture, ContractError, CHECKSUMS)
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.persistence.mongodb.schema_migrations import (
     HISTORY, LOCKS, MigrationError, MigrationRunner, registry,
@@ -442,7 +442,8 @@ def pg_business(b, *, seed=False):
 
 
 def upgrade(db):
-    check(len(registry()) == 6, "current registry has six migrations")
+    check(tuple(m.checksum for m in registry()[:6]) == CHECKSUMS,
+          "six approved historical migrations remain byte-identical")
     before = mongo_facts(db)
     check(before == load("v4"), "v4 data unchanged between stopped application phases")
     old_history = list(db[HISTORY].find().sort("_id", 1))
@@ -456,8 +457,8 @@ def upgrade(db):
     check({k: after[k] for k in before if k != HISTORY} ==
           {k: before[k] for k in before if k != HISTORY}, "all existing documents options and indexes unchanged by upgrade")
     check(list(db[HISTORY].find().sort("_id", 1))[:4] == old_history, "original migration history preserved byte logically")
-    MigrationRunner(db).apply(confirmation=db.name)
-    check(mongo_facts(db) == after, "reapplication changes no data structure or history")
+    MigrationRunner(db, registry()[:6]).apply(confirmation=db.name)
+    check(mongo_facts(db) == after, "schema-six reapplication changes no data structure or history")
     with Bff(db, reuse=True) as b:
         c, admin = b.browser(), b.browser("admin-a")
         orders = load("orders")
