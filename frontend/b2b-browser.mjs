@@ -112,6 +112,10 @@ try {
   await expect(page.locator('.workspace-organization').getByText('Synthetic test company', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Perceuse A', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Perceuse B', exact: true })).toHaveCount(0)
+  if (process.env.B2B_TEST_INTELLIGENCE === '1') {
+    const { verifyIntelligence } = await import('./intelligence-browser.mjs')
+    await verifyIntelligence(page, context, origin, check)
+  }
   const cookies = await context.cookies(origin)
   const sessionCookie = cookies.find(c => c.name === '__Host-stockpilot_bff')
   expect(sessionCookie).toMatchObject({ secure: true, httpOnly: true, sameSite: 'Lax', path: '/' })
@@ -122,7 +126,7 @@ try {
     localKeys: Object.keys(globalThis.localStorage),
     preferences: JSON.parse(globalThis.localStorage.getItem('stockpilot.preferences.v1')),
     sessionKeys: Object.keys(globalThis.sessionStorage),
-  }))).toEqual({ localKeys: ['stockpilot.preferences.v1'], preferences: { language: 'fr', theme: 'light' }, sessionKeys: [] })
+  }))).toEqual({ localKeys: ['stockpilot.preferences.v1'], preferences: { language: 'fr', theme: 'light', assistantSound: false }, sessionKeys: [] })
   check('real Keycloak confidential PKCE login, HTTPS cookies, separate provider host, scoped catalogue and no browser tokens')
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Perceuse A', exact: true })).toBeVisible()
