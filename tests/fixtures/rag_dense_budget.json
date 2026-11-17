@@ -1,0 +1,41 @@
+{
+  "provenance": {
+    "ollama": "0.40.16",
+    "model": "qwen2.5:7b",
+    "model_digest": "845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e",
+    "prompt_sha256": "b2576dd41b0fb21d4d74a3d644f214e543cf3ce3aa2f92b952a649bef25a0dc9",
+    "synthetic_only": true
+  },
+  "passages": [
+    {
+      "source": "S1",
+      "document_id": "museum-23",
+      "chunk_id": 0,
+      "content": "Étape 1 du parcours synthétique 24 : observer la salle 1.\nÉtape 2 du parcours synthétique 24 : observer la salle 2.\nÉtape 3 du parcours synthétique 24 : observer la salle 3.\nÉtape 4 du parcours synthétique 24 : observer la salle 4.\nÉtape 5 du parcours synthétique 24 : observer la salle 5.\nÉtape 6 du parcours synthétique 24 : observer la salle 6.\nÉtape 7 du parcours synthétique 24 : observer la salle 7.\nÉtape 8 du parcours synthétique 24 : observer la salle 8.\nÉtape 9 du parcours synthétique 24 : observer la salle 9.\nÉtape 10 du parcours synthétique 24 : observer la salle 10."
+    },
+    {
+      "source": "S2",
+      "document_id": "museum-22",
+      "chunk_id": 0,
+      "content": "Étape 1 du parcours synthétique 23 : observer la salle 1.\nÉtape 2 du parcours synthétique 23 : observer la salle 2.\nÉtape 3 du parcours synthétique 23 : observer la salle 3.\nÉtape 4 du parcours synthétique 23 : observer la salle 4.\nÉtape 5 du parcours synthétique 23 : observer la salle 5.\nÉtape 6 du parcours synthétique 23 : observer la salle 6.\nÉtape 7 du parcours synthétique 23 : observer la salle 7.\nÉtape 8 du parcours synthétique 23 : observer la salle 8.\nÉtape 9 du parcours synthétique 23 : observer la salle 9.\nÉtape 10 du parcours synthétique 23 : observer la salle 10."
+    },
+    {
+      "source": "S3",
+      "document_id": "museum-19",
+      "chunk_id": 0,
+      "content": "Étape 1 du parcours synthétique 20 : observer la salle 1.\nÉtape 2 du parcours synthétique 20 : observer la salle 2.\nÉtape 3 du parcours synthétique 20 : observer la salle 3.\nÉtape 4 du parcours synthétique 20 : observer la salle 4.\nÉtape 5 du parcours synthétique 20 : observer la salle 5.\nÉtape 6 du parcours synthétique 20 : observer la salle 6.\nÉtape 7 du parcours synthétique 20 : observer la salle 7.\nÉtape 8 du parcours synthétique 20 : observer la salle 8.\nÉtape 9 du parcours synthétique 20 : observer la salle 9.\nÉtape 10 du parcours synthétique 20 : observer la salle 10."
+    }
+  ],
+  "truncated": {
+    "response": "{\n  \"answerable\": true,\n  \"excerpts\": [\n    {\n      \"source_id\": \"S1\",\n      \"excerpt\": \"Étape 1 du parcours synthétique 24 : observer la salle 1.\\nÉtape 2 du parcours synthétique 24 : observer la salle 2.\\nÉtape 3 du parcours synthétique 24 : observer la salle 3.\\nÉtape 4 du parcours synthétique 24 : observer la salle 4.\\nÉtape 5 du parcours synthétique 24 : observer la salle 5.\\nÉtape 6 du parcours synthétique 24 : observer la salle 6.\\nÉtape 7 du parcours synthétique 24 : observer la salle 7.\\nÉtape 8 du parcours synthétique 24 : observer la salle 8.\\nÉtape 9 du parcours synthétique 24 : observer la salle 9.\\nÉtape 10 du parcours synthétique 24 : observer la salle 10.\"\n    },\n    {\n      \"source_id\": \"S2\",\n      \"excerpt\": \"Étape 1 du parcours synthétique 23 : observer la salle 1.\\nÉtape 2 du parcours synthétique 23 : observer la salle 2.\\nÉtape 3 du parcours synthétique 23 : observer la salle 3.\\nÉtape 4 du parcours synthétique 23 : observer la salle 4.\\nÉtape 5 du parcours synthétique 23 : observer la salle 5.\\nÉtape 6 du parcours synthétique 23 : observer la salle 6.\\nÉtape 7 du parcours synthétique 23 : observer la salle 7.\\nÉtape 8 du parcours synthétique 23 : observer la salle 8.\\nÉtape 9 du parcours synthétique 23 : observer la salle 9.\\nÉtape 10 du parcours synthétique 23 : observer la salle 10.\"\n    },\n    {\n      \"source_id\": \"S3\",\n      \"excerpt\": \"Étape 1 du parcours synthétique 20 : observer la salle 1.\\nÉtape 2 du parcours synthétique 20 : observer la salle 2.\\nÉtape ",
+    "done": true,
+    "done_reason": "length",
+    "eval_count": 512
+  },
+  "complete": {
+    "response": "{\n  \"answerable\": true,\n  \"excerpts\": [\n    {\n      \"source_id\": \"S1\",\n      \"excerpt\": \"Étape 1 du parcours synthétique 24 : observer la salle 1.\\nÉtape 2 du parcours synthétique 24 : observer la salle 2.\\nÉtape 3 du parcours synthétique 24 : observer la salle 3.\\nÉtape 4 du parcours synthétique 24 : observer la salle 4.\\nÉtape 5 du parcours synthétique 24 : observer la salle 5.\\nÉtape 6 du parcours synthétique 24 : observer la salle 6.\\nÉtape 7 du parcours synthétique 24 : observer la salle 7.\\nÉtape 8 du parcours synthétique 24 : observer la salle 8.\\nÉtape 9 du parcours synthétique 24 : observer la salle 9.\\nÉtape 10 du parcours synthétique 24 : observer la salle 10.\"\n    },\n    {\n      \"source_id\": \"S2\",\n      \"excerpt\": \"Étape 1 du parcours synthétique 23 : observer la salle 1.\\nÉtape 2 du parcours synthétique 23 : observer la salle 2.\\nÉtape 3 du parcours synthétique 23 : observer la salle 3.\\nÉtape 4 du parcours synthétique 23 : observer la salle 4.\\nÉtape 5 du parcours synthétique 23 : observer la salle 5.\\nÉtape 6 du parcours synthétique 23 : observer la salle 6.\\nÉtape 7 du parcours synthétique 23 : observer la salle 7.\\nÉtape 8 du parcours synthétique 23 : observer la salle 8.\\nÉtape 9 du parcours synthétique 23 : observer la salle 9.\\nÉtape 10 du parcours synthétique 23 : observer la salle 10.\"\n    },\n    {\n      \"source_id\": \"S3\",\n      \"excerpt\": \"Étape 1 du parcours synthétique 20 : observer la salle 1.\\nÉtape 2 du parcours synthétique 20 : observer la salle 2.\\nÉtape 3 du parcours synthétique 20 : observer la salle 3.\\nÉtape 4 du parcours synthétique 20 : observer la salle 4.\\nÉtape 5 du parcours synthétique 20 : observer la salle 5.\\nÉtape 6 du parcours synthétique 20 : observer la salle 6.\\nÉtape 7 du parcours synthétique 20 : observer la salle 7.\\nÉtape 8 du parcours synthétique 20 : observer la salle 8.\\nÉtape 9 du parcours synthétique 20 : observer la salle 9.\\nÉtape 10 du parcours synthétique 20 : observer la salle 10.\"\n    }\n  ]\n}",
+    "done": true,
+    "done_reason": "stop",
+    "eval_count": 676
+  }
+}
