@@ -5,6 +5,8 @@ import { useRoute } from 'vue-router'
 import CataloguePagination from './CataloguePagination.vue'
 import { BffError, StaleResponse } from './client'
 import DetailsPanel from './DetailsPanel.vue'
+import RowAction from './RowAction.vue'
+import OrderFacts from './OrderFacts.vue'
 import { useB2B } from './session'
 import { buyerDecoder, orderDecoder, productDecoder, stockDecoder, page, countedPage, orderArchiveDecoder, type Order } from './contracts'
 import { formatMoney } from './money'
@@ -40,6 +42,9 @@ function stockRefusal(error: unknown): never {
 }
 const prepared = ref<Order | null>(null)
 const chosen = ref<Order | null>(null)
+const detailOpen = ref(false), detailLoading = ref(false), detailError = ref('')
+const detailOrderId = ref('')
+let detailEpoch = 0
 const confirmation = ref(false)
 const cancelChoice = ref<Order | null>(null)
 const creationOpen = ref(typeof route.query.sku === 'string')
@@ -51,7 +56,7 @@ const archiveChoice = ref<Order | null>(null)
 const archiveAttempt = ref<{ operation_id: string; order_id: string; archived: boolean } | null>(null)
 let listEpoch = 0
 let disposed = false
-onUnmounted(() => { disposed = true; listEpoch++; orders.value = []; archiveAttempt.value = null })
+onUnmounted(() => { disposed = true; listEpoch++; detailEpoch++; orders.value = []; archiveAttempt.value = null })
 watch([statusFilter, archivedFilter], () => { offset.value = 0; archiveChoice.value = null; void run(refresh) })
 
 const pending = computed(() => session.pending.value.length > 0)
@@ -136,7 +141,23 @@ async function cancel() {
 }
 async function details(order: Order, event: Event) {
   detailTrigger.value = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
-  await run(async () => { chosen.value = await session.client.request('/b2b/api/orders/' + encodeURIComponent(order.order_id), orderDecoder) })
+  detailOrderId.value = order.order_id; detailOpen.value = true
+  await loadDetails()
+}
+async function loadDetails() {
+  const version = ++detailEpoch
+  chosen.value = null; detailError.value = ''; detailLoading.value = true
+  try {
+    const order = await session.client.request('/b2b/api/orders/' + encodeURIComponent(detailOrderId.value), orderDecoder)
+    if (disposed || version !== detailEpoch) return
+    chosen.value = order
+  } catch (error) {
+    if (disposed || version !== detailEpoch || error instanceof StaleResponse) return
+    detailError.value = 'Impossible de charger cette commande. Réessayez la consultation.'
+  } finally { if (version === detailEpoch) detailLoading.value = false }
+}
+function closeDetails() {
+  detailEpoch++; detailOpen.value = false; detailLoading.value = false; chosen.value = null
 }
 async function next(page: number) { offset.value = (page - 1) * limit; await run(refresh) }
 function canCancel(order: Order) {
@@ -363,12 +384,18 @@ onMounted(() => { void run(async () => {
       >
         {{ t("Chargement ou traitement en cours…") }}
       </p>
-      <p v-else-if="!orders.length">
+      <p
+        v-else-if="!orders.length"
+        class="empty-state"
+      >
         {{ t("Aucune commande à afficher.") }}
       </p>
       <div
         v-if="orders.length"
-        class="b2b-table"
+        class="b2b-table orders-table"
+        role="region"
+        :aria-label="t('Commandes autorisées')"
+        tabindex="0"
       >
         <table>
           <caption class="sr-only">
@@ -380,30 +407,44 @@ onMounted(() => { void run(async () => {
               v-for="order in orders"
               :key="order.order_id"
             >
-              <td>{{ order.order_id }}</td><td>{{ order.created_by }}</td><td>{{ label(order) }}</td>
-              <td>
-                <button
-                  class="secondary"
-                  :disabled="busy"
+              <td
+                class="order-reference"
+                :data-label="t('Commande')"
+              >
+                {{ order.order_id }}
+              </td><td :data-label="t('Créée par')">
+                {{ order.created_by }}
+              </td><td :data-label="t('État')">
+                <span
+                  class="status-badge"
+                  :data-status="order.status"
+                >{{ t(label(order)) }}</span>
+              </td>
+              <td class="order-row-actions">
+                <RowAction
+                  icon="eye"
+                  :label="t('Voir la commande')"
+                  :tooltip="t('Voir les détails')"
+                  :disabled="busy || detailLoading"
                   @click="details(order, $event)"
-                >
-                  {{ t("Voir la commande") }}
-                </button> <button
+                />
+                <RowAction
                   v-if="canCancel(order)"
-                  class="secondary"
+                  icon="cancel"
+                  :label="t('Annuler la commande')"
+                  :tooltip="t('Annuler la commande')"
+                  danger
                   :disabled="busy || pending"
                   @click="cancelChoice = order"
-                >
-                  {{ t("Annuler la commande") }}
-                </button>
-                <button
+                />
+                <RowAction
                   v-if="order.status === 'cancelled'"
-                  class="secondary"
+                  :icon="archivedFilter ? 'restore' : 'archive'"
+                  :label="archivedFilter ? t('Restaurer dans ma liste') : t('Archiver pour moi')"
+                  :tooltip="archivedFilter ? t('Restaurer cette commande') : t('Archiver cette commande')"
                   :disabled="busy || !!archiveAttempt"
                   @click="archiveChoice = order"
-                >
-                  {{ archivedFilter ? t('Restaurer dans ma liste') : t('Archiver pour moi') }}
-                </button>
+                />
               </td>
             </tr>
           </tbody>
@@ -481,25 +522,54 @@ onMounted(() => { void run(async () => {
       </div>
     </DetailsPanel>
     <DetailsPanel
-      v-if="chosen"
+      v-if="detailOpen"
       :title="t('Détail de la commande')"
       :return-focus="detailTrigger"
       :label="t('Détail de commande')"
-      @close="chosen = null"
+      @close="closeDetails"
     >
-      <p>{{ t("Référence :") }} {{ chosen.order_id }}</p>
-      <p>{{ label(chosen) }} {{ t("· Acheteur") }} {{ chosen.customer_id }} {{ t("· Créateur") }} {{ chosen.created_by }}</p>
-      <ul>
-        <li
-          v-for="line in chosen.lines"
-          :key="line.product_id"
+      <div
+        v-if="detailLoading"
+        class="loading-state"
+        role="status"
+      >
+        <span
+          class="skeleton-line"
+          aria-hidden="true"
+        ></span>{{ t('Chargement de la commande…') }}
+      </div>
+      <div
+        v-else-if="detailError"
+        class="empty-state"
+      >
+        <p role="alert">
+          {{ t(detailError) }}
+        </p>
+        <button
+          class="secondary"
+          @click="loadDetails"
         >
-          {{ line.sku }} · {{ line.quantity }} × {{ formatMoney(line.price_minor, line.currency) }}
-        </li>
-      </ul>
-      <p class="hint">
-        {{ t("Créée le") }} {{ dateLabel(chosen.created_at) }}{{ t(". Les prix ci-dessus sont ceux de la commande.") }}
-      </p>
+          {{ t('Réessayer') }}
+        </button>
+      </div>
+      <template v-else-if="chosen">
+        <OrderFacts
+          :order="chosen"
+          :organization="session.current.value?.organization_name ?? t('Non disponible')"
+        />
+        <div
+          v-if="canCancel(chosen)"
+          class="b2b-actions dialog-confirmation"
+        >
+          <button
+            class="secondary danger-link"
+            :disabled="busy || pending"
+            @click="cancelChoice = chosen; closeDetails()"
+          >
+            {{ t('Annuler la commande') }}
+          </button>
+        </div>
+      </template>
     </DetailsPanel>
   </section>
 </template>
