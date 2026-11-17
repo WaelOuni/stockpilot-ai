@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from stockpilot.application.services.tenant_contact import TenantContact
 from stockpilot.infrastructure.persistence.mongodb.tenant_contact import MongoTenantContact
+from stockpilot.application.services.intelligence import Intelligence
+from stockpilot.infrastructure.persistence.mongodb.intelligence import MongoIntelligence
 
 from stockpilot.application.ports.tenant_orders import TenantOrdersPort
 from stockpilot.application.ports.tenant_stock_operations import (
@@ -32,6 +34,7 @@ class BffBusiness:
     orders: TenantOrdersPort
     stock: TenantStockOperationsPort
     contact: TenantContact | None = None
+    intelligence: Intelligence | None = None
 
     @classmethod
     def compose(cls, database, sessions):
@@ -46,4 +49,5 @@ class BffBusiness:
             MongoTenantOrders(database, authorization),
             MongoTenantStockOperations(database, authorization),
             TenantContact(MongoTenantContact(database, authorization), authorization),
+            Intelligence(MongoIntelligence(database), authorization),
         )

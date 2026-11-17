@@ -122,7 +122,7 @@ try {
     localKeys: Object.keys(globalThis.localStorage),
     preferences: JSON.parse(globalThis.localStorage.getItem('stockpilot.preferences.v1')),
     sessionKeys: Object.keys(globalThis.sessionStorage),
-  }))).toEqual({ localKeys: ['stockpilot.preferences.v1'], preferences: { language: 'fr', theme: 'light' }, sessionKeys: [] })
+  }))).toEqual({ localKeys: ['stockpilot.preferences.v1'], preferences: { language: 'fr', theme: 'light', assistantSound: false }, sessionKeys: [] })
   check('real Keycloak confidential PKCE login, HTTPS cookies, separate provider host, scoped catalogue and no browser tokens')
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Perceuse A', exact: true })).toBeVisible()
