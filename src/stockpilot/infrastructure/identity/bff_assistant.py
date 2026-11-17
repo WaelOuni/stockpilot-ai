@@ -47,6 +47,8 @@ def compose_assistant(settings, business):
         ollama_max_prompt_bytes=24 * 1024,
     )
     llm = OllamaAdapter(config, max_output_tokens=512)
+    # Documentary JSON needs room for exact excerpts; other LLM calls keep 512.
+    rag_generator = OllamaAdapter(config, max_output_tokens=1024)
     embeddings = OllamaEmbeddingAdapter(config)
     knowledge = PgTenantKnowledge(
         uri,
@@ -66,7 +68,7 @@ def compose_assistant(settings, business):
         TenantRetrieval(
             knowledge,
             embeddings,
-            llm,
+            rag_generator,
             model=settings.assistant_embedding_model,
             version="v1",
         ),

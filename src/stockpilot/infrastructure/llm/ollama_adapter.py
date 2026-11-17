@@ -1,6 +1,9 @@
+import json
+
 import httpx  # noqa: F401 - preserve established adapter transport injection boundary
 
 from stockpilot.application.dto.intent_result import IntentResult
+from stockpilot.application.resource_errors import ModelResponseDecodeError
 from stockpilot.infrastructure.config.settings import Settings
 from stockpilot.infrastructure.llm.resource_limits import post_ollama
 from stockpilot.observability import observe_llm
@@ -37,6 +40,16 @@ class OllamaAdapter:
                 "temperature": 0,
             }
         response = await post_ollama(self._settings, "/api/generate", payload, prompt)
+        if response_format is not None and response.get("done_reason") == "length":
+            # A truncated structured answer is a provider failure, not evidence
+            # that the documents cannot answer. Never repair or publish a prefix.
+            result = response.get("response")
+            try:
+                if not isinstance(result, str) or len(result) > 8000:
+                    raise ValueError
+                json.loads(result)
+            except (ValueError, TypeError, RecursionError):
+                raise ModelResponseDecodeError("Structured output incomplete at token limit.") from None
         return response["response"]
 
     @observe_llm("classification")
