@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from fractions import Fraction
 from math import ceil, sqrt
 from statistics import mean
 
@@ -37,47 +38,49 @@ class DemandDay:
             raise ValueError("Bounded source references required for every observation.")
 
 
-def predict(values: list[int], horizon: int, method: str) -> list[float]:
+def predict(values: list[int], horizon: int, method: str) -> list[Fraction]:
+    """Exact demand expectations. Presentation rounding belongs at the API boundary."""
     if not values:
         raise ValueError("Training history required.")
     if method == "naive":
         rate = values[-1]
     elif method == "mean28":
-        rate = mean(values[-28:])
+        rate = Fraction(sum(values[-28:]), len(values[-28:]))
     elif method == "weighted28":
         recent = values[-28:]
-        rate = sum((i + 1) * value for i, value in enumerate(recent)) / sum(range(1, len(recent) + 1))
+        rate = Fraction(sum((i + 1) * value for i, value in enumerate(recent)), sum(range(1, len(recent) + 1)))
     elif method == "ses02":
         rate = values[0]
         for value in values[1:]:
-            rate = 0.2 * value + 0.8 * rate
+            rate = Fraction(value, 5) + Fraction(4, 5) * rate
     elif method == "croston_sba":
         first = next((i for i, value in enumerate(values) if value), None)
         if first is None:
             rate = 0
         else:
-            size, interval, elapsed = float(values[first]), float(first + 1), 1
+            size, interval, elapsed = Fraction(values[first]), Fraction(first + 1), 1
             for value in values[first + 1:]:
                 if value:
-                    size = 0.1 * value + 0.9 * size
-                    interval = 0.1 * elapsed + 0.9 * interval
+                    size = Fraction(value, 10) + Fraction(9, 10) * size
+                    interval = Fraction(elapsed, 10) + Fraction(9, 10) * interval
                     elapsed = 1
                 else:
                     elapsed += 1
-            rate = 0.95 * size / interval
+            rate = Fraction(19, 20) * size / interval
     elif method == "seasonal_naive7":
         if len(values) < 84:
             raise ValueError("Twelve weekly cycles required.")
-        return [float(values[-7 + i % 7]) for i in range(horizon)]
+        return [Fraction(values[-7 + i % 7]) for i in range(horizon)]
     else:
         raise ValueError("Unknown forecast method.")
-    return [float(rate)] * horizon
+    return [Fraction(rate)] * horizon
 
 
 def forecast(days: tuple[DemandDay, ...], *, as_of: date, horizon: int) -> dict:
     if type(horizon) is not int or horizon not in (7, 30, 60, 90) or type(as_of) is not date or len(days) > 366:
         raise ValueError("Bounded daily forecast requested.")
-    # Even callers holding future fixtures cannot leak them into training/evaluation.
+    # Exclude future event dates. Availability/revision times are NOT recorded:
+    # this evaluates the final snapshot, not what was knowable at each origin.
     days = tuple(sorted((day for day in days if day.day < as_of), key=lambda day: day.day))
     result = {"status": "insufficient_history", "horizon_days": horizon,
               "observations": len(days), "method": None, "quantity": None,
@@ -118,16 +121,17 @@ def forecast(days: tuple[DemandDay, ...], *, as_of: date, horizon: int) -> dict:
     uncertainty = None
     if len(evaluated) >= 8:
         radius = max(abs(error) for error in evaluated)
-        uncertainty = {"kind": "historical_error_range", "lower": round(max(0, total - radius), 3),
-                       "upper": round(total + radius, 3), "assessment_windows": len(evaluated),
+        uncertainty = {"kind": "historical_error_range", "lower": float(round(max(0, total - radius), 3)),
+                       "upper": float(round(total + radius, 3)), "assessment_windows": len(evaluated),
                        "probability": None}
     return {**result, "status": "estimated", "method": method,
-            "quantity": round(total, 3), "daily": [round(value, 3) for value in predicted],
-            "backtest": {"horizon_days": horizon, "selection_windows": len(selection),
+            "quantity": total, "daily": predicted,
+            "backtest": {"basis": "retrospective_final_snapshot", "availability_verified": False,
+                         "horizon_days": horizon, "selection_windows": len(selection),
                          "assessment_windows": len(assessment),
-                         "mae_units": round(mean(abs(e) for e in evaluated), 3),
+                         "mae_units": float(round(mean(abs(e) for e in evaluated), 3)),
                          "rmse_units": round(sqrt(mean(e * e for e in evaluated)), 3),
-                         "naive_mae_units": round(mean(abs(e) for e in naive), 3),
+                         "naive_mae_units": float(round(mean(abs(e) for e in naive), 3)),
                          "assessment_start": days[assessment[0]].day.isoformat(),
                          "assessment_end": days[-1].day.isoformat()},
             "uncertainty": uncertainty}
@@ -139,18 +143,25 @@ def replenish(available: int, forecast_result: dict, profile: dict | None) -> di
              "safety_stock": None, "minimum_order_quantity": None, "incoming_quantity": None}
     if forecast_result["status"] != "estimated":
         return {**empty, "status": "forecast_unavailable"}
-    rate = forecast_result["quantity"] / forecast_result["horizon_days"]
-    coverage = round(available / rate, 2) if rate > 0 else None
+    quantity, horizon = forecast_result["quantity"], forecast_result["horizon_days"]
+    if type(quantity) not in (int, Fraction) or quantity < 0 or type(horizon) is not int or horizon not in (7, 30, 60, 90):
+        raise ValueError("Unrounded exact forecast required for replenishment.")
+    if type(available) is not int or not 0 <= available <= 2**63 - 1:
+        raise ValueError("Invalid available stock.")
+    rate = Fraction(quantity) / horizon
+    # Coverage is an indicative presentation metric, never an input to ordering.
+    coverage = float(round(available / rate, 2)) if rate > 0 else None
     if profile is None or any(profile.get(field) is None for field in ("lead_time_days", "safety_stock", "minimum_order_quantity", "incoming_confirmed")):
         return {**empty, "coverage_days": coverage}
     lead, safety, minimum, incoming = (profile[field] for field in ("lead_time_days", "safety_stock", "minimum_order_quantity", "incoming_confirmed"))
-    if any(type(value) is not int or value < 0 for value in (available, lead, safety, minimum, incoming)) or lead > 90 or minimum < 1:
+    if any(type(value) is not int or not 0 <= value <= 10**9 for value in (lead, safety, minimum, incoming)) or lead > 90 or minimum < 1:
         raise ValueError("Invalid supply parameters.")
     # Only confirmed receipts due within the stated lead time belong in incoming.
     point = ceil(rate * lead + safety)
-    target = ceil(rate * max(lead, forecast_result["horizon_days"]) + safety)
-    need = max(0, target - available - incoming)
-    return {"status": "recommendation", "suggested_quantity": max(minimum, need) if need else 0,
+    need = rate * max(lead, horizon) + safety - available - incoming
+    # The supplier minimum applies only to a strictly positive exact need.
+    # A purchase is in whole units: ceiling is the explicit final business step.
+    return {"status": "recommendation", "suggested_quantity": max(minimum, ceil(need)) if need > 0 else 0,
             "coverage_days": coverage, "reorder_point": point, "lead_time_days": lead,
             "safety_stock": safety, "minimum_order_quantity": minimum, "incoming_quantity": incoming}
 

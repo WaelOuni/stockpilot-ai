@@ -83,7 +83,8 @@ def test_calendar_gaps_keep_missing_coverage_instead_of_filling_sales():
     service, _, context, _ = setup(days=days[:30] + days[31:])
     result = service.dashboard(object(), context, IntelligenceQuery())
     assert len(result["page_series"]) == 90
-    assert result["page_series"][30]["observed_products"] == 0
+    assert result["page_series"][30]["datasets"][0]["complete_products"] == 0
+    assert result["page_series"][30]["datasets"][0]["sold"] is None
     assert result["items"][0]["period_sales_units"] is None
 
 

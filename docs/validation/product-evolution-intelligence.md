@@ -47,8 +47,8 @@ Jour UTC ISO, une ligne par produit/jour, y compris les jours complets sans vent
 
 Quantités journalières bornées à 10^9, ajustements à ±10^9. Dates invalides,
 trous, doublons ou derniers jours manquants ne sont pas complétés par des ventes
-nulles. Les journées manquantes d'une série affichée portent
-`observed_products=0` ; les graphiques doivent laisser un trou.
+nulles. Les séries affichées sont séparées par provenance (contrat ci-dessous) ;
+un agrégat incomplet reste `null`, jamais une vente nulle.
 
 `b2b_analytics_profiles` : unicité `(organization_id, product_id)` ; devise et
 références sources obligatoires. Champs facultatifs : `unit_cost_minor` entier
@@ -91,6 +91,35 @@ les produits de la page. Le frontend doit afficher cette distinction. Les
 références sources visibles sont bornées à 20 par produit, leur nombre complet
 est fourni. Les montants et stocks potentiellement grands voyagent en chaînes.
 
+### Contrat de provenance corrigé — 24 novembre 2026
+
+`page_series` contient des jours `{date, datasets}`. Chaque groupe de `datasets`
+porte `dataset` (`observed` ou `DEMO_SYNTHETIC`), `expected_products`,
+`complete_products` et les sept mouvements distincts. Le périmètre attendu est
+l'ensemble des produits de la page ayant au moins un fait de cette provenance
+pendant la période. Un produit peut appartenir aux deux périmètres, mais **aucun
+groupe ne mélange les provenances**. Un produit sans historique n'est pas une
+observation nulle et n'appartient à aucun de ces périmètres.
+
+Chaque mouvement est un entier seulement si tous les produits de ce périmètre
+ont un jour complet ; sinon les sept valeurs sont `null`. Le compte de complétude
+reste visible. Une série existante conserve tous les jours de la période ; sans
+aucun historique, `page_series=[]`. La clé ancienne `observed_products`, qui
+comptait également les données DEMO, n'est plus utilisée. Les prévisions par
+produit continuent de refuser tout historique de provenances mélangées.
+Le frontend doit nommer la provenance de chaque courbe, ligne et export.
+
+Les stocks/prix/coûts unitaires sont des chaînes d'entiers int64 positifs ; le
+coût total d'un produit peut atteindre `(2^63−1)^2`. La valorisation par devise
+est exacte jusqu'à `10^30`, puis `null`. Les mouvements restent bornés à `10^9`
+par produit/jour, donc les sommes de la page (20 produits) et de période (365
+jours) restent dans la plage entière sûre JavaScript. Les quantités de prévision
+affichées sont arrondies à trois décimales ; ce sont des estimations, jamais
+l'entrée du calcul de commande. La couverture en jours et sa moyenne sont des
+ratios indicatifs en nombres JSON, arrondis à deux décimales. Ils peuvent dépasser
+la précision utile du navigateur : afficher alors « hors plage de visualisation »
+pour cette métrique, en conservant les entiers exacts et les autres résultats.
+
 ## Formules et limites des indicateurs
 
 - Disponible = physique − réservé pour un produit actif, zéro si inactif.
@@ -127,6 +156,23 @@ jours d'entraînement, porté à 84 quand assez de données permettent les cycle
 hebdomadaires. Les dates futures sont exclues avant tout calcul. L'erreur est
 mesurée sur les totaux par horizon, pas une précision quotidienne revendiquée.
 
+**Limite de disponibilité historique, explicitée le 24 novembre 2026 :** `day`
+est la date de l'événement ; `as_of` borne les dates d'événements simulées. Le
+modèle ne stocke ni date de disponibilité, ni versions successives des faits.
+Une correction connue aujourd'hui peut donc modifier les erreurs d'une origine
+passée. La coupure par date protège des événements futurs, pas des révisions ou
+imports tardifs. Le contrat `backtest` indique obligatoirement
+`basis="retrospective_final_snapshot"`, `availability_verified=false`. MAE, RMSE,
+sélection de modèle et plage d'erreur sont des comparaisons rétrospectives de
+l'instantané actuel ; aucune performance commerciale passée strictement sans
+fuite n'est revendiquée. L'UI expose cette limite à côté des chiffres.
+
+Une validation stricte future nécessite une preuve de première disponibilité et
+un historique immuable des révisions, puis une reconstruction des faits connus
+à chaque origine. Ajouter seulement un timestamp à la dernière version ne suffit
+pas. Aucune date ancienne n'est inventée, aucun schéma supplémentaire n'est créé
+pour donner une fausse garantie. La migration 0007 reste inchangée.
+
 Exécution synthétique `tmp/forecast-backtesting.json` (aucune mesure commerciale) :
 
 | Série DEMO | Horizon | Modèle retenu | MAE / naïve, unités | Fenêtres d'évaluation |
@@ -152,9 +198,15 @@ Fondements : [méthodes simples et validation temporelle, FPP3](https://otexts.c
 
 ## Réapprovisionnement et simulations commerciales
 
-Taux = prévision cumulée/horizon. Point = plafond(taux × délai + sécurité).
-Cible = plafond(taux × max(délai,horizon) + sécurité). Besoin = max(0, cible −
-disponible − entrées confirmées). Si besoin>0 : max(minimum fournisseur, besoin).
+Taux = prévision cumulée **non arrondie** / horizon. Prédicteurs, sélection et
+besoin utilisent des fractions rationnelles exactes, y compris alpha=1/5,
+alpha=1/10 et la correction SBA=19/20. Point = plafond(taux × délai + sécurité).
+Besoin exact = taux × max(délai,horizon) + sécurité − disponible − entrées
+confirmées. Si besoin exact>0 : max(minimum fournisseur, plafond(besoin exact)) ;
+sinon zéro. Le plafond convertit en unités d'achat au dernier moment métier.
+L'arrondi de présentation API ne peut pas être réinjecté dans `replenish`.
+Le cas 29 unités prévues / horizon 7 / disponible 29 / minimum 20 produit zéro,
+sans epsilon. Un besoin strictement positif, même inférieur à 0,001, reste positif.
 Le taux moyen est une hypothèse sur ce délai, pas une garantie de demande.
 Tous les paramètres requis doivent être connus ; produit inactif : aucune
 recommandation chiffrée d'achat. Aucun achat, mouvement ou ORDER déclenché.

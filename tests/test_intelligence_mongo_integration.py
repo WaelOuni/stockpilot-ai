@@ -140,6 +140,41 @@ def test_extreme_valuation_never_exposes_rounded_decimal128_as_exact(http):
     assert data["items"][0]["quantity"] == str(2**63 - 1)
 
 
+def test_large_stock_coverage_and_signed_margins_remain_valid_api_data(http):
+    product, _ = seed(http)
+    http.db.b2b_products.update_one({"_id": product["_id"]}, {"$set": {"quantity": 2**63 - 1, "price_minor": 1}})
+    http.db.b2b_analytics_profiles.update_one({"product_id": str(product["_id"])}, {"$set": {"unit_cost_minor": 2**63 - 1}})
+    response = http.browser("a2").get("/b2b/api/intelligence?horizon_days=7")
+    assert response.status_code == 200
+    data = response.json()
+    item = data["items"][0]
+    assert item["available"] == str(2**63 - 1)
+    assert item["stock_cost_minor"] == str((2**63 - 1)**2)
+    assert item["replenishment"]["coverage_days"] > 2**53
+    assert item["replenishment"]["suggested_quantity"] == 0
+    assert item["promotion_scenarios"][0]["unit_margin_minor"] == str(1 - (2**63 - 1))
+    Path("tmp").mkdir(exist_ok=True)
+    Path("tmp/intelligence-large-api-sample.json").write_text(json.dumps(data, indent=2))
+
+
+def test_mixed_provenance_is_separated_in_the_real_http_contract(http):
+    product, rows = seed(http)
+    http.db.b2b_demand_days.update_one({"_id": rows[-1]["_id"]}, {"$set": {"dataset": "observed", "sold": 7}})
+    response = http.browser("a2").get("/b2b/api/intelligence?horizon_days=7")
+    assert response.status_code == 200
+    data = response.json()
+    item = data["items"][0]
+    assert item["product_id"] == str(product["_id"])
+    assert item["forecast"]["status"] == "mixed_dataset"
+    assert item["replenishment"]["suggested_quantity"] is None
+    buckets = {row["dataset"]: row for row in data["page_series"][-1]["datasets"]}
+    assert buckets["observed"]["sold"] == 7
+    assert buckets["DEMO_SYNTHETIC"]["sold"] is None
+    assert buckets["observed"]["reserved"] == 50
+    Path("tmp").mkdir(exist_ok=True)
+    Path("tmp/intelligence-mixed-api-sample.json").write_text(json.dumps(data, indent=2))
+
+
 def test_schema_seven_upgrade_preserves_complete_six_snapshot(db):
     from test_tenant_catalogue_mongo_integration import document
     MigrationRunner(db, registry()[:6]).apply(confirmation=db.name)
