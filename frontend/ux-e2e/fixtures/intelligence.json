@@ -1,0 +1,3946 @@
+{
+  "organization_id": "org-a",
+  "refreshed_at": "2026-11-24T07:39:51.961472+00:00",
+  "period_start": "2026-08-26",
+  "period_end_exclusive": "2026-11-24",
+  "horizon_days": 7,
+  "low_stock_threshold": 5,
+  "summary": {
+    "products": 21,
+    "quantity": "819",
+    "reserved": "0",
+    "available": "819",
+    "out_of_stock": 0,
+    "low_stock": 5,
+    "retail_value_by_currency": [
+      {
+        "currency": "EUR",
+        "amount_minor": "4013100"
+      }
+    ],
+    "valuation_basis": "current_list_price_not_purchase_cost",
+    "source": "b2b_products",
+    "scope": "all_filtered_products",
+    "status": "active"
+  },
+  "items": [
+    {
+      "product_id": "6b053f47d043b235f55ccdb1",
+      "sku": "DEMO-00",
+      "name": "DEMO \u2014 Perceuse atelier 1",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "2",
+      "reserved": "0",
+      "available": "2",
+      "period_sales_units": 180,
+      "period_returns_units": 3,
+      "mean_daily_sales": 2.0,
+      "sales_to_current_stock_ratio": 90.0,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 14.0,
+        "daily": [
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 0.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 14.0,
+          "upper": 14.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 1.0,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "low_stock_threshold",
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55ccf1f",
+      "sku": "DEMO-01",
+      "name": "DEMO \u2014 Perceuse atelier 2",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "28",
+      "reserved": "0",
+      "available": "28",
+      "period_sales_units": 1005,
+      "period_returns_units": 3,
+      "mean_daily_sales": 11.167,
+      "sales_to_current_stock_ratio": 35.893,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 91.0,
+        "daily": [
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 1.286,
+          "rmse_units": 2.591,
+          "naive_mae_units": 1.286,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 84.0,
+          "upper": 98.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 2.15,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cd08d",
+      "sku": "DEMO-02",
+      "name": "DEMO \u2014 Perceuse atelier 3",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "31",
+      "reserved": "0",
+      "available": "31",
+      "period_sales_units": 72,
+      "period_returns_units": 1,
+      "mean_daily_sales": 0.8,
+      "sales_to_current_stock_ratio": 2.323,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "croston_sba",
+        "quantity": 5.43,
+        "daily": [
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 3.339,
+          "rmse_units": 3.611,
+          "naive_mae_units": 13.714,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 0.0,
+          "upper": 11.013,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 39.96,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cd1fb",
+      "sku": "DEMO-03",
+      "name": "DEMO \u2014 Perceuse atelier 4",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "34",
+      "reserved": "0",
+      "available": "34",
+      "period_sales_units": 779,
+      "period_returns_units": 3,
+      "mean_daily_sales": 8.656,
+      "sales_to_current_stock_ratio": 22.912,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "mean28",
+        "quantity": 60.0,
+        "daily": [
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 53.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 60.0,
+          "upper": 60.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 3.97,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cd369",
+      "sku": "DEMO-04",
+      "name": "DEMO \u2014 Perceuse atelier 5",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "37",
+      "reserved": "0",
+      "available": "37",
+      "period_sales_units": 0,
+      "period_returns_units": 0,
+      "mean_daily_sales": 0.0,
+      "sales_to_current_stock_ratio": 0.0,
+      "dormant": true,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 0.0,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 0.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 0.0,
+          "upper": 0.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": null,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "no_observed_sales_in_period",
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cd4d7",
+      "sku": "DEMO-05",
+      "name": "DEMO \u2014 Perceuse atelier 6",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "2",
+      "reserved": "0",
+      "available": "2",
+      "period_sales_units": 270,
+      "period_returns_units": 3,
+      "mean_daily_sales": 3.0,
+      "sales_to_current_stock_ratio": 135.0,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "stockout_censored",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": null,
+        "quantity": null,
+        "daily": [],
+        "backtest": null,
+        "uncertainty": null
+      },
+      "replenishment": {
+        "status": "forecast_unavailable",
+        "suggested_quantity": null,
+        "coverage_days": null,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "low_stock_threshold",
+        "administrative_movements_to_review",
+        "stockout_censored"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cd645",
+      "sku": "DEMO-06",
+      "name": "DEMO \u2014 Perceuse atelier 7",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "43",
+      "reserved": "0",
+      "available": "43",
+      "period_sales_units": 180,
+      "period_returns_units": 3,
+      "mean_daily_sales": 2.0,
+      "sales_to_current_stock_ratio": 4.186,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 14.0,
+        "daily": [
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 0.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 14.0,
+          "upper": 14.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 21.5,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cd7b3",
+      "sku": "DEMO-07",
+      "name": "DEMO \u2014 Perceuse atelier 8",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "46",
+      "reserved": "0",
+      "available": "46",
+      "period_sales_units": 1005,
+      "period_returns_units": 3,
+      "mean_daily_sales": 11.167,
+      "sales_to_current_stock_ratio": 21.848,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 91.0,
+        "daily": [
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 1.286,
+          "rmse_units": 2.591,
+          "naive_mae_units": 1.286,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 84.0,
+          "upper": 98.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 3.54,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cd921",
+      "sku": "DEMO-08",
+      "name": "DEMO \u2014 Perceuse atelier 9",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "49",
+      "reserved": "0",
+      "available": "49",
+      "period_sales_units": 72,
+      "period_returns_units": 1,
+      "mean_daily_sales": 0.8,
+      "sales_to_current_stock_ratio": 1.469,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "croston_sba",
+        "quantity": 5.43,
+        "daily": [
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 3.339,
+          "rmse_units": 3.611,
+          "naive_mae_units": 13.714,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 0.0,
+          "upper": 11.013,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 63.17,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cda8f",
+      "sku": "DEMO-09",
+      "name": "DEMO \u2014 Perceuse atelier 10",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "52",
+      "reserved": "0",
+      "available": "52",
+      "period_sales_units": 779,
+      "period_returns_units": 3,
+      "mean_daily_sales": 8.656,
+      "sales_to_current_stock_ratio": 14.981,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "mean28",
+        "quantity": 60.0,
+        "daily": [
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 53.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 60.0,
+          "upper": 60.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 6.07,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cdbfd",
+      "sku": "DEMO-10",
+      "name": "DEMO \u2014 Perceuse atelier 11",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "2",
+      "reserved": "0",
+      "available": "2",
+      "period_sales_units": 0,
+      "period_returns_units": 0,
+      "mean_daily_sales": 0.0,
+      "sales_to_current_stock_ratio": 0.0,
+      "dormant": true,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 0.0,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 0.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 0.0,
+          "upper": 0.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": null,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "low_stock_threshold",
+        "no_observed_sales_in_period",
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cdd6b",
+      "sku": "DEMO-11",
+      "name": "DEMO \u2014 Perceuse atelier 12",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "58",
+      "reserved": "0",
+      "available": "58",
+      "period_sales_units": 270,
+      "period_returns_units": 3,
+      "mean_daily_sales": 3.0,
+      "sales_to_current_stock_ratio": 4.655,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "stockout_censored",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": null,
+        "quantity": null,
+        "daily": [],
+        "backtest": null,
+        "uncertainty": null
+      },
+      "replenishment": {
+        "status": "forecast_unavailable",
+        "suggested_quantity": null,
+        "coverage_days": null,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review",
+        "stockout_censored"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55cded9",
+      "sku": "DEMO-12",
+      "name": "DEMO \u2014 Perceuse atelier 13",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "61",
+      "reserved": "0",
+      "available": "61",
+      "period_sales_units": 180,
+      "period_returns_units": 3,
+      "mean_daily_sales": 2.0,
+      "sales_to_current_stock_ratio": 2.951,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 14.0,
+        "daily": [
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 0.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 14.0,
+          "upper": 14.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 30.5,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55ce047",
+      "sku": "DEMO-13",
+      "name": "DEMO \u2014 Perceuse atelier 14",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "64",
+      "reserved": "0",
+      "available": "64",
+      "period_sales_units": 1005,
+      "period_returns_units": 3,
+      "mean_daily_sales": 11.167,
+      "sales_to_current_stock_ratio": 15.703,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 91.0,
+        "daily": [
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0,
+          13.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 1.286,
+          "rmse_units": 2.591,
+          "naive_mae_units": 1.286,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 84.0,
+          "upper": 98.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 4.92,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55ce1b5",
+      "sku": "DEMO-14",
+      "name": "DEMO \u2014 Perceuse atelier 15",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "67",
+      "reserved": "0",
+      "available": "67",
+      "period_sales_units": 72,
+      "period_returns_units": 1,
+      "mean_daily_sales": 0.8,
+      "sales_to_current_stock_ratio": 1.075,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "croston_sba",
+        "quantity": 5.43,
+        "daily": [
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776,
+          0.776
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 3.339,
+          "rmse_units": 3.611,
+          "naive_mae_units": 13.714,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 0.0,
+          "upper": 11.013,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 86.37,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55ce323",
+      "sku": "DEMO-15",
+      "name": "DEMO \u2014 Perceuse atelier 16",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "2",
+      "reserved": "0",
+      "available": "2",
+      "period_sales_units": 779,
+      "period_returns_units": 3,
+      "mean_daily_sales": 8.656,
+      "sales_to_current_stock_ratio": 389.5,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "mean28",
+        "quantity": 60.0,
+        "daily": [
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571,
+          8.571
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 53.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 60.0,
+          "upper": 60.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 0.23,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "low_stock_threshold",
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55ce491",
+      "sku": "DEMO-16",
+      "name": "DEMO \u2014 Perceuse atelier 17",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "73",
+      "reserved": "0",
+      "available": "73",
+      "period_sales_units": 0,
+      "period_returns_units": 0,
+      "mean_daily_sales": 0.0,
+      "sales_to_current_stock_ratio": 0.0,
+      "dormant": true,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 0.0,
+        "daily": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 0.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 0.0,
+          "upper": 0.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": null,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "no_observed_sales_in_period",
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55ce5ff",
+      "sku": "DEMO-17",
+      "name": "DEMO \u2014 Perceuse atelier 18",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "76",
+      "reserved": "0",
+      "available": "76",
+      "period_sales_units": 270,
+      "period_returns_units": 3,
+      "mean_daily_sales": 3.0,
+      "sales_to_current_stock_ratio": 3.553,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "stockout_censored",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": null,
+        "quantity": null,
+        "daily": [],
+        "backtest": null,
+        "uncertainty": null
+      },
+      "replenishment": {
+        "status": "forecast_unavailable",
+        "suggested_quantity": null,
+        "coverage_days": null,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review",
+        "stockout_censored"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55ce76d",
+      "sku": "DEMO-18",
+      "name": "DEMO \u2014 Perceuse atelier 19",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "79",
+      "reserved": "0",
+      "available": "79",
+      "period_sales_units": 180,
+      "period_returns_units": 3,
+      "mean_daily_sales": 2.0,
+      "sales_to_current_stock_ratio": 2.278,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 14.0,
+        "daily": [
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 0.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 14.0,
+          "upper": 14.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "missing_supply_parameters",
+        "suggested_quantity": null,
+        "coverage_days": 39.5,
+        "reorder_point": null,
+        "lead_time_days": null,
+        "safety_stock": null,
+        "minimum_order_quantity": null,
+        "incoming_quantity": null
+      },
+      "unit_cost_minor": null,
+      "supplier": null,
+      "supply_parameters": null,
+      "stock_cost_minor": null,
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": null,
+          "baseline_unit_margin_minor": null,
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "administrative_movements_to_review"
+      ]
+    },
+    {
+      "product_id": "6b053f47d043b235f55ccc3b",
+      "sku": "DRILL-001",
+      "name": "Synthetic tool",
+      "category": "drill",
+      "status": "active",
+      "price_minor": "4900",
+      "currency": "EUR",
+      "quantity": "10",
+      "reserved": "0",
+      "available": "10",
+      "period_sales_units": 180,
+      "period_returns_units": 90,
+      "mean_daily_sales": 2.0,
+      "sales_to_current_stock_ratio": 18.0,
+      "dormant": false,
+      "period_complete": true,
+      "history_days": 365,
+      "source_references": [
+        "DEMO-ledger-275",
+        "DEMO-ledger-276",
+        "DEMO-ledger-277",
+        "DEMO-ledger-278",
+        "DEMO-ledger-279",
+        "DEMO-ledger-280",
+        "DEMO-ledger-281",
+        "DEMO-ledger-282",
+        "DEMO-ledger-283",
+        "DEMO-ledger-284",
+        "DEMO-ledger-285",
+        "DEMO-ledger-286",
+        "DEMO-ledger-287",
+        "DEMO-ledger-288",
+        "DEMO-ledger-289",
+        "DEMO-ledger-290",
+        "DEMO-ledger-291",
+        "DEMO-ledger-292",
+        "DEMO-ledger-293",
+        "DEMO-ledger-294"
+      ],
+      "source_reference_count": 90,
+      "dataset": "DEMO_SYNTHETIC",
+      "forecast": {
+        "status": "estimated",
+        "horizon_days": 7,
+        "observations": 365,
+        "method": "naive",
+        "quantity": 14.0,
+        "daily": [
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0,
+          2.0
+        ],
+        "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
+          "horizon_days": 7,
+          "selection_windows": 26,
+          "assessment_windows": 14,
+          "mae_units": 0.0,
+          "rmse_units": 0.0,
+          "naive_mae_units": 0.0,
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
+        },
+        "uncertainty": {
+          "kind": "historical_error_range",
+          "lower": 14.0,
+          "upper": 14.0,
+          "assessment_windows": 14,
+          "probability": null
+        }
+      },
+      "replenishment": {
+        "status": "recommendation",
+        "suggested_quantity": 20,
+        "coverage_days": 5.0,
+        "reorder_point": 19,
+        "lead_time_days": 7,
+        "safety_stock": 5,
+        "minimum_order_quantity": 20,
+        "incoming_quantity": 0
+      },
+      "unit_cost_minor": "3000",
+      "supplier": "DEMO supplier",
+      "supply_parameters": {
+        "lead_time_days": 7,
+        "safety_stock": 5,
+        "minimum_order_quantity": 20,
+        "incoming_confirmed": 0,
+        "incoming_as_of": "2026-11-24",
+        "source_references": [
+          "DEMO-supply-confirmation"
+        ]
+      },
+      "stock_cost_minor": "30000",
+      "promotion_scenarios": [
+        {
+          "discount_bps": 500,
+          "price_minor": "4655",
+          "unit_margin_minor": "1655",
+          "baseline_unit_margin_minor": "1900",
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1000,
+          "price_minor": "4410",
+          "unit_margin_minor": "1410",
+          "baseline_unit_margin_minor": "1900",
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        },
+        {
+          "discount_bps": 1500,
+          "price_minor": "4165",
+          "unit_margin_minor": "1165",
+          "baseline_unit_margin_minor": "1900",
+          "demand_uplift": null,
+          "profitability": "not_estimated"
+        }
+      ],
+      "reasons": [
+        "replenishment_estimate"
+      ]
+    }
+  ],
+  "total": 21,
+  "limit": 20,
+  "offset": 0,
+  "has_more": true,
+  "page_summary": {
+    "products": 20,
+    "dormant_products": 3,
+    "forecastable_products": 17,
+    "mean_coverage_days": 21.99
+  },
+  "page_series": [
+    {
+      "date": "2026-08-26",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-08-27",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-08-28",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-08-29",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 109,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-08-30",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 139,
+          "returned": 14,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-08-31",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 76,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 94,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-01",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-02",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-03",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-04",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-05",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 109,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-06",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 139,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-07",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-08",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-09",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-10",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 79,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 97,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-11",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-12",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 109,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-13",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 139,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-14",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-15",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-16",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-17",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-18",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-19",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 109,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-20",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 166,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 103,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-21",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-22",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-23",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-24",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-25",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 64,
+          "returned": 1,
+          "received": 20,
+          "adjusted": -19,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-26",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 112,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-27",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 142,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-28",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-29",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-09-30",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 82,
+          "returned": 17,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 97,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-01",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-02",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 64,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-03",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 112,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-04",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 142,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-05",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-06",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-07",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-08",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-09",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 64,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-10",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 136,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 103,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-11",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 142,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-12",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-13",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-14",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-15",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-16",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 64,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-17",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 112,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-18",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 142,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-19",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-20",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 82,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 94,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-21",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-22",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-23",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 67,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-24",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 115,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-25",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 145,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-26",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-27",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-28",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-29",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-30",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 91,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 103,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-10-31",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 115,
+          "returned": 14,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-01",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 145,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-02",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-03",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-04",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-05",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-06",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 67,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-07",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 115,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-08",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 145,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-09",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 82,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 94,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-10",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-11",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-12",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-13",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 67,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-14",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 115,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-15",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 145,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-16",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-17",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-18",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-19",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 88,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 97,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-20",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 70,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-21",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 118,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-22",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 148,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-23",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "reservations_are_not_sales",
+    "movement_sign_is_not_commercial_semantics",
+    "no_average_stock_history_for_turnover",
+    "no_lot_age_or_annual_seasonality",
+    "promotion_demand_and_profitability_not_estimated",
+    "page_series_not_organization_total",
+    "series_separated_by_dataset",
+    "historical_availability_not_recorded"
+  ],
+  "explanation_mode": "deterministic",
+  "automatic_actions": false
+}

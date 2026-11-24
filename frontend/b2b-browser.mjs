@@ -135,6 +135,10 @@ try {
   await expect(page.locator('.workspace-organization').getByText('Synthetic test company', { exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Perceuse A', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Perceuse B', exact: true })).toHaveCount(0)
+  if (process.env.B2B_TEST_INTELLIGENCE === '1') {
+    const { verifyIntelligence } = await import('./intelligence-browser.mjs')
+    await verifyIntelligence(page, context, origin, check)
+  }
   const cookies = await context.cookies(origin)
   const sessionCookie = cookies.find(c => c.name === '__Host-stockpilot_bff')
   expect(sessionCookie).toMatchObject({ secure: true, httpOnly: true, sameSite: 'Lax', path: '/' })

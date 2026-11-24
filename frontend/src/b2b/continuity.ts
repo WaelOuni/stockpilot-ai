@@ -24,7 +24,7 @@ function write(key: string, value: Reference | null) {
   } catch { /* In-memory navigation remains usable without browser storage. */ }
 }
 function safePath(path: string) {
-  return /^\/b2b-app\/(?:orders|stock|assistant(?:\/[A-Za-z0-9_-]{1,128})?)?$/.test(path)
+  return /^\/b2b-app\/(?:orders|stock|intelligence|assistant(?:\/[A-Za-z0-9_-]{1,128})?)?$/.test(path)
 }
 export function createContinuity() {
   const active = ref('')
