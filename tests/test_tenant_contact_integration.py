@@ -153,7 +153,7 @@ def test_upgrade0005_to0006_contact_is_additive_repeatable_and_non_destructive(d
     options = {name: db[name].options() for name in names}
     indexes = {name: list(db[name].list_indexes()) for name in names}
     history = list(db.stockpilot_schema_migrations.find().sort("_id", 1))
-    runner = MigrationRunner(db)
+    runner = MigrationRunner(db, registry()[:6])
     assert [m.version for m in runner.plan()] == [6]
     runner.apply(confirmation=db.name)
     runner.require_version(6)

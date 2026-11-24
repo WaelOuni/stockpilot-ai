@@ -2,6 +2,7 @@ from enum import StrEnum
 
 
 class Permission(StrEnum):
+    ANALYTICS_READ = "analytics:read"
     RAG_READ = "rag:read"
     RAG_MANAGE = "rag:manage"
     CONVERSATION_OWN = "conversation:own"

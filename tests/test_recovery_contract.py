@@ -188,7 +188,16 @@ def test_bson_keeps_numeric_types():
 
 def test_migration_checksum_constants_equal_immutable_registry():
     from stockpilot.infrastructure.persistence.mongodb.schema_migrations import registry
-    assert tuple(m.checksum for m in registry()) == c.CHECKSUMS
+    # This immutable recovery format qualifies schemas 4/6, never later schemas.
+    assert len(c.CHECKSUMS) == 6
+    assert tuple(m.checksum for m in registry()[:6]) == c.CHECKSUMS
+
+
+def test_schema_seven_is_not_silently_approved_by_schema_six_recovery():
+    facts = capture()
+    facts["schema"]["version"] = 7
+    with pytest.raises(c.ContractError):
+        c.compare_capture(facts, facts)
 
 
 def test_lock_refuses_concurrent_holder_and_never_steals(tmp_path):
