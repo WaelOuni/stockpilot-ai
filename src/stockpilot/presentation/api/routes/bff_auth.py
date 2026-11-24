@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from stockpilot.application.ports.bff_security import BffUnauthenticated, BffUnavailable
-from stockpilot.application.services.bff_sessions import BffForbidden
+from stockpilot.application.services.bff_sessions import BffForbidden, BffLoginDenied
 
 SESSION_COOKIE = "__Host-stockpilot_bff"
 TRANSACTION_COOKIE = "__Host-stockpilot_oidc"
@@ -129,14 +129,26 @@ async def callback(request: Request):
             TRANSACTION_COOKIE, secure=True, httponly=True, samesite="lax", path="/"
         )
         return response
-    token = await auth_worker(
-        request,
-        service(request).complete,
-        query["state"],
-        cookie(request, TRANSACTION_COOKIE),
-        query.get("code"),
-        "error" in query,
-    )
+    try:
+        token = await auth_worker(
+            request,
+            service(request).complete,
+            query["state"],
+            cookie(request, TRANSACTION_COOKIE),
+            query.get("code"),
+            "error" in query,
+        )
+    except BffLoginDenied:
+        if request.app.state.bff_settings.mode != "b2b_business_test":
+            raise
+        # Only a verified, consumed login refusal gets this fixed UI destination.
+        # Never include identity, organization, provider text or a supplied URL.
+        response = RedirectResponse("/b2b-app/?login=denied", status_code=303)
+        for name in (SESSION_COOKIE, TRANSACTION_COOKIE):
+            response.delete_cookie(
+                name, secure=True, httponly=True, samesite="lax", path="/"
+            )
+        return response
     response = RedirectResponse(
         "/b2b-app/"
         if request.app.state.bff_settings.mode == "b2b_business_test"
