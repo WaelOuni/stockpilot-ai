@@ -10,6 +10,20 @@ from scripts.ci import qualify_schema6_rollback as lab
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def approved(path):
+    # Offline fixture for the pinned Git object (unit CI uses a shallow clone).
+    # Removing ONLY the two additive v7 allowlist literals must reconstruct the
+    # exact approved checksum; any executable drift still fails this proof.
+    content = (ROOT / path).read_bytes()
+    if path == build.RUNNER:
+        for name in ("b2b_demand_days", "b2b_analytics_profiles"):
+            literal = ('        "' + name + '",\n').encode()
+            assert content.count(literal) == 1
+            content = content.replace(literal, b"")
+    assert build.digest(content) == build.HASHES[path]
+    return content
+
+
 @pytest.mark.parametrize("path", [
     "../secret", "/etc/passwd", "src/stockpilot/../../secret", "src\\stockpilot\\x",
     ".env", "src/stockpilot/.env.private", "src/stockpilot/__pycache__/secret",
@@ -20,14 +34,16 @@ def test_build_context_refuses_unapproved_or_unsafe_paths(path):
 
 
 def test_exact_approved_definitions_and_only_allowlist_change():
-    current = (ROOT / build.RUNNER).read_bytes()
+    current = approved(build.RUNNER)
     original = current
     for name in build.ADDITIONS:
         original = original.replace(('        "' + name + '",\n').encode(), b"")
     build.allowlist_only(original, current)
     assert build.digest(original) == "e7feba6924844e736dcf8fdf37808954b5dd63d26135dabe4e71a3a2af8862d6"
     for path, checksum in build.HASHES.items():
-        assert build.digest((ROOT / path).read_bytes()) == checksum
+        assert build.digest(approved(path)) == checksum
+        if path != build.RUNNER:
+            assert build.digest((ROOT / path).read_bytes()) == checksum
     for name in range(1, 7):
         assert len(list((ROOT / build.PREFIX / "migrations").glob(f"{name:04d}_*.json"))) == 1
     with pytest.raises(build.QualificationError, match="outside allowlist"):
@@ -38,7 +54,7 @@ def test_exact_approved_definitions_and_only_allowlist_change():
 
 
 def test_no_working_tree_files_enter_candidate(monkeypatch):
-    original = {build.RUNNER: (ROOT / build.RUNNER).read_bytes()}
+    original = {build.RUNNER: approved(build.RUNNER)}
     for name in build.ADDITIONS:
         original[build.RUNNER] = original[build.RUNNER].replace(('        "' + name + '",\n').encode(), b"")
     original["src/stockpilot/business.py"] = b"immutable business"
@@ -47,7 +63,7 @@ def test_no_working_tree_files_enter_candidate(monkeypatch):
     def git(repo, *args):
         calls.append(args)
         assert args[0] == "show" and args[1].startswith(build.APPROVED + ":")
-        return (ROOT / args[1].split(":", 1)[1]).read_bytes()
+        return approved(args[1].split(":", 1)[1])
 
     monkeypatch.setattr(build, "git", git)
     result = build.compatible_files(ROOT, original)

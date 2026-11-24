@@ -81,6 +81,7 @@ class TenantAssistantCatalogue:
             r"affiche seulement des alternatives disponibles|"
             r"pourquoi recommandes-tu ce produit|"
             r"qu'est-ce qui est mieux, une visseuse ou une perceuse|"
+            r"quels sont les 5 produits les moins chers de mon catalogue(?: en [a-z]{3})?|"
             r"montre-moi les moins cheres|compare les deux premieres|et une autre moins chere",
             value,
         ))
@@ -110,6 +111,16 @@ class TenantAssistantCatalogue:
 
     async def _grounded_advice(self, request, context, question, state):
         value = normalize(question).strip().rstrip('.?!').strip()
+        cheapest = re.fullmatch(r"quels sont les 5 produits les moins chers de mon catalogue(?: en ([a-z]{3}))?", value)
+        if cheapest:
+            currency = cheapest[1].upper() if cheapest[1] else None
+            if currency is None:
+                currencies = self.catalogue.currencies(request, context)
+                if len(currencies) > 1:
+                    raise ClarificationRequired("Le catalogue contient plusieurs devises. Précisez le classement en EUR, USD ou une autre devise du catalogue ; aucune conversion n'est supposée.")
+                currency = currencies[0] if currencies else None
+            return self._query_reply(request, context, TenantProductQuery(limit=5, status='active', currency=currency, sort_by_price=True), {},
+                f"Au maximum cinq produits classés par prix croissant dans la devise {currency or 'non disponible'}, puis par SKU. Aucune conversion de devise ni réservation.")
         if value.startswith("qu'est-ce qui est mieux"):
             return {'intent': 'PRODUCT_ADVICE', 'products': [], 'total': 0,
                     'text': "Le choix dépend de votre usage. Le catalogue ne permet pas d'établir qu'une visseuse ou une perceuse est meilleure : performances, qualité et notes clients ne sont pas renseignées. Pour des références précises, je peux comparer uniquement leur prix, leur devise et leur stock disponible vérifiés."}
@@ -191,6 +202,8 @@ class TenantAssistantCatalogue:
         question = catalogue_question(question)
         if re.fullmatch(r"(?:quels outils sont presents dans le catalogue|je veux voir les produits actifs)", normalize(question).rstrip(".!? ")):
             return AdviceCriteria()
+        if normalize(question).rstrip(".!? ") == "quels sont les 5 produits les moins chers de mon catalogue":
+            return AdviceCriteria(limit=5)
         cheapest = re.fullmatch(r"(?:quelle est la|quelles sont les) (?:(deux|trois|[1-5]) )?(perceuses?|visseuses?|scies?|ponceuses?) (?:la|les) moins cheres?", normalize(question).rstrip(".!? "))
         if cheapest:
             return extract_criteria(f"Je cherche {cheapest[1] or 'exactement une'} {cheapest[2]}", previous)
@@ -297,7 +310,8 @@ class TenantAssistantCatalogue:
             "intent": "LOW_STOCK",
             "products": cards,
             "total": total,
-            "text": f"{total} produit(s) actif(s) : {label}. "
+            "text": ("Le risque futur de rupture nécessite un historique de demande qualifié et les délais de réapprovisionnement. Aucune date de rupture n'est prédite ici ; voici uniquement le stock observé. " if criteria.future_risk else "")
+            + f"{total} produit(s) actif(s) : {label}. "
             + (
                 f"Les {len(cards)} premiers sont affichés ; résultat partiel. "
                 if total > len(cards)

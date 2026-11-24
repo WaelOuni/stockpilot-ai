@@ -22,6 +22,10 @@ def admitted(db, tmp_path, monkeypatch):
     # Test-only relocation after the existing fixture has attested a disposable
     # server and created its UUID database. The production CLI has no overrides.
     MigrationRunner(db, migrations=registry()[:4]).apply(confirmation=db.name)
+    # Exercise the historical operator with its exact approved six-file
+    # registry. Its production refusal of newer registries remains unchanged.
+    historical = registry()[:6]
+    monkeypatch.setattr("stockpilot.infrastructure.persistence.mongodb.schema_migrations.registry", lambda: historical)
     marker = tmp_path / "synthetic-installation"
     marker.write_text(op.INSTALLATION)
     cfg = db.client.admin.command("replSetGetConfig")["config"]
@@ -31,6 +35,17 @@ def admitted(db, tmp_path, monkeypatch):
     monkeypatch.setattr(op, "MEMBERS", tuple((m["_id"], m["host"]) for m in cfg["members"]))
     db.transition_probe.insert_one({"_id": "kept", "int32": 1, "int64": Int64(1), "double": 1.0})
     return db
+
+
+def test_historical_operator_refuses_new_registry_without_any_write(admitted, monkeypatch):
+    monkeypatch.setattr("stockpilot.infrastructure.persistence.mongodb.schema_migrations.registry", registry)
+    before = op.data_facts(admitted)
+    history = list(admitted[op.HISTORY].find())
+    with pytest.raises(op.TransitionRefused, match="checksums differ"):
+        op.transition(admitted)
+    assert op.data_facts(admitted) == before
+    assert list(admitted[op.HISTORY].find()) == history
+    assert admitted[op.LOCKS].count_documents({}) == 0
 
 
 def test_success_preserves_data_history_then_replay_performs_no_write(admitted):
