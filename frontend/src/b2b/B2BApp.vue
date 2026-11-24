@@ -13,6 +13,7 @@ const session = createB2BSession()
 provide(sessionKey, session)
 const { current, phase, notice, ssoLogout, expiresSoon } = session
 const organization = ref('')
+const accessDenied = ref(false)
 const organizationInput = ref<HTMLInputElement>()
 const route = useRoute()
 const router = useRouter()
@@ -22,10 +23,12 @@ onMounted(() => {
   void session.start().then(async () => {
     const destination = session.continuity.takeReturn()
     const outcome = route.query.login
-    if (route.path === '/b2b-app/' && (outcome === 'cancelled' || outcome === 'failed')) {
+    if (route.path === '/b2b-app/' && (outcome === 'cancelled' || outcome === 'failed' || outcome === 'denied')) {
       await router.replace('/b2b-app/')
       if (!current.value) {
-        notice.value = outcome === 'cancelled'
+        accessDenied.value = outcome === 'denied'
+        if (accessDenied.value) session.loginDenied()
+        notice.value = outcome === 'denied' ? '' : outcome === 'cancelled'
           ? 'Connexion annulée. Choisissez votre organisation pour recommencer.'
           : 'La connexion a échoué. Choisissez votre organisation pour réessayer.'
         await nextTick()
@@ -42,6 +45,12 @@ async function login() { await run(async () => {
   session.continuity.rememberReturn(route.path)
   location.assign(target)
 }) }
+async function chooseOrganization() {
+  accessDenied.value = false
+  organization.value = ''
+  await nextTick()
+  organizationInput.value?.focus()
+}
 async function switchAccount() {
   await run(async () => {
     await session.logout()
@@ -100,6 +109,21 @@ async function switchAccount() {
         </p>
         <h1>{{ t("Votre catalogue. Vos commandes. Votre stock.") }}</h1>
         <p>{{ t("Connectez-vous avec votre compte professionnel Keycloak.") }}</p>
+        <div
+          v-if="accessDenied"
+          class="b2b-notice"
+          role="alert"
+        >
+          <h2>{{ t('Accès à l’organisation refusé') }}</h2>
+          <p>{{ t('Ce compte n’a pas accès à l’organisation sélectionnée. Vous pouvez choisir une autre organisation ou vous connecter avec un compte autorisé.') }}</p>
+          <button
+            class="secondary"
+            :disabled="busy"
+            @click="chooseOrganization"
+          >
+            {{ t('Choisir une autre organisation') }}
+          </button>
+        </div>
         <form @submit.prevent="login">
           <label>{{ t("Code d’entreprise") }}
             <input
@@ -114,8 +138,14 @@ async function switchAccount() {
           <p class="hint">
             {{ t("Utilisez le code communiqué par votre administrateur. Le serveur vérifie votre appartenance ; ce code n’accorde aucun droit.") }}
           </p>
+          <p
+            v-if="accessDenied"
+            class="hint"
+          >
+            {{ t('Saisissez le code d’entreprise. Keycloak vous demandera de vous identifier ; son sélecteur de compte permet de changer d’identité.') }}
+          </p>
           <button :disabled="busy || !organization.trim()">
-            {{ t("Continuer avec Keycloak") }}
+            {{ t(accessDenied ? 'Se connecter avec un autre compte' : 'Continuer avec Keycloak') }}
           </button>
         </form>
         <button

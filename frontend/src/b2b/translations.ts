@@ -1,6 +1,11 @@
 // User-facing application copy only. Product descriptions and conversations are not translated.
 // Only interface copy is translated. Catalogue data and conversation text remain verbatim.
 export const english: Record<string, string> = Object.fromEntries(`
+Accès à l’organisation refusé|Organization access denied
+Ce compte n’a pas accès à l’organisation sélectionnée. Vous pouvez choisir une autre organisation ou vous connecter avec un compte autorisé.|This account cannot access the selected organization. Choose another organization or sign in with an authorized account.
+Choisir une autre organisation|Choose another organization
+Se connecter avec un autre compte|Sign in with another account
+Saisissez le code d’entreprise. Keycloak vous demandera de vous identifier ; son sélecteur de compte permet de changer d’identité.|Enter the company code. Keycloak will ask you to sign in; use its account selector to change identity.
 Sur petit écran, faites défiler le tableau pour voir les totaux des lignes.|On a small screen, scroll the table to see line totals.
 Réessayer|Retry
 Voir les détails|View details
