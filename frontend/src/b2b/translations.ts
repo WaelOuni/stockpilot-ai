@@ -6,6 +6,35 @@ Ce compte n’a pas accès à l’organisation sélectionnée. Vous pouvez chois
 Choisir une autre organisation|Choose another organization
 Se connecter avec un autre compte|Sign in with another account
 Saisissez le code d’entreprise. Keycloak vous demandera de vous identifier ; son sélecteur de compte permet de changer d’identité.|Enter the company code. Keycloak will ask you to sign in; use its account selector to change identity.
+Sur petit écran, faites défiler le tableau pour voir les totaux des lignes.|On a small screen, scroll the table to see line totals.
+Réessayer|Retry
+Voir les détails|View details
+Archiver cette commande|Archive this order
+Restaurer cette commande|Restore this order
+Organisation|Organization
+Dernière mise à jour|Last updated
+Non disponible|Unavailable
+Réservation|Reservation
+Stock réservé pour cette commande|Stock reserved for this order
+Réservation libérée|Reservation released
+Aucun stock réservé|No stock reserved
+Produits et quantités|Products and quantities
+Les SKU identifient les produits. Les noms ne sont pas conservés dans cet historique.|SKUs identify products. Product names are not stored in this history.
+Produits de la commande|Order products
+Prix unitaire|Unit price
+Total des lignes|Line total
+Calculé à partir des prix enregistrés. Taxes, livraison et remises non renseignées.|Calculated from recorded prices. Tax, delivery and discounts are not provided.
+Événements enregistrés|Recorded events
+Préparation enregistrée|Preparation recorded
+Stock réservé|Stock reserved
+Commande annulée|Order cancelled
+Seules les dates présentes dans la commande sont affichées.|Only dates recorded in the order are shown.
+Préparation valable jusqu’au|Preparation valid until
+Chargement de la commande…|Loading order…
+Impossible de charger cette commande. Réessayez la consultation.|This order could not be loaded. Retry the lookup.
+Rupture de stock disponible|No available stock
+Stock faible : 1 à 5 unités disponibles (seuil indicatif).|Low stock: 1 to 5 available units (indicative threshold).
+Disponibilité non renseignée|Availability not provided
 Consultation uniquement (aucune commande)|Read-only consultation (no orders)
 La consultation a échoué. Aucun résultat réussi n’a été enregistré.|The consultation failed. No successful result was recorded.
 Une reprise est toujours explicite et conserve le même message.|A retry is always explicit and keeps the same message.
