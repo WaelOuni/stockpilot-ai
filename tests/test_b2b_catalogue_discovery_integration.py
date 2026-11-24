@@ -91,7 +91,7 @@ def test_persisted_category(discovery, category):
         ("Quels produits ont moins de 5 unités disponibles ?", 2),
         ("Quels produits ont moins de 5 disponibles ?", 2),
         ("Montre-moi les stocks inférieurs à 5 unités.", 2),
-        ("Quels articles sont presque épuisés ?", 2),
+        ("Quels articles sont presque épuisés ?", 1),
         ("Liste les produits avec 5 unités disponibles ou moins.", 3),
         ("Montre les produits en rupture de stock.", 1),
         ("Quels produits ont moins de 0 unités disponibles ?", 0),

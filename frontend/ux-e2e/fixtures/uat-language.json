@@ -1,0 +1,237 @@
+[
+  {
+    "message": "perceuse dispo avec moins de 100 euros",
+    "reply": {
+      "intent": "PRODUCT_ADVICE",
+      "text": "2 résultat(s) trouvé(s) ; 2 fiche(s) affichée(s). Critères : catégorie : perceuses; prix < 100.0 EUR; disponible > 0. Disponibilité observée, sans réservation.",
+      "products": [
+        {
+          "product_id": "6afc5274a4c23dee59c48b5d",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-2",
+          "name": "perceuses Norex 2",
+          "price_minor": "2000",
+          "currency": "EUR",
+          "quantity": 8,
+          "reserved": 3,
+          "available": 5,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:16.206819+00:00"
+        },
+        {
+          "product_id": "6afc5274a4c23dee59c48b5e",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-3",
+          "name": "perceuses Norex 3",
+          "price_minor": "4900",
+          "currency": "EUR",
+          "quantity": 11,
+          "reserved": 3,
+          "available": 8,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:16.206819+00:00"
+        }
+      ],
+      "order": null,
+      "can_confirm": false
+    }
+  },
+  {
+    "message": "les produits qui vont s'épuiser bientôt",
+    "reply": {
+      "intent": "LOW_STOCK",
+      "text": "Le risque futur de rupture nécessite un historique de demande qualifié et les délais de réapprovisionnement. Aucune date de rupture n'est prédite ici ; voici uniquement le stock observé. 1 produit(s) actif(s) : 0 < disponible < 5 (seuil indicatif par défaut ; hors ruptures). Observation : 2026-11-17T13:11:16.958915+00:00. Consultation en lecture seule, sans réservation.",
+      "products": [
+        {
+          "product_id": "6afc5274a4c23dee59c48b88",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-1",
+          "name": "perceuses Norex 1",
+          "price_minor": "10000",
+          "currency": "EUR",
+          "quantity": 7,
+          "reserved": 3,
+          "available": 4,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:16.958915+00:00"
+        }
+      ],
+      "order": null,
+      "can_confirm": false
+    }
+  },
+  {
+    "message": "Montre-moi les produits qui sont presque en rupture de stock",
+    "reply": {
+      "intent": "LOW_STOCK",
+      "text": "1 produit(s) actif(s) : 0 < disponible < 5 (seuil indicatif par défaut ; hors ruptures). Observation : 2026-11-17T13:11:17.951325+00:00. Consultation en lecture seule, sans réservation.",
+      "products": [
+        {
+          "product_id": "6afc5275a4c23dee59c48bb4",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-1",
+          "name": "perceuses Norex 1",
+          "price_minor": "10000",
+          "currency": "EUR",
+          "quantity": 7,
+          "reserved": 3,
+          "available": 4,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:17.951325+00:00"
+        }
+      ],
+      "order": null,
+      "can_confirm": false
+    }
+  },
+  {
+    "message": "Quels sont les 5 produits les moins chers de mon catalogue ?",
+    "reply": {
+      "intent": "PRODUCT_ADVICE",
+      "text": "16 résultat(s) vérifié(s). Au maximum cinq produits classés par prix croissant dans la devise EUR, puis par SKU. Aucune conversion de devise ni réservation.",
+      "products": [
+        {
+          "product_id": "6afc5276a4c23dee59c48be1",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-2",
+          "name": "perceuses Norex 2",
+          "price_minor": "2000",
+          "currency": "EUR",
+          "quantity": 8,
+          "reserved": 3,
+          "available": 5,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:18.750594+00:00"
+        },
+        {
+          "product_id": "6afc5276a4c23dee59c48be2",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-3",
+          "name": "perceuses Norex 3",
+          "price_minor": "4900",
+          "currency": "EUR",
+          "quantity": 11,
+          "reserved": 3,
+          "available": 8,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:18.750594+00:00"
+        },
+        {
+          "product_id": "6afc5276a4c23dee59c48bdf",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-0",
+          "name": "perceuses Norex 0",
+          "price_minor": "9999",
+          "currency": "EUR",
+          "quantity": 3,
+          "reserved": 3,
+          "available": 0,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:18.750594+00:00"
+        },
+        {
+          "product_id": "6afc5276a4c23dee59c48be0",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-1",
+          "name": "perceuses Norex 1",
+          "price_minor": "10000",
+          "currency": "EUR",
+          "quantity": 7,
+          "reserved": 3,
+          "available": 4,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:18.750594+00:00"
+        },
+        {
+          "product_id": "6afc5276a4c23dee59c48be7",
+          "organization_id": "org-a",
+          "sku": "BDEMO-ponceuses-0",
+          "name": "ponceuses Norex 0",
+          "price_minor": "15000",
+          "currency": "EUR",
+          "quantity": 20,
+          "reserved": 0,
+          "available": 20,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:18.750594+00:00"
+        }
+      ],
+      "order": null,
+      "can_confirm": false
+    }
+  },
+  {
+    "message": "Est-ce que vous avez des perceuses disponibles ?",
+    "reply": {
+      "intent": "PRODUCT_ADVICE",
+      "text": "3 résultat(s) trouvé(s) ; 3 fiche(s) affichée(s). Critères : catégorie : perceuses; disponible > 0. Disponibilité observée, sans réservation.",
+      "products": [
+        {
+          "product_id": "6afc5277a4c23dee59c48c0d",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-2",
+          "name": "perceuses Norex 2",
+          "price_minor": "2000",
+          "currency": "EUR",
+          "quantity": 8,
+          "reserved": 3,
+          "available": 5,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:19.516827+00:00"
+        },
+        {
+          "product_id": "6afc5277a4c23dee59c48c0e",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-3",
+          "name": "perceuses Norex 3",
+          "price_minor": "4900",
+          "currency": "EUR",
+          "quantity": 11,
+          "reserved": 3,
+          "available": 8,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:19.516827+00:00"
+        },
+        {
+          "product_id": "6afc5277a4c23dee59c48c0c",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-1",
+          "name": "perceuses Norex 1",
+          "price_minor": "10000",
+          "currency": "EUR",
+          "quantity": 7,
+          "reserved": 3,
+          "available": 4,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:19.516827+00:00"
+        }
+      ],
+      "order": null,
+      "can_confirm": false
+    }
+  },
+  {
+    "message": "Quels produits sont complètement en rupture de stock ?",
+    "reply": {
+      "intent": "LOW_STOCK",
+      "text": "1 produit(s) actif(s) : disponible = 0. Observation : 2026-11-17T13:11:20.460317+00:00. Consultation en lecture seule, sans réservation.",
+      "products": [
+        {
+          "product_id": "6afc5278a4c23dee59c48c37",
+          "organization_id": "org-a",
+          "sku": "BDEMO-perceuses-0",
+          "name": "perceuses Norex 0",
+          "price_minor": "9999",
+          "currency": "EUR",
+          "quantity": 3,
+          "reserved": 3,
+          "available": 0,
+          "revision": 1,
+          "observed_at": "2026-11-17T13:11:20.460317+00:00"
+        }
+      ],
+      "order": null,
+      "can_confirm": false
+    }
+  }
+]

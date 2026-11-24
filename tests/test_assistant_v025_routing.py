@@ -17,7 +17,10 @@ PRICE = "je cherche une perceuse disponible avec un prix moins de 100 euros"
 def test_reported_low_stock_is_a_list_with_default_strict_threshold():
     assert is_low_stock_request(LOW)
     criteria = low_stock_criteria(LOW, ("perceuses", "scies"))
-    assert (criteria.minimum, criteria.maximum, criteria.categories) == (0, 4, ())
+    # UAT now explicitly distinguishes low positive stock from zero-stock rupture.
+    assert (criteria.minimum, criteria.maximum, criteria.categories) == (1, 4, ())
+    assert criteria.future_risk
+    assert low_stock_criteria("produits en rupture", ()).maximum == 0
 
 
 def test_reported_budget_is_a_list_with_exact_strict_eur_cap():

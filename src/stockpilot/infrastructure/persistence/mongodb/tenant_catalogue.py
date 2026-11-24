@@ -215,6 +215,22 @@ class MongoTenantCatalogue:
         except (PyMongoError, KeyError, TypeError, ValueError):
             raise TenantCatalogueUnavailable("Scoped categories unavailable.") from None
 
+    def currencies(self, request, context):
+        """Two distinct currencies suffice to refuse an ambiguous global ranking."""
+        org = self._scope(request, context, O.CATALOGUE_READ)
+        try:
+            rows = list(self.collection.aggregate([
+                {"$match": {"organization_id": org, "status": "active"}},
+                {"$group": {"_id": "$currency"}}, {"$sort": {"_id": 1}}, {"$limit": 2},
+            ], collation=Collation("simple"), maxTimeMS=2000))
+            values = tuple(row["_id"] for row in rows)
+            if any(type(value) is not str or re.fullmatch(r"[A-Z]{3}", value) is None for value in values):
+                raise ValueError("Invalid persisted currency.")
+            self._scope(request, context, O.CATALOGUE_READ)
+            return values
+        except (PyMongoError, KeyError, TypeError, ValueError):
+            raise TenantCatalogueUnavailable("Scoped currencies unavailable.") from None
+
     def suggest_skus(self, request, context, prefix, limit=10):
         org = self._scope(request, context, O.CATALOGUE_READ)
         if type(prefix) is not str or not 2 <= len(prefix) <= 128 or type(limit) is not int or not 1 <= limit <= 20:
