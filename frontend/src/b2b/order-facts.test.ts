@@ -31,6 +31,13 @@ it('only displays recorded reservation and cancellation dates and translates the
   expect(wrapper.text()).toContain('Last updatedUnavailable')
   wrapper.unmount()
 })
+it('shows no reserved stock when a prepared order was cancelled directly', () => {
+  const order = orderDecoder({ ...orderFixture, status: 'cancelled', reserved_at: null })
+  const wrapper = mount(OrderFacts, { props: { order, organization: 'Entreprise A' } })
+  expect(wrapper.text()).toContain('Aucun stock réservé')
+  expect(wrapper.text()).not.toContain('Réservation libérée')
+  wrapper.unmount()
+})
 it('rejects negative calculated totals and never invents precision for unknown currencies', () => {
   expect(() => formatMoneyTotal(-1n, 'EUR')).toThrow()
   expect(formatMoneyTotal(123n, 'ZZZ')).toContain('précision inconnue')

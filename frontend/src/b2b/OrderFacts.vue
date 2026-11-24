@@ -34,7 +34,7 @@ const status = computed(() => ({ prepared: 'Préparée — aucune réservation',
     <div><dt>{{ t('Acheteur') }}</dt><dd>{{ order.customer_id }}</dd></div>
     <div><dt>{{ t('Créée le') }}</dt><dd>{{ dateLabel(order.created_at) }}</dd></div>
     <div><dt>{{ t('Dernière mise à jour') }}</dt><dd>{{ t('Non disponible') }}</dd></div>
-    <div><dt>{{ t('Réservation') }}</dt><dd>{{ t(order.status === 'reserved' ? 'Stock réservé pour cette commande' : order.status === 'cancelled' ? 'Réservation libérée' : 'Aucun stock réservé') }}</dd></div>
+    <div><dt>{{ t('Réservation') }}</dt><dd>{{ t(order.status === 'reserved' ? 'Stock réservé pour cette commande' : order.status === 'cancelled' && order.reserved_at ? 'Réservation libérée' : 'Aucun stock réservé') }}</dd></div>
   </dl>
   <h3>{{ t('Produits et quantités') }}</h3>
   <p class="hint">
