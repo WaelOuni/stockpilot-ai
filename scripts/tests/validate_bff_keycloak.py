@@ -782,7 +782,11 @@ def main():
             assert client.get(ORIGIN + "/b2b/auth/session").status_code == 401
             passed("logout permanently invalidates application session")
         with browser() as client:
-            assert client.get(auth_code(client, "bff-unprovisioned")).status_code == 403
+            denial = client.get(auth_code(client, "bff-unprovisioned"))
+            assert denial.status_code == (303 if args.business else 403)
+            if args.business:
+                assert denial.headers["location"] == "/b2b-app/?login=denied"
+                assert client.get(ORIGIN + "/b2b/auth/session").status_code == 401
             assert db.b2b_users.count_documents({}) == 1
             passed("unknown user refused without automatic provisioning")
         if args.business:
@@ -983,7 +987,11 @@ def main():
             {"organization_id": "fixture-org"}, {"$set": {"status": "suspended"}}
         )
         with browser() as client:
-            assert client.get(auth_code(client)).status_code == 403
+            denial = client.get(auth_code(client))
+            assert denial.status_code == (303 if args.business else 403)
+            if args.business:
+                assert denial.headers["location"] == "/b2b-app/?login=denied"
+                assert client.get(ORIGIN + "/b2b/auth/session").status_code == 401
             passed("suspended organization refused")
         db.b2b_organizations.update_one(
             {"organization_id": "fixture-org"}, {"$set": {"status": "active"}}

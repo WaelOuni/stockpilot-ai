@@ -112,6 +112,13 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     })
     return providerNavigation(response.authorization_url)
   }
+  function loginDenied() {
+    // The callback revoked its previous session. Purge stale views in all tabs;
+    // the URL flag itself conveys no authority and never grants access.
+    channel?.postMessage('logout')
+    invalidate(); continuity.purge(); pending.value = []; persist()
+    ssoLogout.value = null
+  }
   async function logout() {
     const csrf = current.value?.csrf_token
     // Capture protection, then purge and abort before waiting for the network.
@@ -168,7 +175,13 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
       else await restore()
     } finally { waking = false }
   }
+  function restoredFromHistory(event: PageTransitionEvent) {
+    // BFCache can restore a suspended document that missed another tab's logout.
+    // restore() unmounts business views synchronously before checking the cookie.
+    if (event.persisted) void restore()
+  }
   function start() {
+    window.addEventListener('pageshow', restoredFromHistory)
     document.addEventListener('input', revalidateOnReturn)
     document.addEventListener('pointerdown', revalidateOnReturn)
     window.addEventListener('focus', revalidateOnReturn)
@@ -201,6 +214,7 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     timer = setInterval(tick, 1000); return restore()
   }
   function dispose() {
+    window.removeEventListener('pageshow', restoredFromHistory)
     document.removeEventListener('input', revalidateOnReturn)
     document.removeEventListener('pointerdown', revalidateOnReturn)
     window.removeEventListener('focus', revalidateOnReturn)
@@ -209,7 +223,7 @@ export function createB2BSession(fetcher?: typeof fetch, timeout?: number) {
     channel?.close(); clearInterval(timer); generation++; client.abort(); current.value = null; idleCandidate = null; continuity.suspend()
   }
   const expiresSoon = computed(() => current.value && Math.min(Date.parse(current.value.expires_at), Date.parse(current.value.idle_expires_at)) - now.value <= sessionWarningMs)
-  return { continuity, revalidateOnReturn, businessRevision, current, phase, notice, ssoLogout, pending, client, has, restore, login, logout, remember, resolve, start, dispose, expiresSoon, tick }
+  return { continuity, revalidateOnReturn, businessRevision, current, phase, notice, ssoLogout, pending, client, has, restore, login, loginDenied, logout, remember, resolve, start, dispose, expiresSoon, tick }
 }
 export type B2BSession = ReturnType<typeof createB2BSession>
 export const sessionKey: InjectionKey<B2BSession> = Symbol('isolated B2B session')

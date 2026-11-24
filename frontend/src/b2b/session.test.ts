@@ -9,6 +9,38 @@ import { orderDecoder, resultDecoder } from './contracts'
 beforeEach(() => sessionStorage.clear())
 afterEach(() => vi.useRealTimers())
 describe('server session lifecycle and tenant state', () => {
+  it('rechecks a history-cached document before showing any old tenant data', async () => {
+    let reply!: (r: Response) => void
+    const fetcher = vi.fn().mockResolvedValueOnce(json(sessionFixture))
+      .mockImplementationOnce(() => new Promise<Response>(resolve => { reply = resolve }))
+    const s = createB2BSession(fetcher)
+    try {
+      await s.start()
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
+      expect(s.current.value).toBeNull()
+      expect(s.phase.value).toBe('loading')
+      reply(json({}, 401)); await flushPromises()
+      expect(s.phase.value).toBe('guest')
+      expect(s.current.value).toBeNull()
+      expect(fetcher.mock.calls.every(call => String(call[0]) === '/b2b/auth/session')).toBe(true)
+    } finally { s.dispose() }
+  })
+  it('quarantines a denied login and broadcasts the revoked session without any business replay', async () => {
+    const channel = { postMessage: vi.fn(), close: vi.fn(), onmessage: null }
+    vi.stubGlobal('BroadcastChannel', class { constructor() { return channel } })
+    const fetcher = vi.fn().mockResolvedValue(json(sessionFixture))
+    const s = createB2BSession(fetcher)
+    try {
+      await s.start()
+      s.remember('orders', 'confirm')
+      s.loginDenied()
+      expect(channel.postMessage).toHaveBeenLastCalledWith('logout')
+      expect(s.current.value).toBeNull()
+      expect(s.pending.value).toEqual([])
+      expect(sessionStorage.length).toBe(0)
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    } finally { s.dispose(); vi.unstubAllGlobals() }
+  })
   it('does not show an expired-session warning to a first-time visitor', async () => {
     const s = createB2BSession(vi.fn().mockResolvedValue(json({}, 401)))
     await s.restore()

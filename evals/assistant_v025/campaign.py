@@ -26,7 +26,7 @@ from stockpilot.domain.enums.permission import Permission as P
 
 ROOT = Path(__file__).parent
 CORPUS = json.loads((ROOT / 'corpus.json').read_text())
-DATASET = 'v025-boundaries-v1'
+DATASET = 'v025-boundaries-v2-low-positive'
 
 MULTI_FINAL = {
     'G13-01': dict(kind='list',intent='PRODUCT_ADVICE',category='perceuses',available=True,price=9999,limit=3),
@@ -205,7 +205,9 @@ def oracle(case):
     if group == 3 and number <= 8:
         return dict(kind='exact', sku='DEMO-01-0225', intent='STOCK_CHECK')
     if group == 1 and number not in (10, 18):
-        return dict(kind='list', intent='LOW_STOCK', maximum=0 if number in (14, 15) else 4,
+        # Product evolution UAT: qualitative low stock excludes zero; explicit
+        # rupture and numeric intervals retain their original independent oracle.
+        return dict(kind='list', intent='LOW_STOCK', minimum=0 if number in (14, 15) else 1, maximum=0 if number in (14, 15) else 4,
                     category='perceuses' if number == 12 else 'scies' if number == 13 else None, limit=5)
     if group == 2 and number <= 14:
         ranges = [(5,5),(5,5),(5,5),(5,5),(0,4),(0,14),(0,15),(6,None),(5,None),(1,14),(0,0),(0,0),(1,1),(0,-1)]
@@ -242,7 +244,7 @@ def oracle(case):
                     price=14999 if number==2 else 12000 if number==8 else None,
                     available=True if number in (1,8) else None,limit=1 if number==3 else 2 if number==10 else 3)
     if group == 16 and number in (1,2,3,4,7,8,9):
-        return dict(kind='list',intent='LOW_STOCK',minimum=5 if number==8 else 0,maximum=5 if number==8 else 14 if number==9 else 4,
+        return dict(kind='list',intent='LOW_STOCK',minimum=5 if number==8 else 1 if number in (1,2,3,7) else 0,maximum=5 if number==8 else 14 if number==9 else 4,
                     category='perceuses' if number==9 else None,limit=5)
     if group == 16 and number==10:
         return dict(kind='list',intent='PRODUCT_ADVICE',category='perceuses',price=9999,limit=3)

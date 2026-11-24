@@ -23,7 +23,7 @@ _LOW_SIGNAL = (
     r"risquent d'etre epuises?|(?:vont )?(?:bientot )?etre en rupture(?: de stock)?|"
     r"commencent a manquer|tres peu de stock(?: disponible)?|"
     r"risquent la rupture|n'ont presque plus de stock|au bord de la rupture|"
-    r"(?:vont )?s'epuiser|stocks? faibles?)\b"
+    r"(?:vont )?s'epuiser(?: bientot)?|stocks? faibles?)\b"
 )
 
 _MONEY = re.compile(
@@ -78,6 +78,13 @@ def catalogue_question(question):
     if empty_clause:
         value = empty_clause[1]
     bare = value.rstrip('.?! ')
+    # Complete generic phrases only: unknown name/specification suffixes survive.
+    short_budget = re.fullmatch(r"(perceuses?|visseuses?|scies?|ponceuses?) dispo avec moins de (\d+(?:[.,]\d{1,2})?\s*(?:euros?|eur|€))", bare)
+    if short_budget:
+        return f"Je cherche des {short_budget[1]} disponibles a moins de {short_budget[2]}"
+    available_question = re.fullmatch(r"est-ce que vous avez des (perceuses?|visseuses?|scies?|ponceuses?) disponibles", bare)
+    if available_question:
+        return f"Je cherche des {available_question[1]} disponibles"
     if re.fullmatch(r'(?:seulement celles|toujours) disponibles', bare):
         return 'Seulement celles qui sont disponibles'
     if re.fullmatch(r'quel est son (?:stock|prix)', bare):
@@ -206,10 +213,13 @@ class LowStockCriteria:
     categories: tuple[str, ...]
     minimum: int = 0
     maximum_price_minor: int | None = None
+    future_risk: bool = False
 
 
 def low_stock_criteria(question, categories):
     text = stock_question(question).rstrip(".?!")
+    future_risk = bool(re.search(r"\bbientot\b|\brisquent\b|\bvont\b|\bs'epuiser\b", text))
+    text = re.sub(r"\bcompletement (?=en rupture\b)", "", text)
     text, maximum_price = stock_budget(text)
     if re.search(r"€|\b(?:euros?|eur|inactifs?|dollars?|usd)\b", text):
         raise ClarificationRequired(
@@ -250,7 +260,7 @@ def low_stock_criteria(question, categories):
     elif rupture:
         maximum, label = 0, "disponible = 0"
     else:
-        maximum, label = 4, "disponible < 5 (seuil par défaut)"
+        minimum, maximum, label = 1, 4, "0 < disponible < 5 (seuil indicatif par défaut ; hors ruptures)"
     if minimum > 2**63 - 1 or maximum is not None and maximum > 2**63 - 1:
         raise ClarificationRequired("Le seuil de stock est trop élevé.")
     remainder = text
@@ -282,4 +292,4 @@ def low_stock_criteria(question, categories):
         label += " ; hors ruptures"
     if maximum_price is not None:
         label += f" ; prix ≤ {Decimal(maximum_price) / 100} EUR"
-    return LowStockCriteria(maximum, label, selected, minimum, maximum_price)
+    return LowStockCriteria(maximum, label, selected, minimum, maximum_price, future_risk)
