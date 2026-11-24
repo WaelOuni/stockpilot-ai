@@ -452,7 +452,7 @@ onUnmounted(() => { active?.abort(); active = null; suggestionVersion++ })
 .intelligence-abc { display:flex; gap:20px; flex-wrap:wrap; list-style:none; padding:0; }
 .intelligence-detail dl { display:grid; gap:14px; }
 .intelligence-detail dl>div { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.intelligence-detail dt { color:var(--muted); }.intelligence-detail dd { margin:0; font-weight:600; }
+.intelligence-detail dt { color:var(--muted); }.intelligence-detail dd { margin:0; font-weight:600; max-width:none; text-align:left; }
 .intelligence-detail h3 { margin:28px 0 14px; }.intelligence-detail p { line-height:1.65; }
 .intelligence-view button { min-height:44px; }
 @media(max-width:800px) { .intelligence-filters,.intelligence-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .intelligence-charts { grid-template-columns:1fr; } }
