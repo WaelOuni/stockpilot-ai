@@ -1,8 +1,8 @@
 {
   "organization_id": "org-a",
-  "refreshed_at": "2026-11-17T12:54:07.517706+00:00",
-  "period_start": "2026-08-19",
-  "period_end_exclusive": "2026-11-17",
+  "refreshed_at": "2026-11-24T07:39:51.961472+00:00",
+  "period_start": "2026-08-26",
+  "period_end_exclusive": "2026-11-24",
   "horizon_days": 7,
   "low_stock_threshold": 5,
   "summary": {
@@ -25,7 +25,7 @@
   },
   "items": [
     {
-      "product_id": "6afc4e6f947b2421498b6a85",
+      "product_id": "6b053f47d043b235f55ccdb1",
       "sku": "DEMO-00",
       "name": "DEMO \u2014 Perceuse atelier 1",
       "category": "drill",
@@ -82,14 +82,16 @@
           2.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 0.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -145,7 +147,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b6bf3",
+      "product_id": "6b053f47d043b235f55ccf1f",
       "sku": "DEMO-01",
       "name": "DEMO \u2014 Perceuse atelier 2",
       "category": "drill",
@@ -202,14 +204,16 @@
           13.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 1.286,
           "rmse_units": 2.591,
           "naive_mae_units": 1.286,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -264,7 +268,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b6d61",
+      "product_id": "6b053f47d043b235f55cd08d",
       "sku": "DEMO-02",
       "name": "DEMO \u2014 Perceuse atelier 3",
       "category": "drill",
@@ -321,18 +325,20 @@
           0.776
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 3.339,
           "rmse_units": 3.611,
           "naive_mae_units": 13.714,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
-          "lower": 0,
+          "lower": 0.0,
           "upper": 11.013,
           "assessment_windows": 14,
           "probability": null
@@ -383,7 +389,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b6ecf",
+      "product_id": "6b053f47d043b235f55cd1fb",
       "sku": "DEMO-03",
       "name": "DEMO \u2014 Perceuse atelier 4",
       "category": "drill",
@@ -440,14 +446,16 @@
           8.571
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 53.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -502,7 +510,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b703d",
+      "product_id": "6b053f47d043b235f55cd369",
       "sku": "DEMO-04",
       "name": "DEMO \u2014 Perceuse atelier 5",
       "category": "drill",
@@ -559,18 +567,20 @@
           0.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 0.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
-          "lower": 0,
+          "lower": 0.0,
           "upper": 0.0,
           "assessment_windows": 14,
           "probability": null
@@ -622,7 +632,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b71ab",
+      "product_id": "6b053f47d043b235f55cd4d7",
       "sku": "DEMO-05",
       "name": "DEMO \u2014 Perceuse atelier 6",
       "category": "drill",
@@ -720,7 +730,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b7319",
+      "product_id": "6b053f47d043b235f55cd645",
       "sku": "DEMO-06",
       "name": "DEMO \u2014 Perceuse atelier 7",
       "category": "drill",
@@ -777,14 +787,16 @@
           2.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 0.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -839,7 +851,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b7487",
+      "product_id": "6b053f47d043b235f55cd7b3",
       "sku": "DEMO-07",
       "name": "DEMO \u2014 Perceuse atelier 8",
       "category": "drill",
@@ -896,14 +908,16 @@
           13.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 1.286,
           "rmse_units": 2.591,
           "naive_mae_units": 1.286,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -958,7 +972,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b75f5",
+      "product_id": "6b053f47d043b235f55cd921",
       "sku": "DEMO-08",
       "name": "DEMO \u2014 Perceuse atelier 9",
       "category": "drill",
@@ -1015,18 +1029,20 @@
           0.776
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 3.339,
           "rmse_units": 3.611,
           "naive_mae_units": 13.714,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
-          "lower": 0,
+          "lower": 0.0,
           "upper": 11.013,
           "assessment_windows": 14,
           "probability": null
@@ -1077,7 +1093,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b7763",
+      "product_id": "6b053f47d043b235f55cda8f",
       "sku": "DEMO-09",
       "name": "DEMO \u2014 Perceuse atelier 10",
       "category": "drill",
@@ -1134,14 +1150,16 @@
           8.571
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 53.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -1196,7 +1214,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b78d1",
+      "product_id": "6b053f47d043b235f55cdbfd",
       "sku": "DEMO-10",
       "name": "DEMO \u2014 Perceuse atelier 11",
       "category": "drill",
@@ -1253,18 +1271,20 @@
           0.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 0.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
-          "lower": 0,
+          "lower": 0.0,
           "upper": 0.0,
           "assessment_windows": 14,
           "probability": null
@@ -1317,7 +1337,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b7a3f",
+      "product_id": "6b053f47d043b235f55cdd6b",
       "sku": "DEMO-11",
       "name": "DEMO \u2014 Perceuse atelier 12",
       "category": "drill",
@@ -1414,7 +1434,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b7bad",
+      "product_id": "6b053f47d043b235f55cded9",
       "sku": "DEMO-12",
       "name": "DEMO \u2014 Perceuse atelier 13",
       "category": "drill",
@@ -1471,14 +1491,16 @@
           2.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 0.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -1533,7 +1555,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b7d1b",
+      "product_id": "6b053f47d043b235f55ce047",
       "sku": "DEMO-13",
       "name": "DEMO \u2014 Perceuse atelier 14",
       "category": "drill",
@@ -1590,14 +1612,16 @@
           13.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 1.286,
           "rmse_units": 2.591,
           "naive_mae_units": 1.286,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -1652,7 +1676,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b7e89",
+      "product_id": "6b053f47d043b235f55ce1b5",
       "sku": "DEMO-14",
       "name": "DEMO \u2014 Perceuse atelier 15",
       "category": "drill",
@@ -1709,18 +1733,20 @@
           0.776
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 3.339,
           "rmse_units": 3.611,
           "naive_mae_units": 13.714,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
-          "lower": 0,
+          "lower": 0.0,
           "upper": 11.013,
           "assessment_windows": 14,
           "probability": null
@@ -1771,7 +1797,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b7ff7",
+      "product_id": "6b053f47d043b235f55ce323",
       "sku": "DEMO-15",
       "name": "DEMO \u2014 Perceuse atelier 16",
       "category": "drill",
@@ -1828,14 +1854,16 @@
           8.571
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 53.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -1891,7 +1919,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b8165",
+      "product_id": "6b053f47d043b235f55ce491",
       "sku": "DEMO-16",
       "name": "DEMO \u2014 Perceuse atelier 17",
       "category": "drill",
@@ -1948,18 +1976,20 @@
           0.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 0.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
-          "lower": 0,
+          "lower": 0.0,
           "upper": 0.0,
           "assessment_windows": 14,
           "probability": null
@@ -2011,7 +2041,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b82d3",
+      "product_id": "6b053f47d043b235f55ce5ff",
       "sku": "DEMO-17",
       "name": "DEMO \u2014 Perceuse atelier 18",
       "category": "drill",
@@ -2108,7 +2138,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6f947b2421498b8441",
+      "product_id": "6b053f47d043b235f55ce76d",
       "sku": "DEMO-18",
       "name": "DEMO \u2014 Perceuse atelier 19",
       "category": "drill",
@@ -2165,14 +2195,16 @@
           2.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 0.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -2227,7 +2259,7 @@
       ]
     },
     {
-      "product_id": "6afc4e6e947b2421498b690f",
+      "product_id": "6b053f47d043b235f55ccc3b",
       "sku": "DRILL-001",
       "name": "Synthetic tool",
       "category": "drill",
@@ -2284,14 +2316,16 @@
           2.0
         ],
         "backtest": {
+          "basis": "retrospective_final_snapshot",
+          "availability_verified": false,
           "horizon_days": 7,
           "selection_windows": 26,
           "assessment_windows": 14,
           "mae_units": 0.0,
           "rmse_units": 0.0,
           "naive_mae_units": 0.0,
-          "assessment_start": "2026-08-11",
-          "assessment_end": "2026-11-16"
+          "assessment_start": "2026-08-18",
+          "assessment_end": "2026-11-23"
         },
         "uncertainty": {
           "kind": "historical_error_range",
@@ -2318,7 +2352,7 @@
         "safety_stock": 5,
         "minimum_order_quantity": 20,
         "incoming_confirmed": 0,
-        "incoming_as_of": "2026-11-17",
+        "incoming_as_of": "2026-11-24",
         "source_references": [
           "DEMO-supply-confirmation"
         ]
@@ -2367,994 +2401,1534 @@
   },
   "page_series": [
     {
-      "date": "2026-08-19",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
-    },
-    {
-      "date": "2026-08-20",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
-    },
-    {
-      "date": "2026-08-21",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
-    },
-    {
-      "date": "2026-08-22",
-      "sold": 109,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
-    },
-    {
-      "date": "2026-08-23",
-      "sold": 139,
-      "returned": 14,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
-    },
-    {
-      "date": "2026-08-24",
-      "sold": 76,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 94,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
-    },
-    {
-      "date": "2026-08-25",
-      "sold": 52,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
-    },
-    {
       "date": "2026-08-26",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-08-27",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-08-28",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-08-29",
-      "sold": 109,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 109,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-08-30",
-      "sold": 139,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 139,
+          "returned": 14,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-08-31",
-      "sold": 52,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 76,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 94,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-01",
-      "sold": 52,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-02",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-03",
-      "sold": 79,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 97,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-04",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-05",
-      "sold": 109,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 109,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-06",
-      "sold": 139,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 139,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-07",
-      "sold": 52,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-08",
-      "sold": 52,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-09",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-10",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 79,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 97,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-11",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-12",
-      "sold": 109,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 109,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-13",
-      "sold": 166,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 103,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 139,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-14",
-      "sold": 55,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-15",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 52,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-16",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-17",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-18",
-      "sold": 64,
-      "returned": 1,
-      "received": 20,
-      "adjusted": -19,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-19",
-      "sold": 112,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 109,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-20",
-      "sold": 142,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 166,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 103,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-21",
-      "sold": 55,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-22",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-23",
-      "sold": 82,
-      "returned": 17,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 97,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-24",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-25",
-      "sold": 64,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 64,
+          "returned": 1,
+          "received": 20,
+          "adjusted": -19,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-26",
-      "sold": 112,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 112,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-27",
-      "sold": 142,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 142,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-28",
-      "sold": 55,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-29",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-09-30",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 82,
+          "returned": 17,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 97,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-01",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-02",
-      "sold": 64,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 64,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-03",
-      "sold": 136,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 103,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 112,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-04",
-      "sold": 142,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 142,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-05",
-      "sold": 55,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-06",
-      "sold": 55,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-07",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-08",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-09",
-      "sold": 64,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 64,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-10",
-      "sold": 112,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 136,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 103,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-11",
-      "sold": 142,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 142,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-12",
-      "sold": 55,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-13",
-      "sold": 82,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 94,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-14",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-15",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-16",
-      "sold": 67,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 64,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-17",
-      "sold": 115,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 112,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-18",
-      "sold": 145,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 142,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-19",
-      "sold": 58,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 55,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-20",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 82,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 94,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-21",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-22",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-23",
-      "sold": 91,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 103,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 67,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-24",
-      "sold": 115,
-      "returned": 14,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 115,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-25",
-      "sold": 145,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 145,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-26",
-      "sold": 58,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-27",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-28",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-29",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-30",
-      "sold": 67,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 91,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 103,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-10-31",
-      "sold": 115,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 115,
+          "returned": 14,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-01",
-      "sold": 145,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 145,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-02",
-      "sold": 82,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 94,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-03",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-04",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-05",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-06",
-      "sold": 67,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 67,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-07",
-      "sold": 115,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 115,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-08",
-      "sold": 145,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 145,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-09",
-      "sold": 58,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 82,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 94,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-10",
-      "sold": 58,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-11",
-      "sold": 61,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 85,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-12",
-      "sold": 88,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 97,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-13",
-      "sold": 70,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 67,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-14",
-      "sold": 118,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 115,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-15",
-      "sold": 148,
-      "returned": 1,
-      "received": 20,
-      "adjusted": 0,
-      "reserved": 91,
-      "cancelled": 29,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 145,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     },
     {
       "date": "2026-11-16",
-      "sold": 61,
-      "returned": 1,
-      "received": 400,
-      "adjusted": 0,
-      "reserved": 82,
-      "cancelled": 10,
-      "transferred": 0,
-      "observed_products": 20
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-17",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 58,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-18",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 85,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-19",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 88,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 97,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-20",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 70,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-21",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 118,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-22",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 148,
+          "returned": 1,
+          "received": 20,
+          "adjusted": 0,
+          "reserved": 91,
+          "cancelled": 29,
+          "transferred": 0
+        }
+      ]
+    },
+    {
+      "date": "2026-11-23",
+      "datasets": [
+        {
+          "dataset": "DEMO_SYNTHETIC",
+          "expected_products": 20,
+          "complete_products": 20,
+          "sold": 61,
+          "returned": 1,
+          "received": 400,
+          "adjusted": 0,
+          "reserved": 82,
+          "cancelled": 10,
+          "transferred": 0
+        }
+      ]
     }
   ],
   "limitations": [
@@ -3363,7 +3937,9 @@
     "no_average_stock_history_for_turnover",
     "no_lot_age_or_annual_seasonality",
     "promotion_demand_and_profitability_not_estimated",
-    "page_series_not_organization_total"
+    "page_series_not_organization_total",
+    "series_separated_by_dataset",
+    "historical_availability_not_recorded"
   ],
   "explanation_mode": "deterministic",
   "automatic_actions": false

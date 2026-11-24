@@ -4,7 +4,7 @@ import { useB2B } from './session'
 import { language, dateLabel } from './preferences'
 import { array, object, productDecoder, text } from './contracts'
 import { StaleResponse } from './client'
-import { analyticMoney, intelligenceDecoder, pageABC, type IntelligenceData } from './intelligence'
+import { analyticMoney, analyticNumber, chartNumber, intelligenceDecoder, pageABC, type IntelligenceData } from './intelligence'
 import IntelligenceChart from './IntelligenceChart.vue'
 import CatalogueCombobox from './CatalogueCombobox.vue'
 import DetailsPanel from './DetailsPanel.vue'
@@ -21,10 +21,14 @@ const priorities = ['administrative_movements_to_review', 'no_observed_sales_in_
 const priority = (reasons: string[]) => Math.max(-1, ...reasons.map(reason => priorities.indexOf(reason)))
 const recommendations = computed(() => data.value?.items.filter(item => priority(item.reasons) >= 0).sort((a, b) => priority(b.reasons) - priority(a.reasons) || a.sku.localeCompare(b.sku)) ?? [])
 const bestSales = computed(() => data.value?.items.filter(item => item.period_complete && item.period_sales_units !== null).sort((a, b) => b.period_sales_units! - a.period_sales_units! || a.sku.localeCompare(b.sku)).slice(0, 3) ?? [])
-const synthetic = computed(() => data.value?.items.some(item => item.dataset === 'DEMO_SYNTHETIC'))
+const synthetic = computed(() => data.value?.items.some(item => ['DEMO_SYNTHETIC', 'mixed'].includes(item.dataset)))
+const mixed = computed(() => data.value?.items.some(item => item.dataset === 'mixed') || new Set(data.value?.items.filter(item => item.dataset !== 'unavailable').map(item => item.dataset)).size > 1)
+const datasets = computed(() => [...new Set(data.value?.page_series.flatMap(row => row.datasets.map(bucket => bucket.dataset)))])
+const historyRows = computed(() => data.value?.page_series.flatMap(row => row.datasets.map(bucket => ({ date: row.date, ...bucket }))) ?? [])
+const datasetLabel = (dataset: string) => ({ observed: i('Données observées', 'Observed data'), DEMO_SYNTHETIC: i('DEMO · données synthétiques', 'DEMO · synthetic data'), mixed: i('Provenances mixtes · prévision refusée', 'Mixed provenance · forecast refused'), unavailable: i('Provenance indisponible', 'Provenance unavailable') }[dataset] ?? missing())
 const missing = () => i('Non disponible', 'Unavailable')
-const number = (value: number | string | null | undefined) => value == null ? missing() : new Intl.NumberFormat(language.value === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: 2 }).format(typeof value === 'string' ? BigInt(value) : value)
-const forecastLabel = (value: string) => ({ estimated: i('Estimation mesurée', 'Measured estimate'), no_commercial_history: i('Aucune vente qualifiée', 'No qualified sales history'), insufficient_history: i('Historique trop court', 'Insufficient history'), incomplete_history: i('Historique incomplet', 'Incomplete history'), mixed_dataset: i('Sources DEMO et réelles mélangées', 'Mixed DEMO and observed sources'), stockout_censored: i('Demande masquée par une rupture', 'Demand censored by stockouts') }[value] ?? missing())
+const number = analyticNumber
+const forecastLabel = (value: string) => ({ estimated: i('Estimation indicative', 'Indicative estimate'), no_commercial_history: i('Aucune vente qualifiée', 'No qualified sales history'), insufficient_history: i('Historique trop court', 'Insufficient history'), incomplete_history: i('Historique incomplet', 'Incomplete history'), mixed_dataset: i('Sources DEMO et réelles mélangées', 'Mixed DEMO and observed sources'), stockout_censored: i('Demande masquée par une rupture', 'Demand censored by stockouts') }[value] ?? missing())
 const reasonLabel = (value: string) => ({ out_of_stock: i('À surveiller · rupture actuelle', 'Watch · currently out of stock'), low_stock_threshold: i('À surveiller · seuil de stock faible', 'Watch · low-stock threshold'), replenishment_estimate: i('À réapprovisionner · besoin estimé', 'Replenish · estimated need'), no_observed_sales_in_period: i('Opportunité · aucune vente observée', 'Opportunity · no observed sales'), administrative_movements_to_review: i('À analyser · ajustements administratifs', 'Review · administrative adjustments') }[value] ?? forecastLabel(value))
 let active: AbortController | null = null, suggestionVersion = 0
 async function load(reset = false) {
@@ -164,7 +168,8 @@ onUnmounted(() => { active?.abort(); active = null; suggestionVersion++ })
           class="b2b-notice"
           role="status"
         >
-          DEMO · {{ i('Historique synthétique de test. Ces prévisions ne décrivent pas des ventes réelles.', 'Synthetic test history. These forecasts do not describe real sales.') }}
+          DEMO · {{ i('Historique synthétique de test présent. Les données et prévisions DEMO ne décrivent pas des ventes réelles.', 'Synthetic test history is present. DEMO data and forecasts do not describe real sales.') }}
+          <span v-if="mixed">{{ i('Plusieurs provenances : les séries observées et synthétiques sont séparées ; aucune prévision sur un historique mélangé.', 'Multiple provenance types: observed and synthetic series are separate; mixed histories cannot produce forecasts.') }}</span>
         </p>
         <div class="intelligence-kpis">
           <article class="b2b-card">
@@ -224,18 +229,23 @@ onUnmounted(() => { active?.abort(); active = null; suggestionVersion++ })
               v-if="data.page_series.length"
               class="intelligence-charts"
             >
-              <IntelligenceChart
-                :title="i('Ventes réalisées', 'Completed sales')"
-                :values="data.page_series.map(row => row.observed_products === data!.items.length ? row.sold : null)"
-                :labels="data.page_series.map(row => row.date)"
-                :unit="i('unités / jour', 'units / day')"
-              />
-              <IntelligenceChart
-                :title="i('Ajustements d’inventaire', 'Inventory adjustments')"
-                :values="data.page_series.map(row => row.observed_products === data!.items.length ? row.adjusted : null)"
-                :labels="data.page_series.map(row => row.date)"
-                :unit="i('unités / jour', 'units / day')"
-              />
+              <template
+                v-for="dataset in datasets"
+                :key="dataset"
+              >
+                <IntelligenceChart
+                  :title="i('Ventes réalisées', 'Completed sales') + ' · ' + datasetLabel(dataset)"
+                  :values="data.page_series.map(row => row.datasets.find(bucket => bucket.dataset === dataset)?.sold ?? null)"
+                  :labels="data.page_series.map(row => row.date)"
+                  :unit="i('unités / jour', 'units / day')"
+                />
+                <IntelligenceChart
+                  :title="i('Ajustements d’inventaire', 'Inventory adjustments') + ' · ' + datasetLabel(dataset)"
+                  :values="data.page_series.map(row => row.datasets.find(bucket => bucket.dataset === dataset)?.adjusted ?? null)"
+                  :labels="data.page_series.map(row => row.date)"
+                  :unit="i('unités / jour', 'units / day')"
+                />
+              </template>
             </div><p v-else>
               {{ i('Aucun historique commercial qualifié. Les réservations existantes ne sont pas converties en ventes.', 'No qualified commercial history. Existing reservations are not converted into sales.') }}
             </p>
@@ -247,12 +257,12 @@ onUnmounted(() => { active?.abort(); active = null; suggestionVersion++ })
                 :aria-label="i('Historique des mouvements', 'Movement history')"
               >
                 <table>
-                  <thead><tr><th>Date</th><th>{{ i('Ventes', 'Sales') }}</th><th>{{ i('Retours', 'Returns') }}</th><th>{{ i('Réceptions', 'Receipts') }}</th><th>{{ i('Réservations', 'Reservations') }}</th><th>{{ i('Annulations', 'Cancellations') }}</th><th>{{ i('Ajustements', 'Adjustments') }}</th><th>{{ i('Transferts', 'Transfers') }}</th><th>{{ i('Produits observés', 'Observed products') }}</th></tr></thead><tbody>
+                  <thead><tr><th>Date</th><th>{{ i('Provenance', 'Provenance') }}</th><th>{{ i('Ventes', 'Sales') }}</th><th>{{ i('Retours', 'Returns') }}</th><th>{{ i('Réceptions', 'Receipts') }}</th><th>{{ i('Réservations', 'Reservations') }}</th><th>{{ i('Annulations', 'Cancellations') }}</th><th>{{ i('Ajustements', 'Adjustments') }}</th><th>{{ i('Transferts', 'Transfers') }}</th><th>{{ i('Produits complets / attendus', 'Complete / expected products') }}</th></tr></thead><tbody>
                     <tr
-                      v-for="row in data.page_series"
-                      :key="row.date"
+                      v-for="row in historyRows"
+                      :key="row.date + row.dataset"
                     >
-                      <td>{{ row.date }}</td><td>{{ number(row.observed_products ? row.sold : null) }}</td><td>{{ number(row.observed_products ? row.returned : null) }}</td><td>{{ number(row.observed_products ? row.received : null) }}</td><td>{{ number(row.observed_products ? row.reserved : null) }}</td><td>{{ number(row.observed_products ? row.cancelled : null) }}</td><td>{{ number(row.observed_products ? row.adjusted : null) }}</td><td>{{ number(row.observed_products ? row.transferred : null) }}</td><td>{{ row.observed_products }} / {{ data.items.length }}</td>
+                      <td>{{ row.date }}</td><td>{{ datasetLabel(row.dataset) }}</td><td>{{ number(row.sold) }}</td><td>{{ number(row.returned) }}</td><td>{{ number(row.received) }}</td><td>{{ number(row.reserved) }}</td><td>{{ number(row.cancelled) }}</td><td>{{ number(row.adjusted) }}</td><td>{{ number(row.transferred) }}</td><td>{{ row.complete_products }} / {{ row.expected_products }}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -262,13 +272,13 @@ onUnmounted(() => { active?.abort(); active = null; suggestionVersion++ })
           <section class="b2b-card">
             <h2>{{ i('Activité et couverture — cette page', 'Activity and coverage — this page') }}</h2>
             <p>{{ i('Couverture moyenne calculable', 'Mean calculable coverage') }} : <strong>{{ number(data.page_summary.mean_coverage_days) }} {{ i('jours', 'days') }}</strong>. {{ i('Les produits sans estimation sont exclus de cette moyenne.', 'Products without an estimate are excluded from this mean.') }}</p>
-            <h3>{{ i('Ventes observées les plus élevées', 'Highest observed sales') }}</h3>
+            <h3>{{ i('Ventes les plus élevées · provenance indiquée', 'Highest sales · provenance shown') }}</h3>
             <ol v-if="bestSales.length">
               <li
                 v-for="item in bestSales"
                 :key="item.product_id"
               >
-                {{ item.sku }} · {{ number(item.period_sales_units) }} {{ i('unités sur la période', 'units in period') }}
+                {{ item.sku }} · {{ number(item.period_sales_units) }} {{ i('unités sur la période', 'units in period') }} · {{ datasetLabel(item.dataset) }}
               </li>
             </ol>
             <p v-else>
@@ -294,13 +304,13 @@ onUnmounted(() => { active?.abort(); active = null; suggestionVersion++ })
                       {{ item.name }}<small>{{ item.sku }}</small>
                     </th><td>{{ number(item.available) }}</td><td>{{ number(item.period_sales_units) }}</td><td>
                       {{ number(item.replenishment.coverage_days) }}<meter
-                        v-if="item.replenishment.coverage_days !== null"
+                        v-if="item.replenishment.coverage_days !== null && chartNumber(item.replenishment.coverage_days) !== null"
                         min="0"
                         :max="Math.max(90, item.replenishment.coverage_days)"
                         :value="item.replenishment.coverage_days"
                         :aria-label="i('Couverture estimée en jours', 'Estimated coverage in days')"
                       ></meter>
-                    </td><td>{{ number(item.replenishment.suggested_quantity) }}</td><td>{{ forecastLabel(item.forecast.status) }}</td><td>
+                    </td><td>{{ number(item.replenishment.suggested_quantity) }}</td><td>{{ forecastLabel(item.forecast.status) }}<small>{{ datasetLabel(item.dataset) }}</small></td><td>
                       <button
                         class="secondary"
                         :aria-label="i('Analyser ', 'Analyze ') + item.sku"
@@ -366,10 +376,9 @@ onUnmounted(() => { active?.abort(); active = null; suggestionVersion++ })
     >
       <div class="intelligence-detail">
         <p
-          v-if="chosen.dataset === 'DEMO_SYNTHETIC'"
           class="b2b-notice"
         >
-          DEMO · {{ i('Données synthétiques', 'Synthetic data') }}
+          {{ datasetLabel(chosen.dataset) }}
         </p>
         <h3>{{ i('Observations', 'Observations') }}</h3><dl><div><dt>{{ i('Disponible / réservé / physique', 'Available / reserved / physical') }}</dt><dd>{{ number(chosen.available) }} / {{ number(chosen.reserved) }} / {{ number(chosen.quantity) }}</dd></div><div><dt>{{ i('Ventes / retours sur la période', 'Sales / returns in period') }}</dt><dd>{{ number(chosen.period_sales_units) }} / {{ number(chosen.period_returns_units) }}</dd></div><div><dt>{{ i('Moyenne des ventes (unités/jour)', 'Mean sales (units/day)') }}</dt><dd>{{ number(chosen.mean_daily_sales) }}</dd></div><div><dt>{{ i('Coût documenté du stock', 'Documented stock cost') }}</dt><dd>{{ chosen.stock_cost_minor === null ? missing() : analyticMoney(chosen.stock_cost_minor, chosen.currency) }}</dd></div></dl>
         <h3>{{ i('Prévision et erreur mesurée', 'Forecast and measured error') }}</h3><p>{{ forecastLabel(chosen.forecast.status) }} · {{ chosen.history_days }} {{ i('jours documentés', 'documented days') }}</p>
@@ -379,7 +388,9 @@ onUnmounted(() => { active?.abort(); active = null; suggestionVersion++ })
             :values="chosen.forecast.daily"
             :labels="chosen.forecast.daily.map((_, index) => String(index + 1))"
             :unit="i('unités / jour futur', 'units / future day')"
-          /><p>{{ i('Backtest temporel : erreur absolue moyenne', 'Temporal backtest: mean absolute error') }} {{ number(chosen.forecast.backtest?.mae_units) }} · {{ i('référence naïve', 'naive baseline') }} {{ number(chosen.forecast.backtest?.naive_mae_units) }} · RMSE {{ number(chosen.forecast.backtest?.rmse_units) }} {{ i('unités par horizon', 'units per horizon') }}.</p><p>{{ chosen.forecast.backtest?.assessment_windows }} {{ i('fenêtres d’évaluation hors sélection du modèle', 'assessment windows separate from model selection') }} · {{ chosen.forecast.backtest?.assessment_start }} → {{ chosen.forecast.backtest?.assessment_end }}</p><p v-if="chosen.forecast.uncertainty">
+          /><p class="b2b-notice">
+            {{ i('Comparaison rétrospective sur l’historique actuel. Les dates de disponibilité et de correction ne sont pas enregistrées : l’absence de fuite temporelle historique n’est pas démontrée. Ces erreurs et cette plage ne prouvent pas une performance commerciale passée.', 'Retrospective comparison using the current history. Availability and revision dates are not recorded: absence of historical information leakage is unverified. These errors and this range do not prove past commercial performance.') }}
+          </p><p>{{ i('Erreur rétrospective absolue moyenne', 'Retrospective mean absolute error') }} {{ number(chosen.forecast.backtest?.mae_units) }} · {{ i('référence naïve', 'naive baseline') }} {{ number(chosen.forecast.backtest?.naive_mae_units) }} · RMSE {{ number(chosen.forecast.backtest?.rmse_units) }} {{ i('unités par horizon', 'units per horizon') }}.</p><p>{{ chosen.forecast.backtest?.assessment_windows }} {{ i('fenêtres d’évaluation hors sélection du modèle', 'assessment windows separate from model selection') }} · {{ chosen.forecast.backtest?.assessment_start }} → {{ chosen.forecast.backtest?.assessment_end }}</p><p v-if="chosen.forecast.uncertainty">
             {{ i('Plage fondée sur les erreurs historiques', 'Historical error range') }} : {{ number(chosen.forecast.uncertainty.lower) }}–{{ number(chosen.forecast.uncertainty.upper) }}. {{ i('Aucune probabilité de couverture garantie.', 'No guaranteed coverage probability.') }}
           </p><p v-else>
             {{ i('Incertitude chiffrée non disponible : trop peu de fenêtres indépendantes.', 'Numeric uncertainty unavailable: too few independent windows.') }}

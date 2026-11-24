@@ -56,6 +56,9 @@ Aucun résultat métier n'est enregistré dans le stockage navigateur.
 
 ## Accessibilité et preuves
 
+Les résultats de cette section sont la campagne initiale du 17 novembre 2026 ;
+ils ne qualifient pas automatiquement les corrections décrites plus bas.
+
 Les composants existants CatalogueCombobox et DetailsPanel assurent suggestions
 au clavier, libellés, focus initial, piège de focus, ESC et retour au déclencheur.
 Les contrôles ont une cible de 44 px ; les tableaux défilent dans leur région
@@ -103,3 +106,44 @@ inventés. Le rapport backend documente les formules et le backtesting.
 GO pour revue de développement avec le lot Analytics. NO-GO pour livraison sans
 qualification séparée de la migration 7, revue requise et autorisation explicite.
 La v0.2.8 déployée reste intacte. Aucun merge, tag ou release n'est effectué.
+
+## Corrections de revue — 24 novembre 2026
+
+Le rejet initial venait du décodeur `finite` utilisé pour `coverage_days` et
+`page_summary.mean_coverage_days` : il imposait `Number.MAX_SAFE_INTEGER` à des
+ratios indicatifs. Le backend pouvait légitimement retourner environ
+4,611686018427388×10^18 jours pour un stock int64 maximal et deux ventes/jour.
+Ce cas rejetait toute la réponse. Ces deux champs acceptent désormais les nombres
+JSON finis positifs ou nuls ; les valeurs négatives, booléens, chaînes, NaN et
+infinis restent invalides. Le rendu signale « Hors plage de visualisation » /
+« Outside visualization range » au-delà de la plage sûre et omet le `meter`.
+Les autres résultats restent utilisables.
+
+Les stocks et montants exacts restent des chaînes validées puis des BigInt pour
+comparaison et affichage. Bornes : int64 positif pour stock/prix/coût unitaire,
+int64 signé pour écart unitaire, `(2^63−1)^2` pour coût total d'un produit,
+`10^30` pour valorisation exacte par devise (au-delà, le serveur retourne null).
+La conversion graphique d'une chaîne n'arrive qu'après vérification de la borne
+±`Number.MAX_SAFE_INTEGER`. Les chiffres absents sont « Non disponible » /
+« Unavailable ». Aucune conversion de grand montant en Number n'est introduite.
+
+Le contrat corrigé de #94 fournit des groupes `datasets` par jour. Chaque courbe
+et ligne de tableau porte `observed` ou `DEMO_SYNTHETIC` en texte ; le nombre de
+produits complets et attendus est visible. Les jours incomplets restent `null`.
+Une observation isolée est visible comme un point, sans joindre les jours absents.
+Le bandeau DEMO couvre également les produits de provenance `mixed` ; le détail
+indique qu'une prévision sur cet historique est refusée. L'export garde ces
+provenances. Les ventes, réservations, retours et ajustements restent distincts.
+
+Les erreurs et plages historiques sont explicitement qualifiées de comparaisons
+rétrospectives de l'instantané courant. `backtest.availability_verified=false`
+est obligatoire : les dates de disponibilité et versions historiques ne sont pas
+enregistrées, donc aucune preuve d'absence stricte de fuite temporelle n'est
+annoncée. Cette limitation apparaît près des chiffres, en FR et EN.
+
+Preuves ciblées exécutées : **39 tests Vitest**, **103 tests Playwright** sur cette
+branche, dont les nouveaux scénarios provenance, grandes valeurs, pagination,
+FR/EN et 390/1280 px. La fixture principale a été régénérée depuis le vrai endpoint
+sur MongoDB jetable avec le correctif #94. Ces tests navigateur utilisent des
+réponses interceptées ; la qualification combinée Keycloak/backend réel reste
+une étape séparée. Les preuves RED initiales sont conservées hors Git.
