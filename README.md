@@ -1,321 +1,36 @@
 # StockPilot AI
 
-## What is StockPilot?
+StockPilot AI aide une équipe B2B à retrouver une référence, vérifier le stock disponible et préparer une commande dans le catalogue de son organisation. Le responsable des stocks dispose aussi d’un tableau de bord pour expliquer une rupture, suivre les réservations et examiner un besoin de réapprovisionnement.
 
-StockPilot is a local AI assistant for French tool advice, stock lookup and
-multi-turn orders. It combines structured intent extraction, product-document
-RAG and explicit order confirmation. It is a **development/demo backend**,
-not a production-ready commerce service.
+La référence de maintenance **v0.2.9** est le commit `fccef111641c648ea1e9e21211523899d91353e5` de `main`. Cette version utilise le schéma MongoDB **7**. Pour reprendre le développement depuis une machine vierge, suivre le [guide de développement local](docs/LOCAL_DEVELOPMENT.md).
 
-A customer-facing Vue 3/TypeScript MVP lives in [frontend/](frontend/README.md),
-with Assistant and My Orders pages and an in-memory local JWT connection panel.
+## Parcours métier
 
-## Key features
-
-- Structured intent classification and product/category/quantity/budget extraction.
-- Product advice grounded in local product documents through pgvector RAG.
-- Stock lookup against Mongo inventory, separate from document recommendations.
-- Multi-turn ORDER preparation followed by explicit confirmation.
-- ORDER_STATUS lookup by explicit order ID or the last created order in the
-  current thread, with a deterministic response read from Mongo.
-- Atomic stock reservation/order creation with Mongo replica-set transactions.
-- Idempotent confirmation using a stable business operation identifier.
-- Persistent LangGraph conversation checkpoints in PostgreSQL.
-- Full local observability: JSON logs, traces, metrics, dashboards, SLO rules
-  and independent Blackbox liveness probes.
-- Mocked pytest, deterministic eval-framework CI and a manual real AI quality gate.
-
-## Architecture
-
-```text
-User -> FastAPI -> LangGraph -> Use cases -> Ports -> MongoDB (products/orders)
-                  |                         |----> PostgreSQL/pgvector (RAG)
-                  |                         |----> Ollama (local models)
-                  +-> PostgreSQL (conversation checkpoints)
-```
-
-The composition root wires application ports to infrastructure adapters.
-Business rules do not own database sessions; the Mongo transaction adapter does.
-See [architecture](docs/architecture.md) for layers, workflow and boundaries.
-
-## Tech stack
-
-| Area | Stack |
+| Parcours | Ce que fait le produit |
 |---|---|
-| API / orchestration | Python 3.12, FastAPI/Pydantic, LangGraph |
-| Models | Ollama, `qwen2.5:7b`, `nomic-embed-text` |
-| Data | MongoDB 8 replica set, PostgreSQL 16/pgvector |
-| Telemetry | OpenTelemetry, Collector contrib, Alloy/Loki, Tempo |
-| Monitoring | Prometheus/Blackbox Exporter, Grafana |
-| Validation | pytest, offline golden datasets, GitHub Actions |
+| Catalogue et stocks | Recherche par SKU, catégorie et disponibilité, comparaison de produits, ajustements et imports CSV selon les permissions. Le stock disponible tient compte de la quantité réservée. |
+| Assistant | Recherche en langage naturel, conseil documentaire et consultation des stocks. Les faits de catalogue proviennent des données de l’organisation. Les conversations et leur historique sont privés à leur créateur. |
+| Commandes | Préparation avec SKU et quantité vérifiés, puis confirmation explicite. La réservation et l’écriture de la commande partagent une transaction Mongo. La clé d’opération permet de retrouver l’issue d’une confirmation interrompue sans doubler la réservation. |
+| StockPilot Intelligence | Le manager ou l’administrateur habilité peut examiner les quantités, la valorisation au tarif courant par devise, les séries de demande documentées, les projections et les scénarios de remise. Le tableau indique les données manquantes et la portée des agrégats paginés. |
 
-Dependencies: [pyproject.toml](pyproject.toml).
-Local services: [docker-compose.yml](docker-compose.yml).
+Une réservation ne prouve pas une vente. Les projections dépendent des faits commerciaux disponibles et les propositions de réapprovisionnement restent consultatives. [Contrat analytique](docs/validation/product-evolution-intelligence.md)
 
-## Démo locale persistante
+## Architecture et sécurité
 
-Cette section décrit le parcours historique. La cible produit future unique est
-[StockPilot AI B2B Demo](docs/b2b-demo.md), **pas encore opérationnelle** via Vue/BFF.
-Elle ne remplace ni ne supprime les installations locales existantes.
+La Vue 3/TypeScript servie sous `/b2b-app/` appelle le backend pour frontend (BFF) FastAPI. Keycloak assure la connexion OIDC avec PKCE. Le serveur conserve les jetons et associe la session à l’utilisateur, à son organisation et à ses permissions. Le navigateur utilise un cookie de session. Le BFF contrôle l’origine et le jeton CSRF des écritures, puis les cas métier vérifient les droits et la propriété des ressources. [Contrat HTTP B2B](docs/security/b2b-http-api.md)
 
-```sh
-bash scripts/run-demo.sh
-# Ctrl+C pour arrêter ; la même commande reprend les données.
-.venv/bin/python -m scripts.check_demo  # Diagnostic en lecture seule.
-# Seulement pour un reset volontaire, après arrêt et sauvegarde :
-bash scripts/reset-demo.sh
-```
+Le domaine et les cas d’usage vivent dans `src/stockpilot/`. Les adaptateurs relient les ports à MongoDB en replica set (catalogue, stocks, commandes, identité applicative), à PostgreSQL/pgvector (documents, recherche vectorielle, conversations, journal et checkpoints) et à Ollama. LangGraph orchestre les échanges. Le journal et la clé d’opération assurent la réconciliation entre PostgreSQL et MongoDB après un résultat incertain. [Architecture](docs/architecture.md) · [Commandes et atomicité](docs/security/tenant-orders-atomicity.md)
 
-La première initialisation exige `INITIALIZE stockpilot_demo` ; les reprises
-conservent produits, stocks, commandes et checkpoints. Le reset exige
-`RESET stockpilot_demo`, vérifie les identités Mongo/PostgreSQL et exclut DEV/E2E.
-Voir [le runbook DEMO](docs/demo-runbook.md) pour sauvegardes, configuration privée
-et diagnostic. Aucune réinitialisation automatique après une opération métier.
-Le quickstart historique ci-dessous concerne le backend de développement ;
-ce n’est pas la procédure de reset de la DEMO persistante.
+Pour une question documentaire, la recherche RAG filtre d’abord les passages autorisés pour l’organisation. Le modèle propose une réponse à partir des extraits récupérés. Le serveur vérifie les citations contre les passages avant restitution et peut refuser une réponse insuffisamment étayée. Le corpus historique de développement se crée via `migrations/000_create_knowledge_chunks.sql`. Le parcours B2B dispose de migrations PostgreSQL distinctes. [RAG B2B](docs/security/tenant-rag-conversations.md) · [Qualification des citations](docs/validation/rag-live-qualification.md)
 
-## Quickstart: fresh demo environment
+## Exploitation et reprise
 
-Run shell commands from the **project root in WSL/Linux**. Prerequisites:
-Python **3.12**, Docker Desktop with Ubuntu WSL integration (or compatible
-Docker Engine/Compose), and Ollama. Model downloads require disk space;
-Qwen needs adequate RAM and CPU inference can be slow.
+Les images API, Web et Keycloak, les configurations Compose et les contrôles GitHub Actions font partie du dépôt. L’installation B2B utilise également MongoDB, PostgreSQL applicatif et la base de Keycloak. Les modèles Ollama peuvent résider sur un hôte privé distinct. Une vérification d’exploitation couvre la santé des services, l’accès HTTPS, l’identité de l’installation et les données des trois magasins. [CI et images](docs/ci-cd.md) · [Identité des sauvegardes VM](docs/b2b-vm-backup-identity.md)
 
-```sh
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
+Une restauration exige un jeu cohérent de données, les identités Keycloak, les secrets et certificats nécessaires, les images identifiées par digest et un opérateur compatible avec le schéma sauvegardé. Conserver les migrations 0001 à 0007. Les anciens runbooks et preuves décrivent la version qu’ils ont qualifiée. La validation sur cible indépendante précède toute bascule.
 
-# Separate terminal, only if Ollama is not already running:
-ollama serve
-# Another terminal connected to the same Ollama instance:
-ollama pull qwen2.5:7b
-ollama pull nomic-embed-text
-```
+## Reprise du projet
 
-Review/export the example environment; Settings does **not** load `.env.local`
-automatically:
+v0.2.9 fournit un socle B2B exploitable en environnement maîtrisé. La latence des réponses documentaires dépend du modèle, du matériel et de la taille des passages. Les tests déterministes, les parcours navigateur et les essais avec Ollama réel mesurent des propriétés différentes. [Stratégie de tests](docs/testing.md)
 
-```sh
-cp .env.example .env.local
-set -a
-source .env.local
-set +a
-# Only when Ollama runs on the Windows host:
-source scripts/dev-env.sh
-curl "$OLLAMA_BASE_URL/api/tags"
-docker compose up -d --wait
-```
-
-The WSL helper uses the current gateway, not a hardcoded IP, and requires
-`ip route`/`awk`. Verify actual connectivity; keep Ollama local/trusted.
-Compose uses public **demo-only** PostgreSQL credentials.
-Mongo/PostgreSQL ports are published beyond loopback: use a trusted local
-machine/firewall, never Internet exposure.
-
-### Initialize the application document corpus
-
-For a **new demo database only**:
-
-```sh
-docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
-  -U stockpilot -d stockpilot < migrations/000_create_knowledge_chunks.sql
-# Apply 001 once to a newly created table, not an already migrated database:
-docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
-  -U stockpilot -d stockpilot < migrations/001_knowledge_chunks_source_unique.sql
-python scripts/ingest_products.py
-```
-
-Do not blindly reapply the uniqueness migration to existing data.
-Nomic embeddings use 768 dimensions; changing models requires a separate
-migration/corpus plan. Ingestion upserts the three demo documents by source.
-See [database](docs/database.md) for existing databases, dedicated `stockpilot_eval`
-initialization, checkpoints and all Mongo recovery procedures.
-
-### Seed demo inventory and start the API
-
-**The seed script deletes all products in local `stockpilot.products` before
-inserting fixtures.** It uses local Mongo directly, not `MONGO_URI`.
-Skip seeding if demo products already exist. Never seed valuable inventory.
-Existing volumes are preserved; do not use `docker compose down -v`.
-
-```sh
-python scripts/seed_products.py
-export DEPLOYMENT_ENVIRONMENT=development  # controlled local machine only
-python -m uvicorn stockpilot.main:app --reload --host 127.0.0.1
-```
-
-Startup requires healthy Mongo `rs0` and PostgreSQL, creates the unique order
-operation index and official checkpoint tables, and fails explicitly on checkpoint
-connection/setup errors. There is no in-memory checkpoint fallback.
-For an existing standalone Mongo, read the
-[migration guide](docs/database.md#mongo-replica-set-migration-and-recovery) first.
-
-## API examples
-
-| Endpoint | Contract |
-|---|---|
-| `GET /health` | Process liveness, not dependency readiness |
-| `POST /chat` | Customer JWT required; `{"message":"..."}`; direct LLM generation |
-| `POST /classify` | Customer JWT required; `{"message":"..."}`; local tooling intent/extraction |
-| `POST /assistant` | `{"message":"...","thread_id":"..."}`; requires an HS256 JWT with `customer_id` and `exp` claims; advice/stock/ORDER/ORDER_STATUS |
-| `PATCH /orders/{order_id}/status` | `{"status":"PROCESSING"}`; Bearer-protected demo back-office lifecycle update |
-| `GET /orders` | Customer JWT required; own orders only, newest first; `limit=20` (max 100), `offset=0` |
-| `GET /products` | Customer JWT required; read-only Mongo catalogue; optional `q`, `category`, `available`; `limit=20` (1..100), `offset=0` |
-| `GET /products/{sku}` | Customer JWT required; exact SKU lookup; product name/category/price/stock only |
-| `POST /customer/orders/{order_id}/cancel` | Customer JWT required; cancel only an owned CREATED/PROCESSING order; CANCELLED is idempotent |
-| `POST /orders/{order_id}/cancel` | No body; atomic cancellation/stock restoration, requires back-office Bearer token |
-
-Configure `CUSTOMER_JWT_SECRET` in the API environment and in a trusted token
-issuer. Generate a one-hour local/demo token with:
-
-```sh
-export CUSTOMER_TOKEN="$(python scripts/create_customer_token.py demo-customer)"
-```
-
-The issuer and API must use the same private signing secret. Do not commit or
-log the secret or token.
-
-```sh
-curl http://localhost:8000/health
-curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"Quel outil pour couper des panneaux de bois ?","thread_id":"demo-advice"}'
-curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"Est-ce que Bosch X100 est disponible ?","thread_id":"demo-stock"}'
-curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"Commande-moi 2 Bosch X100","thread_id":"demo-order"}'
-# Same thread: explicit confirmation modifies demo stock and creates an order:
-curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"Oui, je confirme","thread_id":"demo-order"}'
-```
-
-Keep the same verified customer identity and `thread_id` across turns/restarts;
-checkpoints are isolated by their pair. `X-Customer-Id` is ignored; only the
-signed JWT claim establishes identity.
-Use fresh thread IDs for separate experiments.
-After confirmation, ask for status in the same thread:
-
-```sh
-curl -X POST http://localhost:8000/assistant -H "Authorization: Bearer $CUSTOMER_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"message":"Quel est le statut de ma dernière commande ?","thread_id":"demo-order"}'
-```
-
-An explicit order ID takes priority. Only the matching customer's stored status
-is returned; wrong-owner, absent and legacy unowned orders all return NOT_FOUND.
-Old unnamespaced conversations are not resumed; no ownership backfill is performed.
-See [ORDER_STATUS](docs/order-flow.md#order_status-read-only-lookup) for lookup results.
-
-Matching operation replays return the original order without decrementing stock
-again. Unknown commit outcomes require reconciliation, not blind compensation.
-See [order flow](docs/order-flow.md).
-
-## AI quality
-
-```sh
-python -m pytest -q
-python scripts/run_evals.py --mode deterministic --suite enriched
-```
-
-Standard pytest is mocked and needs no Mongo/PostgreSQL/Ollama.
-Deterministic eval mode is a fixture/framework smoke run, **not AI quality**.
-Real local evals require installed models and a dedicated ingested document DB;
-commands/provenance are in [AI evals](docs/ai-evals.md) and
-[the scoring reference](evals/README.md).
-
-The human-reviewed historical **60-case** local Qwen/pgvector reference measured:
-
-| Metric | Historical result |
-|---|---|
-| Failed cases | 0 / 60 |
-| Intent / product-name / ORDER quantity accuracy | 100% / 100% / 100% |
-| Recall@1 / Recall@3 | 87.5% / 100% |
-| Recommendation product accuracy / grounding | 100% / 100% |
-
-These are measured historical results on small annotated denominators, **not a
-universal guarantee**. Only three documents exist; grounding covers the
-structured product, not every generated claim. Enriched datasets remain
-separate validation. CI never automatically promotes or overwrites the reviewed
-baseline.
-
-## Observability
-
-JSON logs work without telemetry services and exclude bodies/prompts/responses/
-chunks. Business identifiers/product names remain private diagnostic data.
-Tracing/metrics are disabled by default. To export them, restart the API with
-`OTEL_ENABLED=true`, `OTEL_EXPORTER=otlp` and base endpoint
-`http://localhost:4318`.
-
-- **Logs:** rotating JSONL -> Alloy -> Loki.
-- **Traces:** OTLP HTTP -> Collector contrib -> Tempo.
-- **Metrics:** OTLP HTTP -> Collector Prometheus exporter -> Prometheus.
-- **Availability:** Blackbox independently probes `/health` every 10 seconds.
-- **Grafana:** http://localhost:3000; provisioned overview/SLO dashboards,
-  logs-to-traces and traces-to-logs links.
-
-Collector receives traces/metrics, not the file-log pipeline. Local Prometheus
-SLO/reachability alerts exist; no Alertmanager/notifications are configured.
-See [observability](docs/observability.md) for startup, credentials, privacy,
-retention/rotation caveats, PromQL/LogQL/TraceQL and diagnostic commands.
-
-## Repository / CI strategy
-
-`main` is stable; `dev` is development.
-PRs and pushes to **main/dev** run the CI jobs in
-[ci.yml](.github/workflows/ci.yml): **Unit Tests**, **AI Eval Framework**, frontend
-quality, integration tests on disposable MongoDB/PostgreSQL services, and container
-smoke tests. Branch protection must explicitly require these checks to block merges.
-See [CI/CD](docs/ci-cd.md) and [testing](docs/testing.md).
-
-Real AI evals are **manual only**, on a Linux x64 self-hosted runner labelled
-`stockpilot-evals`, guarded to `WaelOuni/stockpilot-ai` **dev only**.
-They require an isolated trusted environment, independent approval, reachable
-Ollama models and a pre-ingested dedicated eval DB. Runner/environment setup
-must be verified, not assumed configured. See
-[GitHub Actions](docs/github-actions.md) and
-[self-hosted runner setup](docs/self-hosted-runner.md).
-
-## Documentation
-
-| Guide | Contents |
-|---|---|
-| [Architecture](docs/architecture.md) | Layers, ports, workflow, stack and boundaries |
-| [Getting started](docs/getting-started.md) | Environment, WSL/Ollama, fresh setup and API |
-| [Database](docs/database.md) | RAG/eval schemas, Mongo migration/recovery, checkpoints |
-| [Order flow](docs/order-flow.md) | Confirmation, transactions, retries and idempotency |
-| [RAG](docs/rag.md) | Ingestion, retrieval/filtering, advice guard and grounding |
-| [Observability](docs/observability.md) | Logs/traces/metrics, dashboards, SLO/Blackbox diagnostics |
-| [AI evals](docs/ai-evals.md) | Run modes, measured quality and reference policy |
-| [GitHub Actions](docs/github-actions.md) | Triggers, guards, approval, reports and checks |
-| [Self-hosted runner](docs/self-hosted-runner.md) | Linux x64 registration, WSL networking and security |
-| [Eval scoring reference](evals/README.md) | Datasets, formulas, reports and correction history |
-| [Testing](docs/testing.md) | Unit, integration (disposable services), frontend and eval commands |
-| [Documentation index](docs/README.md) | Task-oriented map; historical reports live in [docs/archive](docs/archive/README.md) |
-
-## Current limitations
-
-No user directory/token-issuance service or payment flow. `/assistant`
-validates signed customer JWTs; a trusted issuer must mint them. Technical order
-routes use a separate shared `BACKOFFICE_API_TOKEN`; unset configuration
-disables those routes (503).
-See [back-office authentication](docs/order-flow.md#back-office-authentication).
-`/health` remains a minimal public liveness endpoint. Catalogue, `/chat`,
-`/classify` and `/assistant` require a signed customer JWT in explicit local modes.
-The default `production_saas` and legacy `production` modes close sensitive APIs,
-even with local credentials, pending OIDC and repository-level tenant isolation.
-See the [V13.2 security architecture](docs/security/saas-auth-architecture.md).
-Model extraction is probabilistic;
-the advice-domain guard is lexical, not semantic. Small datasets and a
-three-document corpus limit quality conclusions. Product lookup assumes
-unambiguous canonical names. PyMongo is synchronous in an async flow.
-Durable checkpoints do not serialize concurrent same-thread requests, and
-Mongo orders/PostgreSQL checkpoints have no shared distributed transaction.
-Single-node databases have no redundancy. Python and npm dependencies are pinned by `requirements*.lock` and `frontend/package-lock.json`.
-This stack is not hardened for production/public access.
-
-Keep generated results, logs, `.env.local`, IDE state, runner files and Mongo backups
-outside Git. Preserve existing volumes and private data during troubleshooting.
+La prochaine étape envisagée est la qualification d’un VPS. Elle demande une décision d’hébergement pour l’inférence, un accès privé aux magasins, une sauvegarde hors machine et un essai de restauration sur la cible avant toute ouverture. Le développement stable se poursuit par PR vers `main`.

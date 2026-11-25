@@ -1,0 +1,10 @@
+# Apply over docker-compose.yml. Start only mongodb and postgres for local development.
+services:
+  mongodb:
+    container_name: stockpilot-dev029-mongodb
+    ports: !override ["127.0.0.1:37029:27017"]
+  postgres:
+    container_name: stockpilot-dev029-postgres
+    ports: !override ["127.0.0.1:55429:5432"]
+    environment:
+      POSTGRES_DB: stockpilot_dev

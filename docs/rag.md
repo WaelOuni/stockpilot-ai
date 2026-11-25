@@ -14,7 +14,7 @@ Each `.txt` file becomes a knowledge row with its filename as `source`.
 The PostgreSQL `knowledge_chunks` table stores content/source and
 `VECTOR(768)` embeddings from Ollama `nomic-embed-text`.
 
-After the fresh-database migrations in [getting started](getting-started.md):
+After the fresh-database migrations in [getting started](LOCAL_DEVELOPMENT.md):
 
 ```sh
 python scripts/ingest_products.py

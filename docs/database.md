@@ -1,6 +1,6 @@
 # Databases and persistent conversations
 
-[Back to README](../README.md) · [Getting started](getting-started.md) · [Order flow](order-flow.md) · [Synthetic demo dataset](demo-dataset.md)
+[Back to README](../README.md) · [Getting started](LOCAL_DEVELOPMENT.md) · [Order flow](order-flow.md) · [Synthetic demo dataset](demo-dataset.md)
 
 All commands run from the project root in WSL/Linux. They are manual operational
 procedures, not steps performed by the documentation refactor or real-eval CI.
@@ -31,7 +31,7 @@ Public Compose credentials are demo-only, never production credentials.
 
 ## Application RAG schema
 
-[Getting started](getting-started.md#fresh-application-rag-database) contains
+[Getting started](LOCAL_DEVELOPMENT.md#démarrer-une-instance-dev-isolée) contains
 the fresh `stockpilot` migration commands.
 [000](../migrations/000_create_knowledge_chunks.sql) creates the vector
 extension/table; [001](../migrations/001_knowledge_chunks_source_unique.sql)
