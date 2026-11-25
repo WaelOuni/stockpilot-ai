@@ -1,6 +1,6 @@
 # Observability
 
-[Back to README](../README.md) · [Getting started](getting-started.md) · [Order flow](order-flow.md)
+[Back to README](../README.md) · [Getting started](LOCAL_DEVELOPMENT.md) · [Order flow](order-flow.md)
 
 All commands run from the project root in WSL/Linux. This is a local/demo stack,
 not a production monitoring deployment. Logs, traces and metrics are best-effort

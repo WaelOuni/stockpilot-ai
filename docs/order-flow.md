@@ -459,7 +459,7 @@ Only that algorithm/work factor is accepted. UTF-8 password verification and
 username comparisons are constant-time. Login accepts 16..256 characters;
 configuration is rejected if the verifier matches `BACKOFFICE_API_TOKEN` or
 `CUSTOMER_JWT_SECRET`. These technical secrets are never admin login credentials.
-See [setup](getting-started.md#demo-administrator).
+See [setup](LOCAL_DEVELOPMENT.md#accès-administrateur-du-parcours-historique).
 
 Cookies contain 256-bit opaque random tokens, never JWTs/roles/passwords.
 `ADMIN_SESSION_STORE=memory` keeps sessions and independent random CSRF tokens in

@@ -14,7 +14,7 @@ bounded recent activity from `GET /backoffice/dashboard`.
 ## Operational administration
 
 Configure admin username, derived password verifier and trusted browser origin
-**on the backend only**; see [setup](../docs/getting-started.md#demo-administrator)
+**on the backend only**; see [setup](../docs/LOCAL_DEVELOPMENT.md#accès-administrateur-du-parcours-historique)
 and [security/production limits](../docs/order-flow.md#demo-administrator-sessions-v2).
 No VITE secret is required. `api/admin.ts` always uses same-origin
 `/api/backoffice`, `credentials: include`, no customer JWT or technical Bearer.
@@ -601,5 +601,4 @@ screens are captured at 1440/768/390 px. Credentials/JWTs are never captured fil
 The existing suite retains its original reset mode when `E2E_NO_RESET` is absent;
 use the explicit no-reset command above for this task. Its no-reset assertions use
 real initial stock and unique product SKUs rather than rewriting retained fixtures.
-Review captures with `artifacts/ui-ux/index.html` and see the delivery report in
-`docs/archive/frontend-ux-overhaul.md`. Screenshots are local review artifacts ignored by Git.
+Review captures with `artifacts/ui-ux/index.html`. Screenshots are local review artifacts ignored by Git.

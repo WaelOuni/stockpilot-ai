@@ -14,7 +14,7 @@ transaction code. Customer JWT ownership
 and technical Bearer mutation controls remain separate. Authentication and CSRF
 are enforced in the presentation boundary, not by Vue route guards alone.
 See [admin session architecture/security](order-flow.md#demo-administrator-sessions-v2)
-and [configuration](getting-started.md#demo-administrator).
+and [configuration](LOCAL_DEVELOPMENT.md#accès-administrateur-du-parcours-historique).
 
 Product management reuses catalogue read use cases and adds application create/
 metadata-update operations through `ProductRepositoryPort`. The Mongo adapter
@@ -179,5 +179,5 @@ python -m pytest -q
 - Small datasets and a three-document corpus limit evaluation conclusions.
 - Observability is best-effort, not durable delivery or business accounting.
 
-See [getting started](getting-started.md) for network/data warnings and
+See [getting started](LOCAL_DEVELOPMENT.md) for network/data warnings and
 [observability](observability.md) for privacy and delivery limitations.
