@@ -32,6 +32,15 @@ install -m 600 docker/vps/.env.example "$state/settings.env"
 cfg="$state/settings.env"
 project=stockpilot-vps
 dc() { docker compose --env-file "$cfg" -p "$project" -f docker/vps/compose.yml "$@"; }
+sitecheck() (
+  set -a
+  . "$cfg"
+  if [ "$HTTPS_BIND" = 127.0.0.1 ]; then
+    python3 docker/vps/verify.py --loopback-port "$HTTPS_PORT"
+  else
+    python3 docker/vps/verify.py
+  fi
+)
 (set -a; . "$cfg"; python3 docker/vps/prepare.py)
 dc config --quiet
 dc --profile operator pull
@@ -57,7 +66,7 @@ dc run --rm --no-deps qualify init-empty
 dc run --rm --no-deps qualify check
 dc up -d --wait
 dc ps
-(set -a; . "$cfg"; python3 docker/vps/verify.py --loopback-port "$HTTPS_PORT")
+sitecheck
 ```
 
 `init-empty` crée les schémas, index et rôles BFF. Un échec partiel impose l’inspection du projet ou un nouvel essai vierge. À la reprise ordinaire, utiliser seulement `dc up -d --wait`, `qualify check` et la vérification HTTPS. Les health checks prouvent la disponibilité de processus. La vérification HTTPS contrôle Vue, les routes fermées, discovery, l’initiation BFF, PKCE, CSRF et le callback exact. La lancer aussi depuis un client autorisé avec les deux variables d’hôte et sans l’option loopback. Pour ouvrir la recette, modifier `HTTPS_BIND` pour l’IP du VPS derrière le filtrage puis recréer uniquement le proxy. Garder le port externe 443.
@@ -96,7 +105,7 @@ python3 docker/vps/cold_backup.py "$project" "$cfg" "$vault_env" || capture=$?
 # Reprendre même après un échec de capture, après contrôle de l’état.
 dc up -d --wait
 dc run --rm --no-deps qualify check
-(set -a; . "$cfg"; python3 docker/vps/verify.py --loopback-port "$HTTPS_PORT")
+sitecheck
 test "$capture" -eq 0
 vault snapshots
 vault check --read-data
