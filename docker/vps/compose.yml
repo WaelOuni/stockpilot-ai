@@ -1,0 +1,155 @@
+name: stockpilot-vps
+x-service: &service
+  restart: unless-stopped
+  security_opt: [no-new-privileges:true]
+  logging:
+    driver: local
+    options: {max-size: 5m, max-file: "3"}
+x-api: &api ghcr.io/waelouni/stockpilot-api:0.2.9@sha256:cb327cb47a512c184d229d0b71d79f1a0798b52b63469b494a4186d3ddb31efd
+services:
+  proxy:
+    <<: *service
+    image: ghcr.io/waelouni/stockpilot-web:0.2.9@sha256:d132d3c7624a90545bbdbf5383fb68a7a0c83a340384b0ca2890dcc226bde57d
+    ports: ["${HTTPS_BIND:?}:${HTTPS_PORT:?}:443"]
+    sysctls: {net.ipv4.ip_unprivileged_port_start: 0}
+    group_add: ["${RUNTIME_GID:?}"]
+    environment:
+      APP_HOST: ${APP_HOST:?}
+      AUTH_HOST: ${AUTH_HOST:?}
+      NGINX_ENVSUBST_FILTER: '^(APP_HOST|AUTH_HOST)$$'
+    volumes:
+      - ./proxy.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${PRIVATE_DIR:?}/tls:/run/tls:ro
+    networks:
+      edge:
+        ipv4_address: ${PROXY_IP:?}
+        aliases: ["${AUTH_HOST}", "${APP_HOST}"]
+    depends_on:
+      bff: {condition: service_healthy}
+      keycloak: {condition: service_healthy}
+  mongo:
+    <<: *service
+    image: mongo:8@sha256:d731d77bfd7afd66bd487bdf627b5bf7ce4c3602ec461d635977021db529ebbc
+    entrypoint: ["/bin/bash", "-ec", "install -o mongodb -g mongodb -m 400 /run/rs-key /tmp/rs-key && exec docker-entrypoint.sh \"$$@\"", "--"]
+    command: [mongod, --replSet, rs0, --bind_ip_all, --keyFile, /tmp/rs-key, --wiredTigerCacheSizeGB, "0.5"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: operator
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/operator-password
+    volumes:
+      - mongo:/data/db
+      - mongo-config:/data/configdb
+      - ${PRIVATE_DIR}/rs-key:/run/rs-key:ro
+      - ${PRIVATE_DIR}/mongo-password:/run/operator-password:ro
+    tmpfs: [/tmp]
+    networks: [data]
+    stop_grace_period: 90s
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "if (!db.hello().isWritablePrimary || db.hello().setName !== 'rs0') quit(1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+  postgres:
+    <<: *service
+    image: pgvector/pgvector:pg16@sha256:7b822b0aac60967beb1ea5e576b8602c94c300a157d187f385ae3e0da199b90a
+    command: [postgres, -p, "55432"]
+    environment:
+      POSTGRES_DB: stockpilot_test_vps
+      POSTGRES_PASSWORD_FILE: /run/operator-password
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ${PRIVATE_DIR}/pg-password:/run/operator-password:ro
+    networks: [data]
+    stop_grace_period: 90s
+    healthcheck:
+      test: [CMD, pg_isready, -p, "55432", -U, postgres, -d, stockpilot_test_vps]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  keycloak-db:
+    <<: *service
+    image: postgres:15-alpine@sha256:dfcf0459185089e88a43197975780f5a3078acd5ece84824a14c9d6fbbab02d0
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_PASSWORD_FILE: /run/operator-password
+    volumes:
+      - identity:/var/lib/postgresql/data
+      - ${PRIVATE_DIR}/kc-pg-password:/run/operator-password:ro
+      - ${PRIVATE_DIR}/kc-password:/run/kc-password:ro
+      - ./identity-init.sh:/docker-entrypoint-initdb.d/10-role.sh:ro
+    networks: [identity]
+    stop_grace_period: 90s
+    healthcheck:
+      test: [CMD, pg_isready, -U, postgres, -d, keycloak]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  keycloak:
+    <<: *service
+    image: ghcr.io/waelouni/stockpilot-keycloak:0.2.9@sha256:de1efacc18fa052b7d6272e5077657eb2398f826c42c35bbfb2882dbcd46c7b3
+    command: [start, --import-realm]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_HOSTNAME: https://${AUTH_HOST}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_PROXY_TRUSTED_ADDRESSES: ${PROXY_IP}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ACCESS_LOG_ENABLED: "false"
+      JAVA_OPTS_APPEND: "-Xms128m -Xmx512m"
+    volumes:
+      - ${PRIVATE_DIR}/keycloak.conf:/opt/keycloak/conf/keycloak.conf:ro
+      - ${PRIVATE_DIR}/realm.json:/opt/keycloak/data/import/realm.json:ro
+    depends_on:
+      keycloak-db: {condition: service_healthy}
+    networks: [edge, identity]
+    healthcheck:
+      test: [CMD, bash, -ec, "exec 3<>/dev/tcp/127.0.0.1/9000; printf 'HEAD /health/ready HTTP/1.0\r\n\r\n' >&3; grep -q '200' <&3"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+  bff:
+    <<: *service
+    image: *api
+    command: [python, -m, stockpilot.infrastructure.config.b2b_demo_entrypoint]
+    group_add: ["${RUNTIME_GID}"]
+    volumes:
+      - ${PRIVATE_DIR}/bff.json:/run/stockpilot/bff.json:ro
+      - ${PRIVATE_DIR}/oidc-ca.pem:/run/stockpilot/oidc-ca.pem:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    stop_grace_period: 100s
+    depends_on:
+      mongo: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    networks: [data, edge, inference]
+  qualify:
+    profiles: [operator]
+    image: *api
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    group_add: ["${RUNTIME_GID}"]
+    entrypoint: [python, /opt/qualify.py]
+    command: [check]
+    volumes:
+      - ./qualify.py:/opt/qualify.py:ro
+      - ${PRIVATE_DIR}/operator.json:/run/operator.json:ro
+      - ${PRIVATE_DIR}/bff.json:/run/stockpilot/bff.json:ro
+      - ${PRIVATE_DIR}/oidc-ca.pem:/run/stockpilot/oidc-ca.pem:ro
+    networks: [data]
+networks:
+  edge:
+    ipam:
+      config: [{subnet: "${EDGE_SUBNET:?}", ip_range: "${EDGE_POOL:?}"}]
+  data: {internal: true}
+  identity: {internal: true}
+  inference: {}
+volumes:
+  mongo: {}
+  mongo-config: {}
+  postgres: {}
+  identity: {}

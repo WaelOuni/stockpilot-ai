@@ -1,0 +1,7 @@
+# Independent cold-restore drill. Use a new project, subnet, proxy IP and private directory.
+services:
+  proxy:
+    ports: !reset []
+networks:
+  edge: {internal: true}
+  inference: {internal: true}
