@@ -34,3 +34,5 @@ Une restauration exige un jeu cohérent de données, les identités Keycloak, le
 v0.2.9 fournit un socle B2B exploitable en environnement maîtrisé. La latence des réponses documentaires dépend du modèle, du matériel et de la taille des passages. Les tests déterministes, les parcours navigateur et les essais avec Ollama réel mesurent des propriétés différentes. [Stratégie de tests](docs/testing.md)
 
 La prochaine étape envisagée est la qualification d’un VPS. Elle demande une décision d’hébergement pour l’inférence, un accès privé aux magasins, une sauvegarde hors machine et un essai de restauration sur la cible avant toute ouverture. Le développement stable se poursuit par PR vers `main`.
+
+Le [runbook VPS v0.2.9](docs/VPS_DEPLOYMENT.md) couvre la recette HTTPS avec les images de release, le contrat d’inférence et la restauration isolée. [CLAUDE.md](CLAUDE.md) regroupe les points d’entrée et les contrôles de développement.
